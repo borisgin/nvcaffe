@@ -35,13 +35,15 @@ LIBRARY_NAME := $(PROJECT)$(LIBRARY_NAME_SUFFIX)
 LIB_BUILD_DIR := $(BUILD_DIR)/lib
 STATIC_NAME := $(LIB_BUILD_DIR)/lib$(LIBRARY_NAME).a
 DYNAMIC_VERSION_MAJOR 		:= 0
-DYNAMIC_VERSION_MINOR 		:= 15
-DYNAMIC_VERSION_REVISION 	:= 14
+DYNAMIC_VERSION_MINOR 		:= 16
+DYNAMIC_VERSION_REVISION 	:= 0
 DYNAMIC_NAME_SHORT := lib$(LIBRARY_NAME).so
 DYNAMIC_SONAME_SHORT := $(DYNAMIC_NAME_SHORT).$(DYNAMIC_VERSION_MAJOR).$(DYNAMIC_VERSION_MINOR)
 DYNAMIC_VERSIONED_NAME_SHORT := $(DYNAMIC_SONAME_SHORT).$(DYNAMIC_VERSION_REVISION)
 DYNAMIC_NAME := $(LIB_BUILD_DIR)/$(DYNAMIC_VERSIONED_NAME_SHORT)
 COMMON_FLAGS += -DCAFFE_VERSION=$(DYNAMIC_VERSION_MAJOR).$(DYNAMIC_VERSION_MINOR).$(DYNAMIC_VERSION_REVISION)
+# FP16 Caffe requires C++ 11
+COMMON_FLAGS += -std=c++11
 
 ##############################
 # Get all source files
@@ -170,6 +172,7 @@ CUDA_LIB_DIR :=
 # add <cuda>/lib64 only if it exists
 ifneq ("$(wildcard $(CUDA_DIR)/lib64)","")
 	CUDA_LIB_DIR += $(CUDA_DIR)/lib64
+	CUDA_LIB_DIR += /usr/lib/nvidia-384 /usr/lib/nvidia-381 /usr/lib/nvidia-375 /usr/lib/nvidia-367 /usr/lib/nvidia-361 /usr/lib/nvidia-352
 endif
 CUDA_LIB_DIR += $(CUDA_DIR)/lib
 
@@ -178,6 +181,9 @@ ifneq ($(CPU_ONLY), 1)
 	INCLUDE_DIRS += $(CUDA_INCLUDE_DIR)
 	LIBRARY_DIRS += $(CUDA_LIB_DIR)
 	LIBRARIES := cudart cublas curand
+ifneq ($(NO_NVML), 1)
+	LIBRARIES += nvidia-ml
+endif
 endif
 
 LIBRARIES += glog gflags protobuf boost_system boost_filesystem m hdf5_hl hdf5
@@ -326,9 +332,12 @@ endif
 
 # cuDNN acceleration configuration.
 ifeq ($(USE_CUDNN), 1)
+	ifdef CUDNN_ROOT
+		CUDNN_DIR := $(CUDNN_ROOT)
+	endif
 	LIBRARIES += cudnn
-	INCLUDE_DIRS += $(CUDNN_DIR)/include
-	LIBRARY_DIRS += $(CUDNN_DIR)/install/cuda/lib64
+	INCLUDE_DIRS += $(CUDNN_DIR)/cuda/include $(CUDNN_DIR)/include $(CUDNN_DIR)
+	LIBRARY_DIRS += $(CUDNN_DIR)/cuda/lib64 $(CUDNN_DIR)/lib64 $(CUDNN_DIR)
 	COMMON_FLAGS += -DUSE_CUDNN
 endif
 
@@ -360,6 +369,14 @@ ifeq ($(CPU_ONLY), 1)
 	ALL_WARNS := $(ALL_CXX_WARNS)
 	TEST_FILTER := --gtest_filter="-*GPU*"
 	COMMON_FLAGS += -DCPU_ONLY
+endif
+
+ifeq ($(NO_NVML), 1)
+	COMMON_FLAGS += -DNO_NVML=1
+endif
+
+ifeq ($(TEST_FP16), 1)
+	COMMON_FLAGS += -DTEST_FP16=1
 endif
 
 # Python layer support
@@ -488,7 +505,7 @@ $(EMPTY_LINT_REPORT): $(LINT_OUTPUTS) | $(BUILD_DIR)
 
 $(LINT_OUTPUTS): $(LINT_OUTPUT_DIR)/%.lint.txt : % $(LINT_SCRIPT) | $(LINT_OUTPUT_DIR)
 	@ mkdir -p $(dir $@)
-	@ python $(LINT_SCRIPT) $< 2>&1 \
+	@ python $(LINT_SCRIPT) --filter=-legal,-build/include,-runtime/references,-readability,-whitespace/comments $< 2>&1 \
 		| grep -v "^Done processing " \
 		| grep -v "^Total errors found: 0" \
 		> $@ \

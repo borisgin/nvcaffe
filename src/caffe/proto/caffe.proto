@@ -2,6 +2,15 @@ syntax = "proto2";
 
 package caffe;
 
+// Math and storage types
+enum Type {
+  DOUBLE = 0;
+  FLOAT = 1;
+  FLOAT16 = 2;
+  INT = 3;  // math not supported
+  UINT = 4;  // math not supported
+}
+
 // Specifies the shape (dimensions) of a Blob.
 message BlobShape {
   repeated int64 dim = 1 [packed = true];
@@ -13,7 +22,11 @@ message BlobProto {
   repeated float diff = 6 [packed = true];
   repeated double double_data = 8 [packed = true];
   repeated double double_diff = 9 [packed = true];
-
+  // New raw storage (faster and takes 1/2 of space for FP16)
+  optional Type raw_data_type = 10;
+  optional Type raw_diff_type = 11;
+  optional bytes raw_data = 12 [packed = false];
+  optional bytes raw_diff = 13 [packed = false];
   // 4D dimensions -- deprecated.  Use "shape" instead.
   optional int32 num = 1 [default = 0];
   optional int32 channels = 2 [default = 0];
@@ -38,6 +51,8 @@ message Datum {
   repeated float float_data = 6;
   // If true data contains an encoded image that need to be decoded
   optional bool encoded = 7 [default = false];
+  // Unique record index assigned by Reader
+  optional uint32 record_id = 8 [default = 0];
 }
 
 message FillerParameter {
@@ -72,6 +87,7 @@ message FillerParameter {
 
 message NetParameter {
   optional string name = 1; // consider giving the network a name
+  
   // DEPRECATED. See InputParameter. The input blobs to the network.
   repeated string input = 3;
   // DEPRECATED. See InputParameter. The shape of the input blobs.
@@ -102,12 +118,28 @@ message NetParameter {
 
   // DEPRECATED: use 'layer' instead.
   repeated V1LayerParameter layers = 2;
+
+  // Default types for all layers
+  // These work only when layer-specific ones are omitted
+  optional Type default_forward_type  = 11 [default = FLOAT];
+  optional Type default_backward_type = 12 [default = FLOAT];
+  optional Type default_forward_math  = 13 [default = FLOAT];
+  optional Type default_backward_math = 14 [default = FLOAT];
+
+  // Sets default "conv_algos_override" value for every convolution layer
+  optional string default_conv_algos_override = 17 [default = "-1,-1,-1"];
+
+  // While using multiple GPUs we have to run reduction process after every iteration.
+  // For better performance we unify multiple layers in buckets.
+  // This parameter sets approximate number of buckets to combine layers to.
+  // Default value is good for majority of nets.
+  optional int32 reduce_buckets = 18 [default = 6];
 }
 
 // NOTE
 // Update the next available ID when you add a new SolverParameter field.
 //
-// SolverParameter next available ID: 42 (last added: per_parameter_reduce)
+// SolverParameter next available ID: 45 (last added: solver_data_type)
 message SolverParameter {
   //////////////////////////////////////////////////////////////////////////////
   // Specifying the train and test networks
@@ -153,7 +185,13 @@ message SolverParameter {
   // If true, run an initial test pass before the first iteration,
   // ensuring memory availability and printing the starting value of the loss.
   optional bool test_initialization = 32 [default = true];
+  
+  optional int32 rampup_interval = 41 [default = 0];
+  optional float rampup_lr = 42 [default = 0.];
+  optional float min_lr = 43 [default = 0.];
+  
   optional float base_lr = 5; // The base learning rate
+  
   // the number of iterations between displaying info. If display = 0, no info
   // will be displayed.
   optional int32 display = 6;
@@ -248,9 +286,8 @@ message SolverParameter {
   }
   // DEPRECATED: use type instead of solver_type
   optional SolverType solver_type = 30 [default = SGD];
-
-  // Reduce parameter gradients individually
-  optional bool per_parameter_reduce = 41 [default = true];
+  // Type used for storing weights and history
+  optional Type solver_data_type = 44 [default = FLOAT];
 }
 
 // A message that stores the solver snapshots
@@ -318,16 +355,28 @@ message ParamSpec {
 // NOTE
 // Update the next available ID when you add a new LayerParameter field.
 //
-// LayerParameter next available layer-specific ID: 145 (last added: crop_param)
+// LayerParameter next available layer-specific ID: 150 (last added: debug)
 message LayerParameter {
   optional string name = 1; // the layer name
   optional string type = 2; // the layer type
   repeated string bottom = 3; // the name of each bottom blob
   repeated string top = 4; // the name of each top blob
 
+  // Type returned by Forward routines of a particular layer (aka 'Ftype')
+  optional Type forward_type = 145 [default = FLOAT];
+  // Type returned by Backward routines of a particular layer (aka 'Btype')
+  optional Type backward_type = 146 [default = FLOAT];
+  // Internal math types. Works for those layers where internal math type 
+  // could be different compared to Ftype or Btype. For example, so called
+  // "pseudo fp32 mode" in convolution layers. For other layers has no meaning. 
+  optional Type forward_math = 147 [default = FLOAT];
+  optional Type backward_math = 148 [default = FLOAT];
+
+  optional bool debug = 149 [default = false];
+  
   // The train / test phase for computation.
   optional Phase phase = 10;
-
+  
   // The amount of weight to assign each top blob in the objective.
   // Each layer assigns a default value, usually of either 0 or 1,
   // to each top blob.
@@ -441,6 +490,8 @@ message TransformationParameter {
   // Force the decoded image to have 1 color channels.
   optional bool force_gray = 7 [default = false];
   // Run the transform (synchronously) on the GPU
+  // False if omitted when Forward Type is float/double.
+  // True otherwise (float16 doesn't work well on CPU).
   optional bool use_gpu_transform = 8 [default = false];
 }
 // Message that stores parameters used to create gridbox ground truth
@@ -590,14 +641,15 @@ message BatchNormParameter {
   // If false, accumulate global mean/variance values via a moving average. If
   // true, use those accumulated values instead of computing mean/variance
   // across the batch.
-  optional bool use_global_stats = 1;
+  optional bool use_global_stats = 1 [default = false];
   // How much does the moving average decay each iteration?
   optional float moving_average_fraction = 2 [default = .999];
   // Small value to add to the variance estimate so that we don't divide by
   // zero.
-  optional float eps = 3 [default = 1e-5];
+  optional float eps = 3 [default = 1e-4];
   optional FillerParameter scale_filler = 5;
   optional FillerParameter bias_filler = 6;
+  optional bool scale_bias = 7 [default = false];
   enum Engine {
     DEFAULT = 0;
     CAFFE = 1;
@@ -702,11 +754,20 @@ message ConvolutionParameter {
   // ignored and the ND implementation will be used.)
   optional bool force_nd_im2col = 17 [default = false];
   enum CuDNNConvolutionAlgorithmSeeker {
-    GET    = 0;
+    GET = 0;
     FINDEX = 1;
   }
   //Specifies which cudnn routine should be used to find the best convolution algorithm
   optional CuDNNConvolutionAlgorithmSeeker cudnn_convolution_algo_seeker = 19 [default = FINDEX];
+
+  // If set to non-negative value, enforces using the algo by the index provided.
+  // It has priority over CuDNNConvolutionAlgorithmSeeker and essentially disables seeking.
+  // The index should correspond the ordinal in structures cudnnConvolutionFwdAlgo_t,
+  // cudnnConvolutionBwdDataAlgo_t and cudnnConvolutionBwdFilterAlgo_t.
+  // For example, conv_algos_override set to "7,5,7" means using CUDNN_CONVOLUTION_FWD_ALGO_WINOGRAD_NONFUSED,
+  // CUDNN_CONVOLUTION_BWD_DATA_ALGO_WINOGRAD_NONFUSED and CUDNN_CONVOLUTION_BWD_FILTER_ALGO_WINOGRAD_NONFUSED
+  // correspondingly.
+  optional string conv_algos_override = 20 [default = "-1,-1,-1"];
 }
 
 message CropParameter {
@@ -756,16 +817,27 @@ message DataParameter {
   optional bool mirror = 6 [default = false];
   // Force the encoded image to have 3 color channels
   optional bool force_encoded_color = 9 [default = false];
-  // Prefetch queue (Number of batches to prefetch to host memory, increase if
-  // data access bandwidth varies).
-  optional uint32 prefetch = 10 [default = 4];
-  // Number of processing threads.  0 means use defaults. 1 thread for CPU or
-  // cpu logical cores / number of GPUs
+  // Deprecated
+  optional uint32 prefetch = 10 [default = 0];
+  // Number of Data Transformer threads per GPU. If 0 Caffe optimizes it automatically.
+  // Takes effect only when used together with 'parser_threads' setting.
+  // Ignored and always set to 1 for test nets.
   optional uint32 threads  = 11 [default = 0];
+  // Number of Parser threads per GPU. If 0 Caffe optimizes it automatically.
+  // Takes effect only when used together with 'threads' setting.
+  // Ignored and always set to 1 for test nets.
+  optional uint32 parser_threads  = 12 [default = 0];
 }
 
 message DropoutParameter {
   optional float dropout_ratio = 1 [default = 0.5]; // dropout ratio
+  enum Engine {
+    DEFAULT = 0;
+    CAFFE = 1;
+    CUDNN = 2;
+  }
+  optional Engine engine = 2 [default = DEFAULT];
+  optional int64 random_seed = 3 [default = -1];
 }
 
 // DummyDataLayer fills any number of arbitrarily shaped blobs with random

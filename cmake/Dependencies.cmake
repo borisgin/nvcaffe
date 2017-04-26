@@ -26,7 +26,7 @@ include(cmake/ProtoBuf.cmake)
 # ---[ HDF5
 find_package(HDF5 COMPONENTS HL REQUIRED)
 include_directories(SYSTEM ${HDF5_INCLUDE_DIRS} ${HDF5_HL_INCLUDE_DIR})
-list(APPEND Caffe_LINKER_LIBS ${HDF5_LIBRARIES})
+list(APPEND Caffe_LINKER_LIBS ${HDF5_LIBRARIES} ${HDF5_HL_LIBRARIES})
 
 # ---[ LMDB
 if(USE_LMDB)
@@ -173,7 +173,7 @@ endif()
 
 # ---[ NCCL
 if(DEFINED USE_NCCL)
-  if(${USE_NCCL} STREQUAL "ON" AND NOT CPU_ONLY)
+  if(USE_NCCL AND NOT CPU_ONLY)
     find_package(NCCL REQUIRED)
   endif()
 else()
@@ -186,3 +186,21 @@ if(NCCL_FOUND)
   include_directories(SYSTEM ${NCCL_INCLUDE})
   list(APPEND Caffe_LINKER_LIBS ${NCCL_LIBRARY})
 endif()
+
+# ---[ NVML
+if(NOT CPU_ONLY AND NOT NO_NVML)
+  find_package(NVML)
+endif()
+if(NVML_FOUND)
+  include_directories(SYSTEM ${NVML_INCLUDE})
+  list(APPEND Caffe_LINKER_LIBS ${NVML_LIBRARY})
+endif()
+
+if(NO_NVML)
+  add_definitions(-DNO_NVML=1)
+endif()
+
+if(TEST_FP16)
+  add_definitions(-DTEST_FP16=1)
+endif()
+

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # install dependencies
 # (this script must be run as root)
 
@@ -88,18 +88,19 @@ if $WITH_CUDA ; then
   apt-get -y update
 
   # install packages
-  CUDA_PKG_VERSION="7-5"
-  CUDA_VERSION="7.5"
+  CUDA_PKG_VERSION="8-0"
+  CUDA_VERSION="8.0"
   apt-get install -y --no-install-recommends \
     cuda-core-$CUDA_PKG_VERSION \
     cuda-cudart-dev-$CUDA_PKG_VERSION \
     cuda-cublas-dev-$CUDA_PKG_VERSION \
+    cuda-nvml-dev-$CUDA_PKG_VERSION   \
     cuda-curand-dev-$CUDA_PKG_VERSION
   # manually create CUDA symlink
   ln -s /usr/local/cuda-$CUDA_VERSION /usr/local/cuda
 
   if $WITH_CUDNN ; then
-    apt-get install -y --no-install-recommends libcudnn5-dev
+    apt-get install -y --no-install-recommends libcudnn6-dev
   fi
 fi
 

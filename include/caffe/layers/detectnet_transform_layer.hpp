@@ -1,6 +1,8 @@
 #ifndef DETECTNET_TRANSFORMATION_HPP
 #define DETECTNET_TRANSFORMATION_HPP
 
+#ifdef USE_OPENCV
+
 #include <boost/array.hpp>
 
 #include <opencv2/core/core.hpp>
@@ -48,7 +50,7 @@ struct AugmentSelection {
  * scaling, mirroring, substracting the image mean...
  */
 template <typename Dtype>
-class DetectNetTransformationLayer : public Layer<Dtype> {
+class DetectNetTransformationLayer : public Layer<Dtype, Dtype> {
  public:
   typedef cv::Size2i Size2i;
   typedef cv::Size_<Dtype> Size2v;
@@ -65,10 +67,10 @@ class DetectNetTransformationLayer : public Layer<Dtype> {
 
   virtual ~DetectNetTransformationLayer() {}
 
-  virtual void LayerSetUp(const vector<Blob<Dtype>*>& bottom,
-      const vector<Blob<Dtype>*>& top);
-  virtual void Reshape(const vector<Blob<Dtype>*>& bottom,
-      const vector<Blob<Dtype>*>& top);
+  virtual void LayerSetUp(const vector<Blob*>& bottom,
+      const vector<Blob*>& top);
+  virtual void Reshape(const vector<Blob*>& bottom,
+      const vector<Blob*>& top);
 
   virtual inline const char* type() const { return "DetectNetTransformation"; }
   virtual inline int ExactNumBottomBlobs() const { return 2; }
@@ -76,26 +78,20 @@ class DetectNetTransformationLayer : public Layer<Dtype> {
 
  protected:
   virtual void Forward_cpu(
-      const vector<Blob<Dtype>*>& bottom,
-      const vector<Blob<Dtype>*>& top);
+      const vector<Blob*>& bottom,
+      const vector<Blob*>& top);
   virtual void Forward_gpu(
-      const vector<Blob<Dtype>*>& bottom,
-      const vector<Blob<Dtype>*>& top);
+      const vector<Blob*>& bottom,
+      const vector<Blob*>& top);
 
   virtual void Backward_cpu(
-      const vector<Blob<Dtype>*>& top,
+      const vector<Blob*>& top,
       const vector<bool>& propagate_down,
-      const vector<Blob<Dtype>*>& bottom) {}
+      const vector<Blob*>& bottom) {}
   virtual void Backward_gpu(
-      const vector<Blob<Dtype>*>& top,
+      const vector<Blob*>& top,
       const vector<bool>& propagate_down,
-      const vector<Blob<Dtype>*>& bottom) {}
-
-  void transform(
-      const Mat3v& inputImage,
-      const vector<BboxLabel>& inputBboxes,
-      Mat3v* outputImage,
-      Dtype* outputLabel);
+      const vector<Blob*>& bottom) {}
 
   AugmentSelection get_augmentations(cv::Size);
 
@@ -124,9 +120,9 @@ class DetectNetTransformationLayer : public Layer<Dtype> {
   Mat1v getTransformationMatrix(Rect region, Dtype rotation) const;
   cv::Size getRotatedSize(cv::Size, float rotation) const;
   void matToBlob(const Mat3v& source, Dtype* destination) const;
-  void matsToBlob(const vector<Mat3v>& source, Blob<Dtype>* destination) const;
-  vector<Mat3v> blobToMats(const Blob<Dtype>& image) const;
-  vector<vector<BboxLabel> > blobToLabels(const Blob<Dtype>& labels) const;
+  void matsToBlob(const vector<Mat3v>& source, Blob* destination) const;
+  vector<Mat3v> blobToMats(const Blob& image) const;
+  vector<vector<BboxLabel> > blobToLabels(const Blob& labels) const;
   Mat3v dataToMat(
       const Dtype* _data,
       Size2i dimensions) const;
@@ -147,9 +143,9 @@ class DetectNetTransformationLayer : public Layer<Dtype> {
 
   Mat3v data_mean_;
 #ifndef CPU_ONLY
-  Blob<Dtype> mean_blob_;
-  GPUMemory::MultiWorkspace gpu_workspace_augmentations_;
-  GPUMemory::MultiWorkspace gpu_workspace_tmpdata_;
+  TBlob<Dtype> mean_blob_;
+  GPUMemory::Workspace gpu_workspace_augmentations_;
+  GPUMemory::Workspace gpu_workspace_tmpdata_;
 #endif
   boost::array<Dtype, 3> mean_values_;
   shared_ptr<Caffe::RNG> rng_;
@@ -158,3 +154,5 @@ class DetectNetTransformationLayer : public Layer<Dtype> {
 }  // namespace caffe
 
 #endif /* DETECTNET_TRANSFORMATION_HPP */
+#endif /* USE_OPENCV */
+

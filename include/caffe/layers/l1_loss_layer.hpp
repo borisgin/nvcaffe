@@ -14,13 +14,13 @@ namespace caffe {
 /*
  * L1Loss
  */
-template <typename Dtype>
-class L1LossLayer : public LossLayer<Dtype> {
+template <typename Ftype, typename Btype>
+class L1LossLayer : public LossLayer<Ftype, Btype> {
  public:
   explicit L1LossLayer(const LayerParameter& param)
-      : LossLayer<Dtype>(param), diff_() {}
-  virtual void Reshape(const vector<Blob<Dtype>*>& bottom,
-      const vector<Blob<Dtype>*>& top);
+      : LossLayer<Ftype, Btype>(param), diff_() {}
+  virtual void Reshape(const vector<Blob*>& bottom,
+      const vector<Blob*>& top);
 
   virtual inline const char* type() const { return "L1Loss"; }
   /**
@@ -33,17 +33,17 @@ class L1LossLayer : public LossLayer<Dtype> {
 
  protected:
   /// @copydoc L1LossLayer
-  virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
-      const vector<Blob<Dtype>*>& top);
-//  virtual void Forward_gpu(const vector<Blob<Dtype>*>& bottom,
-//      const vector<Blob<Dtype>*>& top);
-  virtual void Backward_cpu(const vector<Blob<Dtype>*>& top,
-      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
-//  virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
-//      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
+  virtual void Forward_cpu(const vector<Blob*>& bottom,
+      const vector<Blob*>& top);
+//  virtual void Forward_gpu(const vector<Blob*>& bottom,
+//      const vector<Blob*>& top);
+  virtual void Backward_cpu(const vector<Blob*>& top,
+      const vector<bool>& propagate_down, const vector<Blob*>& bottom);
+//  virtual void Backward_gpu(const vector<Blob*>& top,
+//      const vector<bool>& propagate_down, const vector<Blob*>& bottom);
 
-  Blob<Dtype> diff_;
-  Blob<Dtype> sign_;
+  TBlob<Ftype> diff_;
+  TBlob<Ftype> sign_;
 };
 
 }  // namespace caffe

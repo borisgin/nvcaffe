@@ -65,8 +65,8 @@ TEST_F(CommonTest, TestRandSeedGPU) {
   }
 }
 
-size_t pow2(unsigned int p) {
-  return p > 0 ? (2ULL << (p-1)) : 1;
+inline size_t pow2(unsigned int p) {
+  return 1ULL << p;
 }
 
 TEST_F(CommonTest, TestCUBNearestPowerOf2) {
@@ -77,7 +77,7 @@ TEST_F(CommonTest, TestCUBNearestPowerOf2) {
     ++value;
     cub::CachingDeviceAllocator::NearestPowerOf(power, rounded_bytes, 2, value);
     EXPECT_EQ(p + 1, power);
-    EXPECT_EQ(pow2(power), rounded_bytes);
+    EXPECT_EQ(pow2(power), rounded_bytes) << p;
     --value;
     cub::CachingDeviceAllocator::NearestPowerOf(power, rounded_bytes, 2, value);
     EXPECT_EQ(p, power);

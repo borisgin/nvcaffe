@@ -2,7 +2,7 @@
 TODO:
 - load file in a separate thread ("prefetch")
 - can be smarter about the memcpy call instead of doing it row-by-row
-  :: use util functions caffe_copy, and Blob->offset()
+  :: use util functions caffe_copy, and TBlob->offset()
   :: don't forget to update hdf5_daa_layer.cu accordingly
 - add ability to shuffle filenames if flag is set
 */
@@ -12,19 +12,19 @@ TODO:
 
 #include "hdf5.h"
 #include "hdf5_hl.h"
-#include "stdint.h"
+#include <stdint.h>
 
 #include "caffe/layers/hdf5_data_layer.hpp"
 #include "caffe/util/hdf5.hpp"
 
 namespace caffe {
 
-template <typename Dtype>
-HDF5DataLayer<Dtype>::~HDF5DataLayer<Dtype>() { }
+template <typename Ftype, typename Btype>
+HDF5DataLayer<Ftype, Btype>::~HDF5DataLayer<Ftype, Btype>() { }
 
 // Load data and label from HDF5 filename into the class property blobs.
-template <typename Dtype>
-void HDF5DataLayer<Dtype>::LoadHDF5FileData(const char* filename) {
+template <typename Ftype, typename Btype>
+void HDF5DataLayer<Ftype, Btype>::LoadHDF5FileData(const char* filename) {
   DLOG(INFO) << "Loading HDF5 file: " << filename;
   hid_t file_id = H5Fopen(filename, H5F_ACC_RDONLY, H5P_DEFAULT);
   if (file_id < 0) {
@@ -38,7 +38,7 @@ void HDF5DataLayer<Dtype>::LoadHDF5FileData(const char* filename) {
   const int MAX_DATA_DIM = INT_MAX;
 
   for (int i = 0; i < top_size; ++i) {
-    hdf_blobs_[i] = shared_ptr<Blob<Dtype> >(new Blob<Dtype>());
+    hdf_blobs_[i].reset(new TBlob<Ftype>());
     hdf5_load_nd_dataset(file_id, this->layer_param_.top(i).c_str(),
         MIN_DATA_DIM, MAX_DATA_DIM, hdf_blobs_[i].get());
   }
@@ -68,9 +68,9 @@ void HDF5DataLayer<Dtype>::LoadHDF5FileData(const char* filename) {
   }
 }
 
-template <typename Dtype>
-void HDF5DataLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
-      const vector<Blob<Dtype>*>& top) {
+template <typename Ftype, typename Btype>
+void HDF5DataLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bottom,
+      const vector<Blob*>& top) {
   // Refuse transformation parameters since HDF5 is totally generic.
   CHECK(!this->layer_param_.has_transform_param()) <<
       this->type() << " does not transform data.";
@@ -124,9 +124,9 @@ void HDF5DataLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
   }
 }
 
-template <typename Dtype>
-void HDF5DataLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
-      const vector<Blob<Dtype>*>& top) {
+template <typename Ftype, typename Btype>
+void HDF5DataLayer<Ftype, Btype>::Forward_cpu(const vector<Blob*>& bottom,
+      const vector<Blob*>& top) {
   const int batch_size = this->layer_param_.hdf5_data_param().batch_size();
   for (int i = 0; i < batch_size; ++i, ++current_row_) {
     if (current_row_ == hdf_blobs_[0]->shape(0)) {
@@ -151,7 +151,7 @@ void HDF5DataLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
       int data_dim = top[j]->count() / top[j]->shape(0);
       caffe_copy(data_dim,
           &hdf_blobs_[j]->cpu_data()[data_permutation_[current_row_]
-            * data_dim], &top[j]->mutable_cpu_data()[i * data_dim]);
+            * data_dim], &top[j]->mutable_cpu_data<Ftype>()[i * data_dim]);
     }
   }
 }
@@ -160,7 +160,7 @@ void HDF5DataLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
 STUB_GPU_FORWARD(HDF5DataLayer, Forward);
 #endif
 
-INSTANTIATE_CLASS(HDF5DataLayer);
+INSTANTIATE_CLASS_FB(HDF5DataLayer);
 REGISTER_LAYER_CLASS(HDF5Data);
 
 }  // namespace caffe

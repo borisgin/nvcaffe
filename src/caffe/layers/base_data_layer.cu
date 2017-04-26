@@ -4,45 +4,32 @@
 
 namespace caffe {
 
-template <typename Dtype>
-void BasePrefetchingDataLayer<Dtype>::Forward_gpu(
-    const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
-  Batch<Dtype>* batch = prefetch_full_.pop("Data layer prefetch queue empty");
-
-  // check batch has finished copying to the device
-  CUDA_CHECK(cudaStreamWaitEvent(cudaStreamDefault, batch->copied_, 0));
-
-  // Reshape to loaded data.
-  if (this->transform_param_.use_gpu_transform()) {
-    // instead of copy, perform out-of-place transform(!)
-    this->data_transformer_->TransformGPU(top[0]->num(),
-                                       top[0]->channels(),
-                                       batch->data_.height(),
-                                       batch->data_.width(),
-                                       batch->data_.gpu_data(),
-                                       top[0]->mutable_gpu_data(),
-                                       batch->random_vec_.mutable_gpu_data());
-  }  else {
-    // Copy the data
-    // Reshape to loaded data.
-    top[0]->ReshapeLike(batch->data_);
-    caffe_copy(batch->data_.count(), batch->data_.gpu_data(),
-               top[0]->mutable_gpu_data());
+template<typename Ftype, typename Btype>
+void BasePrefetchingDataLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom,
+    const vector<Blob*>& top) {
+  // Note: this function runs in one thread per object and one object per one Solver thread
+  shared_ptr<Batch<Ftype>> batch =
+      prefetches_full_[next_batch_queue_]->pop("Data layer prefetch queue empty");
+  Blob& transformed_blob = is_gpu_transform() ? *batch->gpu_transformed_data_ : batch->data_;
+  if (this->iter() > 1 && top[0]->data_type() == transformed_blob.data_type()
+      && top[0]->shape() == transformed_blob.shape()) {
+    top[0]->Swap(transformed_blob);
+  } else {
+    top[0]->CopyDataFrom(transformed_blob, true);
   }
-
   if (this->output_labels_) {
-    // Reshape to loaded labels.
-    top[1]->ReshapeLike(batch->label_);
-    // Copy the labels.
-    caffe_copy(batch->label_.count(), batch->label_.gpu_data(),
-        top[1]->mutable_gpu_data());
+    if (this->iter() > 1 && top[1]->data_type() == batch->label_.data_type()
+        && top[1]->shape() == batch->label_.shape()) {
+      top[1]->Swap(batch->label_);
+    } else {
+      top[1]->CopyDataFrom(batch->label_, true);
+    }
   }
-  // Ensure the copy is synchronous wrt the host, so that the next batch isn't
-  // copied in meanwhile.
-  CUDA_CHECK(cudaStreamSynchronize(cudaStreamDefault));
-  prefetch_free_.push(batch);
+  batch->set_id((size_t) -1);
+  prefetches_free_[next_batch_queue_]->push(batch);
+  next_batch_queue();
 }
 
-INSTANTIATE_LAYER_GPU_FORWARD(BasePrefetchingDataLayer);
+INSTANTIATE_LAYER_GPU_FORWARD_ONLY_FB(BasePrefetchingDataLayer);
 
 }  // namespace caffe

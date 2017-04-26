@@ -43,7 +43,7 @@ class DataTransformTest : public ::testing::Test {
     const int crop_size = transform_param.crop_size();
     Caffe::set_random_seed(seed_);
     transformer.InitRand();
-    Blob<Dtype> blob(1, datum.channels(), datum.height(), datum.width());
+    TBlob<Dtype> blob(1, datum.channels(), datum.height(), datum.width());
     if (transform_param.crop_size() > 0) {
       blob.Reshape(1, datum.channels(), crop_size, crop_size);
     }
@@ -73,7 +73,7 @@ class DataTransformTest : public ::testing::Test {
   int num_iter_;
 };
 
-TYPED_TEST_CASE(DataTransformTest, TestDtypes);
+TYPED_TEST_CASE(DataTransformTest, TestDtypesNoFP16);
 
 TYPED_TEST(DataTransformTest, TestEmptyTransform) {
   TransformationParameter transform_param;
@@ -85,7 +85,7 @@ TYPED_TEST(DataTransformTest, TestEmptyTransform) {
 
   Datum datum;
   FillDatum(label, channels, height, width, unique_pixels, &datum);
-  Blob<TypeParam> blob(1, channels, height, width);
+  TBlob<TypeParam> blob(1, channels, height, width);
   DataTransformer<TypeParam> transformer(transform_param, TEST);
   transformer.InitRand();
   transformer.Transform(datum, &blob);
@@ -94,7 +94,7 @@ TYPED_TEST(DataTransformTest, TestEmptyTransform) {
   EXPECT_EQ(blob.height(), datum.height());
   EXPECT_EQ(blob.width(), datum.width());
   for (int j = 0; j < blob.count(); ++j) {
-    EXPECT_EQ(blob.cpu_data()[j], label);
+    EXPECT_EQ(static_cast<int>(blob.cpu_data()[j]), label);
   }
 }
 
@@ -108,7 +108,7 @@ TYPED_TEST(DataTransformTest, TestEmptyTransformUniquePixels) {
 
   Datum datum;
   FillDatum(label, channels, height, width, unique_pixels, &datum);
-  Blob<TypeParam> blob(1, 3, 4, 5);
+  TBlob<TypeParam> blob(1, 3, 4, 5);
   DataTransformer<TypeParam> transformer(transform_param, TEST);
   transformer.InitRand();
   transformer.Transform(datum, &blob);
@@ -117,7 +117,7 @@ TYPED_TEST(DataTransformTest, TestEmptyTransformUniquePixels) {
   EXPECT_EQ(blob.height(), datum.height());
   EXPECT_EQ(blob.width(), datum.width());
   for (int j = 0; j < blob.count(); ++j) {
-    EXPECT_EQ(blob.cpu_data()[j], j);
+    EXPECT_EQ(static_cast<int>(blob.cpu_data()[j]), j);
   }
 }
 
@@ -135,7 +135,7 @@ TYPED_TEST(DataTransformTest, TestCropSize) {
   FillDatum(label, channels, height, width, unique_pixels, &datum);
   DataTransformer<TypeParam> transformer(transform_param, TEST);
   transformer.InitRand();
-  Blob<TypeParam> blob(1, channels, crop_size, crop_size);
+  TBlob<TypeParam> blob(1, channels, crop_size, crop_size);
   for (int iter = 0; iter < this->num_iter_; ++iter) {
     transformer.Transform(datum, &blob);
     EXPECT_EQ(blob.num(), 1);
@@ -143,7 +143,7 @@ TYPED_TEST(DataTransformTest, TestCropSize) {
     EXPECT_EQ(blob.height(), crop_size);
     EXPECT_EQ(blob.width(), crop_size);
     for (int j = 0; j < blob.count(); ++j) {
-      EXPECT_EQ(blob.cpu_data()[j], label);
+      EXPECT_EQ(static_cast<int>(blob.cpu_data()[j]), label);
     }
   }
 }
@@ -270,12 +270,12 @@ TYPED_TEST(DataTransformTest, TestMeanValue) {
   transform_param.add_mean_value(mean_value);
   Datum datum;
   FillDatum(label, channels, height, width, unique_pixels, &datum);
-  Blob<TypeParam> blob(1, channels, height, width);
+  TBlob<TypeParam> blob(1, channels, height, width);
   DataTransformer<TypeParam> transformer(transform_param, TEST);
   transformer.InitRand();
   transformer.Transform(datum, &blob);
   for (int j = 0; j < blob.count(); ++j) {
-    EXPECT_EQ(blob.cpu_data()[j], label - mean_value);
+    EXPECT_EQ(static_cast<int>(blob.cpu_data()[j]), label - mean_value);
   }
 }
 
@@ -292,13 +292,14 @@ TYPED_TEST(DataTransformTest, TestMeanValues) {
   transform_param.add_mean_value(2);
   Datum datum;
   FillDatum(label, channels, height, width, unique_pixels, &datum);
-  Blob<TypeParam> blob(1, channels, height, width);
+  TBlob<TypeParam> blob(1, channels, height, width);
   DataTransformer<TypeParam> transformer(transform_param, TEST);
   transformer.InitRand();
   transformer.Transform(datum, &blob);
   for (int c = 0; c < channels; ++c) {
     for (int j = 0; j < height * width; ++j) {
-      EXPECT_EQ(blob.cpu_data()[blob.offset(0, c) + j], label - c);
+      EXPECT_EQ(static_cast<int>(blob.cpu_data()[blob.offset(0, c) + j]),
+        label - c);
     }
   }
 }
@@ -331,12 +332,12 @@ TYPED_TEST(DataTransformTest, TestMeanFile) {
   transform_param.set_mean_file(mean_file);
   Datum datum;
   FillDatum(label, channels, height, width, unique_pixels, &datum);
-  Blob<TypeParam> blob(1, channels, height, width);
+  TBlob<TypeParam> blob(1, channels, height, width);
   DataTransformer<TypeParam> transformer(transform_param, TEST);
   transformer.InitRand();
   transformer.Transform(datum, &blob);
   for (int j = 0; j < blob.count(); ++j) {
-    EXPECT_EQ(blob.cpu_data()[j], 0);
+      EXPECT_EQ(static_cast<int>(blob.cpu_data()[j]), 0);
   }
 }
 
@@ -356,7 +357,7 @@ class GPUDataTransformTest : public GPUDeviceTest<Dtype> {
     const int crop_size = transform_param.crop_size();
     Caffe::set_random_seed(seed_);
     transformer.InitRand();
-    Blob<Dtype> blob(1, datum.channels(), datum.height(), datum.width());
+    TBlob<Dtype> blob(1, datum.channels(), datum.height(), datum.width());
     if (transform_param.crop_size() > 0) {
       blob.Reshape(1, datum.channels(), crop_size, crop_size);
     }
@@ -386,7 +387,7 @@ class GPUDataTransformTest : public GPUDeviceTest<Dtype> {
   int num_iter_;
 };
 
-TYPED_TEST_CASE(GPUDataTransformTest, TestDtypes);
+TYPED_TEST_CASE(GPUDataTransformTest, TestDtypesNoFP16);
 
 TYPED_TEST(GPUDataTransformTest, TestCropSize) {
   TransformationParameter transform_param;
@@ -403,7 +404,7 @@ TYPED_TEST(GPUDataTransformTest, TestCropSize) {
   FillDatum(label, channels, height, width, unique_pixels, &datum);
   DataTransformer<TypeParam> transformer(transform_param, TEST);
   transformer.InitRand();
-  Blob<TypeParam> blob(1, channels, crop_size, crop_size);
+  TBlob<TypeParam> blob(1, channels, crop_size, crop_size);
   for (int iter = 0; iter < this->num_iter_; ++iter) {
     transformer.Transform(datum, &blob);
     EXPECT_EQ(blob.num(), 1);
@@ -544,7 +545,7 @@ TYPED_TEST(GPUDataTransformTest, TestMeanValue) {
   transform_param.set_use_gpu_transform(true);
   Datum datum;
   FillDatum(label, channels, height, width, unique_pixels, &datum);
-  Blob<TypeParam> blob(1, channels, height, width);
+  TBlob<TypeParam> blob(1, channels, height, width);
   DataTransformer<TypeParam> transformer(transform_param, TEST);
   transformer.InitRand();
   transformer.Transform(datum, &blob);
@@ -567,7 +568,7 @@ TYPED_TEST(GPUDataTransformTest, TestMeanValues) {
   transform_param.set_use_gpu_transform(true);
   Datum datum;
   FillDatum(label, channels, height, width, unique_pixels, &datum);
-  Blob<TypeParam> blob(1, channels, height, width);
+  TBlob<TypeParam> blob(1, channels, height, width);
   DataTransformer<TypeParam> transformer(transform_param, TEST);
   transformer.InitRand();
   transformer.Transform(datum, &blob);
@@ -607,7 +608,7 @@ TYPED_TEST(GPUDataTransformTest, TestMeanFile) {
   transform_param.set_use_gpu_transform(true);
   Datum datum;
   FillDatum(label, channels, height, width, unique_pixels, &datum);
-  Blob<TypeParam> blob(1, channels, height, width);
+  TBlob<TypeParam> blob(1, channels, height, width);
   DataTransformer<TypeParam> transformer(transform_param, TEST);
   transformer.InitRand();
   transformer.Transform(datum, &blob);

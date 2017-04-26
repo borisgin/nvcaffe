@@ -21,10 +21,10 @@ class DetectNetTransformationLayerTest : public MultiDeviceTest<TypeParam> {
 
  protected:
   DetectNetTransformationLayerTest()
-      : blob_bottom_data_(new Blob<Dtype>()),
-        blob_bottom_label_(new Blob<Dtype>()),
-        blob_top_data_(new Blob<Dtype>()),
-        blob_top_label_(new Blob<Dtype>()) {
+      : blob_bottom_data_(new TBlob<Dtype>()),
+        blob_bottom_label_(new TBlob<Dtype>()),
+        blob_top_data_(new TBlob<Dtype>()),
+        blob_top_label_(new TBlob<Dtype>()) {
     blob_bottom_vec_.push_back(blob_bottom_data_);
     blob_bottom_vec_.push_back(blob_bottom_label_);
     blob_top_vec_.push_back(blob_top_data_);
@@ -104,15 +104,15 @@ class DetectNetTransformationLayerTest : public MultiDeviceTest<TypeParam> {
     return layer_param;
   }
 
-  Blob<Dtype>* const blob_bottom_data_;
-  Blob<Dtype>* const blob_bottom_label_;
-  Blob<Dtype>* const blob_top_data_;
-  Blob<Dtype>* const blob_top_label_;
-  vector<Blob<Dtype>*> blob_bottom_vec_;
-  vector<Blob<Dtype>*> blob_top_vec_;
+  TBlob<Dtype>* const blob_bottom_data_;
+  TBlob<Dtype>* const blob_bottom_label_;
+  TBlob<Dtype>* const blob_top_data_;
+  TBlob<Dtype>* const blob_top_label_;
+  vector<Blob*> blob_bottom_vec_;
+  vector<Blob*> blob_top_vec_;
 };
 
-TYPED_TEST_CASE(DetectNetTransformationLayerTest, TestDtypesAndDevices);
+TYPED_TEST_CASE(DetectNetTransformationLayerTest, TestDtypesAndDevicesNoFP16);
 
 TYPED_TEST(DetectNetTransformationLayerTest, TestSetup) {
   typedef typename TypeParam::Dtype Dtype;
@@ -381,7 +381,6 @@ TYPED_TEST(DetectNetTransformationLayerTest, TestCrop) {
   layer.Forward(this->blob_bottom_vec_, this->blob_top_vec_);
   // nothing to test
 }
-
 
 }  // namespace caffe
 

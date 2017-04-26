@@ -2,6 +2,7 @@
 #define CAFFE_PARALLEL_HPP_
 
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/thread.hpp>
 
 #include <vector>
 
@@ -20,142 +21,98 @@
 
 namespace caffe {
 
-// Represents a net parameters. Once a net is created, its parameter buffers can
-// be replaced by ones from Params, to allow parallelization. Params ensures
-// parameters are allocated in one consecutive array.
+// Scores Holder
 template<typename Dtype>
-class Params {
- public:
-  explicit Params(shared_ptr<Solver<Dtype> > root_solver);
-  virtual ~Params() {
+struct SharedScores {
+  explicit SharedScores(size_t nranks) : memory_(nranks) {
+    for (size_t i = 0; i < nranks; ++i) {
+      memory_[i].resize(MAX_SCORES);
+    }
   }
-
-  inline size_t size() const {
-    return size_;
+  vector<Dtype>& rank_scores(size_t rank) {
+    CHECK_LT(rank, memory_.size());
+    return memory_[rank];
   }
-  inline Dtype* data() const {
-    return data_;
-  }
-  inline Dtype* diff() const {
-    return diff_;
-  }
-
- protected:
-  const size_t size_;           // Size of buffers
-  Dtype* data_;                 // Network parameters
-  Dtype* diff_;                 // Gradient
-
-DISABLE_COPY_AND_ASSIGN(Params);
-};
-
-// Params stored in GPU memory.
-template<typename Dtype>
-class GPUParams : public Params<Dtype> {
- public:
-  GPUParams(shared_ptr<Solver<Dtype> > root_solver, int device);
-  virtual ~GPUParams();
-
-  void configure(Solver<Dtype>* solver) const;
-
- protected:
-  using Params<Dtype>::size_;
-  using Params<Dtype>::data_;
-  using Params<Dtype>::diff_;
 
  private:
-  int buffer_device_;
-#ifndef CPU_ONLY
-  cudaStream_t stream_;
-#endif
+  vector<vector<Dtype>> memory_;
+  static constexpr size_t MAX_SCORES = 1000;
 };
 
-class DevicePair {
- public:
-  DevicePair(int parent, int device)
-      : parent_(parent),
-        device_(device) {
-  }
-  inline int parent() {
-    return parent_;
-  }
-  inline int device() {
-    return device_;
-  }
+template<typename Dtype>
+constexpr size_t SharedScores<Dtype>::MAX_SCORES;
 
-  // Group GPUs in pairs, by proximity depending on machine's topology
-  static void compute(const vector<int> devices, vector<DevicePair>* pairs);
+class P2PSync;
+
+class P2PManager {
+ public:
+  P2PManager(shared_ptr<Solver> root_solver, int nranks, const SolverParameter& param);
+
+  void Run(const vector<int>& gpus);
+  void EarlyCancel(P2PSync* killed);
 
  protected:
-  int parent_;
-  int device_;
+  const size_t nranks_;
+  vector<shared_ptr<P2PSync>> syncs_;
+  shared_ptr<SharedScores<float>> shared_;
+  shared_ptr<Solver> root_solver_;
+#ifndef CPU_ONLY
+#ifdef USE_NCCL
+  ncclUniqueId nccl_id_;
+#endif
+#endif
 };
 
 // Synchronous data parallelism using map-reduce between local GPUs.
-template<typename Dtype>
-class P2PSync : public GPUParams<Dtype>, public Solver<Dtype>::Callback,
-    public InternalThread {
+class P2PSync : public Solver::Callback, public InternalThread {
+  friend class P2PManager;
  public:
-  explicit P2PSync(shared_ptr<Solver<Dtype> > root_solver,
-                   int rank, int nranks, const SolverParameter& param);
+  P2PSync(P2PManager* mgr, shared_ptr<Solver> root_solver,
+      int rank, int nranks, const SolverParameter& param);
   virtual ~P2PSync();
 
-  inline const shared_ptr<Solver<Dtype> >& solver() const {
-    return solver_;
-  }
-
-  void Run(const vector<int>& gpus);
-  void Prepare(const vector<int>& gpus,
-               vector<shared_ptr<P2PSync<Dtype> > >* syncs);
-  inline const int initial_iter() const { return initial_iter_; }
-
   // Divide the batch size by the number of solvers
-  static void divide_batch_size(NetParameter* net);
+  static unsigned int divide_batch_size(NetParameter* net);
 
-#ifdef USE_NCCL
-  // set the NCCL communicator
-  void setNCCLComm(ncclComm_t comm);
+  void allreduce(int param_id) override;
+  void allreduce_bucket(int count, void* bucket, Type type) override;
+  void syncCommStream() override;
+  void soft_barrier() override;
+  void reduce_barrier() override;
+  void saveTestResults(float loss, const vector<float>& scores) override;
+  void aggregateTestResults(float* loss, vector<float>* scores) override;
+
+#ifndef CPU_ONLY
+  cublasHandle_t cublas_handle() const override {
+    return cublas_handle_;
+  }
 #endif
-
- public:
-  void allreduce(int param_id);
-  void syncCommStream();
 
  protected:
-  void SetupP2PAccess();
-  void soft_barrier();
-  void on_start();
-  void allreduce();
-  void syncAllStreams();
+  void on_start(const vector<shared_ptr<Blob>>& net) override;
 #ifndef CPU_ONLY
 #ifdef USE_NCCL
-  ncclComm_t getNCCLComm();
+  ncclComm_t nccl_comm_;
+  ncclUniqueId nccl_id_;
 #endif
-  cudaStream_t getCommStream();
 #endif
   void InternalThreadEntry();
+  void init_streams();
 
+  P2PManager* mgr_;
   const int rank_;
-  const int nranks_;
-  P2PSync<Dtype>* parent_;
-  vector<P2PSync<Dtype>*> children_;
+  const size_t nranks_;
+  vector<P2PSync*> children_;
 #ifndef CPU_ONLY
-#ifdef USE_NCCL
-  std::vector<ncclComm_t> nccl_comms_;
+  shared_ptr<CudaStream> comm_stream_;
+  cublasHandle_t cublas_handle_;
 #endif
-  vector<cudaStream_t> comm_streams_;
-#endif
-  BlockingQueue<P2PSync<Dtype>*> queue_;
   const int initial_iter_;
+  shared_ptr<Solver> solver_, root_solver_;
+  SolverParameter solver_param_;
 
-  shared_ptr<Solver<Dtype> > solver_;
-  const SolverParameter& params_;
-
-  // per-parameter reduction enabled
-  bool per_parameter_reduce_;
-
-  using Params<Dtype>::size_;
-  using Params<Dtype>::data_;
-  using Params<Dtype>::diff_;
+  // memory shared between threads
+  shared_ptr<SharedScores<float>> shared_;
 };
 
 }  // namespace caffe

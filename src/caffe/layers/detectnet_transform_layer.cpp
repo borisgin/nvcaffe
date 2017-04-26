@@ -30,7 +30,7 @@ namespace caffe {
 template<typename Dtype>
 DetectNetTransformationLayer<Dtype>::DetectNetTransformationLayer(
     const LayerParameter& param) :
-    Layer<Dtype>(param),
+    Layer<Dtype, Dtype>(param),
     a_param_(param.detectnet_augmentation_param()),
     g_param_(param.detectnet_groundtruth_param()),
     t_param_(param.transform_param()),
@@ -42,8 +42,8 @@ DetectNetTransformationLayer<Dtype>::DetectNetTransformationLayer(
 
 template <typename Dtype>
 void DetectNetTransformationLayer<Dtype>::LayerSetUp(
-    const vector<Blob<Dtype>*>& bottom,
-    const vector<Blob<Dtype>*>& top) {
+    const vector<Blob*>& bottom,
+    const vector<Blob*>& top) {
   // retrieve mean image or values:
   if (t_param_.has_mean_file()) {
     size_t image_x = bottom[0]->width();
@@ -63,7 +63,7 @@ void DetectNetTransformationLayer<Dtype>::retrieveMeanImage(Size dimensions) {
 
   const string& mean_file = t_param_.mean_file();
   BlobProto blob_proto;
-  Blob<Dtype> data_mean;
+  TBlob<Dtype> data_mean;
 
   ReadProtoFromBinaryFileOrDie(mean_file, &blob_proto);
   data_mean.FromProto(blob_proto);
@@ -108,8 +108,8 @@ void DetectNetTransformationLayer<Dtype>::retrieveMeanChannels() {
 
 template<typename Dtype>
 void DetectNetTransformationLayer<Dtype>::Reshape(
-    const vector<Blob<Dtype>*>& bottom,
-    const vector<Blob<Dtype>*>& top
+    const vector<Blob*>& bottom,
+    const vector<Blob*>& top
 ) {
   // accept only three channel images:
   CHECK_EQ(bottom[0]->channels(), 3);
@@ -177,13 +177,13 @@ DetectNetTransformationLayer<Dtype>::dataToMat(
 template<typename Dtype>
 vector<typename DetectNetTransformationLayer<Dtype>::Mat3v>
 DetectNetTransformationLayer<Dtype>::blobToMats(
-    const Blob<Dtype>& images
+    const Blob& images
 ) const {
   CHECK_EQ(images.channels(), 3);
   vector<Mat3v> result; result.reserve(images.num());
 
   for (size_t iImage = 0; iImage != images.num(); ++iImage) {
-    const Dtype* image_data = &images.cpu_data()[
+    const Dtype* image_data = &images.cpu_data<Dtype>()[
         images.offset(iImage, 0, 0, 0)];
 
     result.push_back(dataToMat(
@@ -198,12 +198,12 @@ DetectNetTransformationLayer<Dtype>::blobToMats(
 template<typename Dtype>
 vector<vector<typename DetectNetTransformationLayer<Dtype>::BboxLabel> >
 DetectNetTransformationLayer<Dtype>::blobToLabels(
-    const Blob<Dtype>& labels
+    const Blob& labels
 ) const {
   vector<vector<BboxLabel > > result; result.reserve(labels.num());
 
   for (size_t iLabel = 0; iLabel != labels.num(); ++iLabel) {
-    const Dtype* source = &labels.cpu_data()[
+    const Dtype* source = &labels.cpu_data<Dtype>()[
         labels.offset(iLabel, 0, 0, 0)
     ];
 
@@ -253,10 +253,10 @@ void DetectNetTransformationLayer<Dtype>::matToBlob(
 template<typename Dtype>
 void DetectNetTransformationLayer<Dtype>::matsToBlob(
     const vector<Mat3v>& _source,
-    Blob<Dtype>* _dest
+    Blob* _dest
 ) const {
   for (size_t iImage = 0; iImage != _source.size(); ++iImage) {
-    Dtype* destination = &_dest->mutable_cpu_data()[
+    Dtype* destination = &_dest->mutable_cpu_data<Dtype>()[
         _dest->offset(iImage, 0, 0, 0)
     ];
     const Mat3v& source = _source[iImage];
@@ -308,8 +308,8 @@ Dtype DetectNetTransformationLayer<Dtype>::randDouble() {
 
 template<typename Dtype>
 void DetectNetTransformationLayer<Dtype>::Forward_cpu(
-    const vector<Blob<Dtype>*>& bottom,
-    const vector<Blob<Dtype>*>& top
+    const vector<Blob*>& bottom,
+    const vector<Blob*>& top
 ) {
   // verify image parameters:
   const int image_count = bottom[0]->num();
@@ -321,14 +321,14 @@ void DetectNetTransformationLayer<Dtype>::Forward_cpu(
   const vector<vector<BboxLabel > > labels = blobToLabels(*bottom[1]);
 
   vector<Mat3v> outputImages(inputImages.size());
-  Blob<Dtype>& outputLabels = *top[1];
+  Blob& outputLabels = *top[1];
 
   for (size_t iImage = 0; iImage != inputImages.size(); ++iImage) {
     const Mat3v& inputImage = inputImages[iImage];
     const vector<BboxLabel >& inputLabel = labels[iImage];
 
     Mat3v& outputImage = outputImages[iImage];
-    Dtype* outputLabel = &outputLabels.mutable_cpu_data()[
+    Dtype* outputLabel = &outputLabels.mutable_cpu_data<Dtype>()[
         outputLabels.offset(iImage, 0, 0, 0)
     ];
 
@@ -654,13 +654,11 @@ cv::Size DetectNetTransformationLayer<Dtype>::getRotatedSize(
   return cv::RotatedRect(center, size, rotation).boundingRect().size();
 }
 
-
 #ifdef CPU_ONLY
-STUB_GPU_FORWARD(DetectNetTransformationLayer, Forward);
+STUB_GPU_FORWARD1(DetectNetTransformationLayer, Forward);
 #endif
 
-INSTANTIATE_CLASS(DetectNetTransformationLayer);
-REGISTER_LAYER_CLASS(DetectNetTransformation);
+INSTANTIATE_CLASS_CPU(DetectNetTransformationLayer);
 
 }  // namespace caffe
 

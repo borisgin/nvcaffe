@@ -6,10 +6,10 @@
 #include <boost/array.hpp>
 #include <boost/foreach.hpp>
 #include <boost/ref.hpp>
-#include <boost/scoped_ptr.hpp>
 #include <boost/static_assert.hpp>
 
 #include <algorithm>
+#include <memory>
 #include <vector>
 
 #include "caffe/common.hpp"
@@ -17,7 +17,7 @@
 
 using namespace cv;  // NOLINT(build/namespaces)
 using boost::array;
-using boost::scoped_ptr;
+using std::unique_ptr;
 using boost::reference_wrapper;
 using boost::ref;
 
@@ -309,7 +309,7 @@ void CoverageGenerator<Dtype>::generate(
 
     // coverage region is implementation specific and defined by extending
     //  classes, but must fit within coverage Rectf:
-    scoped_ptr<CoverageRegion> coverageRegion(
+    unique_ptr<CoverageRegion> coverageRegion(
         this->coverageRegion(coverage));
     Dtype dObjNormValue = objectNormValue(*coverageRegion);
 
@@ -362,8 +362,8 @@ void CoverageGenerator<Dtype>::generate(
 }
 
 
-INSTANTIATE_CLASS(CoverageGenerator);
-INSTANTIATE_CLASS(RectangularCoverageGenerator);
+INSTANTIATE_CLASS_CPU(CoverageGenerator);
+INSTANTIATE_CLASS_CPU(RectangularCoverageGenerator);
 
 }  // namespace caffe
 

@@ -1,24 +1,31 @@
 # Caffe
 
-
 Caffe is a deep learning framework made with expression, speed, and modularity in mind.
-It is developed by the Berkeley Vision and Learning Center ([BVLC](http://bvlc.eecs.berkeley.edu)) and community contributors.
+It is developed by the Berkeley Vision and Learning Center ([BVLC](http://bvlc.eecs.berkeley.edu))
+and community contributors.
 
-Check out the [project site](http://caffe.berkeleyvision.org) for all the details like
+# NVCaffe
 
-- [DIY Deep Learning for Vision with Caffe](https://docs.google.com/presentation/d/1UeKXVgRvvxg9OUdh_UiC5G71UMscNPlvArsWER41PsU/edit#slide=id.p)
-- [Tutorial Documentation](http://caffe.berkeleyvision.org/tutorial/)
-- [BVLC reference models](http://caffe.berkeleyvision.org/model_zoo.html) and the [community model zoo](https://github.com/BVLC/caffe/wiki/Model-Zoo)
-- [Installation instructions](http://caffe.berkeleyvision.org/installation.html)
+NVIDIA Caffe ([NVIDIA Corporation &copy;2017](http://nvidia.com)) is an NVIDIA-maintained fork
+of BVLC Caffe tuned for NVIDIA GPUs, particularly in multi-GPU configurations.
+Here are the major features:
+* **16 bit (half) floating point train and inference support**.
+* **Mixed-precision support**. It allows to store and/or compute data in either 
+64, 32 or 16 bit formats. Precision can be defined for every layer (forward and 
+backward passes might be different too), or it can be set for the whole Net.
+* **Integration with  [cuDNN](https://developer.nvidia.com/cudnn) v6**.
+* **Automatic selection of the best cuDNN convolution algorithm**.
+* **Integration with v1.3.4 of [NCCL library](https://github.com/NVIDIA/nccl)**
+ for improved multi-GPU scaling.
+* **Optimized GPU memory management** for data and parameters storage, I/O buffers 
+and workspace for convolutional layers.
+* **Parallel data parser and transformer** for improved I/O performance.
+* **Parallel back propagation and gradient reduction** on multi-GPU systems.
+* **Fast solvers implementation with fused CUDA kernels for weights and history update**.
+* **Multi-GPU test phase** for even memory load across multiple GPUs.
+* **Backward compatibility with BVLC Caffe and NVCaffe 0.15**.
+* **Extended set of optimized models** (including 16 bit floating point examples).
 
-and step-by-step examples.
-
-[![Join the chat at https://gitter.im/BVLC/caffe](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/BVLC/caffe?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-
-Please join the [caffe-users group](https://groups.google.com/forum/#!forum/caffe-users) or [gitter chat](https://gitter.im/BVLC/caffe) to ask questions and talk about methods and models.
-Framework development discussions and thorough bug reports are collected on [Issues](https://github.com/BVLC/caffe/issues).
-
-Happy brewing!
 
 ## License and Citation
 

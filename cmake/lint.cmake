@@ -25,7 +25,7 @@ endforeach()
 list(REMOVE_ITEM LINT_SOURCES ${EXCLUDED_FILES})
 
 execute_process(
-    COMMAND ${LINT_COMMAND} ${LINT_SOURCES}
+    COMMAND ${LINT_COMMAND} --filter=-legal,-build/include,-runtime/references,-readability,-whitespace/comments ${LINT_SOURCES}
     ERROR_VARIABLE LINT_OUTPUT
     ERROR_STRIP_TRAILING_WHITESPACE
 )

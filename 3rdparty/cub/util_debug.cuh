@@ -74,7 +74,8 @@ __host__ __device__ __forceinline__ cudaError_t Debug(
     if (error)
     {
     #if (CUB_PTX_ARCH == 0)
-        fprintf(stderr, "CUDA error %d [%s, %d]: %s\n", error, filename, line, cudaGetErrorString(error));
+        fprintf(stderr, error == cudaErrorMemoryAllocation ? "CUDA error %d [%s, %d]: %s: trying to flush the cache and reallocate...\n" :
+            "CUDA error %d [%s, %d]: %s\n", error, filename, line, cudaGetErrorString(error));
         fflush(stderr);
     #elif (CUB_PTX_ARCH >= 200)
         printf("CUDA error %d [block (%d,%d,%d) thread (%d,%d,%d), %s, %d]\n", error, blockIdx.z, blockIdx.y, blockIdx.x, threadIdx.z, threadIdx.y, threadIdx.x, filename, line);

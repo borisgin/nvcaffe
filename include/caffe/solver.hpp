@@ -1,6 +1,8 @@
 #ifndef CAFFE_SOLVER_HPP_
 #define CAFFE_SOLVER_HPP_
 #include <boost/function.hpp>
+
+#include <atomic>
 #include <string>
 #include <vector>
 
@@ -38,13 +40,13 @@ typedef boost::function<SolverAction::Enum()> ActionCallback;
  * Requires implementation of ApplyUpdate to compute a parameter update
  * given the current state of the Net parameters.
  */
-template <typename Dtype>
 class Solver {
  public:
   explicit Solver(const SolverParameter& param,
-      const Solver* root_solver = NULL);
-  explicit Solver(const string& param_file, const Solver* root_solver = NULL);
-  void Init(const SolverParameter& param);
+      size_t rank, const Solver* root_solver = NULL);
+  explicit Solver(const string& param_file,
+      size_t rank, const Solver* root_solver = NULL);
+  void Init();
   void InitTrainNet();
   void InitTestNets();
 
@@ -55,8 +57,8 @@ class Solver {
   SolverAction::Enum GetRequestedAction();
   // The main entry of the solver function. In default, iter will be zero. Pass
   // in a non-zero iter number to resume training for a pre-trained net.
-  virtual void Solve(const char* resume_file = NULL);
-  inline void Solve(const string resume_file) { Solve(resume_file.c_str()); }
+  virtual bool Solve(const char* resume_file = NULL);
+  void Solve(const string resume_file) { Solve(resume_file.c_str()); }
   void Step(int iters);
   // The Restore method simply dispatches to one of the
   // RestoreSolverStateFrom___ protected methods. You should implement these
@@ -67,66 +69,115 @@ class Solver {
   // function that produces a SolverState protocol buffer that needs to be
   // written to disk together with the learned net.
   void Snapshot();
-  virtual ~Solver() {}
-  inline const SolverParameter& param() const { return param_; }
-  inline shared_ptr<Net<Dtype> > net() { return net_; }
-  inline const vector<shared_ptr<Net<Dtype> > >& test_nets() {
-    return test_nets_;
-  }
-  int iter() { return iter_; }
+  virtual ~Solver();
+  const SolverParameter& param() const { return param_; }
+  shared_ptr<Net> net() { return net_; }
+  const vector<shared_ptr<Net>>& test_nets() { return test_nets_; }
+  int iter() const { return iter_; }
+  const int* piter() const { return &iter_; }
+  float total_lapse() const { return total_lapse_; }
+  bool is_root() const { return rank_ == 0; }
+  float perf_report(std::ostream& os, int device, int align = 0) const;
 
   // Invoked at specific points during an iteration
   class Callback {
    public:
     virtual void allreduce(int param_id) = 0;
+    virtual void allreduce_bucket(int count, void* bucket, Type type) = 0;
     virtual void syncCommStream() = 0;
+    virtual void soft_barrier() = 0;
+    virtual void reduce_barrier() = 0;
+    virtual void saveTestResults(float loss, const vector<float>& scores) = 0;
+    virtual void aggregateTestResults(float* loss, vector<float>* scores) = 0;
+
+#ifndef CPU_ONLY
+    virtual cublasHandle_t cublas_handle() const = 0;
+#endif
 
    protected:
-    virtual void on_start() = 0;
-    virtual void allreduce() = 0;
-    virtual void soft_barrier() = 0;
-
-    template <typename T>
+    virtual void on_start(const vector<shared_ptr<Blob>>& net) = 0;
     friend class Solver;
   };
-  const vector<Callback*>& callbacks() const { return callbacks_; }
-  void add_callback(Callback* value) {
-    callbacks_.push_back(value);
+
+  Callback* callback() const {
+    return callback_;
+  }
+  void set_callback(Callback* value) {
+    callback_ = value;
+  }
+  void root_add_callback(Callback* value) {
+    root_callbacks_.push_back(value);
+  }
+
+  Flag iter_flag_;
+
+  void iteration_complete_signal() {
+    iter_flag_.set();
+  }
+  void iteration_start_signal() {
+    iter_flag_.reset();
+  }
+  void iteration_wait() {
+    iter_flag_.wait();
   }
 
   void CheckSnapshotWritePermissions();
+  void Finalize();
+
+  void request_early_exit() {
+    requested_early_exit_ = true;
+    iteration_complete_signal();
+  }
+
+  bool display() {
+    return param_.display() && iter_ % param_.display() == 0;
+  }
+
   /**
    * @brief Returns the solver type.
    */
-  virtual inline const char* type() const { return ""; }
+  virtual const char* type() const { return ""; }
+  virtual void PrintRate(float rate = 0) {}
+  virtual void ApplyUpdate(int param_id, void* handle, bool clear_grads) = 0;
 
  protected:
-  // Make and apply the update value for the current iteration.
-  virtual void ApplyUpdate() = 0;
   string SnapshotFilename(const string extension);
   string SnapshotToBinaryProto();
   string SnapshotToHDF5();
   // The test routine
-  void TestAll();
-  void Test(const int test_net_id = 0);
+  void TestAll(const int iters = 0, bool use_multi_gpu = false);
+  void Test(const int test_net_id = 0, const int iters = 0, bool use_multi_gpu = false);
   virtual void SnapshotSolverState(const string& model_filename) = 0;
   virtual void RestoreSolverStateFromHDF5(const string& state_file) = 0;
   virtual void RestoreSolverStateFromBinaryProto(const string& state_file) = 0;
-  void DisplayOutputBlobs(const int net_id);
-  void UpdateSmoothedLoss(Dtype loss, int start_iter, int average_loss);
+  void UpdateSmoothedLoss(float loss, int start_iter, int average_loss);
+  void Reduce(int device, Caffe::Brew mode, int rand_seed,
+      int solver_count, bool root_solver);
 
-  SolverParameter param_;
+  void callback_soft_barrier() {
+    if (callback_ != nullptr) {
+      callback_->soft_barrier();
+    }
+  }
+
+  const SolverParameter param_;
+  const Type data_type_;
   int iter_;
+  int id_;
+  float total_lapse_;
   int current_step_;
-  shared_ptr<Net<Dtype> > net_;
-  vector<shared_ptr<Net<Dtype> > > test_nets_;
-  vector<Callback*> callbacks_;
-  vector<Dtype> losses_;
-  Dtype smoothed_loss_;
+  shared_ptr<Net> net_;
+  vector<shared_ptr<Net>> test_nets_;
+  Callback* callback_;
+  vector<Callback*> root_callbacks_;
+  vector<float> losses_;
+  float smoothed_loss_;
+  unique_ptr<boost::thread> reduce_thread_;
 
   // The root solver that holds root nets (actually containing shared layers)
   // in data parallelism
   const Solver* const root_solver_;
+  const size_t rank_;
 
   // A function that can be set by a client of the Solver to provide indication
   // that it wants a snapshot saved and/or to exit early.
@@ -135,35 +186,16 @@ class Solver {
   // True iff a request to stop early was received.
   bool requested_early_exit_;
 
+  // some layers like Data have to wait for this one
+  Flag init_flag_, iter0_flag_;
+
   // Timing information
   Timer iteration_timer_;
-  float iterations_last_;
+  Timer test_timer_;
+  int iterations_last_;
+  int iterations_restored_;
 
-  DISABLE_COPY_AND_ASSIGN(Solver);
-};
-
-/**
- * @brief Solver that only computes gradients, used as worker
- *        for multi-GPU training.
- */
-template <typename Dtype>
-class WorkerSolver : public Solver<Dtype> {
- public:
-  explicit WorkerSolver(const SolverParameter& param,
-      const Solver<Dtype>* root_solver = NULL)
-      : Solver<Dtype>(param, root_solver) {}
-
- protected:
-  void ApplyUpdate() {}
-  void SnapshotSolverState(const string& model_filename) {
-    LOG(FATAL) << "Should not be called on worker solver.";
-  }
-  void RestoreSolverStateFromBinaryProto(const string& state_file) {
-    LOG(FATAL) << "Should not be called on worker solver.";
-  }
-  void RestoreSolverStateFromHDF5(const string& state_file) {
-    LOG(FATAL) << "Should not be called on worker solver.";
-  }
+  DISABLE_COPY_MOVE_AND_ASSIGN(Solver);
 };
 
 }  // namespace caffe

@@ -23,8 +23,8 @@ class ImageDataLayerTest : public MultiDeviceTest<TypeParam> {
  protected:
   ImageDataLayerTest()
       : seed_(1701),
-        blob_top_data_(new Blob<Dtype>()),
-        blob_top_label_(new Blob<Dtype>()) {}
+        blob_top_data_(new TBlob<Dtype>()),
+        blob_top_label_(new TBlob<Dtype>()) {}
   virtual void SetUp() {
     blob_top_vec_.push_back(blob_top_data_);
     blob_top_vec_.push_back(blob_top_label_);
@@ -54,10 +54,10 @@ class ImageDataLayerTest : public MultiDeviceTest<TypeParam> {
   int seed_;
   string filename_;
   string filename_reshape_;
-  Blob<Dtype>* const blob_top_data_;
-  Blob<Dtype>* const blob_top_label_;
-  vector<Blob<Dtype>*> blob_bottom_vec_;
-  vector<Blob<Dtype>*> blob_top_vec_;
+  TBlob<Dtype>* const blob_top_data_;
+  TBlob<Dtype>* const blob_top_label_;
+  vector<Blob*> blob_bottom_vec_;
+  vector<Blob*> blob_top_vec_;
 };
 
 TYPED_TEST_CASE(ImageDataLayerTest, TestDtypesAndDevices);
@@ -69,21 +69,21 @@ TYPED_TEST(ImageDataLayerTest, TestRead) {
   image_data_param->set_batch_size(5);
   image_data_param->set_source(this->filename_.c_str());
   image_data_param->set_shuffle(false);
-  ImageDataLayer<Dtype> layer(param);
+  ImageDataLayer<Dtype, Dtype> layer(param);
   layer.SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
-  EXPECT_EQ(this->blob_top_data_->num(), 5);
-  EXPECT_EQ(this->blob_top_data_->channels(), 3);
-  EXPECT_EQ(this->blob_top_data_->height(), 360);
-  EXPECT_EQ(this->blob_top_data_->width(), 480);
-  EXPECT_EQ(this->blob_top_label_->num(), 5);
-  EXPECT_EQ(this->blob_top_label_->channels(), 1);
-  EXPECT_EQ(this->blob_top_label_->height(), 1);
-  EXPECT_EQ(this->blob_top_label_->width(), 1);
+  EXPECT_EQ(5, this->blob_top_data_->num());
+  EXPECT_EQ(3, this->blob_top_data_->channels());
+  EXPECT_EQ(360, this->blob_top_data_->height());
+  EXPECT_EQ(480, this->blob_top_data_->width());
+  EXPECT_EQ(5, this->blob_top_label_->num());
+  EXPECT_EQ(1, this->blob_top_label_->channels());
+  EXPECT_EQ(1, this->blob_top_label_->height());
+  EXPECT_EQ(1, this->blob_top_label_->width());
   // Go through the data twice
   for (int iter = 0; iter < 2; ++iter) {
     layer.Forward(this->blob_bottom_vec_, this->blob_top_vec_);
     for (int i = 0; i < 5; ++i) {
-      EXPECT_EQ(i, this->blob_top_label_->cpu_data()[i]);
+      EXPECT_EQ(i, static_cast<int>(this->blob_top_label_->cpu_data()[i]));
     }
   }
 }
@@ -97,21 +97,21 @@ TYPED_TEST(ImageDataLayerTest, TestResize) {
   image_data_param->set_new_height(256);
   image_data_param->set_new_width(256);
   image_data_param->set_shuffle(false);
-  ImageDataLayer<Dtype> layer(param);
+  ImageDataLayer<Dtype, Dtype> layer(param);
   layer.SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
-  EXPECT_EQ(this->blob_top_data_->num(), 5);
-  EXPECT_EQ(this->blob_top_data_->channels(), 3);
-  EXPECT_EQ(this->blob_top_data_->height(), 256);
-  EXPECT_EQ(this->blob_top_data_->width(), 256);
-  EXPECT_EQ(this->blob_top_label_->num(), 5);
-  EXPECT_EQ(this->blob_top_label_->channels(), 1);
-  EXPECT_EQ(this->blob_top_label_->height(), 1);
-  EXPECT_EQ(this->blob_top_label_->width(), 1);
+  EXPECT_EQ(5, this->blob_top_data_->num());
+  EXPECT_EQ(3, this->blob_top_data_->channels());
+  EXPECT_EQ(256, this->blob_top_data_->height());
+  EXPECT_EQ(256, this->blob_top_data_->width());
+  EXPECT_EQ(5, this->blob_top_label_->num());
+  EXPECT_EQ(1, this->blob_top_label_->channels());
+  EXPECT_EQ(1, this->blob_top_label_->height());
+  EXPECT_EQ(1, this->blob_top_label_->width());
   // Go through the data twice
   for (int iter = 0; iter < 2; ++iter) {
     layer.Forward(this->blob_bottom_vec_, this->blob_top_vec_);
     for (int i = 0; i < 5; ++i) {
-      EXPECT_EQ(i, this->blob_top_label_->cpu_data()[i]);
+      EXPECT_EQ(i, static_cast<int>(this->blob_top_label_->cpu_data()[i]));
     }
   }
 }
@@ -123,24 +123,24 @@ TYPED_TEST(ImageDataLayerTest, TestReshape) {
   image_data_param->set_batch_size(1);
   image_data_param->set_source(this->filename_reshape_.c_str());
   image_data_param->set_shuffle(false);
-  ImageDataLayer<Dtype> layer(param);
+  ImageDataLayer<Dtype, Dtype> layer(param);
   layer.SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
-  EXPECT_EQ(this->blob_top_label_->num(), 1);
-  EXPECT_EQ(this->blob_top_label_->channels(), 1);
-  EXPECT_EQ(this->blob_top_label_->height(), 1);
-  EXPECT_EQ(this->blob_top_label_->width(), 1);
+  EXPECT_EQ(1, this->blob_top_label_->num());
+  EXPECT_EQ(1, this->blob_top_label_->channels());
+  EXPECT_EQ(1, this->blob_top_label_->height());
+  EXPECT_EQ(1, this->blob_top_label_->width());
   // cat.jpg
   layer.Forward(this->blob_bottom_vec_, this->blob_top_vec_);
-  EXPECT_EQ(this->blob_top_data_->num(), 1);
-  EXPECT_EQ(this->blob_top_data_->channels(), 3);
-  EXPECT_EQ(this->blob_top_data_->height(), 360);
-  EXPECT_EQ(this->blob_top_data_->width(), 480);
+  EXPECT_EQ(1, this->blob_top_data_->num());
+  EXPECT_EQ(3, this->blob_top_data_->channels());
+  EXPECT_EQ(360, this->blob_top_data_->height());
+  EXPECT_EQ(480, this->blob_top_data_->width());
   // fish-bike.jpg
   layer.Forward(this->blob_bottom_vec_, this->blob_top_vec_);
-  EXPECT_EQ(this->blob_top_data_->num(), 1);
-  EXPECT_EQ(this->blob_top_data_->channels(), 3);
-  EXPECT_EQ(this->blob_top_data_->height(), 323);
-  EXPECT_EQ(this->blob_top_data_->width(), 481);
+  EXPECT_EQ(1, this->blob_top_data_->num());
+  EXPECT_EQ(3, this->blob_top_data_->channels());
+  EXPECT_EQ(323, this->blob_top_data_->height());
+  EXPECT_EQ(481, this->blob_top_data_->width());
 }
 
 TYPED_TEST(ImageDataLayerTest, TestShuffle) {
@@ -150,16 +150,16 @@ TYPED_TEST(ImageDataLayerTest, TestShuffle) {
   image_data_param->set_batch_size(5);
   image_data_param->set_source(this->filename_.c_str());
   image_data_param->set_shuffle(true);
-  ImageDataLayer<Dtype> layer(param);
+  ImageDataLayer<Dtype, Dtype> layer(param);
   layer.SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
-  EXPECT_EQ(this->blob_top_data_->num(), 5);
-  EXPECT_EQ(this->blob_top_data_->channels(), 3);
-  EXPECT_EQ(this->blob_top_data_->height(), 360);
-  EXPECT_EQ(this->blob_top_data_->width(), 480);
-  EXPECT_EQ(this->blob_top_label_->num(), 5);
-  EXPECT_EQ(this->blob_top_label_->channels(), 1);
-  EXPECT_EQ(this->blob_top_label_->height(), 1);
-  EXPECT_EQ(this->blob_top_label_->width(), 1);
+  EXPECT_EQ(5, this->blob_top_data_->num());
+  EXPECT_EQ(3, this->blob_top_data_->channels());
+  EXPECT_EQ(360, this->blob_top_data_->height());
+  EXPECT_EQ(480, this->blob_top_data_->width());
+  EXPECT_EQ(5, this->blob_top_label_->num());
+  EXPECT_EQ(1, this->blob_top_label_->channels());
+  EXPECT_EQ(1, this->blob_top_label_->height());
+  EXPECT_EQ(1, this->blob_top_label_->width());
   // Go through the data twice
   for (int iter = 0; iter < 2; ++iter) {
     layer.Forward(this->blob_bottom_vec_, this->blob_top_vec_);
@@ -172,7 +172,7 @@ TYPED_TEST(ImageDataLayerTest, TestShuffle) {
       values_to_indices[value] = i;
       num_in_order += (value == Dtype(i));
     }
-    EXPECT_EQ(5, values_to_indices.size());
+    EXPECT_EQ(values_to_indices.size(), 5);
     EXPECT_GT(5, num_in_order);
   }
 }

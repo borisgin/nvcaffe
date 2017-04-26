@@ -12,14 +12,14 @@ template <typename Dtype>
 class ConstantFillerTest : public ::testing::Test {
  protected:
   ConstantFillerTest()
-      : blob_(new Blob<Dtype>(2, 3, 4, 5)),
+      : blob_(new TBlob<Dtype>(2, 3, 4, 5)),
         filler_param_() {
     filler_param_.set_value(10.);
     filler_.reset(new ConstantFiller<Dtype>(filler_param_));
     filler_->Fill(blob_);
   }
   virtual ~ConstantFillerTest() { delete blob_; }
-  Blob<Dtype>* const blob_;
+  TBlob<Dtype>* const blob_;
   FillerParameter filler_param_;
   shared_ptr<ConstantFiller<Dtype> > filler_;
 };
@@ -39,7 +39,7 @@ template <typename Dtype>
 class UniformFillerTest : public ::testing::Test {
  protected:
   UniformFillerTest()
-      : blob_(new Blob<Dtype>(2, 3, 4, 5)),
+      : blob_(new TBlob<Dtype>(2, 3, 4, 5)),
         filler_param_() {
     filler_param_.set_min(1.);
     filler_param_.set_max(2.);
@@ -47,7 +47,7 @@ class UniformFillerTest : public ::testing::Test {
     filler_->Fill(blob_);
   }
   virtual ~UniformFillerTest() { delete blob_; }
-  Blob<Dtype>* const blob_;
+  TBlob<Dtype>* const blob_;
   FillerParameter filler_param_;
   shared_ptr<UniformFiller<Dtype> > filler_;
 };
@@ -68,14 +68,14 @@ template <typename Dtype>
 class UniformStaticFillerTest : public ::testing::Test {
  protected:
   UniformStaticFillerTest()
-      : blob_(new Blob<Dtype>(2, 3, 4, 5)),
+      : blob_(new TBlob<Dtype>(2, 3, 4, 5)),
         filler_param_() {
     filler_param_.set_min(1.);
     filler_param_.set_max(2.);
     filler_.reset(new UniformStaticFiller<Dtype>(filler_param_));
     filler_->Fill(blob_.get());
   }
-  shared_ptr<Blob<Dtype> > const blob_;
+  shared_ptr<TBlob<Dtype> > const blob_;
   FillerParameter filler_param_;
   shared_ptr<UniformStaticFiller<Dtype> > filler_;
 };
@@ -83,7 +83,7 @@ class UniformStaticFillerTest : public ::testing::Test {
 TYPED_TEST_CASE(UniformStaticFillerTest, TestDtypes);
 
 TYPED_TEST(UniformStaticFillerTest, TestFill) {
-  EXPECT_TRUE(this->blob_);
+  EXPECT_TRUE((bool)this->blob_);
   const int count = this->blob_->count();
   const TypeParam* data = this->blob_->cpu_data();
   // We want to check that repeated calls to the static filler returns the same
@@ -112,13 +112,13 @@ template <typename Dtype>
 class PositiveUnitballFillerTest : public ::testing::Test {
  protected:
   PositiveUnitballFillerTest()
-      : blob_(new Blob<Dtype>(2, 3, 4, 5)),
+      : blob_(new TBlob<Dtype>(2, 3, 4, 5)),
         filler_param_() {
     filler_.reset(new PositiveUnitballFiller<Dtype>(filler_param_));
     filler_->Fill(blob_);
   }
   virtual ~PositiveUnitballFillerTest() { delete blob_; }
-  Blob<Dtype>* const blob_;
+  TBlob<Dtype>* const blob_;
   FillerParameter filler_param_;
   shared_ptr<PositiveUnitballFiller<Dtype> > filler_;
 };
@@ -140,8 +140,7 @@ TYPED_TEST(PositiveUnitballFillerTest, TestFill) {
     for (int j = 0; j < dim; ++j) {
       sum += data[i * dim + j];
     }
-    EXPECT_GE(sum, 0.999);
-    EXPECT_LE(sum, 1.001);
+    EXPECT_NEAR(sum, 1., tol<TypeParam>(0.001, 0.003));
   }
 }
 
@@ -149,12 +148,12 @@ template <typename Dtype>
 class PositiveUnitballStaticFillerTest : public ::testing::Test {
  protected:
   PositiveUnitballStaticFillerTest()
-      : blob_(new Blob<Dtype>(2, 3, 4, 5)),
+      : blob_(new TBlob<Dtype>(2, 3, 4, 5)),
         filler_param_() {
     filler_.reset(new PositiveUnitballStaticFiller<Dtype>(filler_param_));
     filler_->Fill(blob_.get());
   }
-  shared_ptr<Blob<Dtype> > const blob_;
+  shared_ptr<TBlob<Dtype> > const blob_;
   FillerParameter filler_param_;
   shared_ptr<PositiveUnitballStaticFiller<Dtype> > filler_;
 };
@@ -162,7 +161,7 @@ class PositiveUnitballStaticFillerTest : public ::testing::Test {
 TYPED_TEST_CASE(PositiveUnitballStaticFillerTest, TestDtypes);
 
 TYPED_TEST(PositiveUnitballStaticFillerTest, TestFill) {
-  EXPECT_TRUE(this->blob_);
+  EXPECT_TRUE((bool)this->blob_);
   const int num = this->blob_->num();
   const int count = this->blob_->count();
   const int dim = count / num;
@@ -176,8 +175,8 @@ TYPED_TEST(PositiveUnitballStaticFillerTest, TestFill) {
     for (int j = 0; j < dim; ++j) {
       sum += data[i * dim + j];
     }
-    EXPECT_GE(sum, 0.999);
-    EXPECT_LE(sum, 1.001);
+    EXPECT_GE(sum, tol<TypeParam>(0.999, 0.998));
+    EXPECT_LE(sum, tol<TypeParam>(1.001, 1.002));
   }
   // We want to check that repeated calls to the static filler returns the same
   // values. So we copy the first filler call to data_0 and the second one to
@@ -200,7 +199,7 @@ template <typename Dtype>
 class GaussianFillerTest : public ::testing::Test {
  protected:
   GaussianFillerTest()
-      : blob_(new Blob<Dtype>(2, 3, 4, 5)),
+      : blob_(new TBlob<Dtype>(2, 3, 4, 5)),
         filler_param_() {
     filler_param_.set_mean(10.);
     filler_param_.set_std(0.1);
@@ -208,7 +207,7 @@ class GaussianFillerTest : public ::testing::Test {
     filler_->Fill(blob_);
   }
   virtual ~GaussianFillerTest() { delete blob_; }
-  Blob<Dtype>* const blob_;
+  TBlob<Dtype>* const blob_;
   FillerParameter filler_param_;
   shared_ptr<GaussianFiller<Dtype> > filler_;
 };
@@ -241,14 +240,14 @@ template <typename Dtype>
 class GaussianStaticFillerTest : public ::testing::Test {
  protected:
   GaussianStaticFillerTest()
-      : blob_(new Blob<Dtype>(2, 3, 4, 5)),
+      : blob_(new TBlob<Dtype>(2, 3, 4, 5)),
         filler_param_() {
     filler_param_.set_mean(10.);
     filler_param_.set_std(0.1);
     filler_.reset(new GaussianStaticFiller<Dtype>(filler_param_));
     filler_->Fill(blob_.get());
   }
-  shared_ptr<Blob<Dtype> > const blob_;
+  shared_ptr<TBlob<Dtype> > const blob_;
   FillerParameter filler_param_;
   shared_ptr<GaussianStaticFiller<Dtype> > filler_;
 };
@@ -256,7 +255,7 @@ class GaussianStaticFillerTest : public ::testing::Test {
 TYPED_TEST_CASE(GaussianStaticFillerTest, TestDtypes);
 
 TYPED_TEST(GaussianStaticFillerTest, TestFill) {
-  EXPECT_TRUE(this->blob_);
+  EXPECT_TRUE((bool)this->blob_);
   const int count = this->blob_->count();
   const TypeParam* data = this->blob_->cpu_data();
   TypeParam mean = 0.;
@@ -296,7 +295,7 @@ template <typename Dtype>
 class XavierFillerTest : public ::testing::Test {
  protected:
   XavierFillerTest()
-      : blob_(new Blob<Dtype>(1000, 2, 4, 5)),
+      : blob_(new TBlob<Dtype>(1000, 2, 4, 5)),
         filler_param_() {
   }
   virtual void test_params(FillerParameter_VarianceNorm variance_norm,
@@ -318,10 +317,10 @@ class XavierFillerTest : public ::testing::Test {
     Dtype std = sqrt(ex2 - mean*mean);
     Dtype target_std = sqrt(2.0 / n);
     EXPECT_NEAR(mean, 0.0, 0.1);
-    EXPECT_NEAR(std, target_std, 0.1);
+    EXPECT_NEAR(std, target_std, tol<Dtype>(0.1, 0.15));
   }
   virtual ~XavierFillerTest() { delete blob_; }
-  Blob<Dtype>* const blob_;
+  TBlob<Dtype>* const blob_;
   FillerParameter filler_param_;
   shared_ptr<XavierFiller<Dtype> > filler_;
 };
@@ -345,15 +344,15 @@ template <typename Dtype>
 class XavierStaticFillerTest : public ::testing::Test {
  protected:
   XavierStaticFillerTest()
-      : blob_(new Blob<Dtype>(1000, 2, 4, 5)),
+      : blob_(new TBlob<Dtype>(1000, 2, 4, 5)),
         filler_param_() {
   }
   virtual void test_params(FillerParameter_VarianceNorm variance_norm,
       Dtype n) {
     this->filler_param_.set_variance_norm(variance_norm);
     this->filler_.reset(new XavierStaticFiller<Dtype>(this->filler_param_));
+    EXPECT_TRUE((bool)this->blob_);
     this->filler_->Fill(blob_.get());
-    EXPECT_TRUE(this->blob_);
     const int count = this->blob_->count();
     const Dtype* data = this->blob_->cpu_data();
     Dtype mean = 0.;
@@ -367,7 +366,7 @@ class XavierStaticFillerTest : public ::testing::Test {
     Dtype std = sqrt(ex2 - mean*mean);
     Dtype target_std = sqrt(2.0 / n);
     EXPECT_NEAR(mean, 0.0, 0.1);
-    EXPECT_NEAR(std, target_std, 0.1);
+    EXPECT_NEAR(std, target_std, 0.2);
 
     // We want to check that repeated calls to the static
     // filler returns the same values. So we copy the first
@@ -386,7 +385,7 @@ class XavierStaticFillerTest : public ::testing::Test {
       EXPECT_EQ(data_0[i], data_1[i]);
     }
   }
-  shared_ptr<Blob<Dtype> > const blob_;
+  shared_ptr<TBlob<Dtype> > const blob_;
   FillerParameter filler_param_;
   shared_ptr<XavierStaticFiller<Dtype> > filler_;
 };
@@ -410,7 +409,7 @@ template <typename Dtype>
 class MSRAFillerTest : public ::testing::Test {
  protected:
   MSRAFillerTest()
-      : blob_(new Blob<Dtype>(1000, 2, 4, 5)),
+      : blob_(new TBlob<Dtype>(1000, 2, 4, 5)),
         filler_param_() {
   }
   virtual void test_params(FillerParameter_VarianceNorm variance_norm,
@@ -430,12 +429,12 @@ class MSRAFillerTest : public ::testing::Test {
     mean /= count;
     ex2 /= count;
     Dtype std = sqrt(ex2 - mean*mean);
-    Dtype target_std = sqrt(2.0 / n);
+    Dtype target_std = sqrt(2.0F / n);
     EXPECT_NEAR(mean, 0.0, 0.1);
     EXPECT_NEAR(std, target_std, 0.1);
   }
   virtual ~MSRAFillerTest() { delete blob_; }
-  Blob<Dtype>* const blob_;
+  TBlob<Dtype>* const blob_;
   FillerParameter filler_param_;
   shared_ptr<MSRAFiller<Dtype> > filler_;
 };
@@ -459,7 +458,7 @@ template <typename Dtype>
 class MSRAStaticFillerTest : public ::testing::Test {
  protected:
   MSRAStaticFillerTest()
-      : blob_(new Blob<Dtype>(1000, 2, 4, 5)),
+      : blob_(new TBlob<Dtype>(1000, 2, 4, 5)),
         filler_param_() {
   }
   virtual void test_params(FillerParameter_VarianceNorm variance_norm,
@@ -500,7 +499,7 @@ class MSRAStaticFillerTest : public ::testing::Test {
       EXPECT_EQ(data_0[i], data_1[i]);
     }
   }
-  shared_ptr<Blob<Dtype> > const blob_;
+  shared_ptr<TBlob<Dtype> > const blob_;
   FillerParameter filler_param_;
   shared_ptr<MSRAStaticFiller<Dtype> > filler_;
 };

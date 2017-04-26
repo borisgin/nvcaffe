@@ -63,6 +63,7 @@ void initialize_gpu_memory_scope() {
     gpus.push_back(i);
   }
   CHECK_GT(gpus.size(), 0);
+  Caffe::SetDevice(gpus[0]);
   gpu_memory_scope.reset(new GPUMemory::Scope(gpus));
 }
 #endif
@@ -119,38 +120,38 @@ void CheckContiguousArray(PyArrayObject* arr, string name,
 }
 
 // Net constructor for passing phase as int
-shared_ptr<Net<Dtype> > Net_Init(
+shared_ptr<Net> Net_Init(
     string param_file, int phase) {
   CheckFile(param_file);
 
-  shared_ptr<Net<Dtype> > net(new Net<Dtype>(param_file,
+  shared_ptr<Net> net(new Net(param_file,
       static_cast<Phase>(phase)));
   return net;
 }
 
 // Net construct-and-load convenience constructor
-shared_ptr<Net<Dtype> > Net_Init_Load(
+shared_ptr<Net> Net_Init_Load(
     string param_file, string pretrained_param_file, int phase) {
   CheckFile(param_file);
   CheckFile(pretrained_param_file);
 
-  shared_ptr<Net<Dtype> > net(new Net<Dtype>(param_file,
+  shared_ptr<Net> net(new Net(param_file,
       static_cast<Phase>(phase)));
   net->CopyTrainedLayersFrom(pretrained_param_file);
   return net;
 }
 
-void Net_Save(const Net<Dtype>& net, string filename) {
+void Net_Save(const Net& net, string filename) {
   NetParameter net_param;
   net.ToProto(&net_param, false);
   WriteProtoToBinaryFile(net_param, filename.c_str());
 }
 
-void Net_SetInputArrays(Net<Dtype>* net, bp::object data_obj,
+void Net_SetInputArrays(Net* net, bp::object data_obj,
     bp::object labels_obj) {
   // check that this network has an input MemoryDataLayer
-  shared_ptr<MemoryDataLayer<Dtype> > md_layer =
-    boost::dynamic_pointer_cast<MemoryDataLayer<Dtype> >(net->layers()[0]);
+  shared_ptr<MemoryDataLayer<Dtype, Dtype> > md_layer =
+    boost::dynamic_pointer_cast<MemoryDataLayer<Dtype, Dtype> >(net->layers()[0]);
   if (!md_layer) {
     throw std::runtime_error("set_input_arrays may only be called if the"
         " first layer is a MemoryDataLayer");
@@ -178,10 +179,9 @@ void Net_SetInputArrays(Net<Dtype>* net, bp::object data_obj,
       PyArray_DIMS(data_arr)[0]);
 }
 
-Solver<Dtype>* GetSolverFromFile(const string& filename) {
-  SolverParameter param;
-  ReadSolverParamsFromTextFileOrDie(filename, &param);
-  return SolverRegistry<Dtype>::CreateSolver(param);
+Solver* GetSolverFromFile(const string& filename) {
+  SolverParameter param = ReadSolverParamsFromTextFileOrDie(filename);
+  return SolverRegistry::CreateSolver(param);
 }
 
 struct NdarrayConverterGenerator {
@@ -205,8 +205,8 @@ struct NdarrayCallPolicies : public bp::default_call_policies {
   typedef NdarrayConverterGenerator result_converter;
   PyObject* postcall(PyObject* pyargs, PyObject* result) {
     bp::object pyblob = bp::extract<bp::tuple>(pyargs)()[0];
-    shared_ptr<Blob<Dtype> > blob =
-      bp::extract<shared_ptr<Blob<Dtype> > >(pyblob);
+    shared_ptr<Blob> blob =
+      bp::extract<shared_ptr<Blob> >(pyblob);
     // Free the temporary pointer-holding array, and construct a new one with
     // the shape information from the blob.
     void* data = PyArray_DATA(reinterpret_cast<PyArrayObject*>(result));
@@ -227,7 +227,7 @@ bp::object Blob_Reshape(bp::tuple args, bp::dict kwargs) {
   if (bp::len(kwargs) > 0) {
     throw std::runtime_error("Blob.reshape takes no kwargs");
   }
-  Blob<Dtype>* self = bp::extract<Blob<Dtype>*>(args[0]);
+  Blob* self = bp::extract<Blob*>(args[0]);
   vector<int> shape(bp::len(args) - 1);
   for (int i = 1; i < bp::len(args); ++i) {
     shape[i - 1] = bp::extract<int>(args[i]);
@@ -241,16 +241,17 @@ bp::object BlobVec_add_blob(bp::tuple args, bp::dict kwargs) {
   if (bp::len(kwargs) > 0) {
     throw std::runtime_error("BlobVec.add_blob takes no kwargs");
   }
-  typedef vector<shared_ptr<Blob<Dtype> > > BlobVec;
+  typedef vector<shared_ptr<Blob> > BlobVec;
   BlobVec* self = bp::extract<BlobVec*>(args[0]);
   vector<int> shape(bp::len(args) - 1);
   for (int i = 1; i < bp::len(args); ++i) {
     shape[i - 1] = bp::extract<int>(args[i]);
   }
-  self->push_back(shared_ptr<Blob<Dtype> >(new Blob<Dtype>(shape)));
+  self->push_back(shared_ptr<Blob>(new TBlob<Dtype>(shape)));
   // We need to explicitly return None to use bp::raw_function.
   return bp::object();
 }
+
 
 BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(SolveOverloads, Solve, 0, 1);
 
@@ -265,103 +266,115 @@ BOOST_PYTHON_MODULE(_caffe) {
   bp::def("set_mode_gpu", &set_mode_gpu);
   bp::def("set_device", &Caffe::SetDevice);
 
-  bp::def("layer_type_list", &LayerRegistry<Dtype>::LayerTypeList);
+  bp::def("layer_type_list", &LayerRegistry::LayerTypeList);
 
-  bp::class_<Net<Dtype>, shared_ptr<Net<Dtype> >, boost::noncopyable >("Net",
+  bp::class_<Net, shared_ptr<Net>, boost::noncopyable >("Net",
     bp::no_init)
     .def("__init__", bp::make_constructor(&Net_Init))
     .def("__init__", bp::make_constructor(&Net_Init_Load))
-    .def("_forward", &Net<Dtype>::ForwardFromTo)
-    .def("_backward", &Net<Dtype>::BackwardFromTo)
-    .def("reshape", &Net<Dtype>::Reshape)
+    .def("_forward", &Net::ForwardFromTo)
+    .def("_backward", &Net::BackwardFromTo)
+    .def("reshape", &Net::Reshape)
     // The cast is to select a particular overload.
-    .def("copy_from", static_cast<void (Net<Dtype>::*)(const string)>(
-        &Net<Dtype>::CopyTrainedLayersFrom))
-    .def("share_with", &Net<Dtype>::ShareTrainedLayersWith)
+    .def("copy_from", static_cast<void (Net::*)(const string)>(
+        &Net::CopyTrainedLayersFrom))
+    .def("share_with", &Net::ShareTrainedLayersWith)
     .add_property("_blob_loss_weights", bp::make_function(
-        &Net<Dtype>::blob_loss_weights, bp::return_internal_reference<>()))
-    .def("_bottom_ids", bp::make_function(&Net<Dtype>::bottom_ids,
+        &Net::blob_loss_weights, bp::return_internal_reference<>()))
+    .def("_bottom_ids", bp::make_function(&Net::bottom_ids,
         bp::return_value_policy<bp::copy_const_reference>()))
-    .def("_top_ids", bp::make_function(&Net<Dtype>::top_ids,
+    .def("_top_ids", bp::make_function(&Net::top_ids,
         bp::return_value_policy<bp::copy_const_reference>()))
-    .add_property("_blobs", bp::make_function(&Net<Dtype>::blobs,
+    .add_property("_blobs", bp::make_function(&Net::blobs,
         bp::return_internal_reference<>()))
-    .add_property("layers", bp::make_function(&Net<Dtype>::layers,
+    .add_property("layers", bp::make_function(&Net::layers,
         bp::return_internal_reference<>()))
-    .add_property("_blob_names", bp::make_function(&Net<Dtype>::blob_names,
+    .add_property("_blob_names", bp::make_function(&Net::blob_names,
         bp::return_value_policy<bp::copy_const_reference>()))
-    .add_property("_layer_names", bp::make_function(&Net<Dtype>::layer_names,
+    .add_property("_layer_names", bp::make_function(&Net::layer_names,
         bp::return_value_policy<bp::copy_const_reference>()))
-    .add_property("_inputs", bp::make_function(&Net<Dtype>::input_blob_indices,
+    .add_property("_inputs", bp::make_function(&Net::input_blob_indices,
         bp::return_value_policy<bp::copy_const_reference>()))
     .add_property("_outputs",
-        bp::make_function(&Net<Dtype>::output_blob_indices,
+        bp::make_function(&Net::output_blob_indices,
         bp::return_value_policy<bp::copy_const_reference>()))
     .def("_set_input_arrays", &Net_SetInputArrays,
         bp::with_custodian_and_ward<1, 2, bp::with_custodian_and_ward<1, 3> >())
     .def("save", &Net_Save);
-  BP_REGISTER_SHARED_PTR_TO_PYTHON(Net<Dtype>);
+  BP_REGISTER_SHARED_PTR_TO_PYTHON(Net);
 
-  bp::class_<Blob<Dtype>, shared_ptr<Blob<Dtype> >, boost::noncopyable>(
+
+  bp::class_<Blob, shared_ptr<TBlob<Dtype> >, boost::noncopyable>(
     "Blob", bp::no_init)
-    .add_property("shape",
-        bp::make_function(
-            static_cast<const vector<int>& (Blob<Dtype>::*)() const>(
-                &Blob<Dtype>::shape),
-            bp::return_value_policy<bp::copy_const_reference>()))
-    .add_property("num",      &Blob<Dtype>::num)
-    .add_property("channels", &Blob<Dtype>::channels)
-    .add_property("height",   &Blob<Dtype>::height)
-    .add_property("width",    &Blob<Dtype>::width)
-    .add_property("count",    static_cast<int (Blob<Dtype>::*)() const>(
-        &Blob<Dtype>::count))
-    .def("reshape",           bp::raw_function(&Blob_Reshape))
-    .add_property("data",     bp::make_function(&Blob<Dtype>::mutable_cpu_data,
-          NdarrayCallPolicies()))
-    .add_property("diff",     bp::make_function(&Blob<Dtype>::mutable_cpu_diff,
-          NdarrayCallPolicies()));
-  BP_REGISTER_SHARED_PTR_TO_PYTHON(Blob<Dtype>);
+        .add_property("shape",
+            bp::make_function(
+                static_cast<const vector<int>& (Blob::*)() const>(
+                    &Blob::shape),
+                bp::return_value_policy<bp::copy_const_reference>()))
+        .add_property("num",      &Blob::num)
+        .add_property("channels", &Blob::channels)
+        .add_property("height",   &Blob::height)
+        .add_property("width",    &Blob::width)
+        .add_property("count",    static_cast<int (Blob::*)() const>(
+            &Blob::count))
+        .def("reshape",           bp::raw_function(&Blob_Reshape))
+        .add_property("data",     bp::make_function(&Blob::mutable_cpu_data_raw<Dtype>,
+              NdarrayCallPolicies()))
+        .add_property("diff",     bp::make_function(&Blob::mutable_cpu_diff_raw<Dtype>,
+              NdarrayCallPolicies()));
 
-  bp::class_<Layer<Dtype>, shared_ptr<PythonLayer<Dtype> >,
+  BP_REGISTER_SHARED_PTR_TO_PYTHON(Blob);
+
+  bp::class_<TBlob<Dtype>, bp::bases<Blob>,
+    shared_ptr<TBlob<Dtype> >, boost::noncopyable>("TBlob", bp::no_init);
+  BP_REGISTER_SHARED_PTR_TO_PYTHON(TBlob<Dtype>);
+
+  using Layer2 = Layer<Dtype, Dtype>;
+
+  bp::class_<LayerBase, shared_ptr<LayerBase>, boost::noncopyable>(
+    "LayerBase", bp::no_init)
+    .add_property("blobs", bp::make_function(&LayerBase::blobs,
+          bp::return_internal_reference<>()));
+  BP_REGISTER_SHARED_PTR_TO_PYTHON(LayerBase);
+
+  bp::class_<Layer<Dtype, Dtype>, bp::bases<LayerBase>, shared_ptr<PythonLayer<Dtype, Dtype> >,
     boost::noncopyable>("Layer", bp::init<const LayerParameter&>())
-    .add_property("blobs", bp::make_function(&Layer<Dtype>::blobs,
-          bp::return_internal_reference<>()))
-    .def("setup", &Layer<Dtype>::LayerSetUp)
-    .def("reshape", &Layer<Dtype>::Reshape)
-    .add_property("type", bp::make_function(&Layer<Dtype>::type));
-  BP_REGISTER_SHARED_PTR_TO_PYTHON(Layer<Dtype>);
+    .def("setup", &Layer<Dtype, Dtype>::LayerSetUp)
+    .def("reshape", &Layer<Dtype, Dtype>::Reshape)
+    .add_property("type", bp::make_function(&Layer<Dtype, Dtype>::type));
+  BP_REGISTER_SHARED_PTR_TO_PYTHON(Layer2);
 
   bp::class_<LayerParameter>("LayerParameter", bp::no_init);
 
-  bp::class_<Solver<Dtype>, shared_ptr<Solver<Dtype> >, boost::noncopyable>(
+  bp::class_<Solver, shared_ptr<Solver>, boost::noncopyable>(
     "Solver", bp::no_init)
-    .add_property("net", &Solver<Dtype>::net)
-    .add_property("test_nets", bp::make_function(&Solver<Dtype>::test_nets,
+    .add_property("net", &Solver::net)
+    .add_property("test_nets", bp::make_function(&Solver::test_nets,
           bp::return_internal_reference<>()))
-    .add_property("iter", &Solver<Dtype>::iter)
-    .def("solve", static_cast<void (Solver<Dtype>::*)(const char*)>(
-          &Solver<Dtype>::Solve), SolveOverloads())
-    .def("step", &Solver<Dtype>::Step)
-    .def("restore", &Solver<Dtype>::Restore)
-    .def("snapshot", &Solver<Dtype>::Snapshot);
-  BP_REGISTER_SHARED_PTR_TO_PYTHON(Solver<Dtype>);
+    .add_property("iter", &Solver::iter)
+    .def("solve", static_cast<bool (Solver::*)(const char*)>(
+          &Solver::Solve), SolveOverloads())
+    .def("step", &Solver::Step)
+    .def("restore", &Solver::Restore)
+    .def("snapshot", &Solver::Snapshot);
+  BP_REGISTER_SHARED_PTR_TO_PYTHON(Solver);
 
-  bp::class_<SGDSolver<Dtype>, bp::bases<Solver<Dtype> >,
-    shared_ptr<SGDSolver<Dtype> >, boost::noncopyable>(
+  bp::class_<SGDSolver<Dtype>, bp::bases<Solver>,
+    shared_ptr<SGDSolver<Dtype>>, boost::noncopyable>(
         "SGDSolver", bp::init<string>());
-  bp::class_<NesterovSolver<Dtype>, bp::bases<Solver<Dtype> >,
+  bp::class_<NesterovSolver<Dtype>, bp::bases<Solver>,
     shared_ptr<NesterovSolver<Dtype> >, boost::noncopyable>(
         "NesterovSolver", bp::init<string>());
-  bp::class_<AdaGradSolver<Dtype>, bp::bases<Solver<Dtype> >,
+  bp::class_<AdaGradSolver<Dtype>, bp::bases<Solver>,
     shared_ptr<AdaGradSolver<Dtype> >, boost::noncopyable>(
         "AdaGradSolver", bp::init<string>());
-  bp::class_<RMSPropSolver<Dtype>, bp::bases<Solver<Dtype> >,
+  bp::class_<RMSPropSolver<Dtype>, bp::bases<Solver>,
     shared_ptr<RMSPropSolver<Dtype> >, boost::noncopyable>(
         "RMSPropSolver", bp::init<string>());
-  bp::class_<AdaDeltaSolver<Dtype>, bp::bases<Solver<Dtype> >,
+  bp::class_<AdaDeltaSolver<Dtype>, bp::bases<Solver>,
     shared_ptr<AdaDeltaSolver<Dtype> >, boost::noncopyable>(
         "AdaDeltaSolver", bp::init<string>());
-  bp::class_<AdamSolver<Dtype>, bp::bases<Solver<Dtype> >,
+  bp::class_<AdamSolver<Dtype>, bp::bases<Solver>,
     shared_ptr<AdamSolver<Dtype> >, boost::noncopyable>(
         "AdamSolver", bp::init<string>());
 
@@ -369,21 +382,24 @@ BOOST_PYTHON_MODULE(_caffe) {
       bp::return_value_policy<bp::manage_new_object>());
 
   // vector wrappers for all the vector types we use
-  bp::class_<vector<shared_ptr<Blob<Dtype> > > >("BlobVec")
-    .def(bp::vector_indexing_suite<vector<shared_ptr<Blob<Dtype> > >, true>())
+  bp::class_<vector<shared_ptr<Blob> > >("BlobVec")
+    .def(bp::vector_indexing_suite<vector<shared_ptr<Blob> >, true>())
     .def("add_blob", bp::raw_function(&BlobVec_add_blob));
-  bp::class_<vector<Blob<Dtype>*> >("RawBlobVec")
-    .def(bp::vector_indexing_suite<vector<Blob<Dtype>*>, true>());
-  bp::class_<vector<shared_ptr<Layer<Dtype> > > >("LayerVec")
-    .def(bp::vector_indexing_suite<vector<shared_ptr<Layer<Dtype> > >, true>());
+
+  bp::class_<vector<Blob*> >("RawBlobVec")
+    .def(bp::vector_indexing_suite<vector<Blob*>, true>());
+  bp::class_<vector<shared_ptr<LayerBase> > >("LayerBaseVec")
+    .def(bp::vector_indexing_suite<vector<shared_ptr<LayerBase> >, true>());
+  bp::class_<vector<shared_ptr<Layer<Dtype, Dtype> > > >("LayerVec")
+    .def(bp::vector_indexing_suite<vector<shared_ptr<Layer<Dtype, Dtype> > >, true>());
   bp::class_<vector<string> >("StringVec")
     .def(bp::vector_indexing_suite<vector<string> >());
   bp::class_<vector<int> >("IntVec")
     .def(bp::vector_indexing_suite<vector<int> >());
   bp::class_<vector<Dtype> >("DtypeVec")
     .def(bp::vector_indexing_suite<vector<Dtype> >());
-  bp::class_<vector<shared_ptr<Net<Dtype> > > >("NetVec")
-    .def(bp::vector_indexing_suite<vector<shared_ptr<Net<Dtype> > >, true>());
+  bp::class_<vector<shared_ptr<Net> > >("NetVec")
+    .def(bp::vector_indexing_suite<vector<shared_ptr<Net> >, true>());
   bp::class_<vector<bool> >("BoolVec")
     .def(bp::vector_indexing_suite<vector<bool> >());
 

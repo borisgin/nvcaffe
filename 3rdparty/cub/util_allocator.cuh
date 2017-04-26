@@ -237,7 +237,7 @@ struct CachingDeviceAllocator
             value >>= 1;
             ++power;
         }
-        rounded_bytes = power > 0 ? (2ULL << (power-1)) : 1;  // 2^power
+        rounded_bytes = 1ULL << power;  // 2^power
     }
 
     //---------------------------------------------------------------------
@@ -355,11 +355,13 @@ struct CachingDeviceAllocator
         int             device,             ///< [in] Device on which to place the allocation
         void            **d_ptr,            ///< [out] Reference to pointer to the allocation
         size_t          bytes,              ///< [in] Minimum number of bytes for the allocation
-        cudaStream_t    active_stream = 0)  ///< [in] The stream to be associated with this allocation
+        cudaStream_t    active_stream,      ///< [in] The stream to be associated with this allocation
+        size_t&         size_allocated)
     {
         *d_ptr                          = NULL;
         int entrypoint_device           = INVALID_DEVICE_ORDINAL;
         cudaError_t error               = cudaSuccess;
+        size_allocated                  = 0UL;
 
         if (device == INVALID_DEVICE_ORDINAL)
         {
@@ -491,6 +493,7 @@ struct CachingDeviceAllocator
             mutex.Lock();
             live_blocks.insert(search_key);
             cached_bytes[device].live += search_key.bytes;
+            size_allocated = search_key.bytes;
             mutex.Unlock();
 
             if (debug) _CubLog("\tDevice %d allocated new device block at %p (%lld bytes associated with stream %lld).\n",
@@ -523,9 +526,10 @@ struct CachingDeviceAllocator
     cudaError_t DeviceAllocate(
         void            **d_ptr,            ///< [out] Reference to pointer to the allocation
         size_t          bytes,              ///< [in] Minimum number of bytes for the allocation
-        cudaStream_t    active_stream = 0)  ///< [in] The stream to be associated with this allocation
+        cudaStream_t    active_stream,      ///< [in] The stream to be associated with this allocation
+        size_t&         size_allocated)
     {
-        return DeviceAllocate(INVALID_DEVICE_ORDINAL, d_ptr, bytes, active_stream);
+        return DeviceAllocate(INVALID_DEVICE_ORDINAL, d_ptr, bytes, active_stream, size_allocated);
     }
 
 
@@ -538,10 +542,12 @@ struct CachingDeviceAllocator
      */
     cudaError_t DeviceFree(
         int             device,
-        void*           d_ptr)
+        void*           d_ptr,
+        size_t&         size_deallocated)
     {
         int entrypoint_device           = INVALID_DEVICE_ORDINAL;
         cudaError_t error               = cudaSuccess;
+        size_deallocated                = 0;
 
         if (device == INVALID_DEVICE_ORDINAL)
         {
@@ -563,6 +569,7 @@ struct CachingDeviceAllocator
             search_key = *block_itr;
             live_blocks.erase(block_itr);
             cached_bytes[device].live -= search_key.bytes;
+            size_deallocated = search_key.bytes;
 
             // Keep the returned allocation if bin is valid and we won't exceed the max cached threshold
             if ((search_key.bin != INVALID_BIN) && (cached_bytes[device].free + search_key.bytes <= max_cached_bytes))
@@ -571,6 +578,7 @@ struct CachingDeviceAllocator
                 recached = true;
                 cached_blocks.insert(search_key);
                 cached_bytes[device].free += search_key.bytes;
+                size_deallocated = 0;  // for accurate accounting we skip blocks returned to the cache
 
                 if (debug) _CubLog("\tDevice %d returned %lld bytes from associated stream %lld.\n\t\t %lld available blocks cached (%lld bytes), %lld live blocks outstanding. (%lld bytes)\n",
                     device, (long long) search_key.bytes, (long long) search_key.associated_stream, (long long) cached_blocks.size(),
@@ -621,9 +629,10 @@ struct CachingDeviceAllocator
      * streams when all prior work submitted to \p active_stream has completed.
      */
     cudaError_t DeviceFree(
-        void*           d_ptr)
+        void*           d_ptr,
+        size_t&         size_deallocated)
     {
-        return DeviceFree(INVALID_DEVICE_ORDINAL, d_ptr);
+        return DeviceFree(INVALID_DEVICE_ORDINAL, d_ptr, size_deallocated);
     }
 
 

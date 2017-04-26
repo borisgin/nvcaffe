@@ -348,10 +348,10 @@ __global__ void spatial_transformations(
 
 template <typename Dtype>
 void DetectNetTransformationLayer<Dtype>::Forward_gpu(
-    const vector<Blob<Dtype>*>& bottom,
-    const vector<Blob<Dtype>*>& top) {
-  const Dtype* bottom_data = bottom[0]->gpu_data();
-  Dtype* top_data = top[0]->mutable_gpu_data();
+    const vector<Blob*>& bottom,
+    const vector<Blob*>& top) {
+  const Dtype* bottom_data = bottom[0]->gpu_data<Dtype>();
+  Dtype* top_data = top[0]->mutable_gpu_data<Dtype>();
   AugmentSelection* aug_data = reinterpret_cast<AugmentSelection*>(
       gpu_workspace_augmentations_.data());
   Dtype* tmp_data = reinterpret_cast<Dtype*>(
@@ -373,9 +373,7 @@ void DetectNetTransformationLayer<Dtype>::Forward_gpu(
   const int top_pixels = top_shape.x * top_shape.y * top_shape.w;
 
   // Get current stream
-  int device;
-  CUDA_CHECK(cudaGetDevice(&device));
-  cudaStream_t stream = GPUMemory::device_stream(device);
+  cudaStream_t stream = Caffe::thread_stream();
 
   // Make augmentation selections for each image
   vector<AugmentSelection> augmentations;
@@ -391,19 +389,19 @@ void DetectNetTransformationLayer<Dtype>::Forward_gpu(
   // Color transformations
   // NOLINT_NEXT_LINE(whitespace/operators)
   color_transformations<<<CAFFE_GET_BLOCKS(bottom_pixels),
-    CAFFE_CUDA_NUM_THREADS>>>(bottom_data, tmp_data, bottom_shape, aug_data);
+    CAFFE_CUDA_NUM_THREADS, 0, stream>>>(bottom_data, tmp_data, bottom_shape, aug_data);
 
   // Mean subtraction
   if (t_param_.has_mean_file()) {
     // NOLINT_NEXT_LINE(whitespace/operators)
     pixel_mean_subtraction<<<CAFFE_GET_BLOCKS(bottom_pixels),
-      CAFFE_CUDA_NUM_THREADS>>>(tmp_data, mean_blob_.gpu_data(), bottom_shape);
+      CAFFE_CUDA_NUM_THREADS, 0, stream>>>(tmp_data, mean_blob_.gpu_data(), bottom_shape);
   } else if (t_param_.mean_value_size() != 0) {
     CHECK_EQ(bottom_shape.z, 3) << "Data must have 3 channels when "
       "using transform_param.mean_value.";
     // NOLINT_NEXT_LINE(whitespace/operators)
     channel_mean_subtraction<<<CAFFE_GET_BLOCKS(bottom_pixels),
-      CAFFE_CUDA_NUM_THREADS>>>(tmp_data, bottom_shape,
+      CAFFE_CUDA_NUM_THREADS, 0, stream>>>(tmp_data, bottom_shape,
         mean_values_[0] * UINT8_MAX,
         mean_values_[1] * UINT8_MAX,
         mean_values_[2] * UINT8_MAX);
@@ -412,14 +410,14 @@ void DetectNetTransformationLayer<Dtype>::Forward_gpu(
   // Spatial transformations
   // NOLINT_NEXT_LINE(whitespace/operators)
   spatial_transformations<<<CAFFE_GET_BLOCKS(top_pixels),
-    CAFFE_CUDA_NUM_THREADS>>>(tmp_data, bottom_shape, aug_data,
+    CAFFE_CUDA_NUM_THREADS, 0, stream>>>(tmp_data, bottom_shape, aug_data,
         top_data, top_shape);
 
   // Use CPU to transform labels
   const vector<vector<BboxLabel> > list_list_bboxes = blobToLabels(*bottom[1]);
   for (size_t i = 0; i < bottom[1]->num(); i++) {
     const vector<BboxLabel>& list_bboxes = list_list_bboxes[i];
-    Dtype* output_label = &top[1]->mutable_cpu_data()[
+    Dtype* output_label = &top[1]->mutable_cpu_data<Dtype>()[
       top[1]->offset(i, 0, 0, 0)
       ];
     transform_label_cpu(list_bboxes, output_label, augmentations[i],
@@ -428,7 +426,7 @@ void DetectNetTransformationLayer<Dtype>::Forward_gpu(
 }
 
 
-INSTANTIATE_LAYER_GPU_FUNCS(DetectNetTransformationLayer);
+INSTANTIATE_LAYER_GPU_FORWARD(DetectNetTransformationLayer);
 
 
 }  // namespace caffe
