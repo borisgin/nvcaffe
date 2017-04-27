@@ -122,7 +122,6 @@ shared_ptr<LayerBase> GetPoolingLayer(const LayerParameter& param,
                 << "Using Caffe's own pooling layer.";
       return CreateLayerBase<PoolingLayer>(param, ftype, btype);
     }
-    LOG(INFO) << "Creating CuDNNPoolingLayer";
     return CreateLayerBase<CuDNNPoolingLayer>(param, ftype, btype);
 #endif
   } else {
