@@ -23,9 +23,12 @@ GPUMemory::Manager GPUMemory::mgr_;
 // If there is a room to grow it tries
 // It keeps what it has otherwise
 bool GPUMemory::Workspace::safe_reserve(size_t size, int device) {
+  if (size <= size_) {
+    return false;
+  }
   size_t gpu_bytes_left, total_memory;
   GPUMemory::GetInfo(&gpu_bytes_left, &total_memory, true);
-  if (size <= size_ || size > size_ + align_down<7>(gpu_bytes_left)) {
+  if (size > size_ + align_down<7>(gpu_bytes_left)) {
     return false;
   }
   release();
