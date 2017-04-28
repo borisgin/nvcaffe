@@ -145,8 +145,8 @@ class Solver {
   string SnapshotToBinaryProto();
   string SnapshotToHDF5();
   // The test routine
-  void TestAll(const int iters = 0, bool use_multi_gpu = false);
-  void Test(const int test_net_id = 0, const int iters = 0, bool use_multi_gpu = false);
+  bool TestAll(const int iters = 0, bool use_multi_gpu = false);
+  bool Test(const int test_net_id = 0, const int iters = 0, bool use_multi_gpu = false);
   virtual void SnapshotSolverState(const string& model_filename) = 0;
   virtual void RestoreSolverStateFromHDF5(const string& state_file) = 0;
   virtual void RestoreSolverStateFromBinaryProto(const string& state_file) = 0;

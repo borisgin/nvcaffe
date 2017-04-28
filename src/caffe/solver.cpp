@@ -249,12 +249,16 @@ void Solver::Step(int iters) {
     const bool first_loop = iter_ == 0 || iterations_last_ < 0;
     if (first_loop) {
       // Running one test iteration to allocate all space needed TODO
-      TestAll(1, use_multi_gpu_testing);
+      if (TestAll(1, use_multi_gpu_testing)) {
+        break;
+      }
       callback_soft_barrier();
       LOG_IF(INFO, Caffe::root_solver()) << mgpu_str << "Initial Test completed";
     } else if (param_.test_interval() && iter_ % param_.test_interval() == 0) {
       test_timer_.Start();
-      TestAll(0, use_multi_gpu_testing);
+      if (TestAll(0, use_multi_gpu_testing)) {
+        break;
+      }
       callback_soft_barrier();
       float lapse = test_timer_.Seconds();
       LOG_IF(INFO, Caffe::root_solver()) << mgpu_str << "Tests completed in "
@@ -299,32 +303,33 @@ void Solver::Step(int iters) {
         total_lapse_ += lapse;
         float per_s = (iter_ - iterations_last_) / (lapse > 0.F ? lapse : 1.F);
         LOG_IF(INFO, Caffe::root_solver()) << "Iteration " << iter_
-            << " (" << per_s << " iter/s, " << lapse << "s/"
-            << param_.display() <<" iter), loss = " << smoothed_loss_;
-        const vector<Blob*>& result = net_->output_blobs();
-        int score_index = 0;
-        for (int j = 0; j < result.size(); ++j) {
-          const float* result_vec = result[j]->cpu_data<float>();
-          const string& output_name =
-              net_->blob_names()[net_->output_blob_indices()[j]];
-          const float loss_weight =
-              net_->blob_loss_weights()[net_->output_blob_indices()[j]];
-          for (int k = 0; k < result[j]->count(); ++k) {
-            ostringstream loss_msg_stream;
-            if (loss_weight) {
-              loss_msg_stream << " (* " << loss_weight
-                  << " = " << (loss_weight * result_vec[k]) << " loss)";
-            }
-            LOG_IF(INFO, Caffe::root_solver()) << "    Train net output #"
-                << score_index++ << ": " << output_name << " = "
-                << result_vec[k] << loss_msg_stream.str();
-          }
-        }
-        PrintRate();
+                                           << " (" << per_s << " iter/s, " << lapse << "s/"
+                                           << param_.display() << " iter), loss = "
+                                           << smoothed_loss_;
       } else {
         LOG_IF(INFO, Caffe::root_solver()) << "Iteration " << iter_
-            << " (" << lapse << " s), loss = " << smoothed_loss_;
+                                           << " (" << lapse << " s), loss = " << smoothed_loss_;
       }
+      const vector<Blob*>& result = net_->output_blobs();
+      int score_index = 0;
+      for (int j = 0; j < result.size(); ++j) {
+        const float* result_vec = result[j]->cpu_data<float>();
+        const string& output_name =
+            net_->blob_names()[net_->output_blob_indices()[j]];
+        const float loss_weight =
+            net_->blob_loss_weights()[net_->output_blob_indices()[j]];
+        for (int k = 0; k < result[j]->count(); ++k) {
+          ostringstream loss_msg_stream;
+          if (loss_weight) {
+            loss_msg_stream << " (* " << loss_weight
+                << " = " << (loss_weight * result_vec[k]) << " loss)";
+          }
+          LOG_IF(INFO, Caffe::root_solver()) << "    Train net output #"
+              << score_index++ << ": " << output_name << " = "
+              << result_vec[k] << loss_msg_stream.str();
+        }
+      }
+      PrintRate();
       iterations_last_ = iter_;
       iteration_timer_.Start();
     }
@@ -426,15 +431,18 @@ bool Solver::Solve(const char* resume_file) {
   return false;
 }
 
-void Solver::TestAll(const int iters, bool use_multi_gpu) {
+bool Solver::TestAll(const int iters, bool use_multi_gpu) {
   for (int test_net_id = 0;
        test_net_id < test_nets_.size() && !requested_early_exit_;
        ++test_net_id) {
-    Test(test_net_id, iters, use_multi_gpu);
+    if (Test(test_net_id, iters, use_multi_gpu)) {
+      return true;
+    }
   }
+  return false;
 }
 
-void Solver::Test(const int test_net_id, const int iters, bool use_multi_gpu) {
+bool Solver::Test(const int test_net_id, const int iters, bool use_multi_gpu) {
   LOG_IF(INFO, Caffe::root_solver()) << "Iteration " << iter_
             << ", Testing net (#" << test_net_id << ")";
   if (!test_nets_[test_net_id]->trained_layers_shared()) {
@@ -458,8 +466,9 @@ void Solver::Test(const int test_net_id, const int iters, bool use_multi_gpu) {
         request = GetRequestedAction();
     }
     if (requested_early_exit_) {
-      // break out of test loop.
-      break;
+      LOG(INFO) << "Test interrupted.";
+      Finalize();
+      return true;
     }
 
     float iter_loss;
@@ -504,11 +513,6 @@ void Solver::Test(const int test_net_id, const int iters, bool use_multi_gpu) {
     }
   }
 
-  if (requested_early_exit_) {
-    LOG(INFO) << "Test interrupted.";
-    Finalize();
-    return;
-  }
   if (param_.test_compute_loss()) {
     loss /= param_.test_iter(test_net_id);
     LOG(INFO) << "Test loss: " << loss;
@@ -528,6 +532,7 @@ void Solver::Test(const int test_net_id, const int iters, bool use_multi_gpu) {
     LOG_IF(INFO, Caffe::root_solver()) << "    Test net output #" << i <<
         ": " << output_name << " = " << mean_score << loss_msg_stream.str();
   }
+  return false;
 }
 
 void Solver::Snapshot() {
