@@ -57,7 +57,7 @@ class DataLayer : public BasePrefetchingDataLayer<Ftype, Btype> {
   shared_ptr<DataReader> sample_reader_, reader_;
   mutable vector<size_t> parser_offsets_, queue_ids_;
   Flag layer_inititialized_flag_;
-  std::atomic_bool sample_only_;  // TODO
+  std::atomic_bool sample_only_;
 };
 
 }  // namespace caffe

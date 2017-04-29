@@ -268,7 +268,7 @@ void DataTransformer<Dtype>::Transform(const Datum& datum,
           top_index = do_mirror ? (ch + h + 1) * width - 1 : (ch + h) * width;
           data_index = (cdho + h) * datum_width + w_off;
           for (int w = 0; w < width; ++w) {
-            datum_element = data[data_index];
+            datum_element = static_cast<unsigned char>(data[data_index]);
             if (has_mean_file) {
               transformed_data[top_index] = (datum_element - mean[data_index]) * scale;
             } else {

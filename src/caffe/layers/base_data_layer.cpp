@@ -62,7 +62,7 @@ template<typename Ftype, typename Btype>
 BasePrefetchingDataLayer<Ftype, Btype>::BasePrefetchingDataLayer(const LayerParameter& param)
     : BaseDataLayer<Ftype, Btype>(param, threads(param)),
       InternalThread(Caffe::current_device(), this->solver_rank_, threads(param), false),
-      auto_mode_(auto_mode(param)),
+      auto_mode_(Caffe::mode() == Caffe::GPU && auto_mode(param)),
       parsers_num_(parser_threads(param)),
       transf_num_(threads(param)),
       queues_num_(transf_num_ * parsers_num_),
