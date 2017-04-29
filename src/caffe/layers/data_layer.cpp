@@ -43,20 +43,23 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
   if (layer_inititialized_flag_.is_set()) {
     return;
   }
-#ifndef CPU_ONLY
   bool init_parent = true;
-  if (this->phase_ == TRAIN && this->auto_mode_) {
+  if (Caffe::mode() == Caffe::GPU && this->phase_ == TRAIN && this->auto_mode_) {
     // Here we try to optimize memory split between prefetching and convolution.
     // All data and parameter blobs are allocated at this moment.
     // Now let's find out what's left...
     size_t current_parsers_num_ = this->parsers_num_;
     size_t current_transf_num_ = this->threads_num();
     size_t current_queues_num_ = current_parsers_num_ * current_transf_num_;
+#ifndef CPU_ONLY
     const size_t batch_bytes = this->prefetch_[0]->bytes(this->is_gpu_transform());
     size_t gpu_bytes, total_memory;
     GPUMemory::GetInfo(&gpu_bytes, &total_memory);
     size_t batches_fit = gpu_bytes / batch_bytes;
     size_t total_batches_fit = current_queues_num_ + batches_fit;
+#else
+    size_t total_batches_fit = current_queues_num_;
+#endif
     float ratio = 3.F;
     Net* pnet = this->parent_net();
     if (pnet != nullptr) {
@@ -93,7 +96,6 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
   } else {
     this->go();  // kick off new threads if any
   }
-#endif
   CHECK_EQ(this->threads_num(), this->transf_num_);
   LOG(INFO) << "[" << Caffe::current_device() << "] Number of parser threads: "
       << this->parsers_num_ << (this->auto_mode_ ? " (auto)" : "");
@@ -120,7 +122,7 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
   const int batch_size = param.data_param().batch_size();
   const bool use_gpu_transform = this->is_gpu_transform();
 
-  if (this->phase_ == TRAIN && this->auto_mode_) {
+  if (Caffe::mode() == Caffe::GPU && this->phase_ == TRAIN && this->auto_mode_) {
     if (!sample_reader_) {
       sample_reader_ = make_shared<DataReader>(param,
           Caffe::solver_count(),

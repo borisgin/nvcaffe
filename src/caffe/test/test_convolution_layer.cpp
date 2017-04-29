@@ -190,6 +190,10 @@ TYPED_TEST_CASE(ConvolutionLayerTest, TestDtypesAndDevices);
 TYPED_TEST(ConvolutionLayerTest, TestSetup) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter layer_param;
+  layer_param.set_forward_type(tp<Dtype>());
+  layer_param.set_backward_type(tp<Dtype>());
+  layer_param.set_forward_math(tp<Dtype>());
+  layer_param.set_backward_math(tp<Dtype>());
   ConvolutionParameter* convolution_param = layer_param.mutable_convolution_param();
   convolution_param->add_kernel_size(3);
   convolution_param->add_stride(2);
@@ -226,6 +230,10 @@ TYPED_TEST(ConvolutionLayerTest, TestSimpleConvolution) {
   this->blob_bottom_vec_.push_back(this->blob_bottom_2_);
   this->blob_top_vec_.push_back(this->blob_top_2_);
   LayerParameter layer_param;
+  layer_param.set_forward_type(tp<Dtype>());
+  layer_param.set_backward_type(tp<Dtype>());
+  layer_param.set_forward_math(tp<Dtype>());
+  layer_param.set_backward_math(tp<Dtype>());
   ConvolutionParameter* convolution_param = layer_param.mutable_convolution_param();
   convolution_param->add_kernel_size(3);
   convolution_param->add_stride(2);
@@ -268,6 +276,10 @@ TYPED_TEST(ConvolutionLayerTest, TestDilatedConvolution) {
     this->blob_bottom_vec_[i]->Reshape(bottom_shape);
   }
   LayerParameter layer_param;
+  layer_param.set_forward_type(tp<Dtype>());
+  layer_param.set_backward_type(tp<Dtype>());
+  layer_param.set_forward_math(tp<Dtype>());
+  layer_param.set_backward_math(tp<Dtype>());
   ConvolutionParameter* convolution_param = layer_param.mutable_convolution_param();
   convolution_param->add_kernel_size(3);
   convolution_param->add_dilation(2);
@@ -300,6 +312,10 @@ TYPED_TEST(ConvolutionLayerTest, TestDilatedConvolution) {
 TYPED_TEST(ConvolutionLayerTest, Test0DConvolution) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter layer_param;
+  layer_param.set_forward_type(tp<Dtype>());
+  layer_param.set_backward_type(tp<Dtype>());
+  layer_param.set_forward_math(tp<Dtype>());
+  layer_param.set_backward_math(tp<Dtype>());
   ConvolutionParameter* convolution_param = layer_param.mutable_convolution_param();
   const int kNumOutput = 3;
   convolution_param->set_num_output(kNumOutput);
@@ -350,6 +366,10 @@ TYPED_TEST(ConvolutionLayerTest, TestSimple3DConvolution) {
     filler.Fill(this->blob_bottom_vec_[i]);
   }
   LayerParameter layer_param;
+  layer_param.set_forward_type(tp<Dtype>());
+  layer_param.set_backward_type(tp<Dtype>());
+  layer_param.set_forward_math(tp<Dtype>());
+  layer_param.set_backward_math(tp<Dtype>());
   ConvolutionParameter* convolution_param = layer_param.mutable_convolution_param();
   convolution_param->add_kernel_size(3);
   convolution_param->add_stride(2);
@@ -395,6 +415,10 @@ TYPED_TEST(ConvolutionLayerTest, TestDilated3DConvolution) {
     filler.Fill(this->blob_bottom_vec_[i]);
   }
   LayerParameter layer_param;
+  layer_param.set_forward_type(tp<Dtype>());
+  layer_param.set_backward_type(tp<Dtype>());
+  layer_param.set_forward_math(tp<Dtype>());
+  layer_param.set_backward_math(tp<Dtype>());
   ConvolutionParameter* convolution_param = layer_param.mutable_convolution_param();
   convolution_param->add_kernel_size(3);
   convolution_param->add_dilation(2);
@@ -428,6 +452,10 @@ TYPED_TEST(ConvolutionLayerTest, TestDilated3DConvolution) {
 TYPED_TEST(ConvolutionLayerTest, Test1x1Convolution) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter layer_param;
+  layer_param.set_forward_type(tp<Dtype>());
+  layer_param.set_backward_type(tp<Dtype>());
+  layer_param.set_forward_math(tp<Dtype>());
+  layer_param.set_backward_math(tp<Dtype>());
   ConvolutionParameter* convolution_param = layer_param.mutable_convolution_param();
   convolution_param->add_kernel_size(1);
   convolution_param->add_stride(1);
@@ -453,6 +481,10 @@ TYPED_TEST(ConvolutionLayerTest, Test1x1Convolution) {
 TYPED_TEST(ConvolutionLayerTest, TestSimpleConvolutionGroup) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter layer_param;
+  layer_param.set_forward_type(tp<Dtype>());
+  layer_param.set_backward_type(tp<Dtype>());
+  layer_param.set_forward_math(tp<Dtype>());
+  layer_param.set_backward_math(tp<Dtype>());
   ConvolutionParameter* convolution_param = layer_param.mutable_convolution_param();
   convolution_param->add_kernel_size(3);
   convolution_param->add_stride(2);
@@ -490,6 +522,10 @@ TYPED_TEST(ConvolutionLayerTest, TestSobelConvolution) {
   this->blob_bottom_2_->CopyFrom(*this->blob_bottom_);
   // Compute Sobel G_x operator as 3 x 3 convolution.
   LayerParameter layer_param;
+  layer_param.set_forward_type(tp<Dtype>());
+  layer_param.set_backward_type(tp<Dtype>());
+  layer_param.set_forward_math(tp<Dtype>());
+  layer_param.set_backward_math(tp<Dtype>());
   ConvolutionParameter* convolution_param = layer_param.mutable_convolution_param();
   convolution_param->add_kernel_size(3);
   convolution_param->add_stride(2);
@@ -583,6 +619,10 @@ TYPED_TEST(ConvolutionLayerTest, TestNDAgainst2D) {
     filler.Fill(this->blob_bottom_vec_[i]);
   }
   LayerParameter layer_param;
+  layer_param.set_forward_type(tp<Dtype>());
+  layer_param.set_backward_type(tp<Dtype>());
+  layer_param.set_forward_math(tp<Dtype>());
+  layer_param.set_backward_math(tp<Dtype>());
   ConvolutionParameter* convolution_param = layer_param.mutable_convolution_param();
   convolution_param->set_num_output(12);
   convolution_param->set_bias_term(false);
@@ -690,6 +730,10 @@ TYPED_TEST(ConvolutionLayerTest, TestNDAgainst2D) {
 TYPED_TEST(ConvolutionLayerTest, TestGradient) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter layer_param;
+  layer_param.set_forward_type(tp<Dtype>());
+  layer_param.set_backward_type(tp<Dtype>());
+  layer_param.set_forward_math(tp<Dtype>());
+  layer_param.set_backward_math(tp<Dtype>());
   ConvolutionParameter* convolution_param = layer_param.mutable_convolution_param();
   this->blob_bottom_vec_.push_back(this->blob_bottom_2_);
   this->blob_top_vec_.push_back(this->blob_top_2_);
@@ -706,6 +750,10 @@ TYPED_TEST(ConvolutionLayerTest, TestGradient) {
 TYPED_TEST(ConvolutionLayerTest, TestDilatedGradient) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter layer_param;
+  layer_param.set_forward_type(tp<Dtype>());
+  layer_param.set_backward_type(tp<Dtype>());
+  layer_param.set_forward_math(tp<Dtype>());
+  layer_param.set_backward_math(tp<Dtype>());
   ConvolutionParameter* convolution_param = layer_param.mutable_convolution_param();
   vector<int> bottom_shape;
   bottom_shape.push_back(2);
@@ -728,6 +776,10 @@ TYPED_TEST(ConvolutionLayerTest, TestDilatedGradient) {
 TYPED_TEST(ConvolutionLayerTest, TestGradient3D) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter layer_param;
+  layer_param.set_forward_type(tp<Dtype>());
+  layer_param.set_backward_type(tp<Dtype>());
+  layer_param.set_forward_math(tp<Dtype>());
+  layer_param.set_backward_math(tp<Dtype>());
   ConvolutionParameter* convolution_param = layer_param.mutable_convolution_param();
   vector<int> bottom_shape(5);
   bottom_shape[0] = this->blob_bottom_vec_[0]->shape(0);
@@ -754,6 +806,10 @@ TYPED_TEST(ConvolutionLayerTest, TestGradient3D) {
 TYPED_TEST(ConvolutionLayerTest, Test1x1Gradient) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter layer_param;
+  layer_param.set_forward_type(tp<Dtype>());
+  layer_param.set_backward_type(tp<Dtype>());
+  layer_param.set_forward_math(tp<Dtype>());
+  layer_param.set_backward_math(tp<Dtype>());
   ConvolutionParameter* convolution_param = layer_param.mutable_convolution_param();
   this->blob_bottom_vec_.push_back(this->blob_bottom_2_);
   this->blob_top_vec_.push_back(this->blob_top_2_);
@@ -770,6 +826,10 @@ TYPED_TEST(ConvolutionLayerTest, Test1x1Gradient) {
 TYPED_TEST(ConvolutionLayerTest, TestGradientGroup) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter layer_param;
+  layer_param.set_forward_type(tp<Dtype>());
+  layer_param.set_backward_type(tp<Dtype>());
+  layer_param.set_forward_math(tp<Dtype>());
+  layer_param.set_backward_math(tp<Dtype>());
   ConvolutionParameter* convolution_param = layer_param.mutable_convolution_param();
   convolution_param->add_kernel_size(3);
   convolution_param->add_stride(2);
@@ -830,6 +890,10 @@ TYPED_TEST(CuDNNConvolutionLayerTest, TestSetupCuDNN) {
   this->blob_bottom_vec_.push_back(this->blob_bottom_2_);
   this->blob_top_vec_.push_back(this->blob_top_2_);
   LayerParameter layer_param;
+  layer_param.set_forward_type(tp<TypeParam>());
+  layer_param.set_backward_type(tp<TypeParam>());
+  layer_param.set_forward_math(tp<TypeParam>());
+  layer_param.set_backward_math(tp<TypeParam>());
   ConvolutionParameter* convolution_param = layer_param.mutable_convolution_param();
   convolution_param->add_kernel_size(3);
   convolution_param->add_stride(2);
@@ -866,6 +930,10 @@ TYPED_TEST(CuDNNConvolutionLayerTest, TestSimpleConvolutionCuDNN) {
   this->blob_bottom_vec_.push_back(this->blob_bottom_2_);
   this->blob_top_vec_.push_back(this->blob_top_2_);
   LayerParameter layer_param;
+  layer_param.set_forward_type(tp<TypeParam>());
+  layer_param.set_backward_type(tp<TypeParam>());
+  layer_param.set_forward_math(tp<TypeParam>());
+  layer_param.set_backward_math(tp<TypeParam>());
   ConvolutionParameter* convolution_param = layer_param.mutable_convolution_param();
   convolution_param->add_kernel_size(3);
   convolution_param->add_stride(2);
@@ -898,6 +966,10 @@ TYPED_TEST(CuDNNConvolutionLayerTest, TestSimpleConvolutionCuDNN) {
 
 TYPED_TEST(CuDNNConvolutionLayerTest, TestSimpleConvolutionGroupCuDNN) {
   LayerParameter layer_param;
+  layer_param.set_forward_type(tp<TypeParam>());
+  layer_param.set_backward_type(tp<TypeParam>());
+  layer_param.set_forward_math(tp<TypeParam>());
+  layer_param.set_backward_math(tp<TypeParam>());
   ConvolutionParameter* convolution_param = layer_param.mutable_convolution_param();
   convolution_param->add_kernel_size(3);
   convolution_param->add_stride(2);
@@ -936,6 +1008,10 @@ TYPED_TEST(CuDNNConvolutionLayerTest, TestSobelConvolutionCuDNN) {
   this->blob_bottom_2_->CopyFrom(*this->blob_bottom_);
   // Compute Sobel G_x operator as 3 x 3 convolution.
   LayerParameter layer_param;
+  layer_param.set_forward_type(tp<TypeParam>());
+  layer_param.set_backward_type(tp<TypeParam>());
+  layer_param.set_forward_math(tp<TypeParam>());
+  layer_param.set_backward_math(tp<TypeParam>());
   ConvolutionParameter* convolution_param = layer_param.mutable_convolution_param();
   convolution_param->add_kernel_size(3);
   convolution_param->add_stride(2);
