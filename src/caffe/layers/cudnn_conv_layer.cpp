@@ -201,51 +201,38 @@ void CuDNNConvolutionLayer<Ftype, Btype>::LayerSetUp(
   use_reshape_ = true;
   // When true, cached bottom and conv descriptors need to be set.
   initialized_cached_descs_ = false;
-  max_groups_ = groups();
 }
 
 template <typename Ftype, typename Btype>
 size_t CuDNNConvolutionLayer<Ftype, Btype>::ComputeFindExWorkspaceSize() {
   if (this->phase_ == TEST) {
-    return INITIAL_WORKSPACE_SIZE * max_groups_;
+    return INITIAL_WORKSPACE_SIZE * groups();
   }
   size_t workspace_limit_bytes, total_memory, workspace_bytes = 0UL;
   GPUMemory::GetInfo(&workspace_limit_bytes, &total_memory, true);
-  const size_t weights_size = even(this->weight_offset_) * sizeof(Btype);
-  workspace_limit_bytes = workspace_limit_bytes > weights_size ?
-      workspace_limit_bytes - weights_size : 0UL;
-  // TODO no more than 3/4?
-  workspace_limit_bytes = std::min(workspace_limit_bytes, total_memory * 3 / 4);
   if (mem_size_estimated_ > 0UL) {
-    // Try to use the amount estimated per group
-    workspace_bytes = align_down<7>(static_cast<size_t>(mem_size_estimated_ * MAX_WORKSPACE_RATIO));
+    // Try to use the amount estimated for all groups
+    workspace_bytes = align_down<7>(
+        std::min(static_cast<size_t>(total_memory * MAX_WORKSPACE_RATIO),
+            static_cast<size_t>(mem_size_estimated_)));
     if (workspace_bytes <= workspace_.size()) {
       return workspace_.size();  // job is done by previous layer on this GPU
     }
     if (workspace_bytes > workspace_limit_bytes) {
       LOG(WARNING) << "[" << Caffe::current_device()
-          << "] Estimated convolution workspace requirement ("
+          << "] Current workspace (" << std::round(workspace_.size() * 1.e-7) * 0.01F << "G)"
+          << " Estimated requirement ("
           << std::round(workspace_bytes * 1.e-7) * 0.01F
-          << "G) is greater than available ("
-          << std::round(workspace_limit_bytes  * 1.e-7) * 0.01F
-          << "G). This might slow down convolution layers.";
+          << "G).";
       workspace_bytes = align_down<7>(workspace_limit_bytes);
     }
   } else {
     // Use 99% of available memory for all groups otherwise (never happened yet)
     workspace_limit_bytes *= MAX_WORKSPACE_RATIO;
-    workspace_bytes = std::max(workspace_.size(),
-        align_down<7>(workspace_limit_bytes / groups()));
+    workspace_bytes = std::max(workspace_.size(), align_down<7>(workspace_limit_bytes));
   }
-  int attempts = ATTEMPTS_TO_RESERVE_WS;
-  while (!workspace_.try_reserve(workspace_bytes) && attempts > 0) {
-    workspace_bytes *= MAX_WORKSPACE_RATIO;
-    workspace_bytes = align_down<7>(workspace_bytes);
-    --attempts;
-    LOG(INFO) << "[" << Caffe::current_device() << "] Retrying to allocate " << workspace_bytes
-              << " bytes, attempts left: " << attempts;
-  }
-  return workspace_bytes;
+  workspace_.safe_reserve(workspace_bytes);
+  return workspace_.size();
 }
 
 template <typename Ftype, typename Btype>
@@ -367,8 +354,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
     if (use_modest_workspace_) {
       // In iteration 0, use a small amount of memory in order to leave
       // most of memory for allocating layer blobs.
-      max_groups_ = std::max(max_groups_, groups());
-      workspace_bytes = INITIAL_WORKSPACE_SIZE * max_groups_;
+      workspace_bytes = INITIAL_WORKSPACE_SIZE * groups();
     } else {
       workspace_bytes = ComputeFindExWorkspaceSize();
       // Avoid seeking for an algorithm in subsequent iterations
@@ -468,6 +454,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::EstimateMaxWorkspaceSize(const vector<
         status = cudnnGetConvolutionForwardWorkspaceSize(Caffe::cudnn_handle(),
             fwd_bottom_descs_[i], fwd_filter_desc_, fwd_conv_descs_[i], fwd_top_descs_[i],
             (cudnnConvolutionFwdAlgo_t) a, &size);
+        size *= groups();
         if (status == CUDNN_STATUS_SUCCESS) {
           if (mem_size_estimated_ < size && size < available_memory) {
             mem_size_estimated_ = size;
@@ -502,6 +489,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::EstimateMaxWorkspaceSize(const vector<
         status = cudnnGetConvolutionBackwardDataWorkspaceSize(Caffe::cudnn_handle(),
             bwd_filter_desc_, bwd_top_descs_[i], bwd_conv_data_descs_[i], bwd_bottom_descs_[i],
             (cudnnConvolutionBwdDataAlgo_t) a, &size);
+        size *= groups();
         if (status == CUDNN_STATUS_SUCCESS) {
           if (mem_size_estimated_ < size && size < available_memory) {
             mem_size_estimated_ = size;
@@ -536,6 +524,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::EstimateMaxWorkspaceSize(const vector<
         status = cudnnGetConvolutionBackwardFilterWorkspaceSize(Caffe::cudnn_handle(),
             bwd_bottom_descs_[i], bwd_top_descs_[i], bwd_conv_filter_descs_[i], bwd_filter_desc_,
             (cudnnConvolutionBwdFilterAlgo_t) a, &size);
+        size *= groups();
         if (status == CUDNN_STATUS_SUCCESS) {
           if (mem_size_estimated_ < size && size < available_memory) {
             mem_size_estimated_ = size;
@@ -919,16 +908,16 @@ bool CuDNNConvolutionLayer<Ftype, Btype>::data_algo_fallback(int i, int pad_h,
 template <typename Ftype, typename Btype>
 void CuDNNConvolutionLayer<Ftype, Btype>::UpdateWorkspaceDemand(int size) {
   // Updating maximum mem_size_required_ and max_groups_
-  max_groups_ = std::max(max_groups_, groups());
+  size_t pgroups = groups();
   for (int i = 0; i < size; ++i) {
-    if (align_up<7>(workspace_fwd_sizes_[i]) * max_groups_ > mem_req_all_grps_) {
-      mem_req_all_grps_ = align_up<7>(workspace_fwd_sizes_[i]) * max_groups_;
+    if (align_up<7>(workspace_fwd_sizes_[i]) * pgroups > mem_req_all_grps_) {
+      mem_req_all_grps_ = align_up<7>(workspace_fwd_sizes_[i]) * pgroups;
     }
-    if (align_up<7>(workspace_bwd_data_sizes_[i]) * max_groups_ > mem_req_all_grps_) {
-      mem_req_all_grps_ = align_up<7>(workspace_bwd_data_sizes_[i]) * max_groups_;
+    if (align_up<7>(workspace_bwd_data_sizes_[i]) * pgroups > mem_req_all_grps_) {
+      mem_req_all_grps_ = align_up<7>(workspace_bwd_data_sizes_[i]) * pgroups;
     }
-    if (align_up<7>(workspace_bwd_filter_sizes_[i]) * max_groups_ > mem_req_all_grps_) {
-      mem_req_all_grps_ = align_up<7>(workspace_bwd_filter_sizes_[i]) * max_groups_;
+    if (align_up<7>(workspace_bwd_filter_sizes_[i]) * pgroups > mem_req_all_grps_) {
+      mem_req_all_grps_ = align_up<7>(workspace_bwd_filter_sizes_[i]) * pgroups;
     }
   }
 }
