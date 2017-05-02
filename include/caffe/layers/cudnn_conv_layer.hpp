@@ -46,8 +46,6 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
   // when we start third pass. We might recompute it later if demand grows
   // and/or we suddenly need to get extra memory for other needs.
   static thread_local size_t mem_size_estimated_, mem_req_all_grps_;
-  // Maximum number of groups we ever met in this GPU thread
-  static thread_local int max_groups_;
   // Workspace used by all Convolution layers one after another.
   // We carry it global to prevent unnecessary allocations/deallocations
   // because they hurt performance.
@@ -118,7 +116,6 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
   bool initialized_cached_descs_;
   static constexpr int MAX_PARALLEL_GROUPS = 2;
   static constexpr int REQUEST_ALGO_COUNT = 3;
-  static constexpr int ATTEMPTS_TO_RESERVE_WS = 3;
 
   // For performance reasons and better memory management we don't go beyond the limit
   int groups() {
@@ -151,9 +148,6 @@ template<typename Ftype, typename Btype>
 constexpr int CuDNNConvolutionLayer<Ftype, Btype>::REQUEST_ALGO_COUNT;
 
 template<typename Ftype, typename Btype>
-constexpr int CuDNNConvolutionLayer<Ftype, Btype>::ATTEMPTS_TO_RESERVE_WS;
-
-template<typename Ftype, typename Btype>
 thread_local GPUMemory::Workspace CuDNNConvolutionLayer<Ftype, Btype>::tmp_weights_;
 
 template<typename Ftype, typename Btype>
@@ -161,9 +155,6 @@ thread_local size_t CuDNNConvolutionLayer<Ftype, Btype>::mem_size_estimated_;
 
 template<typename Ftype, typename Btype>
 thread_local size_t CuDNNConvolutionLayer<Ftype, Btype>::mem_req_all_grps_;
-
-template<typename Ftype, typename Btype>
-thread_local int CuDNNConvolutionLayer<Ftype, Btype>::max_groups_;
 
 #endif
 

@@ -131,14 +131,14 @@ void BasePrefetchingDataLayer<Ftype, Btype>::InternalThreadEntryN(size_t thread_
 #endif
 
       if (iter0) {
+        if (this->net_iteration0_flag_ != nullptr) {
+          this->net_iteration0_flag_->wait();
+        }
         std::lock_guard<std::mutex> lock(mutex_out_);
         if (this->net_inititialized_flag_ != nullptr) {
           this->net_inititialized_flag_ = nullptr;  // no wait on the second round
           InitializePrefetch();
           start_reading();
-        }
-        if (this->net_iteration0_flag_ != nullptr) {
-          this->net_iteration0_flag_->wait();
         }
         if (this->auto_mode_) {
           break;
