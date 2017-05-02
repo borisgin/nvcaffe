@@ -122,7 +122,8 @@ void DataReader::CursorManager::next(Datum* datum) {
     rec_id_ += full_cycle_ - batch_size_;
     rec_end_ += full_cycle_;
   }
-  for (size_t i = old_id; i < rec_id_; ++i) {
+  size_t rnd_skip = 0UL;  // batch_size_ > 100 ? (caffe_rng_rand() % 5) : 0UL;
+  for (size_t i = old_id; i < rec_id_ + rnd_skip; ++i) {
     cursor_->Next();
     if (!cursor_->valid()) {
       LOG_IF(INFO, solver_rank_ == 0 && parser_thread_id_ == 0)
