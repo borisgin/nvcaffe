@@ -309,19 +309,24 @@ REGISTER_LAYER_CREATOR(DetectNetTransformation, GetDetectNetTransformationLayer)
 #endif
 
 #ifdef WITH_PYTHON_LAYER
-shared_ptr<LayerBase> GetPythonLayer(const LayerParameter& param,
-    Type ftype, Type) {
-  std::lock_guard<std::mutex> lock(PythonLayer<float, float>::mutex());
-  if (!Py_IsInitialized()) {
-    Py_Initialize();
-  }
+shared_ptr<LayerBase> GetPythonLayer(const LayerParameter& param, Type, Type) {
   try {
+    shared_ptr<LayerBase> ret;
+    std::lock_guard<std::mutex> lock(PythonLayer<float, float>::init_mutex());
+    if (!Py_IsInitialized()) {
+      Py_Initialize();
+    }
+    Py_BEGIN_ALLOW_THREADS;
+    PyGILState_STATE state = PyGILState_Ensure();
+    LOG(INFO) << "Importing Python module '" << param.python_param().module() << "'";
     bp::object module = bp::import(param.python_param().module().c_str());
     bp::object layer = module.attr(param.python_param().layer().c_str())(param);
-    return bp::extract<shared_ptr<LayerBase> >(layer)();
-  } catch (bp::error_already_set) {
-    PyErr_Print();
-    throw;
+    ret = bp::extract<shared_ptr<LayerBase>>(layer)();
+    PyGILState_Release(state);
+    Py_END_ALLOW_THREADS;
+    return ret;
+  } catch (...) {
+    PyErrReport(true);
   }
 }
 
