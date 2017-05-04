@@ -1,6 +1,7 @@
 // Make sure we include Python.h before any system header
 // to avoid _POSIX_C_SOURCE redefinition
 #ifdef WITH_PYTHON_LAYER
+#include <boost/filesystem.hpp>
 #include <boost/python.hpp>
 #endif
 #include <string>
@@ -311,22 +312,17 @@ REGISTER_LAYER_CREATOR(DetectNetTransformation, GetDetectNetTransformationLayer)
 #ifdef WITH_PYTHON_LAYER
 shared_ptr<LayerBase> GetPythonLayer(const LayerParameter& param, Type, Type) {
   try {
-    shared_ptr<LayerBase> ret;
-    std::lock_guard<std::mutex> lock(PythonLayer<float, float>::init_mutex());
-    if (!Py_IsInitialized()) {
-      Py_Initialize();
-    }
-    Py_BEGIN_ALLOW_THREADS;
-    PyGILState_STATE state = PyGILState_Ensure();
-    LOG(INFO) << "Importing Python module '" << param.python_param().module() << "'";
-    bp::object module = bp::import(param.python_param().module().c_str());
+    std::lock_guard<std::mutex> lock(PythonLayer<float, float>::mutex());
+    static thread_local PyInit pi;
+    bp::object module;
+    PYTHON_CALL_BEGIN
+      LOG(INFO) << "Importing Python module '" << param.python_param().module() << "'";
+      module = bp::import(param.python_param().module().c_str());
+    PYTHON_CALL_END
     bp::object layer = module.attr(param.python_param().layer().c_str())(param);
-    ret = bp::extract<shared_ptr<LayerBase>>(layer)();
-    PyGILState_Release(state);
-    Py_END_ALLOW_THREADS;
-    return ret;
+    return bp::extract<shared_ptr<LayerBase>>(layer)();
   } catch (...) {
-    PyErrReport(true);
+    PyErrReport();
   }
 }
 
