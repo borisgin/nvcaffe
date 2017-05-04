@@ -10,19 +10,6 @@ namespace bp = boost::python;
 
 namespace caffe {
 
-inline void PyErrReport(bool fatal = false) {
-  PyObject *ptype, *pvalue, *ptraceback;
-  PyErr_Fetch(&ptype, &pvalue, &ptraceback);
-  if (pvalue != nullptr) {
-    const char* message = PyString_AsString(pvalue);
-    if (fatal) {
-      LOG(FATAL) << message;
-    } else {
-      LOG(ERROR) << message;
-    }
-  }
-}
-
 #define PYTHON_CALL_BEGIN                       \
 try {                                           \
   std::lock_guard<std::mutex> lock(mutex());    \
@@ -33,7 +20,7 @@ try {                                           \
   PyGILState_Release(state);                    \
   Py_END_ALLOW_THREADS;                         \
 } catch (...) {                                 \
-  PyErrReport();                                \
+  PyErr_Print();                                \
 }
 
 template <typename Ftype, typename Btype>

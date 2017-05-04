@@ -317,16 +317,16 @@ shared_ptr<LayerBase> GetPythonLayer(const LayerParameter& param, Type, Type) {
       Py_Initialize();
     }
     Py_BEGIN_ALLOW_THREADS;
-    PyGILState_STATE state = PyGILState_Ensure();
+//    PyGILState_STATE state = PyGILState_Ensure();
     LOG(INFO) << "Importing Python module '" << param.python_param().module() << "'";
     bp::object module = bp::import(param.python_param().module().c_str());
     bp::object layer = module.attr(param.python_param().layer().c_str())(param);
     ret = bp::extract<shared_ptr<LayerBase>>(layer)();
-    PyGILState_Release(state);
+//    PyGILState_Release(state);
     Py_END_ALLOW_THREADS;
     return ret;
   } catch (...) {
-    PyErrReport(true);
+    PyErr_Print();
   }
 }
 
