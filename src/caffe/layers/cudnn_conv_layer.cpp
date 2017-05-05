@@ -210,28 +210,32 @@ size_t CuDNNConvolutionLayer<Ftype, Btype>::ComputeFindExWorkspaceSize() {
   }
   size_t workspace_limit_bytes, total_memory, workspace_bytes = 0UL;
   GPUMemory::GetInfo(&workspace_limit_bytes, &total_memory, true);
-  if (mem_size_estimated_ > 0UL) {
-    // Try to use the amount estimated for all groups
-    workspace_bytes = align_down<7>(
-        std::min(static_cast<size_t>(total_memory * MAX_WORKSPACE_RATIO),
-            static_cast<size_t>(mem_size_estimated_)));
-    if (workspace_bytes <= workspace_.size()) {
-      return workspace_.size();  // job is done by previous layer on this GPU
-    }
-    if (workspace_bytes > workspace_limit_bytes) {
-      LOG(WARNING) << "[" << Caffe::current_device()
-          << "] Current workspace (" << std::round(workspace_.size() * 1.e-7) * 0.01F << "G)"
-          << " Estimated requirement ("
-          << std::round(workspace_bytes * 1.e-7) * 0.01F
-          << "G).";
-      workspace_bytes = align_down<7>(workspace_limit_bytes);
-    }
-  } else {
-    // Use 99% of available memory for all groups otherwise (never happened yet)
-    workspace_limit_bytes *= MAX_WORKSPACE_RATIO;
-    workspace_bytes = std::max(workspace_.size(), align_down<7>(workspace_limit_bytes));
+  if (mem_size_estimated_ == 0UL) {
+    mem_size_estimated_ = workspace_limit_bytes;
   }
-  workspace_.safe_reserve(workspace_bytes);
+  // Try to use the amount estimated for all groups
+  workspace_bytes = align_down<7>(
+      std::min(static_cast<size_t>(total_memory - PAGE_SIZE),
+          static_cast<size_t>(mem_size_estimated_)));
+  if (workspace_bytes <= workspace_.size()) {
+    return workspace_.size();  // job is done by previous layer on this GPU
+  }
+  workspace_limit_bytes = workspace_limit_bytes > PAGE_SIZE ?
+      workspace_limit_bytes - PAGE_SIZE : 0UL;
+  if (workspace_bytes > workspace_limit_bytes) {
+    LOG(WARNING) << "[" << Caffe::current_device()
+        << "] Current workspace (" << std::round(workspace_.size() * 1.e-7) * 0.01F << "G)"
+        << " Estimated requirement (" << std::round(workspace_bytes * 1.e-7) * 0.01F << "G).";
+    workspace_bytes = align_down<7>(workspace_limit_bytes);
+  }
+  int attempts = ATTEMPTS_TO_RESERVE_WS;
+  while (!workspace_.try_reserve(workspace_bytes) && attempts > 0) {
+    workspace_bytes = workspace_bytes > PAGE_SIZE ? workspace_bytes - PAGE_SIZE : 0UL;
+    workspace_bytes = align_down<7>(workspace_bytes);
+    --attempts;
+    LOG(INFO) << "[" << Caffe::current_device() << "] Retrying to allocate " << workspace_bytes
+              << " bytes, attempts left: " << attempts;
+  }
   return workspace_.size();
 }
 
