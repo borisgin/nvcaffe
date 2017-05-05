@@ -13,7 +13,9 @@ namespace caffe {
 
 template<typename Ftype, typename Btype>
 DataLayer<Ftype, Btype>::DataLayer(const LayerParameter& param)
-  : BasePrefetchingDataLayer<Ftype, Btype>(param) {
+  : BasePrefetchingDataLayer<Ftype, Btype>(param),
+    cache_(param.data_param().cache()),
+    shuffle_(param.data_param().shuffle()) {
   sample_only_.store(this->auto_mode_ && this->phase_ == TRAIN);
   init_offsets();
 }
@@ -123,6 +125,8 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
   const LayerParameter& param = this->layer_param();
   const int batch_size = param.data_param().batch_size();
   const bool use_gpu_transform = this->is_gpu_transform();
+  const bool cache = cache_ && this->phase_ == TRAIN;
+  const bool shuffle = cache && shuffle_ && this->phase_ == TRAIN;
 
   if (Caffe::mode() == Caffe::GPU && this->phase_ == TRAIN && this->auto_mode_) {
     if (!sample_reader_) {
@@ -131,7 +135,11 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
           this->solver_rank_,
           this->parsers_num_,
           this->threads_num(),
-          batch_size, true, false);
+          batch_size,
+          true,
+          false,
+          cache,
+          shuffle);
     } else if (!reader_) {
       reader_ = make_shared<DataReader>(param,
           Caffe::solver_count(),
@@ -140,7 +148,9 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
           this->threads_num(),
           batch_size,
           false,
-          true);
+          true,
+          cache,
+          shuffle);
     } else {
       // still need to run the rest
     }
@@ -152,7 +162,9 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
         this->threads_num(),
         batch_size,
         false,
-        false);
+        false,
+        cache,
+        shuffle);
     start_reading();
   }
   // Read a data point, and use it to initialize the top blob.

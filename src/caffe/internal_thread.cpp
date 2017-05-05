@@ -16,7 +16,7 @@ InternalThread::InternalThread(int target_device, size_t rank, size_t threads, b
 
 void InternalThread::StartInternalThread(bool set_cpu_affinity) {
   CHECK(!is_started()) << "Threads should persist and not be restarted.";
-  LOG(INFO) << "Starting internal thread on device " << target_device_;
+  LOG(INFO) << "Starting " << threads_.size() << " internal thread(s) on device " << target_device_;
   Caffe::Brew mode = Caffe::mode();
   if (mode == Caffe::GPU) {
     CHECK_GE(target_device_, 0);
@@ -66,9 +66,9 @@ void InternalThread::entry(int thread_id, int device, Caffe::Brew mode, int rand
   if (mode == Caffe::GPU) {
     CHECK_GE(device, 0);
   }
-  rank_ = rank;  // TODO ?
+  rank_ = rank;
   target_device_ = device;
-  LOG(INFO) << "Started internal thread " << std::this_thread::get_id()
+  DLOG(INFO) << "Started internal thread " << std::this_thread::get_id()
             << " on device " << device << ", rank " << rank_;
 #ifndef CPU_ONLY
   if (mode == Caffe::GPU) {

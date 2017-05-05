@@ -13,7 +13,9 @@ DataReader::DataReader(const LayerParameter& param,
     size_t transf_threads_num,
     size_t queue_depth,
     bool sample_only,
-    bool skip_one_batch)
+    bool skip_one_batch,
+    bool cache,
+    bool shuffle)
     : InternalThread(Caffe::current_device(),
           solver_rank, sample_only ? 1U : parser_threads_num, false),
       parser_threads_num_(threads_num()),
@@ -25,7 +27,9 @@ DataReader::DataReader(const LayerParameter& param,
       skip_one_batch_(skip_one_batch),
       current_rec_(0),
       current_queue_(0),
-      sample_only_(sample_only) {
+      sample_only_(sample_only),
+      cache_(cache && !sample_only),
+      shuffle_(cache_ && shuffle) {
   CHECK(queues_num_);
   CHECK(queue_depth_);
   batch_size_ = param.data_param().batch_size();
@@ -60,7 +64,14 @@ void DataReader::InternalThreadEntry() {
 void DataReader::InternalThreadEntryN(size_t thread_id) {
   shared_ptr<db::DB> db(db::GetDB(backend_));
   db->Open(db_source_, db::READ);
-  CursorManager cm(db, solver_count_, solver_rank_, parser_threads_num_, thread_id, batch_size_);
+  CursorManager cm(db,
+      solver_count_,
+      solver_rank_,
+      parser_threads_num_,
+      thread_id,
+      batch_size_,
+      cache_ && !sample_only_,
+      shuffle_ && !sample_only_);
   shared_ptr<Datum> init_datum = make_shared<Datum>();
   cm.fetch(init_datum.get());
   init_->push(init_datum);
@@ -102,11 +113,41 @@ void DataReader::InternalThreadEntryN(size_t thread_id) {
 }
 
 DataReader::CursorManager::CursorManager(shared_ptr<db::DB> db, size_t solver_count,
-    size_t solver_rank, size_t parser_threads, size_t parser_thread_id, size_t batch_size)
-    : db_(db), cursor_(db->NewCursor()), solver_count_(solver_count), solver_rank_(solver_rank),
-      batch_size_(batch_size), parser_threads_(parser_threads), parser_thread_id_(parser_thread_id),
-      rank_cycle_(parser_threads_ * batch_size_), full_cycle_(rank_cycle_ * solver_count_),
-      rec_id_(0UL), rec_end_(0UL) {}
+    size_t solver_rank, size_t parser_threads, size_t parser_thread_id, size_t batch_size,
+    bool cache, bool shuffle)
+    : db_(db),
+      cursor_(db->NewCursor()),
+      solver_count_(solver_count),
+      solver_rank_(solver_rank),
+      batch_size_(batch_size),
+      parser_threads_(parser_threads),
+      parser_thread_id_(parser_thread_id),
+      rank_cycle_(parser_threads_ * batch_size_),
+      full_cycle_(rank_cycle_ * solver_count_),
+      rec_id_(0UL),
+      rec_end_(0UL),
+      cache_(cache),
+      shuffle_(shuffle) {
+  if (cache_) {
+/*
+    const long long host_mem_80 = sysconf(_SC_PHYS_PAGES) * sysconf(_SC_PAGE_SIZE) * 3LL / 5LL;
+    size_t entries_per_thread = host_mem_80 / cursor_->size() / parser_threads_;
+      cached_count_ = 0UL;
+      total_count_ = 0UL;
+      total_counted_ = false;
+      current_id_ = 0UL;
+      cache_buffer_.resize(entries_per_thread);
+      if (shuffle_) {
+        shuffled_idx_.resize(entries_per_thread);
+        for (size_t j = 0UL; j < entries_per_thread; ++j) {
+          shuffled_idx_[j] = j;
+        }
+        std::shuffle(shuffled_idx_.begin(), shuffled_idx_.end(), std::default_random_engine{});
+      }
+    }
+*/
+  }
+}
 
 DataReader::CursorManager::~CursorManager() {
   cursor_.reset();
@@ -125,8 +166,13 @@ void DataReader::CursorManager::next(Datum* datum) {
   for (size_t i = old_id; i < rec_id_; ++i) {
     cursor_->Next();
     if (!cursor_->valid()) {
-      LOG_IF(INFO, solver_rank_ == 0 && parser_thread_id_ == 0)
-          << "Restarting data pre-fetching";
+      if(cache_) {
+        LOG(INFO) << "Solver " << solver_rank_ << ", parser " << parser_thread_id_
+            << ", records cached ";
+
+        break;  // we cache first epoch, then we just read it from cache
+      }
+      LOG_IF(INFO, solver_rank_ == 0 && parser_thread_id_ == 0) << "Restarting data pre-fetching";
       cursor_->SeekToFirst();
     }
   }

@@ -32,10 +32,12 @@ class DataReader : public InternalThread {
     const size_t parser_threads_, parser_thread_id_;
     const size_t rank_cycle_, full_cycle_;
     size_t rec_id_, rec_end_;
+    const bool cache_, shuffle_;
 
    public:
     CursorManager(shared_ptr<db::DB> db, size_t solver_count, size_t solver_rank,
-        size_t parser_threads, size_t parser_thread_id, size_t batch_size_);
+        size_t parser_threads, size_t parser_thread_id, size_t batch_size_,
+        bool cache, bool shuffle);
     ~CursorManager();
     void next(Datum* datum);
     void fetch(Datum* datum);
@@ -56,7 +58,9 @@ class DataReader : public InternalThread {
       size_t transf_threads_num,
       size_t queue_depth,
       bool sample_only,
-      bool skip_one_batch);
+      bool skip_one_batch,
+      bool cache,
+      bool shuffle);
   virtual ~DataReader();
 
   void start_reading() {
@@ -114,6 +118,7 @@ class DataReader : public InternalThread {
   int current_queue_;
   Flag start_reading_flag_;
   bool sample_only_;
+  const bool cache_, shuffle_;
 
   DISABLE_COPY_MOVE_AND_ASSIGN(DataReader);
 };

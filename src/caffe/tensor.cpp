@@ -5,8 +5,9 @@
 
 namespace caffe {
 
-Tensor::Tensor(Type dtype) : type_(dtype), locked_(false), async_state_(false), synced_arrays_(
-    make_shared<vector<shared_ptr<SyncedMemory>>>(Type_ARRAYSIZE)), count_(0) {}
+Tensor::Tensor(Type dtype)
+    : type_(dtype), locked_(false),
+      synced_arrays_(make_shared<vector<shared_ptr<SyncedMemory>>>(Type_ARRAYSIZE)), count_(0) {}
 
 const shared_ptr<SyncedMemory>& Tensor::synced_mem() const {
   const shared_ptr<SyncedMemory>& mem = synced_arrays_->at(type_);
