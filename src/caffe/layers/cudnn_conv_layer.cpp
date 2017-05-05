@@ -217,6 +217,7 @@ size_t CuDNNConvolutionLayer<Ftype, Btype>::ComputeFindExWorkspaceSize() {
   workspace_bytes = align_down<7>(
       std::min(static_cast<size_t>(total_memory - PAGE_SIZE),
           static_cast<size_t>(mem_size_estimated_)));
+  workspace_bytes *= groups();
   if (workspace_bytes <= workspace_.size()) {
     return workspace_.size();  // job is done by previous layer on this GPU
   }
@@ -225,7 +226,7 @@ size_t CuDNNConvolutionLayer<Ftype, Btype>::ComputeFindExWorkspaceSize() {
   if (workspace_bytes > workspace_limit_bytes) {
     LOG(WARNING) << "[" << Caffe::current_device()
         << "] Current workspace (" << std::round(workspace_.size() * 1.e-7) * 0.01F << "G)"
-        << " Estimated requirement (" << std::round(workspace_bytes * 1.e-7) * 0.01F << "G).";
+        << " Estimated requirement (" << std::round(workspace_bytes * 1.e-7) * 0.01F << "G)";
     workspace_bytes = align_down<7>(workspace_limit_bytes);
   }
   int attempts = ATTEMPTS_TO_RESERVE_WS;
@@ -785,7 +786,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
       }
       CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
       size_t workspace_limit_bytes, total_memory;
-      GPUMemory::GetInfo(&workspace_limit_bytes, &total_memory);
+      GPUMemory::GetInfo(&workspace_limit_bytes, &total_memory, true);
 
       LOG(INFO)<< "[" << Caffe::current_device() << "]"
           << " Conv Algos (F,BD,BF): '" << this->name() << "' with space "
