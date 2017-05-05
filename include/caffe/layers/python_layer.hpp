@@ -10,61 +10,100 @@ namespace bp = boost::python;
 
 namespace caffe {
 
-#define PYTHON_CALL_BEGIN                       \
-try {                                           \
-  std::lock_guard<std::mutex> lock(mutex());    \
-  Py_BEGIN_ALLOW_THREADS;                       \
-  PyGILState_STATE state = PyGILState_Ensure();
+inline void PyErrReport() {
+  PyErr_Print();
+  std::cerr << std::endl;
+  LOG(FATAL) << "Python error";
+}
 
-#define PYTHON_CALL_END                         \
-  PyGILState_Release(state);                    \
-  Py_END_ALLOW_THREADS;                         \
-} catch (...) {                                 \
-  PyErr_Print();                                \
+class PyInit {
+ public:
+  PyInit() {
+    Py_Initialize();
+  }
+  ~PyInit() {
+//    Py_Finalize();
+  }
+  DISABLE_COPY_MOVE_AND_ASSIGN(PyInit);
+};
+
+class PyTS {
+  PyThreadState *state_;
+ public:
+  PyTS() {
+    state_ = PyEval_SaveThread();
+  }
+  ~PyTS() {
+    PyEval_RestoreThread(state_);
+  }
+  DISABLE_COPY_MOVE_AND_ASSIGN(PyTS);
+};
+
+class PyGS {
+  PyGILState_STATE state_;
+ public:
+  PyGS() {
+    state_ = PyGILState_Ensure();
+  }
+  ~PyGS() {
+    PyGILState_Release(state_);
+  }
+  DISABLE_COPY_MOVE_AND_ASSIGN(PyGS);
+};
+
+#define PYTHON_CALL_BEGIN  \
+{                          \
+  PyTS pts;                \
+  {                        \
+    PyGS pygs;
+
+#define PYTHON_CALL_END    \
+  }                        \
 }
 
 template <typename Ftype, typename Btype>
 class PythonLayer : public Layer<Ftype, Btype> {
  public:
   PythonLayer(PyObject* self, const LayerParameter& param)
-      : Layer<Ftype, Btype>(param), self_(bp::handle<>(bp::borrowed(self))) { }
+      : Layer<Ftype, Btype>(param), self_(bp::handle<>(bp::borrowed(self))) {}
 
-  virtual void LayerSetUp(const vector<Blob*>& bottom, const vector<Blob*>& top) {
+  void LayerSetUp(const vector<Blob*>& bottom, const vector<Blob*>& top) override {
     std::lock_guard<std::mutex> lock(mutex());
+    PYTHON_CALL_BEGIN
     self_.attr("param_str") = bp::str(this->layer_param_.python_param().param_str());
     self_.attr("phase") = static_cast<int>(this->phase_);
     self_.attr("setup")(bottom, top);
+    PYTHON_CALL_END
   }
 
-  virtual void Reshape(const vector<Blob*>& bottom, const vector<Blob*>& top) {
+  void Reshape(const vector<Blob*>& bottom, const vector<Blob*>& top) override {
     std::lock_guard<std::mutex> lock(mutex());
+    PYTHON_CALL_BEGIN
     self_.attr("reshape")(bottom, top);
+    PYTHON_CALL_END
   }
 
-  virtual inline bool ShareInParallel() const {
+  inline bool ShareInParallel() const override {
     return this->layer_param_.python_param().share_in_parallel();
   }
 
-  virtual inline const char* type() const { return "Python"; }
+  inline const char* type() const override { return "Python"; }
 
   static std::mutex& mutex() {
-    return m_;
-  }
-
-  static std::mutex& init_mutex() {
-    return im_;
+    return mutex_;
   }
 
  protected:
-  virtual void Forward_cpu(const vector<Blob*>& bottom,
-      const vector<Blob*>& top) {
+  void Forward_cpu(const vector<Blob*>& bottom, const vector<Blob*>& top) override {
+    std::lock_guard<std::mutex> lock(mutex());
     PYTHON_CALL_BEGIN
     self_.attr("forward")(bottom, top);
     PYTHON_CALL_END
   }
 
-  virtual void Backward_cpu(const vector<Blob*>& top,
-      const vector<bool>& propagate_down, const vector<Blob*>& bottom) {
+  void Backward_cpu(const vector<Blob*>& top,
+      const vector<bool>& propagate_down, const vector<Blob*>& bottom) override {
+    std::lock_guard<std::mutex> lock(mutex());
     PYTHON_CALL_BEGIN
     self_.attr("backward")(top, propagate_down, bottom);
     PYTHON_CALL_END
@@ -72,14 +111,10 @@ class PythonLayer : public Layer<Ftype, Btype> {
 
  private:
   bp::object self_;
-  static std::mutex m_, im_;
+  static std::mutex mutex_;
 };
 
-template <typename Ftype, typename Btype>
-std::mutex PythonLayer<Ftype, Btype>::m_;
-
-template <typename Ftype, typename Btype>
-std::mutex PythonLayer<Ftype, Btype>::im_;
+template <typename Ftype, typename Btype> std::mutex PythonLayer<Ftype, Btype>::mutex_;
 
 }  // namespace caffe
 

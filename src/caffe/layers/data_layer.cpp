@@ -54,7 +54,7 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
 #ifndef CPU_ONLY
     const size_t batch_bytes = this->prefetch_[0]->bytes(this->is_gpu_transform());
     size_t gpu_bytes, total_memory;
-    GPUMemory::GetInfo(&gpu_bytes, &total_memory);
+    GPUMemory::GetInfo(&gpu_bytes, &total_memory, true);
     size_t batches_fit = gpu_bytes / batch_bytes;
     size_t total_batches_fit = current_queues_num_ + batches_fit;
 #else
@@ -89,13 +89,15 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
       if (this->parsers_num_ > 1) {
         parser_offsets_[0]++;  // same as above
       }
+    } else {
+      this->RestartAllThreads(current_transf_num_, true);
     }
   }
   if (init_parent) {
     BasePrefetchingDataLayer<Ftype, Btype>::InitializePrefetch();
-  } else {
-    this->go();  // kick off new threads if any
   }
+  this->go();  // kick off new threads if any
+
   CHECK_EQ(this->threads_num(), this->transf_num_);
   LOG(INFO) << "[" << Caffe::current_device() << "] Number of parser threads: "
       << this->parsers_num_ << (this->auto_mode_ ? " (auto)" : "");
