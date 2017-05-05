@@ -32,6 +32,7 @@ class SharedMutexTest : public ::testing::Test {
     shared_lock<shared_mutex> lock(mutex_);
     while (true) {
       if (shelf[reader_id] != 0) {  // book is now written
+        shared_lock<shared_mutex> lock(mutex_);
         books_read_ += shelf[reader_id];
         break;
       }
