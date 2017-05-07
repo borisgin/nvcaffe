@@ -29,7 +29,6 @@ class SharedMutexTest : public ::testing::Test {
   }
 
   void read_body(int reader_id, const std::vector<int>& shelf) {
-    shared_lock<shared_mutex> lock(mutex_);
     while (true) {
       if (shelf[reader_id] != 0) {  // book is now written
         shared_lock<shared_mutex> lock(mutex_);
