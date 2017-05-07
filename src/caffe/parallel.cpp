@@ -14,8 +14,9 @@
 
 namespace caffe {
 
-shared_ptr<boost::barrier> bar;
-shared_ptr<boost::barrier> rbar;
+unique_ptr<boost::barrier> P2PManager::dl_bar(new boost::barrier(1));
+unique_ptr<boost::barrier> P2PManager::bar;
+unique_ptr<boost::barrier> P2PManager::rbar;
 
 P2PManager::P2PManager(shared_ptr<Solver> root_solver,
     int nranks, const SolverParameter& solver_param) :
@@ -25,11 +26,12 @@ P2PManager::P2PManager(shared_ptr<Solver> root_solver,
 #ifndef USE_NCCL
   LOG(FATAL) << "USE_NCCL must be specified for multi-GPU mode";
 #endif
+  dl_bar.reset(new boost::barrier(nranks_));
+  bar.reset(new boost::barrier(nranks_));
+  rbar.reset(new boost::barrier(nranks_));
 }
 
 void P2PManager::Run(const vector<int>& gpus) {
-  bar.reset(new boost::barrier(gpus.size()));
-  rbar.reset(new boost::barrier(gpus.size()));
 #ifndef CPU_ONLY
 #ifdef USE_NCCL
   CHECK_EQ(nranks_, gpus.size());
@@ -179,15 +181,13 @@ void P2PSync::InternalThreadEntry() {
 void P2PSync::soft_barrier() {
 #ifndef CPU_ONLY
   // CPU barrier to avoid busy-polling on the GPU.
-  CHECK(bar);
-  bar->wait();
+  P2PManager::bar_wait();
 #endif
 }
 
 void P2PSync::reduce_barrier() {
 #ifndef CPU_ONLY
-  CHECK(rbar);
-  rbar->wait();
+  P2PManager::rbar_wait();
 #endif
 }
 
