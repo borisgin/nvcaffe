@@ -51,11 +51,29 @@ class P2PManager {
   void Run(const vector<int>& gpus);
   void EarlyCancel(P2PSync* killed);
 
+  static void dl_bar_wait() {
+    CHECK(dl_bar);
+    dl_bar->wait();
+  }
+  static void bar_wait() {
+    CHECK(bar);
+    bar->wait();
+  }
+  static void rbar_wait() {
+    CHECK(rbar);
+    rbar->wait();
+  }
+
  protected:
   const size_t nranks_;
   vector<shared_ptr<P2PSync>> syncs_;
   shared_ptr<SharedScores<float>> shared_;
   shared_ptr<Solver> root_solver_;
+
+  static unique_ptr<boost::barrier> dl_bar;  // DataLayer sync helper
+  static unique_ptr<boost::barrier> bar;
+  static unique_ptr<boost::barrier> rbar;
+
 #ifndef CPU_ONLY
 #ifdef USE_NCCL
   ncclUniqueId nccl_id_;

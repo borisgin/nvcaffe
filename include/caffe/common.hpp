@@ -852,6 +852,13 @@ void atomic_maximum(std::atomic<Dtype>& max_val, Dtype const& new_val) noexcept 
         !max_val.compare_exchange_weak(prev_val, new_val)) {}
 }
 
+template<typename Dtype>
+void atomic_minimum(std::atomic<Dtype>& min_val, Dtype const& new_val) noexcept {
+  Dtype prev_val = std::atomic_load(&min_val);
+  while (prev_val > new_val &&
+         !min_val.compare_exchange_weak(prev_val, new_val)) {}
+}
+
 }  // namespace caffe
 
 #endif  // CAFFE_COMMON_HPP_
