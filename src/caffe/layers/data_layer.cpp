@@ -57,10 +57,19 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
     const size_t batch_bytes = this->prefetch_[0]->bytes(this->is_gpu_transform());
     size_t gpu_bytes, total_memory;
     GPUMemory::GetInfo(&gpu_bytes, &total_memory, true);
+
+    // minimum accross all GPUs
+    static std::atomic<size_t> min_gpu_bytes((size_t) -1);
+    atomic_minimum(min_gpu_bytes, gpu_bytes);
+    P2PManager::dl_bar_wait();
+    gpu_bytes = min_gpu_bytes.load();
+    bool starving = gpu_bytes * 6UL < total_memory;
+
     size_t batches_fit = gpu_bytes / batch_bytes;
     size_t total_batches_fit = current_queues_num_ + batches_fit;
 #else
     size_t total_batches_fit = current_queues_num_;
+    bool starving = false;
 #endif
     float ratio = 3.F;
     Net* pnet = this->parent_net();
@@ -74,25 +83,22 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
     }
     // TODO Respect the number of CPU cores
     const float fit = std::min(16.F, std::floor(total_batches_fit / ratio));  // 16+ -> "ideal" 4x4
-    if (fit > 1.F) {  // additional 1+ batch fits in the memory we dedicate to I/O buffers
-      current_parsers_num_ = std::min(4UL, std::max(1UL,
-          (size_t) std::lround(std::sqrt(fit))));
-      current_transf_num_ = std::min(4UL, std::max(current_transf_num_,
-          (size_t) std::lround(fit / current_parsers_num_)));
-      this->RestartAllThreads(current_transf_num_, true);
-      this->transf_num_ = this->threads_num();
-      this->parsers_num_ = current_parsers_num_;
-      this->queues_num_ = this->transf_num_ * this->parsers_num_;
-      BasePrefetchingDataLayer<Ftype, Btype>::InitializePrefetch();
-      init_parent = false;
-      if (current_transf_num_ > 1) {
-        this->next_batch_queue();  // 0th already processed
-      }
-      if (this->parsers_num_ > 1) {
-        parser_offsets_[0]++;  // same as above
-      }
-    } else {
-      this->RestartAllThreads(current_transf_num_, true);
+    starving = fit <= 1UL || starving;  // enforce 1x1
+    current_parsers_num_ = starving ? 1UL : std::min(4UL,
+        std::max(1UL, (size_t) std::lround(std::sqrt(fit))));
+    current_transf_num_ = starving ? 1UL : std::min(4UL,
+        std::max(current_transf_num_, (size_t) std::lround(fit / current_parsers_num_)));
+    this->RestartAllThreads(current_transf_num_, true);
+    this->transf_num_ = this->threads_num();
+    this->parsers_num_ = current_parsers_num_;
+    this->queues_num_ = this->transf_num_ * this->parsers_num_;
+    BasePrefetchingDataLayer<Ftype, Btype>::InitializePrefetch();
+    init_parent = false;
+    if (current_transf_num_ > 1) {
+      this->next_batch_queue();  // 0th already processed
+    }
+    if (this->parsers_num_ > 1) {
+      parser_offsets_[0]++;  // same as above
     }
   }
   if (init_parent) {

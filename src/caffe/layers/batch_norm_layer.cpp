@@ -64,8 +64,6 @@ BatchNormLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bottom, const vect
 
   // Mask statistics from optimization by setting local learning rates
   // for mean, variance, and the var_correction to zero.
-  int param_size = this->layer_param_.param_size();
-  DLOG(INFO) << this->name() << " param_size=" << param_size;
   for (int i = 0; i < 3; ++i) {
     if (this->layer_param_.param_size() == i) {
       this->layer_param_.add_param();

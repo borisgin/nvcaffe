@@ -8,7 +8,7 @@ layer {
   data_param {
     source: "examples/imagenet/ilsvrc12_320x320_train_lmdb"
     backend: LMDB
-    batch_size: 64
+    batch_size: 32
 #    batch_size: 256	# DGX1
   }
   transform_param {
@@ -26,7 +26,7 @@ layer {
   data_param {
     source: "examples/imagenet/ilsvrc12_320x320_val_lmdb"
     backend: LMDB
-    batch_size: 1
+    batch_size: 32
   }
   transform_param {
     mean_file: "data/ilsvrc12/imagenet_320x320_mean.binaryproto"
