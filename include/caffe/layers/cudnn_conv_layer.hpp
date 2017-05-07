@@ -37,11 +37,10 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
   // In iteration 0, use a small amount of memory in order to leave
   // most of memory for allocating layer blobs.
   // NOLINT_NEXT_LINE(build/storage_class)
-  const static size_t INITIAL_WORKSPACE_SIZE;
-  // Use 99% of available memory max.
-  // Using all of memory may result in failure of workspace.reserve.
+  static constexpr size_t INITIAL_WORKSPACE_SIZE = 8 * 1024 * 1024;
+  // Using all of memory may result in failure of workspace reserve.
   // NOLINT_NEXT_LINE(build/storage_class)
-  const static float MAX_WORKSPACE_RATIO;
+  static constexpr size_t PAGE_SIZE = 8 * 1024 * 1024;
   // We update it on second Fwd/Bwd pass and we allocate it *once*
   // when we start third pass. We might recompute it later if demand grows
   // and/or we suddenly need to get extra memory for other needs.
@@ -116,6 +115,7 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
   bool initialized_cached_descs_;
   static constexpr int MAX_PARALLEL_GROUPS = 2;
   static constexpr int REQUEST_ALGO_COUNT = 3;
+  static constexpr int ATTEMPTS_TO_RESERVE_WS = 3;
 
   // For performance reasons and better memory management we don't go beyond the limit
   int groups() {
@@ -133,19 +133,22 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
 };
 
 template<typename Ftype, typename Btype>
-const size_t CuDNNConvolutionLayer<Ftype, Btype>::INITIAL_WORKSPACE_SIZE = 8 * 1024 * 1024;
+constexpr size_t CuDNNConvolutionLayer<Ftype, Btype>::INITIAL_WORKSPACE_SIZE;
 
 template<typename Ftype, typename Btype>
-thread_local GPUMemory::Workspace CuDNNConvolutionLayer<Ftype, Btype>::workspace_;
-
-template<typename Ftype, typename Btype>
-const float CuDNNConvolutionLayer<Ftype, Btype>::MAX_WORKSPACE_RATIO = 0.99F;
+constexpr size_t CuDNNConvolutionLayer<Ftype, Btype>::PAGE_SIZE;
 
 template<typename Ftype, typename Btype>
 constexpr int CuDNNConvolutionLayer<Ftype, Btype>::MAX_PARALLEL_GROUPS;
 
 template<typename Ftype, typename Btype>
 constexpr int CuDNNConvolutionLayer<Ftype, Btype>::REQUEST_ALGO_COUNT;
+
+template<typename Ftype, typename Btype>
+constexpr int CuDNNConvolutionLayer<Ftype, Btype>::ATTEMPTS_TO_RESERVE_WS;
+
+template<typename Ftype, typename Btype>
+thread_local GPUMemory::Workspace CuDNNConvolutionLayer<Ftype, Btype>::workspace_;
 
 template<typename Ftype, typename Btype>
 thread_local GPUMemory::Workspace CuDNNConvolutionLayer<Ftype, Btype>::tmp_weights_;
