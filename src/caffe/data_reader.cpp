@@ -1,10 +1,14 @@
 #include <boost/thread.hpp>
+#include <sys/sysinfo.h>
 
 #include "caffe/common.hpp"
 #include "caffe/parallel.hpp"
 #include "caffe/data_reader.hpp"
 
 namespace caffe {
+
+std::mutex DataReader::DataCache::cache_mutex_;
+unique_ptr<DataReader::DataCache> DataReader::DataCache::data_cache_inst_;
 
 DataReader::DataReader(const LayerParameter& param,
     size_t solver_count,
@@ -37,6 +41,11 @@ DataReader::DataReader(const LayerParameter& param,
   if (backend_ == DataParameter_DB_LEVELDB) {
     CHECK_EQ(parser_threads_num_, 1) << "LevelDB doesn't support multiple connections";
   }
+  if (cache_) {
+    // This is singleton, we cache TRAIN db only
+    data_cache_ = DataCache::data_cache_inst(parser_threads_num_, shuffle_);
+  }
+
   free_.resize(queues_num_);
   full_.resize(queues_num_);
   LOG(INFO) << (sample_only ? "Sample " : "") << "Data Reader threads: "
@@ -62,9 +71,13 @@ void DataReader::InternalThreadEntry() {
 }
 
 void DataReader::InternalThreadEntryN(size_t thread_id) {
+  if (cache_) {
+    data_cache_->register_new_thread();
+  }
   shared_ptr<db::DB> db(db::GetDB(backend_));
   db->Open(db_source_, db::READ);
   CursorManager cm(db,
+      this,
       solver_count_,
       solver_rank_,
       parser_threads_num_,
@@ -86,7 +99,7 @@ void DataReader::InternalThreadEntryN(size_t thread_id) {
   shared_ptr<Datum> datum = make_shared<Datum>();
   try {
     while (!must_stop(thread_id)) {
-      cm.next(datum.get());
+      cm.next(datum);
       // See comment below
       ranked_rec = (size_t) datum->record_id() / cm.full_cycle();
       batch_on_solver = ranked_rec * parser_threads_num_ + thread_id;
@@ -112,11 +125,68 @@ void DataReader::InternalThreadEntryN(size_t thread_id) {
   }
 }
 
-DataReader::CursorManager::CursorManager(shared_ptr<db::DB> db, size_t solver_count,
-    size_t solver_rank, size_t parser_threads, size_t parser_thread_id, size_t batch_size,
-    bool cache, bool shuffle)
+shared_ptr<Datum> DataReader::DataCache::next_new() {
+  std::lock_guard<std::mutex> lock(cache_mutex_);
+  cache_buffer_.emplace_back(make_shared<Datum>());
+  return cache_buffer_.back();
+}
+
+shared_ptr<Datum>& DataReader::DataCache::next_cached() {
+  if (just_cached_.load()) {
+    for (auto& f : cached_flags_) {
+      f.second->wait();
+    }
+    just_cached_.store(false);
+  }
+  std::lock_guard<std::mutex> lock(cache_mutex_);
+  if (cache_idx_== 0UL) {
+    LOG(INFO) << "Shuffling " << cache_buffer_.size() << " records...";
+    shuffled_idx_.resize(cache_buffer_.size());
+    for (size_t j = 0UL; j < shuffled_idx_.size(); ++j) {
+      shuffled_idx_[j] = j;
+    }
+    std::shuffle(shuffled_idx_.begin(), shuffled_idx_.end(), std::default_random_engine{});
+  }
+  size_t idx = shuffle_ && shuffled_idx_.size() == cache_buffer_.size() ?
+               shuffled_idx_[cache_idx_] : cache_idx_;
+  shared_ptr<Datum>& datum = cache_buffer_[idx];
+  ++cache_idx_;
+  if (cache_idx_ >= cache_buffer_.size()) {
+    cache_idx_= 0UL;
+  }
+  return datum;
+}
+
+void DataReader::DataCache::just_cached() {
+  just_cached_.store(true);
+  std::lock_guard<std::mutex> lock(cache_mutex_);
+  cached_flags_[std::this_thread::get_id()]->set();
+}
+
+bool DataReader::DataCache::check_memory() {
+  if (cache_buffer_.size() > 0UL && cache_buffer_.size() % 10000UL == 0UL) {
+    std::lock_guard<std::mutex> lock(cache_mutex_);
+    struct sysinfo sinfo;
+    sysinfo(& sinfo);
+    if (sinfo.freeswap < sinfo.totalswap / 2UL) {
+      LOG(WARNING) << "Data Reader cached " << cache_buffer_.size()
+                   << " records so far but it can't continue because it used more than half"
+                   << " of swap buffer. Free swap memory left: " << sinfo.freeswap << " of total "
+                   << sinfo.totalswap << ". Cache and shuffling are now disabled.";
+      cache_buffer_.clear();
+      shuffled_idx_.clear();
+      return false;
+    }
+  }
+  return true;
+}
+
+DataReader::CursorManager::CursorManager(shared_ptr<db::DB> db, DataReader* reader,
+    size_t solver_count, size_t solver_rank, size_t parser_threads, size_t parser_thread_id,
+    size_t batch_size, bool cache, bool shuffle)
     : db_(db),
       cursor_(db->NewCursor()),
+      reader_(reader),
       solver_count_(solver_count),
       solver_rank_(solver_rank),
       batch_size_(batch_size),
@@ -127,35 +197,30 @@ DataReader::CursorManager::CursorManager(shared_ptr<db::DB> db, size_t solver_co
       rec_id_(0UL),
       rec_end_(0UL),
       cache_(cache),
-      shuffle_(shuffle) {
-  if (cache_) {
-/*
-    const long long host_mem_80 = sysconf(_SC_PHYS_PAGES) * sysconf(_SC_PAGE_SIZE) * 3LL / 5LL;
-    size_t entries_per_thread = host_mem_80 / cursor_->size() / parser_threads_;
-      cached_count_ = 0UL;
-      total_count_ = 0UL;
-      total_counted_ = false;
-      current_id_ = 0UL;
-      cache_buffer_.resize(entries_per_thread);
-      if (shuffle_) {
-        shuffled_idx_.resize(entries_per_thread);
-        for (size_t j = 0UL; j < entries_per_thread; ++j) {
-          shuffled_idx_[j] = j;
-        }
-        std::shuffle(shuffled_idx_.begin(), shuffled_idx_.end(), std::default_random_engine{});
-      }
-    }
-*/
-  }
-}
+      shuffle_(shuffle),
+      cached_all_(false) {}
 
 DataReader::CursorManager::~CursorManager() {
   cursor_.reset();
   db_->Close();
 }
 
-void DataReader::CursorManager::next(Datum* datum) {
-  fetch(datum);
+void DataReader::CursorManager::next(shared_ptr<Datum>& datum) {
+  if (cached_all_) {
+    datum = reader_->next_cached();
+  } else {
+    while (cache_) {
+      if (!reader_->check_memory()) {
+        cache_ = false;
+        shuffle_ = false;
+        break;
+      }
+      datum = reader_->next_new();
+      break;
+    }
+    fetch(datum.get());
+  }
+
   datum->set_record_id(rec_id_);
   size_t old_id = rec_id_;
   ++rec_id_;
@@ -163,14 +228,15 @@ void DataReader::CursorManager::next(Datum* datum) {
     rec_id_ += full_cycle_ - batch_size_;
     rec_end_ += full_cycle_;
   }
-  size_t rnd_skip = 0UL;  // batch_size_ > 100 ? (caffe_rng_rand() % 5) : 0UL;
-  for (size_t i = old_id; i < rec_id_ + rnd_skip; ++i) {
+  if (cached_all_) {
+    return;
+  }
+  for (size_t i = old_id; i < rec_id_; ++i) {
     cursor_->Next();
     if (!cursor_->valid()) {
       if(cache_) {
-        LOG(INFO) << "Solver " << solver_rank_ << ", parser " << parser_thread_id_
-            << ", records cached ";
-
+        cached_all_ = true;
+        reader_->just_cached();
         break;  // we cache first epoch, then we just read it from cache
       }
       LOG_IF(INFO, solver_rank_ == 0 && parser_thread_id_ == 0) << "Restarting data pre-fetching";

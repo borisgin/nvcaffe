@@ -107,9 +107,9 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
   this->go();  // kick off new threads if any
 
   CHECK_EQ(this->threads_num(), this->transf_num_);
-  LOG(INFO) << "[" << Caffe::current_device() << "] Number of parser threads: "
+  LOG(INFO) << "[" << Caffe::current_device() << "] Parser threads: "
       << this->parsers_num_ << (this->auto_mode_ ? " (auto)" : "");
-  LOG(INFO) << "[" << Caffe::current_device() << "] Number of transformer threads: "
+  LOG(INFO) << "[" << Caffe::current_device() << "] Transformer threads: "
       << this->transf_num_ << (this->auto_mode_ ? " (auto)" : "");
   layer_inititialized_flag_.set();
 }
