@@ -65,6 +65,9 @@ struct GPUMemory {
           bool debug = false) {
       mgr_.init(gpus, m, debug);
     }
+    ~Scope() {
+      mgr_.reset();
+    }
   };
 
   // Workspace's release() functionality depends on global pool availability
@@ -135,6 +138,7 @@ struct GPUMemory {
     const char* pool_name() const;
     bool using_pool() const { return mode_ != CUDA_MALLOC; }
     void init(const std::vector<int>&, Mode, bool);
+    void reset();
     void* pinned_buffer(size_t size, int device, int group);
     std::string report_dev_info(int device);
     shared_mutex& read_write_mutex() { return mutex_; }

@@ -442,7 +442,8 @@ bool Solver::TestAll(const int iters, bool use_multi_gpu) {
 }
 
 bool Solver::Test(const int test_net_id, const int iters, bool use_multi_gpu) {
-  LOG_IF(INFO, Caffe::root_solver()) << "Iteration " << iter_
+  const bool print_loss = iters == 0;
+  LOG_IF(INFO, print_loss && Caffe::root_solver()) << "Iteration " << iter_
             << ", Testing net (#" << test_net_id << ")";
   if (!test_nets_[test_net_id]->trained_layers_shared()) {
     CHECK_NOTNULL(test_nets_[test_net_id].get())->ShareTrainedLayersWith(net_.get());
@@ -514,7 +515,7 @@ bool Solver::Test(const int test_net_id, const int iters, bool use_multi_gpu) {
 
   if (param_.test_compute_loss()) {
     loss /= param_.test_iter(test_net_id);
-    LOG(INFO) << "Test loss: " << loss;
+    LOG_IF(INFO, print_loss) << "Test loss: " << loss;
   }
   for (int i = 0; i < test_score.size(); ++i) {
     const int output_blob_index =
@@ -528,7 +529,7 @@ bool Solver::Test(const int test_net_id, const int iters, bool use_multi_gpu) {
       loss_msg_stream << " (* " << loss_weight
           << " = " << (loss_weight * mean_score) << " loss)";
     }
-    LOG_IF(INFO, Caffe::root_solver()) << "    Test net output #" << i <<
+    LOG_IF(INFO, print_loss && Caffe::root_solver()) << "    Test net output #" << i <<
         ": " << output_name << " = " << mean_score << loss_msg_stream.str();
   }
   return false;
