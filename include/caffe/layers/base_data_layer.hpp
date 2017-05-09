@@ -1,7 +1,6 @@
 #ifndef CAFFE_DATA_LAYERS_HPP_
 #define CAFFE_DATA_LAYERS_HPP_
 
-#include <boost/thread.hpp>
 #include <vector>
 #include <mutex>
 
