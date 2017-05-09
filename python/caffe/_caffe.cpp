@@ -54,34 +54,64 @@ const int NPY_DTYPE = NPY_FLOAT32;
 
 #ifndef CPU_ONLY
 shared_ptr<GPUMemory::Scope> gpu_memory_scope;
-
-void initialize_gpu_memory_scope() {
-  vector<int> gpus;
-  int count = 0;
-  CUDA_CHECK(cudaGetDeviceCount(&count));
-  for (int i = 0; i < count; ++i) {
-    gpus.push_back(i);
-  }
-  CHECK_GT(gpus.size(), 0);
-  Caffe::SetDevice(gpus[0]);
-  gpu_memory_scope.reset(new GPUMemory::Scope(gpus));
-}
 #endif
+
+void initialize_gpu_memory_scope(const vector<int>& gpus) {
+  FLAGS_alsologtostderr = 1;
+  static bool google_initialized = false;
+  if (!google_initialized) {
+    google_initialized = true;
+    google::InitGoogleLogging("pyNVCaffe");
+  }
+#ifndef CPU_ONLY
+  gpu_memory_scope.reset();
+  gpu_memory_scope.reset(new GPUMemory::Scope(gpus));
+  if (gpus.size() > 0) {
+    Caffe::SetDevice(gpus[0]);
+  }
+#else
+  LOG(WARNING) << "GPU memory initialization is ignored for CPU_ONLY build";
+#endif
+}
 
 // Selecting mode.
 void set_mode_cpu() {
   Caffe::set_mode(Caffe::CPU);
 #ifndef CPU_ONLY
   // We need to run GPU-built Caffe on CPU sometimes.
-  initialize_gpu_memory_scope();
+  vector<int> gpus(1, 0);
+  initialize_gpu_memory_scope(gpus);
 #endif
 }
 
 void set_mode_gpu() {
   Caffe::set_mode(Caffe::GPU);
 #ifndef CPU_ONLY
-  initialize_gpu_memory_scope();
+  vector<int> gpus(1, 0);
+  initialize_gpu_memory_scope(gpus);
 #endif
+}
+
+void set_device(int gpu) {
+  CHECK_GE(gpu, 0);
+  Caffe::set_mode(Caffe::GPU);
+#ifndef CPU_ONLY
+  vector<int> gpus(1, gpu);
+  initialize_gpu_memory_scope(gpus);
+#endif
+}
+
+void set_devices(const bp::list& lst) {
+  CHECK(!lst.is_none());
+  boost::python::ssize_t len = boost::python::len(lst);
+  CHECK(len);
+  vector<int> gpus(len);
+  for (int i = 0; i < len; ++i) {
+    gpus[i] = boost::python::extract<int>(lst[i]);
+    CHECK_GE(gpus[i], 0);
+  }
+  Caffe::set_mode(Caffe::GPU);
+  initialize_gpu_memory_scope(gpus);
 }
 
 // For convenience, check that input files can be opened, and raise an
@@ -264,7 +294,8 @@ BOOST_PYTHON_MODULE(_caffe) {
   // Caffe utility functions
   bp::def("set_mode_cpu", &set_mode_cpu);
   bp::def("set_mode_gpu", &set_mode_gpu);
-  bp::def("set_device", &Caffe::SetDevice);
+  bp::def("set_devices", &set_devices);
+  bp::def("set_device", &set_device);
 
   bp::def("layer_type_list", &LayerRegistry::LayerTypeList);
 
