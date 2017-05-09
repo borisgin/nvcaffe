@@ -4,6 +4,12 @@
 #include <gflags/gflags.h>
 #include <glog/logging.h>
 
+#include <boost/version.hpp>
+#if BOOST_VERSION >= 106100
+// error: class "boost::common_type<long, long>" has no member "type"
+#define BOOST_NO_CXX11_VARIADIC_TEMPLATES
+#endif
+
 #include <boost/thread.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/make_shared.hpp>
