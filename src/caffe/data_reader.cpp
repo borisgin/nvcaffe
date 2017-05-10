@@ -139,18 +139,11 @@ shared_ptr<Datum>& DataReader::DataCache::next_cached() {
     just_cached_.store(false);
   }
   std::lock_guard<std::mutex> lock(cache_mutex_);
-  if (cache_idx_== 0UL) {
+  if (shuffle_ && cache_idx_== 0UL) {
     LOG(INFO) << "Shuffling " << cache_buffer_.size() << " records...";
-    shuffled_idx_.resize(cache_buffer_.size());
-    for (size_t j = 0UL; j < shuffled_idx_.size(); ++j) {
-      shuffled_idx_[j] = j;
-    }
-    std::shuffle(shuffled_idx_.begin(), shuffled_idx_.end(), std::default_random_engine{});
+    std::shuffle(cache_buffer_.begin(), cache_buffer_.end(), std::default_random_engine{});
   }
-  size_t idx = shuffle_ && shuffled_idx_.size() == cache_buffer_.size() ?
-               shuffled_idx_[cache_idx_] : cache_idx_;
-  shared_ptr<Datum>& datum = cache_buffer_[idx];
-  ++cache_idx_;
+  shared_ptr<Datum>& datum = cache_buffer_[cache_idx_++];
   if (cache_idx_ >= cache_buffer_.size()) {
     cache_idx_= 0UL;
   }
@@ -174,7 +167,6 @@ bool DataReader::DataCache::check_memory() {
                    << " of swap buffer. Free swap memory left: " << sinfo.freeswap << " of total "
                    << sinfo.totalswap << ". Cache and shuffling are now disabled.";
       cache_buffer_.clear();
-      shuffled_idx_.clear();
       return false;
     }
   }

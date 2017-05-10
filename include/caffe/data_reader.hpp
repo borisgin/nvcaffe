@@ -85,7 +85,6 @@ class DataReader : public InternalThread {
           just_cached_(false) {}
 
     vector<shared_ptr<Datum>> cache_buffer_;
-    vector<size_t> shuffled_idx_;
     size_t cache_idx_;
     boost::barrier cache_bar_;
     const bool shuffle_;
