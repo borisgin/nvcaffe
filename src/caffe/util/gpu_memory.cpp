@@ -162,6 +162,16 @@ void GPUMemory::Manager::init(const vector<int>& gpus, Mode m, bool debug) {
   }
 }
 
+void GPUMemory::Manager::reset() {
+  if (!initialized_) {
+    return;
+  }
+  cub_allocator_.reset();
+  mode_ = CUDA_MALLOC;
+  initialized_ = false;
+  LOG(INFO) << "GPUMemory::Manager uninitialized";
+}
+
 GPUMemory::Manager::~Manager() {
   for (vector<void*>& buffers_group : pinned_host_buffers_) {
     for (void* buffer : buffers_group) {
