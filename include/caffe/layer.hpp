@@ -26,6 +26,7 @@ namespace boost { class mutex; }
 
 namespace caffe {
 
+class Solver;
 class Net;
 class Flag;
 
@@ -158,6 +159,8 @@ class LayerBase {
   Net* parent_net() {
     return parent_net_;
   }
+
+  Solver* parent_solver();
 
   void set_parent_net(Net* parent_net) {
     parent_net_ = parent_net;

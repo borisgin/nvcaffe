@@ -65,6 +65,10 @@ void LayerBase::Unlock() {
   }
 }
 
+Solver* LayerBase::parent_solver() {
+  return parent_net_ == nullptr ? nullptr : parent_net_->parent_solver();
+}
+
 INSTANTIATE_CLASS_FB(Layer);
 
 }  // namespace caffe

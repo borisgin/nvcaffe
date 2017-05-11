@@ -5,6 +5,7 @@
 #include "caffe/filler.hpp"
 #include "caffe/layers/cudnn_conv_layer.hpp"
 #include "caffe/net.hpp"
+#include "caffe/solver.hpp"
 
 namespace caffe {
 
@@ -48,8 +49,12 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& botto
       }
     }
   }  // end of for i
-  // Possibly use faster algorithms by allowing larger workspace.
-  use_modest_workspace_ = false;
+
+  Solver* psolver = this->parent_solver();
+  if (psolver != nullptr && psolver->is_iter_size_complete()) {
+    // Possibly use faster algorithms by allowing larger workspace.
+    use_modest_workspace_ = false;
+  }
 }
 
 template <typename Ftype, typename Btype>
