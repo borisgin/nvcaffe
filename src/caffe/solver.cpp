@@ -248,7 +248,6 @@ void Solver::Step(int iters) {
     // Just started or restored?
     const bool first_loop = iter_ == 0 || iterations_last_ < 0;
     if (first_loop) {
-      // Running one test iteration to allocate all space needed TODO
       if (TestAll(1, use_multi_gpu_testing)) {
         break;
       }
@@ -280,14 +279,15 @@ void Solver::Step(int iters) {
     }
 
     iteration_start_signal();
-    for (int i = 0; i < param_.iter_size(); ++i) {
-      loss += net_->ForwardBackward(i + 1 == param_.iter_size());
-      if (first_loop && i == 0) {
-        iter0_flag_.set();
-        net_->wait_layers_init();
-      }
+    int iter_size = first_loop ? 1 : param_.iter_size();
+    for (int i = 0; i < iter_size; ++i) {
+      loss += net_->ForwardBackward(i + 1 == iter_size);
     }
-    loss /= param_.iter_size();
+    if (first_loop) {
+      iter0_flag_.set();
+      net_->wait_layers_init();
+    }
+    loss /= iter_size;
     iteration_wait();
     if (requested_early_exit_) {
       total_lapse_ += iteration_timer_.Seconds();
@@ -442,7 +442,6 @@ bool Solver::TestAll(const int iters, bool use_multi_gpu) {
 }
 
 bool Solver::Test(const int test_net_id, const int iters, bool use_multi_gpu) {
-  const bool print_loss = iters == 0;
   LOG_IF(INFO, Caffe::root_solver()) << "Iteration " << iter_
             << ", Testing net (#" << test_net_id << ")";
   if (!test_nets_[test_net_id]->trained_layers_shared()) {
@@ -523,12 +522,8 @@ bool Solver::Test(const int test_net_id, const int iters, bool use_multi_gpu) {
     const string& output_name = test_net->blob_names()[output_blob_index];
     const float loss_weight = test_net->blob_loss_weights()[output_blob_index];
     ostringstream loss_msg_stream;
-    const float mean_score = (test_score[i] / param_.test_iter(test_net_id)) /
-                             Caffe::solver_count();
+    const float mean_score = test_score[i] / test_iterations / Caffe::solver_count();
     if (loss_weight) {
-      if (!print_loss) {
-        continue;
-      }
       loss_msg_stream << " (* " << loss_weight
           << " = " << (loss_weight * mean_score) << " loss)";
     }
