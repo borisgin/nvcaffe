@@ -28,17 +28,13 @@ SolverAction::Enum Solver::GetRequestedAction() {
 Solver::Solver(const SolverParameter& param, size_t rank, const Solver* root_solver)
     : param_(param), data_type_(param_.solver_data_type()), iter_(0), id_(0), net_(),
       callback_(nullptr), root_solver_(root_solver), rank_(rank), requested_early_exit_(false),
-      iteration_timer_(), test_timer_(), iterations_last_(0), iterations_restored_(0) {
+      iteration_timer_(), test_timer_(), iterations_last_(0), iterations_restored_(0),
+      iter_size_complete_(false) {
   Init();
 }
 
 Solver::Solver(const string& param_file, size_t rank, const Solver* root_solver)
-    : param_(ReadSolverParamsFromTextFileOrDie(param_file)),
-      data_type_(param_.solver_data_type()), iter_(0), id_(0), net_(), callback_(nullptr),
-      root_solver_(root_solver), rank_(rank), requested_early_exit_(false), iteration_timer_(),
-      test_timer_(), iterations_last_(0), iterations_restored_(0) {
-  Init();
-}
+    : Solver(ReadSolverParamsFromTextFileOrDie(param_file), rank, root_solver) {}
 
 Solver::~Solver() {
 }
@@ -248,7 +244,6 @@ void Solver::Step(int iters) {
     // Just started or restored?
     const bool first_loop = iter_ == 0 || iterations_last_ < 0;
     if (first_loop) {
-      // Running one test iteration to allocate all space needed TODO
       if (TestAll(1, use_multi_gpu_testing)) {
         break;
       }
@@ -287,6 +282,7 @@ void Solver::Step(int iters) {
         net_->wait_layers_init();
       }
     }
+    iter_size_complete_ = true;
     loss /= param_.iter_size();
     iteration_wait();
     if (requested_early_exit_) {
@@ -442,7 +438,6 @@ bool Solver::TestAll(const int iters, bool use_multi_gpu) {
 }
 
 bool Solver::Test(const int test_net_id, const int iters, bool use_multi_gpu) {
-  const bool print_loss = iters == 0;
   LOG_IF(INFO, Caffe::root_solver()) << "Iteration " << iter_
             << ", Testing net (#" << test_net_id << ")";
   if (!test_nets_[test_net_id]->trained_layers_shared()) {
@@ -523,12 +518,8 @@ bool Solver::Test(const int test_net_id, const int iters, bool use_multi_gpu) {
     const string& output_name = test_net->blob_names()[output_blob_index];
     const float loss_weight = test_net->blob_loss_weights()[output_blob_index];
     ostringstream loss_msg_stream;
-    const float mean_score = (test_score[i] / param_.test_iter(test_net_id)) /
-                             Caffe::solver_count();
+    const float mean_score = test_score[i] / test_iterations / Caffe::solver_count();
     if (loss_weight) {
-      if (!print_loss) {
-        continue;
-      }
       loss_msg_stream << " (* " << loss_weight
           << " = " << (loss_weight * mean_score) << " loss)";
     }
