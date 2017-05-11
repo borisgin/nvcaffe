@@ -310,15 +310,18 @@ REGISTER_LAYER_CREATOR(DetectNetTransformation, GetDetectNetTransformationLayer)
 #endif
 
 #ifdef WITH_PYTHON_LAYER
+
+unique_ptr<PyInit> pi;
+
 shared_ptr<LayerBase> GetPythonLayer(const LayerParameter& param, Type, Type) {
   try {
     std::lock_guard<std::mutex> lock(PythonLayer<float, float>::mutex());
-    static thread_local PyInit pi;
-    bp::object module;
-    PYTHON_CALL_BEGIN
-      LOG(INFO) << "Importing Python module '" << param.python_param().module() << "'";
-      module = bp::import(param.python_param().module().c_str());
-    PYTHON_CALL_END
+    if (!pi) {
+      pi.reset(new PyInit());
+    }
+
+    LOG(INFO) << "Importing Python module '" << param.python_param().module() << "'";
+    bp::object module = bp::import(param.python_param().module().c_str());
     bp::object layer = module.attr(param.python_param().layer().c_str())(param);
     return bp::extract<shared_ptr<LayerBase>>(layer)();
   } catch (...) {

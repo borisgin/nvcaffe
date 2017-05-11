@@ -133,6 +133,10 @@ class Solver {
     return param_.display() && iter_ % param_.display() == 0;
   }
 
+  bool is_iter_size_complete() const {
+    return iter_size_complete_;
+  }
+
   /**
    * @brief Returns the solver type.
    */
@@ -194,6 +198,7 @@ class Solver {
   Timer test_timer_;
   int iterations_last_;
   int iterations_restored_;
+  bool iter_size_complete_;
 
   DISABLE_COPY_MOVE_AND_ASSIGN(Solver);
 };

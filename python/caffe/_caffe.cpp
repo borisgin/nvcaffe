@@ -56,6 +56,8 @@ const int NPY_DTYPE = NPY_FLOAT32;
 shared_ptr<GPUMemory::Scope> gpu_memory_scope;
 #endif
 
+unique_ptr<PyInit> pi;
+
 void initialize_gpu_memory_scope(const vector<int>& gpus) {
   FLAGS_alsologtostderr = 1;
   static bool google_initialized = false;
@@ -69,6 +71,10 @@ void initialize_gpu_memory_scope(const vector<int>& gpus) {
   if (gpus.size() > 0) {
     Caffe::SetDevice(gpus[0]);
   }
+  if (!pi) {
+    pi.reset(new PyInit());
+  }
+
 #else
   LOG(WARNING) << "GPU memory initialization is ignored for CPU_ONLY build";
 #endif
