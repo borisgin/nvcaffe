@@ -65,12 +65,10 @@ class DataReader : public InternalThread {
       return data_cache_inst_.get();
     }
 
-    shared_ptr<Datum> next_new();
+    shared_ptr<Datum>& next_new();
     shared_ptr<Datum>& next_cached();
     bool check_memory();
-    void wait_all() {
-      cache_bar_.wait();
-    }
+
     void just_cached();
     void register_new_thread() {
       std::lock_guard<std::mutex> lock(cache_mutex_);
@@ -87,7 +85,7 @@ class DataReader : public InternalThread {
     vector<shared_ptr<Datum>> cache_buffer_;
     size_t cache_idx_;
     boost::barrier cache_bar_;
-    const bool shuffle_;
+    bool shuffle_;
     std::atomic_bool just_cached_;
     std::unordered_map<std::thread::id, shared_ptr<Flag>> cached_flags_;
     static std::mutex cache_mutex_;
@@ -137,7 +135,7 @@ class DataReader : public InternalThread {
     return full_[queue_id]->pop(log_on_wait);
   }
 
-  shared_ptr<Datum> next_new() {
+  shared_ptr<Datum>& next_new() {
     return data_cache_->next_new();
   }
 
@@ -153,13 +151,17 @@ class DataReader : public InternalThread {
     data_cache_->just_cached();
   }
 
+
+  string db_source_;
+
+
  protected:
   void InternalThreadEntry() override;
   void InternalThreadEntryN(size_t thread_id) override;
 
   const size_t parser_threads_num_, transf_threads_num_;
   const size_t queues_num_, queue_depth_;
-  string db_source_;
+  //string db_source_;
   const size_t solver_count_, solver_rank_;
   size_t batch_size_;
   const bool skip_one_batch_;

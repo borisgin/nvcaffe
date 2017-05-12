@@ -7,6 +7,13 @@
 
 namespace caffe {
 
+
+std::vector<std::string> keys;
+std::vector<size_t> ids;
+std::mutex mm, mmm, m4;
+
+
+
 std::mutex DataReader::DataCache::cache_mutex_;
 unique_ptr<DataReader::DataCache> DataReader::DataCache::data_cache_inst_;
 
@@ -125,7 +132,7 @@ void DataReader::InternalThreadEntryN(size_t thread_id) {
   }
 }
 
-shared_ptr<Datum> DataReader::DataCache::next_new() {
+shared_ptr<Datum>& DataReader::DataCache::next_new() {
   std::lock_guard<std::mutex> lock(cache_mutex_);
   cache_buffer_.emplace_back(make_shared<Datum>());
   return cache_buffer_.back();
@@ -137,8 +144,18 @@ shared_ptr<Datum>& DataReader::DataCache::next_cached() {
       f.second->wait();
     }
     just_cached_.store(false);
+    LOG(INFO) << "Cached " << cache_buffer_.size() << " records";
   }
   std::lock_guard<std::mutex> lock(cache_mutex_);
+
+  {
+    std::lock_guard<std::mutex> lock(mmm);
+    LOG(INFO) << keys.size()<< " " << *keys.begin()<< " " << *keys.rbegin();
+    LOG(INFO) << ids.size();
+  }
+
+
+
   if (shuffle_ && cache_idx_== 0UL) {
     LOG(INFO) << "Shuffling " << cache_buffer_.size() << " records...";
     std::shuffle(cache_buffer_.begin(), cache_buffer_.end(), std::default_random_engine{});
@@ -161,11 +178,21 @@ bool DataReader::DataCache::check_memory() {
     std::lock_guard<std::mutex> lock(cache_mutex_);
     struct sysinfo sinfo;
     sysinfo(& sinfo);
-    if (sinfo.freeswap < sinfo.totalswap / 2UL) {
+    if (sinfo.totalswap > 0UL && sinfo.freeswap < sinfo.totalswap / 2UL) {
       LOG(WARNING) << "Data Reader cached " << cache_buffer_.size()
                    << " records so far but it can't continue because it used more than half"
                    << " of swap buffer. Free swap memory left: " << sinfo.freeswap << " of total "
                    << sinfo.totalswap << ". Cache and shuffling are now disabled.";
+      cache_buffer_.clear();
+      shuffle_ = false;
+      return false;
+    }
+    if (sinfo.totalswap == 0UL && sinfo.freeram < sinfo.totalram / 20UL) {
+      LOG(WARNING) << "Data Reader cached " << cache_buffer_.size()
+                   << " records so far but it can't continue because it used more than 95%"
+                   << " of RAM and there is no swap space available. Free RAM left: "
+                   << sinfo.freeram << " of total " << sinfo.totalram
+                   << ". Cache and shuffling are now disabled.";
       cache_buffer_.clear();
       return false;
     }
@@ -198,6 +225,8 @@ DataReader::CursorManager::~CursorManager() {
 }
 
 void DataReader::CursorManager::next(shared_ptr<Datum>& datum) {
+  std::lock_guard<std::mutex> lock(m4);
+
   if (cached_all_) {
     datum = reader_->next_cached();
   } else {
@@ -211,6 +240,13 @@ void DataReader::CursorManager::next(shared_ptr<Datum>& datum) {
       break;
     }
     fetch(datum.get());
+  }
+
+  {
+//    std::lock_guard<std::mutex> lock(mm);
+    if (reader_->db_source_ == "examples/mnist/mnist_train_lmdb") {
+      ids.push_back(rec_id_);
+    }
   }
 
   datum->set_record_id(rec_id_);
@@ -274,9 +310,20 @@ void DataReader::CursorManager::rewind() {
 }
 
 void DataReader::CursorManager::fetch(Datum* datum) {
+
+  std::lock_guard<std::mutex> lock(mmm);
+
+
   if (!datum->ParseFromArray(cursor_->data(), (int) cursor_->size())) {
     LOG(ERROR) << "Database cursor failed to parse Datum record";
   }
+
+  if (reader_->db_source_ == "examples/mnist/mnist_train_lmdb") {
+    keys.push_back(cursor_->key());
+    LOG(INFO) << cursor_->key() << " " << reader_->db_source_;
+
+  }
+
 }
 
 }  // namespace caffe
