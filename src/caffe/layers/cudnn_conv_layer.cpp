@@ -361,6 +361,14 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
       // most of memory for allocating layer blobs.
       workspace_bytes = INITIAL_WORKSPACE_SIZE * groups();
     } else {
+      // Make sure it's all allocated before we take the rest
+      this->blobs_[0]->allocate_data();
+      for (int i = 0; i < bottom.size(); ++i) {
+        top[i]->allocate_data();
+        top[i]->allocate_diff();
+        bottom[i]->allocate_data();
+        bottom[i]->allocate_diff();
+      }
       workspace_bytes = ComputeFindExWorkspaceSize();
       // Avoid seeking for an algorithm in subsequent iterations
       use_algo_seeker_ = false;
@@ -434,7 +442,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::EstimateMaxWorkspaceSize(const vector<
   cudnnStatus_t status;
   size_t size;
   size_t available_memory, total_memory;
-  GPUMemory::GetInfo(&available_memory, &total_memory);
+  GPUMemory::GetInfo(&available_memory, &total_memory, true);
   std::list<int> algos_to_test;
   for (int i = 0; i < bottom.size(); ++i) {
     if (user_algos_override_[0] < 0) {

@@ -23,7 +23,18 @@ class Tensor {
 
   ~Tensor() {}
 
- private:
+  std::string to_string(int indent) const;
+
+  static void copy_helper(bool use_gpu, int count, const void* p_src, Type src_type,
+      void* p_dst, Type dst_type);  // NOLINT(runtime/references)
+
+#ifndef CPU_ONLY
+  static void
+  gpu_scal(int count, Type dtype, void* data, float scal, cublasHandle_t cublas_handle, bool sync);
+#endif
+  static void cpu_scal(int count, Type dtype, void* data, float scal);
+
+private:
   Type type() const {
     return type_;
   }
@@ -36,10 +47,14 @@ class Tensor {
     return synced_arrays_->size();
   }
 
+  void set(float value);
   void scale(float new_scale, void* handle = nullptr, bool synced = true);
   void cpu_scale(float new_scale);
   float cpu_amax();
   float cpu_asum();
+  float asum() const;
+  float sumsq() const;
+  void invalidate_others();
 
 #ifndef CPU_ONLY
   void gpu_set(float value, bool sync, cudaStream_t stream);
@@ -47,20 +62,16 @@ class Tensor {
   float gpu_amax();
   size_t gpu_memory_use() const;
 #endif
-
-  void set(float value);
   size_t cpu_memory_use() const;
-
   const shared_ptr<SyncedMemory>& synced_mem() const;
   shared_ptr<SyncedMemory>& mutable_synced_mem(bool flush = true);
+  void convert(Type new_type);
+  void Reshape(int count);
 
   bool is_current_valid() const {
     const shared_ptr<SyncedMemory>& mem = synced_arrays_->at(type_);
     return mem && mem->is_valid();
   }
-
-  void convert(Type new_type);
-  void Reshape(int count);
 
   void* mutable_memory(Type type, bool is_gpu, bool zero_new_mem = true) {
     convert(type);
@@ -78,28 +89,11 @@ class Tensor {
     return is_gpu ? mem->gpu_data() : mem->cpu_data();
   }
 
-  float asum() const;
-  float sumsq() const;
-  void invalidate_others();
-
   bool is_empty() const {
     const shared_ptr<SyncedMemory>& mem = synced_arrays_->at(type_);
     return !mem || mem->head() == SyncedMemory::UNINITIALIZED;
   }
 
- public:
-  static void copy_helper(bool use_gpu, int count, const void* p_src, Type src_type,
-      void* p_dst, Type dst_type);  // NOLINT(runtime/references)
-
-  std::string to_string(int indent) const;
-
-#ifndef CPU_ONLY
-  static void
-  gpu_scal(int count, Type dtype, void* data, float scal, cublasHandle_t cublas_handle, bool sync);
-#endif
-  static void cpu_scal(int count, Type dtype, void* data, float scal);
-
- private:
   // numerical type stored here at a moment (might change due to conversion)
   Type type_;
   bool locked_;
