@@ -40,7 +40,7 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
   static constexpr size_t INITIAL_WORKSPACE_SIZE = 8 * 1024 * 1024;
   // Using all of memory may result in failure of workspace reserve.
   // NOLINT_NEXT_LINE(build/storage_class)
-  static constexpr size_t PAGE_SIZE = 8 * 1024 * 1024;
+  static constexpr size_t PAGE_SIZE = 16 * 1024 * 1024;
   // We update it on second Fwd/Bwd pass and we allocate it *once*
   // when we start third pass. We might recompute it later if demand grows
   // and/or we suddenly need to get extra memory for other needs.
