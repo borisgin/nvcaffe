@@ -169,7 +169,6 @@ void GPUMemory::Manager::reset() {
   cub_allocator_.reset();
   mode_ = CUDA_MALLOC;
   initialized_ = false;
-  LOG(INFO) << "GPUMemory::Manager uninitialized";
 }
 
 GPUMemory::Manager::~Manager() {

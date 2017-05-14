@@ -34,7 +34,7 @@ class Tensor {
 #endif
   static void cpu_scal(int count, Type dtype, void* data, float scal);
 
-private:
+ private:
   Type type() const {
     return type_;
   }
