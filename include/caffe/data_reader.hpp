@@ -151,17 +151,13 @@ class DataReader : public InternalThread {
     data_cache_->just_cached();
   }
 
-
-  string db_source_;
-
-
  protected:
   void InternalThreadEntry() override;
   void InternalThreadEntryN(size_t thread_id) override;
 
   const size_t parser_threads_num_, transf_threads_num_;
   const size_t queues_num_, queue_depth_;
-  //string db_source_;
+  string db_source_;
   const size_t solver_count_, solver_rank_;
   size_t batch_size_;
   const bool skip_one_batch_;

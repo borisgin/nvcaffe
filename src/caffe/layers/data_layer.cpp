@@ -86,6 +86,11 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
     starving = fit <= 1UL || starving;  // enforce 1x1
     current_parsers_num_ = starving ? 1UL : std::min(4UL,
         std::max(1UL, (size_t) std::lround(std::sqrt(fit))));
+    if (cache_ && current_parsers_num_ > 1UL) {
+      LOG(INFO) << "[" << Caffe::current_device() << "] Reduced parser threads count from "
+                << current_parsers_num_ << " to 1 because cache is used";
+      current_parsers_num_ = 1UL;
+    }
     current_transf_num_ = starving ? 1UL : std::min(4UL,
         std::max(current_transf_num_, (size_t) std::lround(fit / current_parsers_num_)));
     this->RestartAllThreads(current_transf_num_, true);

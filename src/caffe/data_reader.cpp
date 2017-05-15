@@ -7,13 +7,6 @@
 
 namespace caffe {
 
-
-std::vector<std::string> keys;
-std::vector<size_t> ids;
-std::mutex mm, mmm, m4;
-
-
-
 std::mutex DataReader::DataCache::cache_mutex_;
 unique_ptr<DataReader::DataCache> DataReader::DataCache::data_cache_inst_;
 
@@ -147,15 +140,6 @@ shared_ptr<Datum>& DataReader::DataCache::next_cached() {
     LOG(INFO) << "Cached " << cache_buffer_.size() << " records";
   }
   std::lock_guard<std::mutex> lock(cache_mutex_);
-
-  {
-    std::lock_guard<std::mutex> lock(mmm);
-    LOG(INFO) << keys.size()<< " " << *keys.begin()<< " " << *keys.rbegin();
-    LOG(INFO) << ids.size();
-  }
-
-
-
   if (shuffle_ && cache_idx_== 0UL) {
     LOG(INFO) << "Shuffling " << cache_buffer_.size() << " records...";
     std::shuffle(cache_buffer_.begin(), cache_buffer_.end(), std::default_random_engine{});
@@ -225,8 +209,6 @@ DataReader::CursorManager::~CursorManager() {
 }
 
 void DataReader::CursorManager::next(shared_ptr<Datum>& datum) {
-  std::lock_guard<std::mutex> lock(m4);
-
   if (cached_all_) {
     datum = reader_->next_cached();
   } else {
@@ -240,13 +222,6 @@ void DataReader::CursorManager::next(shared_ptr<Datum>& datum) {
       break;
     }
     fetch(datum.get());
-  }
-
-  {
-//    std::lock_guard<std::mutex> lock(mm);
-    if (reader_->db_source_ == "examples/mnist/mnist_train_lmdb") {
-      ids.push_back(rec_id_);
-    }
   }
 
   datum->set_record_id(rec_id_);
@@ -310,20 +285,9 @@ void DataReader::CursorManager::rewind() {
 }
 
 void DataReader::CursorManager::fetch(Datum* datum) {
-
-  std::lock_guard<std::mutex> lock(mmm);
-
-
   if (!datum->ParseFromArray(cursor_->data(), (int) cursor_->size())) {
     LOG(ERROR) << "Database cursor failed to parse Datum record";
   }
-
-  if (reader_->db_source_ == "examples/mnist/mnist_train_lmdb") {
-    keys.push_back(cursor_->key());
-    LOG(INFO) << cursor_->key() << " " << reader_->db_source_;
-
-  }
-
 }
 
 }  // namespace caffe
