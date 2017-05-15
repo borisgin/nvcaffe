@@ -19,28 +19,25 @@ class L1LossLayer : public LossLayer<Ftype, Btype> {
  public:
   explicit L1LossLayer(const LayerParameter& param)
       : LossLayer<Ftype, Btype>(param), diff_() {}
-  virtual void Reshape(const vector<Blob*>& bottom,
-      const vector<Blob*>& top);
+  void Reshape(const vector<Blob*>& bottom, const vector<Blob*>& top) override;
 
-  virtual inline const char* type() const { return "L1Loss"; }
+  const char* type() const override { return "L1Loss"; }
   /**
    * Unlike most loss layers, in the L1LossLayer we can backpropagate
    * to both inputs -- override to return true and always allow force_backward.
    */
-  virtual inline bool AllowForceBackward(const int bottom_index) const {
+  bool AllowForceBackward(const int bottom_index) const override {
     return true;
   }
 
  protected:
   /// @copydoc L1LossLayer
-  virtual void Forward_cpu(const vector<Blob*>& bottom,
-      const vector<Blob*>& top);
-//  virtual void Forward_gpu(const vector<Blob*>& bottom,
-//      const vector<Blob*>& top);
-  virtual void Backward_cpu(const vector<Blob*>& top,
-      const vector<bool>& propagate_down, const vector<Blob*>& bottom);
-//  virtual void Backward_gpu(const vector<Blob*>& top,
-//      const vector<bool>& propagate_down, const vector<Blob*>& bottom);
+  void Forward_cpu(const vector<Blob*>& bottom, const vector<Blob*>& top) override;
+  void Forward_gpu(const vector<Blob*>& bottom, const vector<Blob*>& top) override;
+  void Backward_cpu(const vector<Blob*>& top,
+      const vector<bool>& propagate_down, const vector<Blob*>& bottom) override;
+  void Backward_gpu(const vector<Blob*>& top,
+      const vector<bool>& propagate_down, const vector<Blob*>& bottom) override;
 
   TBlob<Ftype> diff_;
   TBlob<Ftype> sign_;

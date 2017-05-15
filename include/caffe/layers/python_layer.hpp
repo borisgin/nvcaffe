@@ -8,6 +8,30 @@
 
 namespace bp = boost::python;
 
+class PyGILAquire {
+  PyGILState_STATE state_;
+ public:
+  PyGILAquire() {
+    state_ = PyGILState_Ensure();
+  }
+  ~PyGILAquire() {
+    PyGILState_Release(state_);
+  }
+DISABLE_COPY_MOVE_AND_ASSIGN(PyGILAquire);
+};
+
+class PyGILRelease {
+  PyThreadState *state_;
+ public:
+  PyGILRelease() {
+    state_ = PyEval_SaveThread();
+  }
+  ~PyGILRelease() {
+    PyEval_RestoreThread(state_);
+  }
+DISABLE_COPY_MOVE_AND_ASSIGN(PyGILRelease);
+};
+
 namespace caffe {
 
 inline void PyErrReport() {
@@ -16,50 +40,16 @@ inline void PyErrReport() {
   LOG(FATAL) << "Python error";
 }
 
-class PyInit {
- public:
-  PyInit() {
-    Py_Initialize();
-  }
-  ~PyInit() {
-//    Py_Finalize();
-  }
-  DISABLE_COPY_MOVE_AND_ASSIGN(PyInit);
-};
-
-class PyTS {
-  PyThreadState *state_;
- public:
-  PyTS() {
-    state_ = PyEval_SaveThread();
-  }
-  ~PyTS() {
-    PyEval_RestoreThread(state_);
-  }
-  DISABLE_COPY_MOVE_AND_ASSIGN(PyTS);
-};
-
-class PyGS {
-  PyGILState_STATE state_;
- public:
-  PyGS() {
-    state_ = PyGILState_Ensure();
-  }
-  ~PyGS() {
-    PyGILState_Release(state_);
-  }
-  DISABLE_COPY_MOVE_AND_ASSIGN(PyGS);
-};
-
 #define PYTHON_CALL_BEGIN  \
 {                          \
-  PyTS pts;                \
+  PyGILRelease pygr;       \
   {                        \
-    PyGS pygs;
+    PyGILAquire pgil;
 
 #define PYTHON_CALL_END    \
   }                        \
 }
+
 
 template <typename Ftype, typename Btype>
 class PythonLayer : public Layer<Ftype, Btype> {
