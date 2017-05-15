@@ -390,6 +390,7 @@ void DetectNetTransformationLayer<Dtype>::Forward_gpu(
   // NOLINT_NEXT_LINE(whitespace/operators)
   color_transformations<<<CAFFE_GET_BLOCKS(bottom_pixels),
     CAFFE_CUDA_NUM_THREADS, 0, stream>>>(bottom_data, tmp_data, bottom_shape, aug_data);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   // Mean subtraction
   if (t_param_.has_mean_file()) {
@@ -412,6 +413,7 @@ void DetectNetTransformationLayer<Dtype>::Forward_gpu(
   spatial_transformations<<<CAFFE_GET_BLOCKS(top_pixels),
     CAFFE_CUDA_NUM_THREADS, 0, stream>>>(tmp_data, bottom_shape, aug_data,
         top_data, top_shape);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   // Use CPU to transform labels
   const vector<vector<BboxLabel> > list_list_bboxes = blobToLabels(*bottom[1]);

@@ -883,12 +883,14 @@ void Net::Reduce(int param_id) {
 
 void Net::ReduceBucket(size_t count, Type bucket_type, void* bucket) {
   solver_->callback()->reduce_barrier();
-  unique_ptr<unique_lock<shared_mutex>> lock;
-  if (solver_->is_root()) {
-    lock.reset(new unique_lock<shared_mutex>(GPUMemory::read_write_mutex()));
+  {
+    unique_ptr<unique_lock<shared_mutex>> lock;
+    if (solver_->is_root()) {
+      lock.reset(new unique_lock<shared_mutex>(GPUMemory::read_write_mutex()));
+    }
+    solver_->callback()->reduce_barrier();
+    solver_->callback()->allreduce_bucket(count, bucket, bucket_type);
   }
-  solver_->callback()->reduce_barrier();
-  solver_->callback()->allreduce_bucket(count, bucket, bucket_type);
   Tensor::gpu_scal(count, bucket_type, bucket, 1.F / Caffe::solver_count(),
       solver_->callback()->cublas_handle(), false);
 }

@@ -2,17 +2,12 @@
 #include <boost/python.hpp>
 namespace bp = boost::python;
 #endif
-#include <boost/shared_ptr.hpp>
 
 #include <gflags/gflags.h>
 #include <glog/logging.h>
-
-#include <cstring>
 #include <map>
-#include <string>
-#include <vector>
-
 #include <boost/algorithm/string.hpp>
+
 #include "caffe/caffe.hpp"
 #include "caffe/util/signal_handler.h"
 

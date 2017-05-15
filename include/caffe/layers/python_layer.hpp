@@ -8,6 +8,30 @@
 
 namespace bp = boost::python;
 
+class PyGILAquire {
+  PyGILState_STATE state_;
+ public:
+  PyGILAquire() {
+    state_ = PyGILState_Ensure();
+  }
+  ~PyGILAquire() {
+    PyGILState_Release(state_);
+  }
+DISABLE_COPY_MOVE_AND_ASSIGN(PyGILAquire);
+};
+
+class PyGILRelease {
+  PyThreadState *state_;
+ public:
+  PyGILRelease() {
+    state_ = PyEval_SaveThread();
+  }
+  ~PyGILRelease() {
+    PyEval_RestoreThread(state_);
+  }
+DISABLE_COPY_MOVE_AND_ASSIGN(PyGILRelease);
+};
+
 namespace caffe {
 
 inline void PyErrReport() {
@@ -16,26 +40,16 @@ inline void PyErrReport() {
   LOG(FATAL) << "Python error";
 }
 
-class PyInit {
-  PyThreadState *state_;
-  PyGILState_STATE gil_state_;
- public:
-  PyInit() {
-    if (!Py_IsInitialized()) {
-      Py_Initialize();
-      LOG(INFO) << "Python initialized";
-    }
-    state_ = PyEval_SaveThread();
-    gil_state_ = PyGILState_Ensure();
-    LOG(INFO) << "Python state initialized";
-  }
-  ~PyInit() {
-//    PyGILState_Release(gil_state_);
-//    PyEval_RestoreThread(state_);
-//    Py_Finalize();
-  }
-  DISABLE_COPY_MOVE_AND_ASSIGN(PyInit);
-};
+#define PYTHON_CALL_BEGIN  \
+{                          \
+  PyGILRelease pygr;       \
+  {                        \
+    PyGILAquire pgil;
+
+#define PYTHON_CALL_END    \
+  }                        \
+}
+
 
 template <typename Ftype, typename Btype>
 class PythonLayer : public Layer<Ftype, Btype> {
@@ -45,14 +59,18 @@ class PythonLayer : public Layer<Ftype, Btype> {
 
   void LayerSetUp(const vector<Blob*>& bottom, const vector<Blob*>& top) override {
     std::lock_guard<std::mutex> lock(mutex());
+    PYTHON_CALL_BEGIN
     self_.attr("param_str") = bp::str(this->layer_param_.python_param().param_str());
     self_.attr("phase") = static_cast<int>(this->phase_);
     self_.attr("setup")(bottom, top);
+    PYTHON_CALL_END
   }
 
   void Reshape(const vector<Blob*>& bottom, const vector<Blob*>& top) override {
     std::lock_guard<std::mutex> lock(mutex());
+    PYTHON_CALL_BEGIN
     self_.attr("reshape")(bottom, top);
+    PYTHON_CALL_END
   }
 
   inline bool ShareInParallel() const override {
@@ -68,13 +86,17 @@ class PythonLayer : public Layer<Ftype, Btype> {
  protected:
   void Forward_cpu(const vector<Blob*>& bottom, const vector<Blob*>& top) override {
     std::lock_guard<std::mutex> lock(mutex());
+    PYTHON_CALL_BEGIN
     self_.attr("forward")(bottom, top);
+    PYTHON_CALL_END
   }
 
   void Backward_cpu(const vector<Blob*>& top,
       const vector<bool>& propagate_down, const vector<Blob*>& bottom) override {
     std::lock_guard<std::mutex> lock(mutex());
+    PYTHON_CALL_BEGIN
     self_.attr("backward")(top, propagate_down, bottom);
+    PYTHON_CALL_END
   }
 
  private:
