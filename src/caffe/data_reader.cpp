@@ -158,8 +158,8 @@ void DataReader::DataCache::just_cached() {
 }
 
 bool DataReader::DataCache::check_memory() {
+  std::lock_guard<std::mutex> lock(cache_mutex_);
   if (cache_buffer_.size() > 0UL && cache_buffer_.size() % 10000UL == 0UL) {
-    std::lock_guard<std::mutex> lock(cache_mutex_);
     struct sysinfo sinfo;
     sysinfo(& sinfo);
     if (sinfo.totalswap > 0UL && sinfo.freeswap < sinfo.totalswap / 2UL) {
@@ -171,9 +171,9 @@ bool DataReader::DataCache::check_memory() {
       shuffle_ = false;
       return false;
     }
-    if (sinfo.totalswap == 0UL && sinfo.freeram < sinfo.totalram / 20UL) {
+    if (sinfo.totalswap == 0UL && sinfo.freeram < sinfo.totalram / 100UL) {
       LOG(WARNING) << "Data Reader cached " << cache_buffer_.size()
-                   << " records so far but it can't continue because it used more than 95%"
+                   << " records so far but it can't continue because it used more than 99%"
                    << " of RAM and there is no swap space available. Free RAM left: "
                    << sinfo.freeram << " of total " << sinfo.totalram
                    << ". Cache and shuffling are now disabled.";
