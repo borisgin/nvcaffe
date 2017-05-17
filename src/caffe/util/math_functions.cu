@@ -226,9 +226,9 @@ void caffe_gpu_scal<float>(const int N, const float alpha, float* X,
   cudaStream_t stream;
   CUBLAS_CHECK(cublasGetStream(cublas_handle, &stream));
   CUBLAS_CHECK(cublasSscal(cublas_handle, N, &alpha, X, 1));
-  if (sync) {
+//  if (sync) {
     CUDA_CHECK(cudaStreamSynchronize(stream));
-  }
+//  }
 }
 
 template<>
@@ -238,9 +238,9 @@ void caffe_gpu_scal<double>(const int N, const double alpha, double* X,
   cudaStream_t stream;
   CUBLAS_CHECK(cublasGetStream(cublas_handle, &stream));
   CUBLAS_CHECK(cublasDscal(cublas_handle, N, &alpha, X, 1));
-  if (sync) {
+//  if (sync) {
     CUDA_CHECK(cudaStreamSynchronize(stream));
-  }
+//  }
 }
 
 template<>
@@ -272,9 +272,9 @@ void caffe_gpu_scal_float16(const int n, const float16 alpha, float16* x, cudaSt
   scale_in_place_kernel <<<CAFFE_GET_BLOCKS_HALF(n2), CAFFE_CUDA_NUM_THREADS_HALF, 0, stream>>>
       (n2, alpha2, reinterpret_cast<__half2*>(x));
   CUDA_POST_KERNEL_CHECK;
-  if (sync) {
+//  if (sync) {
     CUDA_CHECK(cudaStreamSynchronize(stream));
-  }
+//  }
 }
 
 template<>
@@ -313,9 +313,9 @@ void caffe_gpu_scal_fp16(const int n, const float alpha, float16* x,
   scale_in_place_kernel_fp16<<<CAFFE_GET_BLOCKS_HALF(n2), CAFFE_CUDA_NUM_THREADS_HALF, 0, stream>>>
       (n2, alpha, reinterpret_cast<__half2*>(x));
   CUDA_POST_KERNEL_CHECK;
-  if (sync) {
+//  if (sync) {
     CUDA_CHECK(cudaStreamSynchronize(stream));
-  }
+//  }
 }
 
 template<>

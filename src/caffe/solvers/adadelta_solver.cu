@@ -88,8 +88,8 @@ void adadelta_reg_update_and_clear_gpu<float16, float16>(int N,
       (N, reinterpret_cast<__half*>(g), reinterpret_cast<__half*>(w),
           reinterpret_cast<__half*>(h), reinterpret_cast<__half*>(h2),
           momentum, delta, local_rate, local_decay, reg_type == "L2", clear_grads);
-CUDA_POST_KERNEL_CHECK;
-CUDA_CHECK(cudaStreamSynchronize(stream));
+  CUDA_POST_KERNEL_CHECK;
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
 template void adadelta_reg_update_and_clear_gpu<float16, float>(int, float16*, float*, float*,

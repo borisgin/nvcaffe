@@ -14,6 +14,13 @@ layer {
     source: "examples/mnist/mnist_train_lmdb"
     batch_size: 64
     backend: LMDB
+
+cache: true
+shuffle: true
+
+#threads: 1
+#parser_threads: 1
+
   }
 }
 layer {

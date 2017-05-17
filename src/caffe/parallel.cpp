@@ -222,6 +222,7 @@ void P2PSync::allreduce(int param_id) {
       ncclSum,
       nccl_comm_,
       comm_stream_->get()));
+  syncCommStream();
 #endif  // USE_NCCL
 #endif  // CPU_ONLY
 }
@@ -231,6 +232,7 @@ void P2PSync::allreduce_bucket(int count, void* bucket, Type type) {
 #ifdef USE_NCCL
   NCCL_CHECK(ncclAllReduce(bucket, bucket, count, nccl::nccl_type(type),
                            ncclSum, nccl_comm_, comm_stream_->get()));
+  syncCommStream();
 #endif  // USE_NCCL
 #endif  // CPU_ONLY
 }
