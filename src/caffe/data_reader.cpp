@@ -171,9 +171,9 @@ bool DataReader::DataCache::check_memory() {
       shuffle_ = false;
       return false;
     }
-    if (sinfo.totalswap == 0UL && sinfo.freeram < sinfo.totalram / 100UL) {
+    if (sinfo.totalswap == 0UL && sinfo.freeram < sinfo.totalram / 1000UL) {
       LOG(WARNING) << "Data Reader cached " << cache_buffer_.size()
-                   << " records so far but it can't continue because it used more than 99%"
+                   << " records so far but it can't continue because it used more than 99.9%"
                    << " of RAM and there is no swap space available. Free RAM left: "
                    << sinfo.freeram << " of total " << sinfo.totalram
                    << ". Cache and shuffling are now disabled.";
