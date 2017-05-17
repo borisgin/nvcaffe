@@ -50,6 +50,8 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
   // because they hurt performance.
   static thread_local GPUMemory::Workspace workspace_;
   static thread_local GPUMemory::Workspace tmp_weights_;
+  // Stop alloc/dealloc
+  static thread_local bool was_reduced_;
 
  public:
   explicit CuDNNConvolutionLayer(const LayerParameter& param)
@@ -158,6 +160,9 @@ thread_local size_t CuDNNConvolutionLayer<Ftype, Btype>::mem_size_estimated_;
 
 template<typename Ftype, typename Btype>
 thread_local size_t CuDNNConvolutionLayer<Ftype, Btype>::mem_req_all_grps_;
+
+template<typename Ftype, typename Btype>
+thread_local bool CuDNNConvolutionLayer<Ftype, Btype>::was_reduced_ = false;
 
 #endif
 

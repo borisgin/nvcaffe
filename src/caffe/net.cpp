@@ -867,12 +867,14 @@ void Net::ReduceAndUpdate() {
 #ifndef CPU_ONLY
 void Net::Reduce(int param_id) {
   solver_->callback()->reduce_barrier();
-  unique_ptr<unique_lock<shared_mutex>> lock;
-  if (solver_->is_root()) {
-    lock.reset(new unique_lock<shared_mutex>(GPUMemory::read_write_mutex()));
+  {
+    unique_ptr<unique_lock<shared_mutex>> lock;
+    if (solver_->is_root()) {
+      lock.reset(new unique_lock<shared_mutex>(GPUMemory::read_write_mutex()));
+    }
+    solver_->callback()->reduce_barrier();
+    solver_->callback()->allreduce(param_id);
   }
-  solver_->callback()->reduce_barrier();
-  solver_->callback()->allreduce(param_id);
   this->learnable_params()[param_id]->gpu_scale_diff(1.F / Caffe::solver_count(),
       solver_->callback()->cublas_handle(), false);
   // Also need to barrier to make sure lock isn't undone
