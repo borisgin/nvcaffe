@@ -668,6 +668,27 @@ float Net::ForwardFromTo(int start, int end) {
     // << "' FT " << Type_Name(layers_[i]->forward_type())
     // << " BT " << Type_Name(layers_[i]->backward_type());
     float layer_loss = layers_[i]->Forward(bottom_vecs_[i], top_vecs_[i]);
+
+
+
+//    const vector<shared_ptr<Blob>>& net_params = this->learnable_params();
+//    if (!this->parent_solver()->rank()) {
+//      for (size_t param_id = 0; param_id < net_params.size(); ++param_id) {
+//        LOG(INFO) << "-------- " << net_params[param_id]->asum_diff();
+//      }
+//      for (size_t param_id = 0; param_id < net_params.size(); ++param_id) {
+//        LOG(INFO) << "++++++++ " << net_params[param_id]->asum_data();
+//      }
+//      LOG(INFO) << "////////// " << i;
+//    }
+
+
+
+
+
+
+
+
     loss += layer_loss;
     if (debug_info_) { ForwardDebugInfo(i); }
   }
@@ -704,7 +725,30 @@ const vector<Blob*>& Net::Forward(const vector<Blob*>& bottom, float* loss) {
 float Net::ForwardBackward(bool apply_update) {
   float loss;
   Forward(&loss);
+
+//  const vector<shared_ptr<Blob>>& net_params = this->learnable_params();
+//  if (!this->parent_solver()->rank()) {
+//    for (size_t param_id = 0; param_id < net_params.size(); ++param_id) {
+//      LOG_FIRST_N(INFO, 100) << "-------- " << net_params[param_id]->asum_diff();
+//    }
+//    for (size_t param_id = 0; param_id < net_params.size(); ++param_id) {
+//      LOG_FIRST_N(INFO, 100) << "++++++++ " << net_params[param_id]->asum_data();
+//    }
+//    LOG_FIRST_N(INFO, 100) << "////////// ";
+//  }
+
+
+
   Backward(apply_update);
+
+
+
+
+
+
+
+
+
   return loss;
 }
 
@@ -721,6 +765,21 @@ void Net::BackwardFromToAu(int start, int end, bool apply_update) {
     }
 
     layers_[i]->Backward(top_vecs_[i], bottom_need_backward_[i], bottom_vecs_[i]);
+
+
+
+    const vector<shared_ptr<Blob>>& net_params = this->learnable_params();
+    if (!this->parent_solver()->rank()) {
+      for (size_t param_id = 0; param_id < net_params.size(); ++param_id) {
+        LOG(INFO) << "-------- " << net_params[param_id]->asum_diff();
+      }
+      for (size_t param_id = 0; param_id < net_params.size(); ++param_id) {
+        LOG(INFO) << "++++++++ " << net_params[param_id]->asum_data();
+      }
+      LOG(INFO) << "////////// " << i;
+    }
+
+
 
     if (debug_info_) {
       BackwardDebugInfo(i);
@@ -874,9 +933,10 @@ void Net::Reduce(int param_id) {
     }
     solver_->callback()->reduce_barrier();
     solver_->callback()->allreduce(param_id);
+    solver_->callback()->reduce_barrier();
   }
   this->learnable_params()[param_id]->gpu_scale_diff(1.F / Caffe::solver_count(),
-      solver_->callback()->cublas_handle(), false);
+      solver_->callback()->cublas_handle(), true);
   // Also need to barrier to make sure lock isn't undone
   // until all have completed, but the current nature of
   // NCCL makes this unnecessary.
@@ -892,9 +952,10 @@ void Net::ReduceBucket(size_t count, Type bucket_type, void* bucket) {
     }
     solver_->callback()->reduce_barrier();
     solver_->callback()->allreduce_bucket(count, bucket, bucket_type);
+    solver_->callback()->reduce_barrier();
   }
   Tensor::gpu_scal(count, bucket_type, bucket, 1.F / Caffe::solver_count(),
-      solver_->callback()->cublas_handle(), false);
+      solver_->callback()->cublas_handle(), true);
 }
 #endif
 

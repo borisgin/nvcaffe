@@ -116,7 +116,7 @@ void SGDSolver<Dtype>::ApplyUpdate(int param_id, void* handle, bool clear_grads)
   ClipGradients(handle);
   Normalize(param_id, handle);
   Regularize(param_id, handle);
-  ComputeUpdateValue(param_id, handle, rate, clear_grads, false);
+  ComputeUpdateValue(param_id, handle, rate, clear_grads, true);
 }
 
 template<typename Dtype>

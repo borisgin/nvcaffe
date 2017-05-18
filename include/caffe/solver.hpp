@@ -137,6 +137,10 @@ class Solver {
     return iter_size_complete_;
   }
 
+  size_t rank() const {
+    return rank_;
+  }
+
   /**
    * @brief Returns the solver type.
    */
