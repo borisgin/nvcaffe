@@ -668,27 +668,6 @@ float Net::ForwardFromTo(int start, int end) {
     // << "' FT " << Type_Name(layers_[i]->forward_type())
     // << " BT " << Type_Name(layers_[i]->backward_type());
     float layer_loss = layers_[i]->Forward(bottom_vecs_[i], top_vecs_[i]);
-
-
-
-//    const vector<shared_ptr<Blob>>& net_params = this->learnable_params();
-//    if (!this->parent_solver()->rank()) {
-//      for (size_t param_id = 0; param_id < net_params.size(); ++param_id) {
-//        LOG(INFO) << "-------- " << net_params[param_id]->asum_diff();
-//      }
-//      for (size_t param_id = 0; param_id < net_params.size(); ++param_id) {
-//        LOG(INFO) << "++++++++ " << net_params[param_id]->asum_data();
-//      }
-//      LOG(INFO) << "////////// " << i;
-//    }
-
-
-
-
-
-
-
-
     loss += layer_loss;
     if (debug_info_) { ForwardDebugInfo(i); }
   }
@@ -725,30 +704,7 @@ const vector<Blob*>& Net::Forward(const vector<Blob*>& bottom, float* loss) {
 float Net::ForwardBackward(bool apply_update) {
   float loss;
   Forward(&loss);
-
-//  const vector<shared_ptr<Blob>>& net_params = this->learnable_params();
-//  if (!this->parent_solver()->rank()) {
-//    for (size_t param_id = 0; param_id < net_params.size(); ++param_id) {
-//      LOG_FIRST_N(INFO, 100) << "-------- " << net_params[param_id]->asum_diff();
-//    }
-//    for (size_t param_id = 0; param_id < net_params.size(); ++param_id) {
-//      LOG_FIRST_N(INFO, 100) << "++++++++ " << net_params[param_id]->asum_data();
-//    }
-//    LOG_FIRST_N(INFO, 100) << "////////// ";
-//  }
-
-
-
   Backward(apply_update);
-
-
-
-
-
-
-
-
-
   return loss;
 }
 
@@ -765,21 +721,6 @@ void Net::BackwardFromToAu(int start, int end, bool apply_update) {
     }
 
     layers_[i]->Backward(top_vecs_[i], bottom_need_backward_[i], bottom_vecs_[i]);
-
-
-
-    const vector<shared_ptr<Blob>>& net_params = this->learnable_params();
-    if (!this->parent_solver()->rank()) {
-      for (size_t param_id = 0; param_id < net_params.size(); ++param_id) {
-        LOG(INFO) << "-------- " << net_params[param_id]->asum_diff();
-      }
-      for (size_t param_id = 0; param_id < net_params.size(); ++param_id) {
-        LOG(INFO) << "++++++++ " << net_params[param_id]->asum_data();
-      }
-      LOG(INFO) << "////////// " << i;
-    }
-
-
 
     if (debug_info_) {
       BackwardDebugInfo(i);

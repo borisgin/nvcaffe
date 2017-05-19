@@ -274,34 +274,9 @@ void Solver::Step(int iters) {
       init_flag_.set();
     }
 
-//    const vector<shared_ptr<Blob>>& net_params = this->net_->learnable_params();
-//    if (!this->rank_) {
-//      for (size_t param_id = 0; param_id < net_params.size(); ++param_id) {
-//        LOG_FIRST_N(INFO, 100) << "............ " << net_params[param_id]->asum_diff();
-//      }
-//      LOG_FIRST_N(INFO, 100) << "______________";
-//    }
-
     iteration_start_signal();
     for (int i = 0; i < param_.iter_size(); ++i) {
       loss += net_->ForwardBackward(i + 1 == param_.iter_size());
-
-
-//      const vector<shared_ptr<Blob>>& net_params = this->net_->learnable_params();
-//    if (!this->rank_) {
-//      for (size_t param_id = 0; param_id < net_params.size(); ++param_id) {
-//        LOG_FIRST_N(INFO, 100) << "-------- " << net_params[param_id]->asum_diff();
-//      }
-//      for (size_t param_id = 0; param_id < net_params.size(); ++param_id) {
-//        LOG_FIRST_N(INFO, 100) << "++++++++ " << net_params[param_id]->asum_data();
-//      }
-//      LOG_FIRST_N(INFO, 100) << "////////// " << i;
-//    }
-
-
-
-
-
       if (first_loop && i == 0) {
         iter0_flag_.set();
         net_->wait_layers_init();
