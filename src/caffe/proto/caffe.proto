@@ -831,6 +831,10 @@ message DataParameter {
   // Takes effect only when used together with 'threads' setting.
   // Ignored and always set to 1 for test nets.
   optional uint32 parser_threads  = 12 [default = 0];
+  // Cache observations while reading
+  optional bool cache = 13 [default = false];
+  // Shuffle observations while reading for better accuracy. Ignored if 'cache' is false.
+  optional bool shuffle = 14 [default = false];
 }
 
 message DropoutParameter {

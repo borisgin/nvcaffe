@@ -97,7 +97,6 @@ class Tensor {
   // numerical type stored here at a moment (might change due to conversion)
   Type type_;
   bool locked_;
-  mutable bool async_state_;
   // array of projections to different types (including current type_)
   shared_ptr<vector<shared_ptr<SyncedMemory>>> synced_arrays_;
   // number of entries - comes from Blob via Reshape
