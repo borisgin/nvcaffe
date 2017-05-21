@@ -46,7 +46,7 @@ DataReader::DataReader(const LayerParameter& param,
   }
   db_source_ = param.data_param().source();
   init_ = make_shared<BlockingQueue<shared_ptr<Datum>>>();
-  StartInternalThread();
+  StartInternalThread(1371);  // FIXME
 }
 
 DataReader::~DataReader() {

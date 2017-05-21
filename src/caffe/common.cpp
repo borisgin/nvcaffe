@@ -18,10 +18,9 @@ namespace caffe {
 // Must be set before brewing
 int Caffe::root_device_ = -1;
 int Caffe::thread_count_ = 0;
-shared_mutex Caffe::caffe_mutex_;
+std::mutex Caffe::caffe_mutex_;
 std::mutex Caffe::mutex_;
 std::mutex Caffe::mutex2_;
-
 
 #ifndef CPU_ONLY
 // Lifecycle management for CUDA streams
@@ -29,12 +28,11 @@ std::list<shared_ptr<CudaStream>> Caffe::all_streams_;
 #endif
 
 Caffe& Caffe::Get() {
-  upgrade_lock<shared_mutex> lock(caffe_mutex_);
   // Make sure each thread can have different values.
-  static thread_local shared_ptr<Caffe> thread_instance_;
-  if (!thread_instance_.get()) {
-    upgrade_to_unique_lock<shared_mutex> write_lock(lock);
-    if (!thread_instance_.get()) {
+  static thread_local unique_ptr<Caffe> thread_instance_;
+  if (!thread_instance_) {
+    std::lock_guard<std::mutex> lock(caffe_mutex_);
+    if (!thread_instance_) {
       thread_instance_.reset(new Caffe());
       ++thread_count_;
     }
@@ -128,7 +126,7 @@ void* Caffe::RNG::generator() {
 #else  // Normal GPU + CPU Caffe.
 
 Caffe::Caffe()
-    : random_generator_(), mode_(Caffe::CPU), solver_count_(1), root_solver_(true) {
+    : random_generator_(), seeded_(false), mode_(Caffe::CPU), solver_count_(1), root_solver_(true) {
   int count;
   CUDA_CHECK(cudaGetDeviceCount(&count));
   device_streams_.resize(count);
@@ -250,20 +248,29 @@ cudnnHandle_t Caffe::device_cudnn_handle(int group) {
 }
 #endif
 
-
 void Caffe::set_random_seed(const unsigned int seed) {
-  // Curand seed
-  static bool g_curand_availability_logged = false;
-  curandGenerator_t curand_generator_handle = curand_generator();
-  if (curand_generator_handle) {
-    CURAND_CHECK(curandSetPseudoRandomGeneratorSeed(curand_generator_handle, seed));
-    CURAND_CHECK(curandSetGeneratorOffset(curand_generator_handle, 0));
-  } else if (!g_curand_availability_logged) {
-    LOG(ERROR) << "Curand not available. Skipping setting the curand seed.";
-    g_curand_availability_logged = true;
+  {
+    // Curand seed
+    std::lock_guard<std::mutex> lock(caffe_mutex_);
+    static bool g_curand_availability_logged = false;
+    curandGenerator_t curand_generator_handle = curand_generator();
+    if (curand_generator_handle) {
+      CURAND_CHECK(curandSetPseudoRandomGeneratorSeed(curand_generator_handle, seed));
+      CURAND_CHECK(curandSetGeneratorOffset(curand_generator_handle, 0));
+    } else if (!g_curand_availability_logged) {
+      LOG(ERROR) << "Curand not available. Skipping setting the curand seed.";
+      g_curand_availability_logged = true;
+    }
   }
   // RNG seed
-  Get().random_generator_.reset(new RNG(seed));
+  if (!Get().seeded_) {
+    if (seed >= 0) {
+      Get().random_generator_.reset(new RNG(seed));
+    } else {
+      Get().random_generator_.reset(new RNG());
+    }
+    Get().seeded_ = true;
+  }
 }
 
 void Caffe::SetDevice(const int device_id) {

@@ -199,6 +199,7 @@ int train() {
     solver_param.set_device_id(gpus[0]);
     Caffe::set_mode(Caffe::GPU);
     Caffe::set_solver_count(gpus.size());
+    CHECK_EQ(gpus.size(), Caffe::solver_count());
     Caffe::set_gpus(gpus);
   }
 

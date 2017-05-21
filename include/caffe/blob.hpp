@@ -572,15 +572,15 @@ class Blob {
   }
 
   template<typename Dtype>
-  PtrProxy<Dtype> mutable_gpu_data(bool zero_new_mem = true) {
+  Dtype* mutable_gpu_data(bool zero_new_mem = true) {
     convert_data(tp<Dtype>());
-    return PtrProxy<Dtype>(data_tensor_, true, zero_new_mem);
+    return static_cast<Dtype*>(data_tensor_->synced_mem()->mutable_gpu_data(zero_new_mem));
   }
 
   template<typename Dtype>
-  PtrProxy<Dtype> mutable_gpu_diff(bool zero_new_mem = true) {
+  Dtype* mutable_gpu_diff(bool zero_new_mem = true) {
     convert_diff(tp<Dtype>());
-    return PtrProxy<Dtype>(diff_tensor_, true, zero_new_mem);
+    return static_cast<Dtype*>(diff_tensor_->synced_mem()->mutable_gpu_data(zero_new_mem));
   }
 
   void async_gpu_push() {
@@ -727,13 +727,13 @@ class TBlob : public Blob {
   }
 
   template<typename T = Dtype>
-  PtrProxy <T> mutable_gpu_data(bool zero_new_mem = true) {
+  T* mutable_gpu_data(bool zero_new_mem = true) {
     check_integrity(true, data_type(), tp<T>());
     return Blob::mutable_gpu_data<T>(zero_new_mem);
   }
 
   template<typename T = Dtype>
-  PtrProxy <T> mutable_gpu_diff(bool zero_new_mem = true) {
+  T* mutable_gpu_diff(bool zero_new_mem = true) {
     check_integrity(false, diff_type(), tp<T>());
     return Blob::mutable_gpu_diff<T>(zero_new_mem);
   }

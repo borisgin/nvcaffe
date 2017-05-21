@@ -470,6 +470,7 @@ class Caffe {
 #endif
 #endif
   shared_ptr<RNG> random_generator_;
+  bool seeded_;
 
   Brew mode_;
   int solver_count_;
@@ -479,8 +480,7 @@ class Caffe {
   // For example, if user runs `caffe train -gpu=1,0,3` then it has to be set to 1.
   static int root_device_;
   static int thread_count_;
-  static shared_mutex caffe_mutex_;
-  static std::mutex mutex_, mutex2_;
+  static std::mutex caffe_mutex_, mutex_, mutex2_;
 
  private:
   // The private constructor to avoid duplicate instantiation.

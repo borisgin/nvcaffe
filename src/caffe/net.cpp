@@ -779,7 +779,7 @@ void Net::ReduceAndUpdate() {
   std::list<int> au_ids;
 #endif
 
-  const bool clear_grads = !solver_->param().snapshot_diff();
+  const bool clear_grads = false;// !solver_->param().snapshot_diff();
   while (true) {
     int param_id = reduction_queue_.pop();
     SolverAction::Enum request = solver_->GetRequestedAction();

@@ -10,6 +10,8 @@ def get_test_accuracy(log, top_k):
     iteration = re.findall(r'Iteration (\d*), Testing net \(#0\)', log)
     accuracy = re.findall(r'Test net output #\d: accuracy/top-{top_k} = (\d*.\d*)'.format(top_k=top_k), log)
     if len(accuracy)==0:
+        accuracy = re.findall(r'Test net output #\d: top-{top_k} = (\d*.\d*)'.format(top_k=top_k), log)
+    if len(accuracy)==0:
         accuracy = re.findall(r'Test net output #\d: loss/top-{top_k} = (\d*.\d*)'.format(top_k=top_k), log)
     iteration = [int(i) for i in iteration]
     accuracy = [float(i) for i in accuracy]

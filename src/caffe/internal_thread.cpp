@@ -14,14 +14,13 @@ InternalThread::InternalThread(int target_device, size_t rank, size_t threads, b
       threads_(threads),
       delay_flags_(threads, make_shared<Flag>(!delayed)) {}
 
-void InternalThread::StartInternalThread(bool set_cpu_affinity) {
+void InternalThread:: StartInternalThread(bool set_cpu_affinity, unsigned int rand_seed) {
   CHECK(!is_started()) << "Threads should persist and not be restarted.";
   LOG(INFO) << "Starting internal thread on device " << target_device_;
   Caffe::Brew mode = Caffe::mode();
   if (mode == Caffe::GPU) {
     CHECK_GE(target_device_, 0);
   }
-  const int rand_seed = caffe_rng_rand();
   const int solver_count = Caffe::solver_count();
   try {
     for (size_t id = 0; id < threads_.size(); ++id) {
@@ -33,7 +32,8 @@ void InternalThread::StartInternalThread(bool set_cpu_affinity) {
   }
 }
 
-void InternalThread::RestartAllThreads(size_t new_threads, bool delayed, bool set_cpu_affinity) {
+void InternalThread::RestartAllThreads(size_t new_threads, bool delayed, bool set_cpu_affinity,
+    unsigned int rand_seed) {
   if (new_threads == 0UL) {
     return;
   }
@@ -42,7 +42,6 @@ void InternalThread::RestartAllThreads(size_t new_threads, bool delayed, bool se
   if (mode == Caffe::GPU) {
     CHECK_GE(target_device_, 0);
   }
-  const int rand_seed = caffe_rng_rand();
   const int solver_count = Caffe::solver_count();
   CHECK_EQ(1, threads_.size());
   threads_.clear();

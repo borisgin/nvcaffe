@@ -493,6 +493,10 @@ message TransformationParameter {
   // False if omitted when Forward Type is float/double.
   // True otherwise (float16 doesn't work well on CPU).
   optional bool use_gpu_transform = 8 [default = false];
+  // If non-negative, the seed with which the transformer's
+  // random number generator would be initialized -- useful for reproducible results.
+  // Otherwise, (and by default) initialize using a seed derived from the system clock.
+  optional int64 random_seed = 9 [default = -1];
 }
 // Message that stores parameters used to create gridbox ground truth
 message DetectNetGroundTruthParameter {

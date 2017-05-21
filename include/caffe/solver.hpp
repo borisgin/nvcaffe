@@ -141,6 +141,12 @@ class Solver {
     return rank_;
   }
 
+  void callback_soft_barrier() {
+    if (callback_ != nullptr) {
+      callback_->soft_barrier();
+    }
+  }
+
   /**
    * @brief Returns the solver type.
    */
@@ -159,14 +165,8 @@ class Solver {
   virtual void RestoreSolverStateFromHDF5(const string& state_file) = 0;
   virtual void RestoreSolverStateFromBinaryProto(const string& state_file) = 0;
   void UpdateSmoothedLoss(float loss, int start_iter, int average_loss);
-  void Reduce(int device, Caffe::Brew mode, int rand_seed,
+  void Reduce(int device, Caffe::Brew mode, unsigned int rand_seed,
       int solver_count, bool root_solver);
-
-  void callback_soft_barrier() {
-    if (callback_ != nullptr) {
-      callback_->soft_barrier();
-    }
-  }
 
   const SolverParameter param_;
   const Type data_type_;
