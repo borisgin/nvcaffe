@@ -68,6 +68,14 @@ class DataReader : public InternalThread {
     shared_ptr<Datum>& next_new();
     shared_ptr<Datum>& next_cached();
     bool check_memory();
+    void check_db(const std::string& db_source) {
+      std::lock_guard<std::mutex> lock(cache_mutex_);
+      if (db_source_.empty()) {
+        db_source_ = db_source;
+      } else {
+        CHECK_EQ(db_source_, db_source) << "Caching of two DB sources is not supported";
+      }
+    }
 
     void just_cached();
     void register_new_thread() {
@@ -82,6 +90,7 @@ class DataReader : public InternalThread {
           shuffle_(shuffle),
           just_cached_(false) {}
 
+    std::string db_source_;
     vector<shared_ptr<Datum>> cache_buffer_;
     size_t cache_idx_;
     boost::barrier cache_bar_;

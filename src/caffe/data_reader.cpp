@@ -43,7 +43,7 @@ DataReader::DataReader(const LayerParameter& param,
   }
   if (cache_) {
     // This is singleton, we cache TRAIN db only
-    data_cache_ = DataCache::data_cache_inst(parser_threads_num_, shuffle_);
+    data_cache_ = DataCache::data_cache_inst(parser_threads_num_ * solver_count_, shuffle_);
   }
 
   free_.resize(queues_num_);
@@ -72,6 +72,7 @@ void DataReader::InternalThreadEntry() {
 
 void DataReader::InternalThreadEntryN(size_t thread_id) {
   if (cache_) {
+    data_cache_->check_db(db_source_);
     data_cache_->register_new_thread();
   }
   shared_ptr<db::DB> db(db::GetDB(backend_));
@@ -133,11 +134,23 @@ shared_ptr<Datum>& DataReader::DataCache::next_new() {
 
 shared_ptr<Datum>& DataReader::DataCache::next_cached() {
   if (just_cached_.load()) {
-    for (auto& f : cached_flags_) {
-      f.second->wait();
-    }
+    cache_bar_.wait();
     just_cached_.store(false);
-    LOG(INFO) << "Cached " << cache_buffer_.size() << " records";
+    LOG_FIRST_N(INFO, 1) << "Cached " << cache_buffer_.size() << " records by " << cached_flags_.size() << " threads";
+#ifdef DEBUG
+    {
+      std::lock_guard<std::mutex> lock(cache_mutex_);
+      std::multiset<size_t> pk;
+      for (auto &entry : cache_buffer_) {
+        pk.insert(entry->record_id());
+        if (pk.count(entry->record_id()) > 1) {
+          LOG(ERROR) << "Record " << entry->record_id() << " duplicated " << entry->record_id() << " times";
+        }
+      }
+      LOG(INFO) << "Recorded " << pk.size() << " from " << *pk.begin() << " to " << *pk.rbegin();
+    }
+#endif
+    cache_bar_.wait();
   }
   std::lock_guard<std::mutex> lock(cache_mutex_);
   if (shuffle_ && cache_idx_== 0UL) {
@@ -153,23 +166,21 @@ shared_ptr<Datum>& DataReader::DataCache::next_cached() {
 
 void DataReader::DataCache::just_cached() {
   just_cached_.store(true);
-  std::lock_guard<std::mutex> lock(cache_mutex_);
   cached_flags_[std::this_thread::get_id()]->set();
 }
 
 bool DataReader::DataCache::check_memory() {
   std::lock_guard<std::mutex> lock(cache_mutex_);
+  bool mem_ok = true;
   if (cache_buffer_.size() > 0UL && cache_buffer_.size() % 10000UL == 0UL) {
     struct sysinfo sinfo;
-    sysinfo(& sinfo);
+    sysinfo(&sinfo);
     if (sinfo.totalswap > 0UL && sinfo.freeswap < sinfo.totalswap / 2UL) {
       LOG(WARNING) << "Data Reader cached " << cache_buffer_.size()
                    << " records so far but it can't continue because it used more than half"
                    << " of swap buffer. Free swap memory left: " << sinfo.freeswap << " of total "
                    << sinfo.totalswap << ". Cache and shuffling are now disabled.";
-      cache_buffer_.clear();
-      shuffle_ = false;
-      return false;
+      mem_ok = false;
     }
     if (sinfo.totalswap == 0UL && sinfo.freeram < sinfo.totalram / 1000UL) {
       LOG(WARNING) << "Data Reader cached " << cache_buffer_.size()
@@ -177,11 +188,14 @@ bool DataReader::DataCache::check_memory() {
                    << " of RAM and there is no swap space available. Free RAM left: "
                    << sinfo.freeram << " of total " << sinfo.totalram
                    << ". Cache and shuffling are now disabled.";
+      mem_ok = false;
+    }
+    if (!mem_ok) {
       cache_buffer_.clear();
-      return false;
+      shuffle_ = false;
     }
   }
-  return true;
+  return mem_ok;
 }
 
 DataReader::CursorManager::CursorManager(shared_ptr<db::DB> db, DataReader* reader,
