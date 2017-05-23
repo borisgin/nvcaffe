@@ -306,7 +306,7 @@ void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, siz
         batch->data_.shape(2),  // non-crop
         batch->data_.shape(3),  // non-crop
         out_sizeof_element, batch->data_.gpu_data(),
-        batch->gpu_transformed_data_->template mutable_gpu_data<Ftype>(false),
+        batch->gpu_transformed_data_->template mutable_gpu_data<Ftype>(),
         batch->random_vec_.gpu_data());
 #else
     NO_GPU;

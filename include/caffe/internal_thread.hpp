@@ -33,7 +33,7 @@ class InternalThread {
    * @param set_cpu_affinity
    */
   void RestartAllThreads(size_t new_threads, bool delayed = false, bool set_cpu_affinity = false,
-      unsigned int rand_seed = 1371);
+      unsigned int rand_seed = 1371);  // FIXME
 
   /** Will not return until the internal thread has exited. */
   void StopInternalThread();

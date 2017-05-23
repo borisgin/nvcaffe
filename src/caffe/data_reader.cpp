@@ -136,7 +136,8 @@ shared_ptr<Datum>& DataReader::DataCache::next_cached() {
   if (just_cached_.load()) {
     cache_bar_.wait();
     just_cached_.store(false);
-    LOG_FIRST_N(INFO, 1) << "Cached " << cache_buffer_.size() << " records by " << cached_flags_.size() << " threads";
+    LOG_FIRST_N(INFO, 1) << "Cached " << cache_buffer_.size() << " records by "
+          << cached_flags_.size() << " threads";
 #ifdef DEBUG
     {
       std::lock_guard<std::mutex> lock(cache_mutex_);
@@ -144,7 +145,8 @@ shared_ptr<Datum>& DataReader::DataCache::next_cached() {
       for (auto &entry : cache_buffer_) {
         pk.insert(entry->record_id());
         if (pk.count(entry->record_id()) > 1) {
-          LOG(ERROR) << "Record " << entry->record_id() << " duplicated " << entry->record_id() << " times";
+          LOG(ERROR) << "Record " << entry->record_id() << " duplicated "
+              << entry->record_id() << " times";
         }
       }
       LOG(INFO) << "Recorded " << pk.size() << " from " << *pk.begin() << " to " << *pk.rbegin();
@@ -251,7 +253,7 @@ void DataReader::CursorManager::next(shared_ptr<Datum>& datum) {
   for (size_t i = old_id; i < rec_id_; ++i) {
     cursor_->Next();
     if (!cursor_->valid()) {
-      if(cache_) {
+      if (cache_) {
         cached_all_ = true;
         reader_->just_cached();
         break;  // we cache first epoch, then we just read it from cache

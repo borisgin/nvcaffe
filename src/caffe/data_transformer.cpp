@@ -153,11 +153,11 @@ void DataTransformer<Dtype>::TransformGPU(const Datum& datum,
   Dtype *original_data_gpu_ptr;
   size_t out_sizeof_element = 0;
   if (datum.encoded()) {
-    Dtype *original_data_cpu_ptr = original_data.mutable_cpu_data(false);
+    Dtype *original_data_cpu_ptr = original_data.mutable_cpu_data();
     Copy(datum, original_data_cpu_ptr, out_sizeof_element);
-    original_data_gpu_ptr = original_data.mutable_gpu_data(false);
+    original_data_gpu_ptr = original_data.mutable_gpu_data();
   } else {
-    original_data_gpu_ptr = original_data.mutable_gpu_data(false);
+    original_data_gpu_ptr = original_data.mutable_gpu_data();
     Copy(datum, original_data_gpu_ptr, out_sizeof_element);
   }
 
@@ -410,7 +410,7 @@ void DataTransformer<Dtype>::Transform(const Datum& datum,
   Fill3Randoms(&rand.front());
   if (use_gpu_transform) {
 #ifndef CPU_ONLY
-    Dtype *transformed_data_gpu = transformed_blob->mutable_gpu_data(false);
+    Dtype *transformed_data_gpu = transformed_blob->mutable_gpu_data();
     TransformGPU(datum, transformed_data_gpu, rand);
     transformed_blob->cpu_data();
 #else
@@ -731,7 +731,7 @@ void DataTransformer<Dtype>::InitRand() {
   const bool needs_rand = param_.mirror() || (phase_ == TRAIN && param_.crop_size());
   if (needs_rand) {
     const unsigned int rng_seed = param_.random_seed() >= 0 ?
-        static_cast<unsigned int>(param_.random_seed()) : caffe_rng_rand();
+        static_cast<unsigned int>(param_.random_seed()) : caffe_rng_rand();  // FIXME global
     rng_.reset(new Caffe::RNG(rng_seed));
   } else {
     rng_.reset();

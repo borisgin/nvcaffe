@@ -234,39 +234,16 @@ void Solver::Step(int iters) {
 #endif
 
   unsigned int rand_seed = param_.random_seed() >= 0 ?
-                           static_cast<unsigned int>(param_.random_seed()) : caffe_rng_rand();
+                           static_cast<unsigned int>(param_.random_seed()) : caffe_rng_rand(); //
+  // fixme global
+
   reduce_thread_.reset(new boost::thread(&Solver::Reduce, this,
       Caffe::current_device(), mode, rand_seed, solver_count, root_solver));
 
   while (iter_ < stop_iter) {
-//    const vector<shared_ptr<Blob>>& net_params = net_->learnable_params();
-//    if (!rank()) {
-//      for (size_t param_id = 0; param_id < net_params.size(); ++param_id) {
-////        LOG(INFO) << "0000DIFF " << net_params[param_id]->asum_diff();
-//        LOG(INFO) << "....... " << param_id
-//            << " " << net_params[param_id]->count()
-//                  << " " << net_params[param_id]->asum_diff()
-//                  << " " << net_params[param_id]->cpu_diff<float>()[0]
-//                  << " " << net_params[param_id]->cpu_diff<float>()[1]
-//                  << " " << net_params[param_id]->cpu_diff<float>()[2]
-//                  << " " << net_params[param_id]->cpu_diff<float>()[3];
-//      }
-//      LOG(INFO) << "======= ";
-//    }
-
-
-
-
-
-
-//    if (param_.snapshot_diff()) {
+    if (param_.snapshot_diff()) {
       net_->ClearParamDiffs();
-//    }  // we clean them in ApplyUpdate otherwise
-
-
-
-
-
+    }  // we clean them in ApplyUpdate otherwise
 
     // Just started or restored?
     const bool first_loop = iter_ == 0 || iterations_last_ < 0;

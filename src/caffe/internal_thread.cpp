@@ -14,7 +14,7 @@ InternalThread::InternalThread(int target_device, size_t rank, size_t threads, b
       threads_(threads),
       delay_flags_(threads, make_shared<Flag>(!delayed)) {}
 
-void InternalThread:: StartInternalThread(bool set_cpu_affinity, unsigned int rand_seed) {
+void InternalThread::StartInternalThread(bool set_cpu_affinity, unsigned int rand_seed) {
   CHECK(!is_started()) << "Threads should persist and not be restarted.";
   LOG(INFO) << "Starting " << threads_.size() << " internal thread(s) on device " << target_device_;
   Caffe::Brew mode = Caffe::mode();

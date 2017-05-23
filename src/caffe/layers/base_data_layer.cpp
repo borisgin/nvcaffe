@@ -86,7 +86,7 @@ void BasePrefetchingDataLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bot
 //  unsigned int rand_seed = param.random_seed() >= 0 ?
 //                           static_cast<unsigned int>(param.random_seed()) : caffe_rng_rand();
 
-  StartInternalThread(1371);
+  StartInternalThread(1371);  // FIXME
 }
 
 template<typename Ftype, typename Btype>

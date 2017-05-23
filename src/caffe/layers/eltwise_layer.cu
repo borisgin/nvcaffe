@@ -119,14 +119,14 @@ void EltwiseLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
         if (coeffs_[i] == 1.F) {
           bottom[i]->ShareDiff(*top[0]);
         } else {
-          Btype* bottom_diff = bottom[i]->mutable_gpu_diff<Btype>(false);
+          Btype* bottom_diff = bottom[i]->mutable_gpu_diff<Btype>();
           caffe_gpu_scale(count, Btype(coeffs_[i]), top_diff, bottom_diff);
         }
         break;
       case EltwiseParameter_EltwiseOp_MAX:
         {
           mask = max_idx_.gpu_data();
-          Btype* bottom_diff = bottom[i]->mutable_gpu_diff<Btype>(false);
+          Btype* bottom_diff = bottom[i]->mutable_gpu_diff<Btype>();
           MaxBackward<Btype>  // NOLINT_NEXT_LINE(whitespace/operators)
               <<< CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS, 0, Caffe::thread_stream()>>> (
               count, top_diff, i, mask, bottom_diff);

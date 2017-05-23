@@ -143,7 +143,7 @@ void SoftmaxWithLossLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
                << " Layer cannot backpropagate to label inputs.";
   }
   if (propagate_down[0]) {
-    Btype* bottom_diff = bottom[0]->mutable_gpu_diff<Btype>(false);
+    Btype* bottom_diff = bottom[0]->mutable_gpu_diff<Btype>();
     const Btype* prob_data = prob_.template gpu_data<Btype>();
     const Btype* top_data = top[0]->gpu_data<Btype>();
     caffe_gpu_memcpy(prob_.count() * sizeof(Btype), prob_data, bottom_diff);
@@ -152,7 +152,7 @@ void SoftmaxWithLossLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
     const int nthreads = outer_num_ * inner_num_;
     // Since this memory is never used for anything else,
     // we use to to avoid allocating new GPU memory.
-    Btype* counts = prob_.template mutable_gpu_diff<Btype>(false);
+    Btype* counts = prob_.template mutable_gpu_diff<Btype>();
     // NOLINT_NEXT_LINE(whitespace/operators)
     SoftmaxLossBackwardGPU<<<CAFFE_GET_BLOCKS(nthreads),
         CAFFE_CUDA_NUM_THREADS, 0, Caffe::thread_stream()>>>(nthreads, top_data, label, bottom_diff,

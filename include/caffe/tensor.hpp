@@ -73,15 +73,15 @@ class Tensor {
     return mem && mem->is_valid();
   }
 
-  void* mutable_memory(Type type, bool is_gpu, bool zero_new_mem = true) {
+  void* mutable_memory(Type type, bool is_gpu) {
     convert(type);
     shared_ptr<SyncedMemory>& mem = mutable_synced_mem();
-    return is_gpu ? mem->mutable_gpu_data(zero_new_mem) : mem->mutable_cpu_data(zero_new_mem);
+    return is_gpu ? mem->mutable_gpu_data() : mem->mutable_cpu_data();
   }
 
-  void* current_mutable_memory(bool is_gpu, bool zero_new_mem = true) {
+  void* current_mutable_memory(bool is_gpu) {
     shared_ptr<SyncedMemory>& mem = mutable_synced_mem();
-    return is_gpu ? mem->mutable_gpu_data(zero_new_mem) : mem->mutable_cpu_data();
+    return is_gpu ? mem->mutable_gpu_data() : mem->mutable_cpu_data();
   }
 
   const void* current_memory(bool is_gpu) {

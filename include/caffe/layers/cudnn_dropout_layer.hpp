@@ -14,8 +14,9 @@ class CuDNNDropoutLayer : public DropoutLayer<Ftype, Btype> {
       : DropoutLayer<Ftype, Btype>(param), handles_setup_(false),
         bottom_desc_(nullptr), top_desc_(nullptr), dropout_desc_(nullptr),
         seed_(0), state_size_(0), reserve_space_size_(0) {
-    long long random_seed = param.dropout_param().random_seed();
-    seed_ = random_seed >= 0LL ? static_cast<unsigned int>(random_seed) : caffe_rng_rand();
+    int64_t random_seed = param.dropout_param().random_seed();
+    seed_ = random_seed >= 0LL ? static_cast<unsigned int>(random_seed) : caffe_rng_rand(); //
+    // TODO Global seed
   }
 
   virtual void LayerSetUp(const vector<Blob*>& bottom,

@@ -16,7 +16,7 @@ __global__ void SGDRegUpdateAllAndClear(int N,
     Wtype gr = Wtype(g[i]) + reg * local_decay;
     gr = h[i] = momentum * h[i] + local_rate * gr;
     w[i] -= gr;
-//    g[i] = clear_grads ? Gtype(0) : Gtype(gr);
+    g[i] = clear_grads ? Gtype(0) : Gtype(gr);
   }
 }
 

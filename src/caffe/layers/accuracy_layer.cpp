@@ -102,7 +102,7 @@ void AccuracyLayer<Ftype, Btype>::Forward_cpu(const vector<Blob*>& bottom,
   // Accuracy layer should not be used as a loss function.
 
   // convert diff to Btype
-  bottom[0]->mutable_cpu_diff<Btype>(false);
+  bottom[0]->mutable_cpu_diff<Btype>();
   bottom[0]->set_diff(0.F);
 }
 

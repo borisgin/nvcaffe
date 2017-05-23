@@ -54,7 +54,6 @@ class DataReader : public InternalThread {
 
   class DataCache {
    public:
-
     static DataCache* data_cache_inst(size_t threads, bool shuffle) {
       if (!data_cache_inst_) {
         std::lock_guard<std::mutex> lock(cache_mutex_);
