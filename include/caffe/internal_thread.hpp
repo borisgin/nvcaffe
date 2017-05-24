@@ -26,14 +26,15 @@ class InternalThread {
    * thread values, e.g. device id, solver index etc. The random seed
    * is initialized using caffe_rng_rand.
    */
-  void StartInternalThread(bool set_cpu_affinity = false, unsigned int rand_seed = 1371);
+  void StartInternalThread(bool set_cpu_affinity = false,
+      uint64_t random_seed = Caffe::random_seed());
 
   /**
    * Restarts all threads
    * @param set_cpu_affinity
    */
   void RestartAllThreads(size_t new_threads, bool delayed = false, bool set_cpu_affinity = false,
-      unsigned int rand_seed = 1371);  // FIXME
+      uint64_t random_seed = Caffe::random_seed());
 
   /** Will not return until the internal thread has exited. */
   void StopInternalThread();
@@ -74,7 +75,7 @@ class InternalThread {
   }
 
  private:
-  void entry(int thread_id, int device, Caffe::Brew mode, int rand_seed, int solver_count,
+  void entry(int thread_id, int device, Caffe::Brew mode, uint64_t rand_seed, int solver_count,
       size_t rank, bool set_cpu_affinity);
 
   vector<boost::thread> threads_;

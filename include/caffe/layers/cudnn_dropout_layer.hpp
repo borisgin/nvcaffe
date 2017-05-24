@@ -14,9 +14,8 @@ class CuDNNDropoutLayer : public DropoutLayer<Ftype, Btype> {
       : DropoutLayer<Ftype, Btype>(param), handles_setup_(false),
         bottom_desc_(nullptr), top_desc_(nullptr), dropout_desc_(nullptr),
         seed_(0), state_size_(0), reserve_space_size_(0) {
-    int64_t random_seed = param.dropout_param().random_seed();
-    seed_ = random_seed >= 0LL ? static_cast<unsigned int>(random_seed) : caffe_rng_rand(); //
-    // TODO Global seed
+    seed_ = param.dropout_param().random_seed() >= 0 ?
+        static_cast<uint64_t>(param.dropout_param().random_seed()) : Caffe::random_seed();
   }
 
   virtual void LayerSetUp(const vector<Blob*>& bottom,
@@ -34,7 +33,7 @@ class CuDNNDropoutLayer : public DropoutLayer<Ftype, Btype> {
   bool handles_setup_;
   cudnnTensorDescriptor_t bottom_desc_, top_desc_;
   cudnnDropoutDescriptor_t dropout_desc_;
-  unsigned int seed_;
+  uint64_t seed_;
   size_t state_size_, reserve_space_size_;
   GPUMemory::Workspace states_, reserve_space_;
 };

@@ -48,8 +48,8 @@ void Solver::Init() {
 
   CHECK_GE(param_.average_loss(), 1) << "average_loss should be non-negative.";
   CheckSnapshotWritePermissions();
-  if (Caffe::root_solver() && param_.random_seed() >= 0) {
-    Caffe::set_random_seed(param_.random_seed());
+  if (Caffe::root_solver()) {  // P2PSync does other solvers if they exist
+    Caffe::set_random_seed(static_cast<uint64_t>(param_.random_seed()));
   }
   // Scaffolding code
   InitTrainNet();
@@ -233,12 +233,11 @@ void Solver::Step(int iters) {
   const string mgpu_str;
 #endif
 
-  unsigned int rand_seed = param_.random_seed() >= 0 ?
-                           static_cast<unsigned int>(param_.random_seed()) : caffe_rng_rand(); //
-  // fixme global
+  uint64_t random_seed = param_.random_seed() >= 0 ?
+      static_cast<uint64_t>(param_.random_seed()) : Caffe::random_seed();
 
   reduce_thread_.reset(new boost::thread(&Solver::Reduce, this,
-      Caffe::current_device(), mode, rand_seed, solver_count, root_solver));
+      Caffe::current_device(), mode, random_seed, solver_count, root_solver));
 
   while (iter_ < stop_iter) {
     if (param_.snapshot_diff()) {
@@ -361,7 +360,7 @@ void Solver::Finalize() {
   }
 }
 
-void Solver::Reduce(int device, Caffe::Brew mode, unsigned int rand_seed,
+void Solver::Reduce(int device, Caffe::Brew mode, uint64_t random_seed,
     int solver_count, bool root_solver) {
   Caffe::set_mode(mode);
 #ifndef CPU_ONLY
@@ -372,7 +371,7 @@ void Solver::Reduce(int device, Caffe::Brew mode, unsigned int rand_seed,
 #endif
   }
 #endif
-  Caffe::set_random_seed(rand_seed);
+  Caffe::set_random_seed(random_seed);
   Caffe::set_solver_count(solver_count);
   Caffe::set_root_solver(root_solver);
   net_->ReduceAndUpdate();

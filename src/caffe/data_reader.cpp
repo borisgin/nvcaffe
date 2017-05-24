@@ -1,6 +1,7 @@
 #include <boost/thread.hpp>
 #include <sys/sysinfo.h>
 
+#include "caffe/util/rng.hpp"
 #include "caffe/common.hpp"
 #include "caffe/parallel.hpp"
 #include "caffe/data_reader.hpp"
@@ -59,7 +60,7 @@ DataReader::DataReader(const LayerParameter& param,
   }
   db_source_ = param.data_param().source();
   init_ = make_shared<BlockingQueue<shared_ptr<Datum>>>();
-  StartInternalThread(1371);  // FIXME
+  StartInternalThread(false, Caffe::random_seed());
 }
 
 DataReader::~DataReader() {
@@ -157,7 +158,7 @@ shared_ptr<Datum>& DataReader::DataCache::next_cached() {
   std::lock_guard<std::mutex> lock(cache_mutex_);
   if (shuffle_ && cache_idx_== 0UL) {
     LOG(INFO) << "Shuffling " << cache_buffer_.size() << " records...";
-    std::shuffle(cache_buffer_.begin(), cache_buffer_.end(), std::default_random_engine{});
+    caffe::shuffle(cache_buffer_.begin(), cache_buffer_.end());
   }
   shared_ptr<Datum>& datum = cache_buffer_[cache_idx_++];
   if (cache_idx_ >= cache_buffer_.size()) {

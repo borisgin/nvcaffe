@@ -41,8 +41,8 @@ Caffe& Caffe::Get() {
 }
 
 // random seeding
-int64_t cluster_seedgen(void) {
-  int64_t s, seed, pid;
+uint64_t cluster_seedgen(void) {
+  uint64_t s, seed, pid;
   FILE* f = fopen("/dev/urandom", "rb");
   if (f && fread(&seed, 1, sizeof(seed), f) == sizeof(seed)) {
     fclose(f);
@@ -54,9 +54,9 @@ int64_t cluster_seedgen(void) {
   if (f)
     fclose(f);
 
-  pid = getpid();
-  s = time(NULL);
-  seed = std::abs(((s * 181) * ((pid - 83) * 359)) % 104729);
+  pid = static_cast<uint64_t>(getpid());
+  s = static_cast<uint64_t>(time(NULL));
+  seed = static_cast<uint64_t>(((s * 181) * ((pid - 83) * 359)) % 104729);
   return seed;
 }
 
@@ -78,7 +78,7 @@ Caffe::Caffe()
 
 Caffe::~Caffe() { }
 
-void Caffe::set_random_seed(const unsigned int seed) {
+void Caffe::set_random_seed(uint64_t seed) {
   // RNG seed
   Get().random_generator_.reset(new RNG(seed));
 }
@@ -126,7 +126,8 @@ void* Caffe::RNG::generator() {
 #else  // Normal GPU + CPU Caffe.
 
 Caffe::Caffe()
-    : random_generator_(), seeded_(false), mode_(Caffe::CPU), solver_count_(1), root_solver_(true) {
+    : random_generator_(), last_seed_(static_cast<uint64_t>(-1)), mode_(Caffe::CPU),
+      solver_count_(1), root_solver_(true) {
   int count;
   CUDA_CHECK(cudaGetDeviceCount(&count));
   device_streams_.resize(count);
@@ -248,14 +249,17 @@ cudnnHandle_t Caffe::device_cudnn_handle(int group) {
 }
 #endif
 
-void Caffe::set_random_seed(const unsigned int seed) {
+void Caffe::set_random_seed(uint64_t random_seed) {
   {
     // Curand seed
     std::lock_guard<std::mutex> lock(caffe_mutex_);
+    if (random_seed == static_cast<uint64_t>(-1)) {
+      random_seed = cluster_seedgen();
+    }
     static bool g_curand_availability_logged = false;
     curandGenerator_t curand_generator_handle = curand_generator();
     if (curand_generator_handle) {
-      CURAND_CHECK(curandSetPseudoRandomGeneratorSeed(curand_generator_handle, seed));
+      CURAND_CHECK(curandSetPseudoRandomGeneratorSeed(curand_generator_handle, random_seed));
       CURAND_CHECK(curandSetGeneratorOffset(curand_generator_handle, 0));
     } else if (!g_curand_availability_logged) {
       LOG(ERROR) << "Curand not available. Skipping setting the curand seed.";
@@ -263,14 +267,13 @@ void Caffe::set_random_seed(const unsigned int seed) {
     }
   }
   // RNG seed
-  if (!Get().seeded_) {
-    if (seed >= 0) {
-      Get().random_generator_.reset(new RNG(seed));
-    } else {
-      Get().random_generator_.reset(new RNG());
-    }
-    Get().seeded_ = true;
-  }
+  Get().random_generator_.reset(new RNG(random_seed));
+  Get().last_seed_ = random_seed;
+}
+
+uint64_t Caffe::random_seed() {
+  uint64_t last_seed = Get().last_seed_;
+  return last_seed == static_cast<uint64_t>(-1) ? cluster_seedgen() : last_seed;
 }
 
 void Caffe::SetDevice(const int device_id) {
@@ -350,18 +353,23 @@ int Caffe::FindDevice(const int start_id) {
 class Caffe::RNG::Generator {
  public:
   Generator() : rng_(new caffe::rng_t(cluster_seedgen())) {}
-  explicit Generator(unsigned int seed) : rng_(new caffe::rng_t(seed)) {}
+  explicit Generator(uint64_t seed) : rng_(new caffe::rng_t(seed)) {}
   caffe::rng_t* rng() { return rng_.get(); }
  private:
   shared_ptr<caffe::rng_t> rng_;
 };
 
-Caffe::RNG::RNG() : generator_(new Generator()) { }
+Caffe::RNG::RNG()
+    : generator_(new Generator()) {}
 
-Caffe::RNG::RNG(unsigned int seed) : generator_(new Generator(seed)) { }
+Caffe::RNG::RNG(uint64_t seed)
+    : generator_(new Generator(seed)) {}
+
+Caffe::RNG::RNG(const RNG& other)
+    : generator_(other.generator_) {}
 
 Caffe::RNG& Caffe::RNG::operator=(const RNG& other) {
-  generator_.reset(other.generator_.get());
+  generator_ = other.generator_;
   return *this;
 }
 

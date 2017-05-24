@@ -79,14 +79,11 @@ BasePrefetchingDataLayer<Ftype, Btype>::~BasePrefetchingDataLayer() {
 template<typename Ftype, typename Btype>
 void BasePrefetchingDataLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bottom,
     const vector<Blob*>& top) {
-  this->rank_ = this->solver_rank_;  // TODO
+  this->rank_ = this->solver_rank_;
   bottom_init_ = bottom;
   top_init_ = top;
   BaseDataLayer<Ftype, Btype>::LayerSetUp(bottom, top);
-//  unsigned int rand_seed = param.random_seed() >= 0 ?
-//                           static_cast<unsigned int>(param.random_seed()) : caffe_rng_rand();
-
-  StartInternalThread(1371);  // FIXME
+  StartInternalThread(false, Caffe::random_seed());
 }
 
 template<typename Ftype, typename Btype>

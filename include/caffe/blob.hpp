@@ -36,49 +36,6 @@ class TBlob;
  */
 class Blob {
  public:
-  // This proxy makes sure that we can't rely on cached values while pointer
-  // to data is being used and data potentially might be changed.
-  // When pointer is actually given, proxy flushes the cache.
-  // There are use cases where we "preliminary convert data" but don't change it yet.
-  // In such cases cache is still valid until we really change data.
-  // For example, this line doesn't change blob's state:
-  //   Blob::PtrProxy<Ftype> top_data = top[i]->mutable_gpu_data<Ftype>();
-  // The state will be changed at the moment of passing a raw pointer to,
-  // let say, CuDNN routine.
-//  template<typename Ptype>
-//  class PtrProxy {
-//   public:
-//    PtrProxy() : tensor_(), is_gpu_(false), zero_new_mem_(true) {}
-//
-//    PtrProxy(shared_ptr<Tensor> tensor, bool is_gpu, bool zero_new_mem = true)
-//        : tensor_(tensor), is_gpu_(is_gpu), zero_new_mem_(zero_new_mem) {}
-//
-//    operator Ptype*() {
-//      CHECK(tensor_);
-//      return reinterpret_cast<Ptype*>(tensor_->mutable_memory(tp<Ptype>(), is_gpu_));
-//    }
-//
-//    ~PtrProxy() {}
-//
-//    PtrProxy(PtrProxy&& other) : tensor_(std::move(other.tensor_)), is_gpu_(other.is_gpu_),
-//                                 zero_new_mem_(other.zero_new_mem_) {}
-//
-//    PtrProxy& operator=(PtrProxy&& other) {
-//      tensor_ = std::move(other.tensor_);
-//      is_gpu_ = other.is_gpu_;
-//      zero_new_mem_ = other.zero_new_mem_;
-//      return *this;
-//    }
-//
-//    PtrProxy(const PtrProxy&) = delete;
-//    PtrProxy& operator=(const PtrProxy& other) = delete;
-//
-//   private:
-//    shared_ptr<Tensor> tensor_;
-//    bool is_gpu_;
-//    bool zero_new_mem_;
-//  };
-
   void Swap(Blob& other) noexcept {
     std::swap(data_tensor_, other.data_tensor_);
     std::swap(diff_tensor_, other.diff_tensor_);
@@ -386,21 +343,6 @@ class Blob {
     return static_cast<const Dtype*>(diff_tensor_->synced_mem()->cpu_data());
   }
 
-/*
-  template<typename Dtype>
-  PtrProxy<Dtype> mutable_cpu_data() {
-    convert_data(tp<Dtype>());
-    return PtrProxy<Dtype>(data_tensor_, false, true);
-  }
-
-  template<typename Dtype>
-  PtrProxy<Dtype> mutable_cpu_diff() {
-    convert_diff(tp<Dtype>());
-    return PtrProxy<Dtype>(diff_tensor_, false, true);
-  }
-*/
-
-
   template<typename Dtype>
   Dtype* mutable_cpu_data() {
     convert_data(tp<Dtype>());
@@ -411,17 +353,6 @@ class Blob {
   Dtype* mutable_cpu_diff() {
     convert_diff(tp<Dtype>());
     return static_cast<Dtype*>(diff_tensor_->synced_mem()->mutable_cpu_data());
-  }
-
-  // pycaffe needs these two, do NOT use them anywhere else FIXME
-  template<typename Dtype>
-  Dtype* mutable_cpu_data_raw() {
-    return (Dtype*) Blob::mutable_cpu_data<Dtype>();
-  }
-
-  template<typename Dtype>
-  Dtype* mutable_cpu_diff_raw() {
-    return (Dtype*) Blob::mutable_cpu_diff<Dtype>();
   }
 
   // Element-wise accessor. Might be slow due to syncing from GPU to CPU.
@@ -597,21 +528,6 @@ class Blob {
     convert_diff(tp<Dtype>());
     return static_cast<Dtype*>(diff_tensor_->synced_mem()->mutable_gpu_data());
   }
-
-  /*
-  template<typename Dtype>
-  PtrProxy<Dtype> mutable_gpu_data() {
-    convert_data(tp<Dtype>());
-    return PtrProxy<Dtype>(data_tensor_, true, true);
-  }
-
-  template<typename Dtype>
-  PtrProxy<Dtype> mutable_gpu_diff() {
-    convert_diff(tp<Dtype>());
-    return PtrProxy<Dtype>(diff_tensor_, true, true);
-  }
-*/
-
 
   void async_gpu_push() {
     data_tensor_->mutable_synced_mem()->async_gpu_push();

@@ -14,7 +14,7 @@ InternalThread::InternalThread(int target_device, size_t rank, size_t threads, b
       threads_(threads),
       delay_flags_(threads, make_shared<Flag>(!delayed)) {}
 
-void InternalThread::StartInternalThread(bool set_cpu_affinity, unsigned int rand_seed) {
+void InternalThread::StartInternalThread(bool set_cpu_affinity, uint64_t random_seed) {
   CHECK(!is_started()) << "Threads should persist and not be restarted.";
   LOG(INFO) << "Starting " << threads_.size() << " internal thread(s) on device " << target_device_;
   Caffe::Brew mode = Caffe::mode();
@@ -25,7 +25,7 @@ void InternalThread::StartInternalThread(bool set_cpu_affinity, unsigned int ran
   try {
     for (size_t id = 0; id < threads_.size(); ++id) {
       threads_[id] = boost::thread(&InternalThread::entry, this, id, target_device_, mode,
-          rand_seed, solver_count, rank_, set_cpu_affinity);
+          random_seed, solver_count, rank_, set_cpu_affinity);
     }
   } catch (std::exception& e) {
     LOG(FATAL) << "Thread exception: " << e.what();
@@ -33,7 +33,7 @@ void InternalThread::StartInternalThread(bool set_cpu_affinity, unsigned int ran
 }
 
 void InternalThread::RestartAllThreads(size_t new_threads, bool delayed, bool set_cpu_affinity,
-    unsigned int rand_seed) {
+    uint64_t random_seed) {
   if (new_threads == 0UL) {
     return;
   }
@@ -52,14 +52,14 @@ void InternalThread::RestartAllThreads(size_t new_threads, bool delayed, bool se
     for (size_t id = 0; id < new_threads; ++id) {
       delay_flags_[id] = make_shared<Flag>(!delayed);
       threads_[id] = boost::thread(&InternalThread::entry, this, id,
-          target_device_, mode, rand_seed, solver_count, rank_, set_cpu_affinity);
+          target_device_, mode, random_seed, solver_count, rank_, set_cpu_affinity);
     }
   } catch (std::exception& e) {
     LOG(FATAL) << "Thread exception: " << e.what();
   }
 }
 
-void InternalThread::entry(int thread_id, int device, Caffe::Brew mode, int rand_seed,
+void InternalThread::entry(int thread_id, int device, Caffe::Brew mode, uint64_t random_seed,
     int solver_count, size_t rank, bool set_cpu_affinity) {
   delay_flags_[thread_id]->wait();
   if (mode == Caffe::GPU) {
@@ -80,7 +80,7 @@ void InternalThread::entry(int thread_id, int device, Caffe::Brew mode, int rand
   }
 #endif
   Caffe::set_mode(mode);
-  Caffe::set_random_seed(rand_seed);
+  Caffe::set_random_seed(random_seed);
   Caffe::set_solver_count(solver_count);
 
   if (threads_.size() == 1) {

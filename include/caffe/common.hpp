@@ -311,9 +311,9 @@ class Caffe {
   class RNG {
    public:
     RNG();
-    explicit RNG(unsigned int seed);
-    explicit RNG(const RNG&);
-    RNG& operator=(const RNG&);
+    explicit RNG(uint64_t seed);
+    RNG(const RNG&);
+    RNG& operator = (const RNG&);
     void* generator();
    private:
     class Generator;
@@ -365,8 +365,12 @@ class Caffe {
   static void set_mode(Brew mode) {
     Get().mode_ = mode;
   }
+  // Seed used last time if it was set by user on Solver layer.
+  // Random seed otherwise.
+  static uint64_t random_seed();
   // Sets the random seed of both boost and curand
-  static void set_random_seed(const unsigned int seed);
+  // Uses system generated one if ull(-1) passed
+  static void set_random_seed(uint64_t random_seed);
   // Sets the root device. Function name remains the same for backward compatibility.
   static void SetDevice(const int device_id);
   static int root_device() {
@@ -470,7 +474,7 @@ class Caffe {
 #endif
 #endif
   shared_ptr<RNG> random_generator_;
-  bool seeded_;
+  uint64_t last_seed_;
 
   Brew mode_;
   int solver_count_;

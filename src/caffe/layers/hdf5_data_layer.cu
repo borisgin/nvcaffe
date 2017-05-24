@@ -5,6 +5,7 @@ TODO:
 
 #include <stdint.h>
 #include <vector>
+#include "caffe/util/rng.hpp"
 
 #include "hdf5.h"
 #include "hdf5_hl.h"
@@ -24,8 +25,7 @@ void HDF5DataLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom,
         if (current_file_ == num_files_) {
           current_file_ = 0;
           if (this->layer_param_.hdf5_data_param().shuffle()) {
-            std::random_shuffle(file_permutation_.begin(),
-                                file_permutation_.end());
+            caffe::shuffle(file_permutation_.begin(), file_permutation_.end());
           }
           DLOG(INFO) << "Looping around to first file.";
         }
@@ -34,7 +34,7 @@ void HDF5DataLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom,
       }
       current_row_ = 0;
       if (this->layer_param_.hdf5_data_param().shuffle())
-        std::random_shuffle(data_permutation_.begin(), data_permutation_.end());
+        caffe::shuffle(data_permutation_.begin(), data_permutation_.end());
     }
     for (int j = 0; j < this->layer_param_.top_size(); ++j) {
       int data_dim = top[j]->count() / top[j]->shape(0);
