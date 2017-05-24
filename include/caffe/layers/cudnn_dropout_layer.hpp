@@ -13,7 +13,7 @@ class CuDNNDropoutLayer : public DropoutLayer<Ftype, Btype> {
   explicit CuDNNDropoutLayer(const LayerParameter& param)
       : DropoutLayer<Ftype, Btype>(param), handles_setup_(false),
         bottom_desc_(nullptr), top_desc_(nullptr), dropout_desc_(nullptr),
-        seed_(0), state_size_(0), reserve_space_size_(0) {
+        state_size_(0), reserve_space_size_(0) {
     seed_ = param.dropout_param().random_seed() >= 0 ?
         static_cast<uint64_t>(param.dropout_param().random_seed()) : Caffe::random_seed();
   }
