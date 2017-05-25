@@ -64,6 +64,33 @@ float SGDSolver<Dtype>::GetLearningRate() {
 }
 
 template<typename Dtype>
+float SGDSolver<Dtype>::GetMomentum() {
+  float moment;
+  float base_momentum = this->param_.momentum();
+  const string& momentum_policy = this->param_.momentum_policy();
+
+  if (momentum_policy == "fixed") {
+     moment = base_momentum;
+  } else if (momentum_policy == "poly") {
+    float max_momentum  = this->param_.max_momentum();
+    float power = this->param_.momentum_power();
+    moment = base_momentum + (max_momentum - base_momentum) *
+           pow((float(this->iter_) / float(this->param_.max_iter())), power);
+  } else if (momentum_policy == "opt") {
+    float lr = GetLearningRate();
+    moment = (1. - 0.5*std::sqrt(lr)) * (1. - 0.5*std::sqrt(lr));
+    if ( this->param_.has_max_momentum()) {
+      float max_momentum  = this->param_.max_momentum();
+      moment = std::min(max_momentum, moment);
+    }
+  } else {
+    LOG(FATAL) << "Unknown momentum policy: " << momentum_policy;
+  }
+  return moment;
+}
+
+
+template<typename Dtype>
 void SGDSolver<Dtype>::PreSolve() {
   // Initialize the history
   const vector<shared_ptr<Blob>>& net_params = this->net_->learnable_params();
@@ -105,7 +132,9 @@ void SGDSolver<Dtype>::PrintRate(float rate) {
     if (rate == 0.F) {
       rate = GetLearningRate();
     }
-    LOG(INFO) << "Iteration " << this->iter_ << ", lr = " << rate;
+    //LOG(INFO) << "Iteration " << this->iter_ << ", lr = " << rate;
+     float moment = GetMomentum();
+     LOG(INFO) << "Iteration " << this->iter_ << ", lr = " << rate << ", m = " << moment;
   }
 }
 
@@ -178,7 +207,8 @@ SGDSolver<Dtype>::ComputeUpdateValue(int param_id, void* handle, float rate, boo
   shared_ptr<Blob> param = this->net_->learnable_params()[param_id];
   shared_ptr<TBlob<Dtype>> history = history_[param_id];
   const vector<float>& net_params_lr = this->net_->params_lr();
-  float momentum = this->param_.momentum();
+//  float momentum = this->param_.momentum();
+  float momentum = GetMomentum();
   float local_rate = rate * net_params_lr[param_id];
   // Compute the update to history, then copy it to the parameter diff.
   if (Caffe::mode() == Caffe::CPU) {
