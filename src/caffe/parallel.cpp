@@ -166,8 +166,7 @@ void P2PSync::InternalThreadEntry() {
     // Fetch random seed and modulate by device ID to make sure
     // everyone doesn't have the same seed.  We seem to have some
     // solver instability if we have everyone with the same seed
-    Caffe::set_random_seed(solver_->param().random_seed() +
-        static_cast<uint64_t>(solver_->param().device_id()));
+    Caffe::set_random_seed(solver_->param().random_seed() + static_cast<uint64_t>(rank_));
   } else {
     // Or system generated one
     Caffe::set_random_seed(static_cast<uint64_t>(-1));
