@@ -346,13 +346,13 @@ class Blob {
   template<typename Dtype>
   Dtype* mutable_cpu_data() {
     convert_data(tp<Dtype>());
-    return static_cast<Dtype*>(data_tensor_->synced_mem()->mutable_cpu_data());
+    return static_cast<Dtype*>(data_tensor_->mutable_synced_mem()->mutable_cpu_data());
   }
 
   template<typename Dtype>
   Dtype* mutable_cpu_diff() {
     convert_diff(tp<Dtype>());
-    return static_cast<Dtype*>(diff_tensor_->synced_mem()->mutable_cpu_data());
+    return static_cast<Dtype*>(diff_tensor_->mutable_synced_mem()->mutable_cpu_data());
   }
 
   // Element-wise accessor. Might be slow due to syncing from GPU to CPU.
@@ -520,13 +520,13 @@ class Blob {
   template<typename Dtype>
   Dtype* mutable_gpu_data() {
     convert_data(tp<Dtype>());
-    return static_cast<Dtype*>(data_tensor_->synced_mem()->mutable_gpu_data());
+    return static_cast<Dtype*>(data_tensor_->mutable_synced_mem()->mutable_gpu_data());
   }
 
   template<typename Dtype>
   Dtype* mutable_gpu_diff() {
     convert_diff(tp<Dtype>());
-    return static_cast<Dtype*>(diff_tensor_->synced_mem()->mutable_gpu_data());
+    return static_cast<Dtype*>(diff_tensor_->mutable_synced_mem()->mutable_gpu_data());
   }
 
   void async_gpu_push() {
