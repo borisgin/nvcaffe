@@ -71,9 +71,9 @@ void sgd_reg_update_all_and_clear_gpu(int N,
     g, w, h,
     momentum, local_rate, local_decay, reg_type == "L2",  clear_grads);
   CUDA_POST_KERNEL_CHECK;
-//  if (synced) {
+  if (synced) {
     CUDA_CHECK(cudaStreamSynchronize(stream));
-//  }
+  }
 }
 
 template void sgd_reg_update_all_and_clear_gpu<float16, double>(int, float16*, double*, double*,
@@ -106,9 +106,9 @@ sgd_reg_update_all_and_clear_gpu<float16, float16>(int N,
       reinterpret_cast<__half*>(g), reinterpret_cast<__half*>(w), reinterpret_cast<__half*>(h),
       momentum, local_rate, local_decay, reg_type == "L2",  clear_grads);
   CUDA_POST_KERNEL_CHECK;
-//  if (synced) {
+  if (synced) {
     CUDA_CHECK(cudaStreamSynchronize(stream));
-//  }
+  }
 }
 
 template<>
