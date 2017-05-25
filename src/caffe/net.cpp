@@ -778,7 +778,6 @@ void Net::ReduceAndUpdate() {
   size_t received_count = 0U;
   std::list<int> au_ids;
 #endif
-
   const bool clear_grads = !solver_->param().snapshot_diff();
   while (true) {
     int param_id = reduction_queue_.pop();
@@ -874,9 +873,10 @@ void Net::Reduce(int param_id) {
     }
     solver_->callback()->reduce_barrier();
     solver_->callback()->allreduce(param_id);
+    solver_->callback()->reduce_barrier();
   }
   this->learnable_params()[param_id]->gpu_scale_diff(1.F / Caffe::solver_count(),
-      solver_->callback()->cublas_handle(), false);
+      solver_->callback()->cublas_handle(), true);
   // Also need to barrier to make sure lock isn't undone
   // until all have completed, but the current nature of
   // NCCL makes this unnecessary.
@@ -892,9 +892,10 @@ void Net::ReduceBucket(size_t count, Type bucket_type, void* bucket) {
     }
     solver_->callback()->reduce_barrier();
     solver_->callback()->allreduce_bucket(count, bucket, bucket_type);
+    solver_->callback()->reduce_barrier();
   }
   Tensor::gpu_scal(count, bucket_type, bucket, 1.F / Caffe::solver_count(),
-      solver_->callback()->cublas_handle(), false);
+      solver_->callback()->cublas_handle(), true);
 }
 #endif
 

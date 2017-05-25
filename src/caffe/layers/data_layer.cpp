@@ -13,7 +13,9 @@ namespace caffe {
 
 template<typename Ftype, typename Btype>
 DataLayer<Ftype, Btype>::DataLayer(const LayerParameter& param)
-  : BasePrefetchingDataLayer<Ftype, Btype>(param) {
+  : BasePrefetchingDataLayer<Ftype, Btype>(param),
+    cache_(param.data_param().cache()),
+    shuffle_(param.data_param().shuffle()) {
   sample_only_.store(this->auto_mode_ && this->phase_ == TRAIN);
   init_offsets();
 }
@@ -84,9 +86,14 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
     starving = fit <= 1UL || starving;  // enforce 1x1
     current_parsers_num_ = starving ? 1UL : std::min(4UL,
         std::max(1UL, (size_t) std::lround(std::sqrt(fit))));
+    if (cache_ && current_parsers_num_ > 1UL) {
+      LOG(INFO) << "[" << Caffe::current_device() << "] Reduced parser threads count from "
+                << current_parsers_num_ << " to 1 because cache is used";
+      current_parsers_num_ = 1UL;
+    }
     current_transf_num_ = starving ? 1UL : std::min(4UL,
         std::max(current_transf_num_, (size_t) std::lround(fit / current_parsers_num_)));
-    this->RestartAllThreads(current_transf_num_, true);
+    this->RestartAllThreads(current_transf_num_, true, false, Caffe::random_seed());
     this->transf_num_ = this->threads_num();
     this->parsers_num_ = current_parsers_num_;
     this->queues_num_ = this->transf_num_ * this->parsers_num_;
@@ -105,9 +112,9 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
   this->go();  // kick off new threads if any
 
   CHECK_EQ(this->threads_num(), this->transf_num_);
-  LOG(INFO) << "[" << Caffe::current_device() << "] Number of parser threads: "
+  LOG(INFO) << "[" << Caffe::current_device() << "] Parser threads: "
       << this->parsers_num_ << (this->auto_mode_ ? " (auto)" : "");
-  LOG(INFO) << "[" << Caffe::current_device() << "] Number of transformer threads: "
+  LOG(INFO) << "[" << Caffe::current_device() << "] Transformer threads: "
       << this->transf_num_ << (this->auto_mode_ ? " (auto)" : "");
   layer_inititialized_flag_.set();
 }
@@ -129,6 +136,8 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
   const LayerParameter& param = this->layer_param();
   const int batch_size = param.data_param().batch_size();
   const bool use_gpu_transform = this->is_gpu_transform();
+  const bool cache = cache_ && this->phase_ == TRAIN;
+  const bool shuffle = cache && shuffle_ && this->phase_ == TRAIN;
 
   if (Caffe::mode() == Caffe::GPU && this->phase_ == TRAIN && this->auto_mode_) {
     if (!sample_reader_) {
@@ -137,7 +146,11 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
           this->solver_rank_,
           this->parsers_num_,
           this->threads_num(),
-          batch_size, true, false);
+          batch_size,
+          true,
+          false,
+          cache,
+          shuffle);
     } else if (!reader_) {
       reader_ = make_shared<DataReader>(param,
           Caffe::solver_count(),
@@ -146,7 +159,9 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
           this->threads_num(),
           batch_size,
           false,
-          true);
+          true,
+          cache,
+          shuffle);
     } else {
       // still need to run the rest
     }
@@ -158,7 +173,9 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
         this->threads_num(),
         batch_size,
         false,
-        false);
+        false,
+        cache,
+        shuffle);
     start_reading();
   }
   // Read a data point, and use it to initialize the top blob.
@@ -289,7 +306,7 @@ void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, siz
         batch->data_.shape(2),  // non-crop
         batch->data_.shape(3),  // non-crop
         out_sizeof_element, batch->data_.gpu_data(),
-        batch->gpu_transformed_data_->template mutable_gpu_data<Ftype>(false),
+        batch->gpu_transformed_data_->template mutable_gpu_data<Ftype>(),
         batch->random_vec_.gpu_data());
 #else
     NO_GPU;

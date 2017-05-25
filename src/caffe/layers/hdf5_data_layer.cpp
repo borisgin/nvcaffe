@@ -14,6 +14,7 @@ TODO:
 #include "hdf5_hl.h"
 #include <stdint.h>
 
+#include "caffe/util/rng.hpp"
 #include "caffe/layers/hdf5_data_layer.hpp"
 #include "caffe/util/hdf5.hpp"
 
@@ -60,7 +61,7 @@ void HDF5DataLayer<Ftype, Btype>::LoadHDF5FileData(const char* filename) {
 
   // Shuffle if needed.
   if (this->layer_param_.hdf5_data_param().shuffle()) {
-    std::random_shuffle(data_permutation_.begin(), data_permutation_.end());
+    caffe::shuffle(data_permutation_.begin(), data_permutation_.end());
     DLOG(INFO) << "Successully loaded " << hdf_blobs_[0]->shape(0)
                << " rows (shuffled)";
   } else {
@@ -103,7 +104,7 @@ void HDF5DataLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bottom,
 
   // Shuffle if needed.
   if (this->layer_param_.hdf5_data_param().shuffle()) {
-    std::random_shuffle(file_permutation_.begin(), file_permutation_.end());
+    caffe::shuffle(file_permutation_.begin(), file_permutation_.end());
   }
 
   // Load the first HDF5 file and initialize the line counter.
@@ -135,8 +136,7 @@ void HDF5DataLayer<Ftype, Btype>::Forward_cpu(const vector<Blob*>& bottom,
         if (current_file_ == num_files_) {
           current_file_ = 0;
           if (this->layer_param_.hdf5_data_param().shuffle()) {
-            std::random_shuffle(file_permutation_.begin(),
-                                file_permutation_.end());
+            caffe::shuffle(file_permutation_.begin(), file_permutation_.end());
           }
           DLOG(INFO) << "Looping around to first file.";
         }
@@ -145,7 +145,7 @@ void HDF5DataLayer<Ftype, Btype>::Forward_cpu(const vector<Blob*>& bottom,
       }
       current_row_ = 0;
       if (this->layer_param_.hdf5_data_param().shuffle())
-        std::random_shuffle(data_permutation_.begin(), data_permutation_.end());
+        caffe::shuffle(data_permutation_.begin(), data_permutation_.end());
     }
     for (int j = 0; j < this->layer_param_.top_size(); ++j) {
       int data_dim = top[j]->count() / top[j]->shape(0);

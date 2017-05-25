@@ -82,7 +82,7 @@ template <typename Ftype, typename Btype>
 void SoftmaxLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom,
     const vector<Blob*>& top) {
   const Ftype* bottom_data = bottom[0]->gpu_data<Ftype>();
-  Ftype* top_data = top[0]->mutable_gpu_data<Ftype>(false);
+  Ftype* top_data = top[0]->mutable_gpu_data<Ftype>();
   Ftype* scale_data = scale_.template mutable_gpu_data<Ftype>();
   int count = bottom[0]->count();
   int channels = top[0]->shape(softmax_axis_);
@@ -122,7 +122,7 @@ void SoftmaxLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
     const vector<bool>& propagate_down, const vector<Blob*>& bottom) {
   const Btype* top_diff = top[0]->gpu_diff<Btype>();
   const Btype* top_data = top[0]->gpu_data<Btype>();
-  Btype* bottom_diff = bottom[0]->mutable_gpu_diff<Btype>(false);
+  Btype* bottom_diff = bottom[0]->mutable_gpu_diff<Btype>();
   Btype* scale_data = scale_.template mutable_gpu_data<Btype>();
   int count = top[0]->count();
   int channels = top[0]->shape(softmax_axis_);

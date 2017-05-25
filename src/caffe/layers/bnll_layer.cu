@@ -26,6 +26,7 @@ void BNLLLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom,
   BNLLForward<<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS, 0, Caffe::thread_stream()>>>(
       count, bottom_data, top_data);
   CUDA_POST_KERNEL_CHECK;
+  CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
 }
 
 template <typename Btype>

@@ -53,10 +53,6 @@ void P2PManager::Run(const vector<int>& gpus) {
 #endif  // USE_NCCL
 #endif  // CPU_ONLY
   }
-  // See if there is a defined seed and reset random state if so
-  if (param.random_seed() >= 0) {
-    Caffe::set_random_seed(param.random_seed());
-  }
   this->shared_ = make_shared<SharedScores<float>>(nranks_);
   for (int i = 0; i < syncs_.size(); ++i) {
     syncs_[i]->shared_ = this->shared_;
@@ -65,7 +61,7 @@ void P2PManager::Run(const vector<int>& gpus) {
   LOG(INFO)<< "Starting Optimization";
 
   for (int i = 0; i < syncs_.size(); ++i) {
-    syncs_[i]->StartInternalThread(true);
+    syncs_[i]->StartInternalThread(true, static_cast<uint64_t>(param.random_seed()));
   }
   for (int i = 0; i < syncs_.size(); ++i) {
     syncs_[i]->WaitAll();
@@ -170,8 +166,13 @@ void P2PSync::InternalThreadEntry() {
     // Fetch random seed and modulate by device ID to make sure
     // everyone doesn't have the same seed.  We seem to have some
     // solver instability if we have everyone with the same seed
-    Caffe::set_random_seed(solver_->param().random_seed() + solver_->param().device_id());
+    Caffe::set_random_seed(solver_->param().random_seed() +
+        static_cast<uint64_t>(solver_->param().device_id()));
+  } else {
+    // Or system generated one
+    Caffe::set_random_seed(static_cast<uint64_t>(-1));
   }
+
   init_streams();
   if (solver_->Solve()) {
     mgr_->EarlyCancel(this);

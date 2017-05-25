@@ -349,9 +349,9 @@ BOOST_PYTHON_MODULE(_caffe) {
         .add_property("count",    static_cast<int (Blob::*)() const>(
             &Blob::count))
         .def("reshape",           bp::raw_function(&Blob_Reshape))
-        .add_property("data",     bp::make_function(&Blob::mutable_cpu_data_raw<Dtype>,
+        .add_property("data",     bp::make_function(&Blob::mutable_cpu_data<Dtype>,
               NdarrayCallPolicies()))
-        .add_property("diff",     bp::make_function(&Blob::mutable_cpu_diff_raw<Dtype>,
+        .add_property("diff",     bp::make_function(&Blob::mutable_cpu_diff<Dtype>,
               NdarrayCallPolicies()));
 
   BP_REGISTER_SHARED_PTR_TO_PYTHON(Blob);

@@ -139,7 +139,7 @@ message NetParameter {
 // NOTE
 // Update the next available ID when you add a new SolverParameter field.
 //
-// SolverParameter next available ID: 45 (last added: solver_data_type)
+// SolverParameter next available ID: 49 (last added: momentum_power)
 message SolverParameter {
   //////////////////////////////////////////////////////////////////////////////
   // Specifying the train and test networks
@@ -220,6 +220,11 @@ message SolverParameter {
   optional float gamma = 9; // The parameter to compute the learning rate.
   optional float power = 10; // The parameter to compute the learning rate.
   optional float momentum = 11; // The momentum value.
+    
+  optional string momentum_policy = 46 [default = "fixed"];  
+  optional float max_momentum     = 47 [default = 0.99];
+  optional float momentum_power   = 48 [default = 1.];
+    
   optional float weight_decay = 12; // The weight decay.
   // regularization types supported: L1 and L2
   // controlled by weight_decay
@@ -493,6 +498,10 @@ message TransformationParameter {
   // False if omitted when Forward Type is float/double.
   // True otherwise (float16 doesn't work well on CPU).
   optional bool use_gpu_transform = 8 [default = false];
+  // If non-negative, the seed with which the transformer's
+  // random number generator would be initialized -- useful for reproducible results.
+  // Otherwise, (and by default) initialize using a seed derived from the system clock.
+  optional int64 random_seed = 9 [default = -1];
 }
 // Message that stores parameters used to create gridbox ground truth
 message DetectNetGroundTruthParameter {
@@ -827,6 +836,10 @@ message DataParameter {
   // Takes effect only when used together with 'threads' setting.
   // Ignored and always set to 1 for test nets.
   optional uint32 parser_threads  = 12 [default = 0];
+  // Cache observations while reading
+  optional bool cache = 13 [default = false];
+  // Shuffle observations while reading for better accuracy. Ignored if 'cache' is false.
+  optional bool shuffle = 14 [default = false];
 }
 
 message DropoutParameter {

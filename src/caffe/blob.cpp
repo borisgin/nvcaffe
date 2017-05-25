@@ -343,7 +343,7 @@ void Blob::CopyFrom(const Blob& source, bool copy_diff, bool reshape) {
     Tensor::copy_helper(is_gpu, count_,
         is_gpu ? src->gpu_data() : src->cpu_data(),
         src_data_type,
-        is_gpu ? dst->mutable_gpu_data(false) : dst->mutable_cpu_data(false),
+        is_gpu ? dst->mutable_gpu_data() : dst->mutable_cpu_data(),
         dst_data_type);
     dst->validate();
   }
