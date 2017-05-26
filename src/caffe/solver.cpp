@@ -199,11 +199,7 @@ void Solver::Step(int iters) {
 
   for (const shared_ptr<Blob>& param : net_->learnable_params()) {
     // To prevent allocations inside on_start call:
-#ifndef CPU_ONLY
-    param->current_mutable_data_memory(true);
-#else
-    param->current_mutable_data_memory(false);
-#endif
+    param->current_mutable_data_memory(mode == Caffe::GPU);
   }
 
 #ifndef CPU_ONLY

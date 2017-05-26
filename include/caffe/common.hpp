@@ -484,7 +484,7 @@ class Caffe {
   // For example, if user runs `caffe train -gpu=1,0,3` then it has to be set to 1.
   static int root_device_;
   static int thread_count_;
-  static std::mutex caffe_mutex_, mutex_, mutex2_;
+  static std::mutex caffe_mutex_, mutex_, mutex2_, mutex3_;
 
  private:
   // The private constructor to avoid duplicate instantiation.

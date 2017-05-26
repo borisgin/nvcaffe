@@ -21,6 +21,8 @@ int Caffe::thread_count_ = 0;
 std::mutex Caffe::caffe_mutex_;
 std::mutex Caffe::mutex_;
 std::mutex Caffe::mutex2_;
+std::mutex Caffe::mutex3_;  // FIXME
+
 
 #ifndef CPU_ONLY
 // Lifecycle management for CUDA streams
@@ -255,9 +257,12 @@ cudnnHandle_t Caffe::device_cudnn_handle(int group) {
 #endif
 
 void Caffe::set_random_seed(uint64_t random_seed) {
+  if (Get().last_seed_ != static_cast<uint64_t>(-1) && random_seed == static_cast<uint64_t>(-1)) {
+    return;
+  }
   {
     // Curand seed
-    std::lock_guard<std::mutex> lock(caffe_mutex_);
+    std::lock_guard<std::mutex> lock(mutex3_);
     if (random_seed == static_cast<uint64_t>(-1)) {
       random_seed = cluster_seedgen();
     }

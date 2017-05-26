@@ -132,7 +132,6 @@ void SGDSolver<Dtype>::PrintRate(float rate) {
     if (rate == 0.F) {
       rate = GetLearningRate();
     }
-    //LOG(INFO) << "Iteration " << this->iter_ << ", lr = " << rate;
      float moment = GetMomentum();
      LOG(INFO) << "Iteration " << this->iter_ << ", lr = " << rate << ", m = " << moment;
   }
@@ -207,7 +206,6 @@ SGDSolver<Dtype>::ComputeUpdateValue(int param_id, void* handle, float rate, boo
   shared_ptr<Blob> param = this->net_->learnable_params()[param_id];
   shared_ptr<TBlob<Dtype>> history = history_[param_id];
   const vector<float>& net_params_lr = this->net_->params_lr();
-//  float momentum = this->param_.momentum();
   float momentum = GetMomentum();
   float local_rate = rate * net_params_lr[param_id];
   // Compute the update to history, then copy it to the parameter diff.
