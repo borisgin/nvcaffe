@@ -370,7 +370,9 @@ class Caffe {
   static uint64_t random_seed();
   // Sets the random seed of both boost and curand
   // Uses system generated one if ull(-1) passed
-  static void set_random_seed(uint64_t random_seed);
+  static void set_random_seed(uint64_t random_seed = SEED_NOT_SET);
+  // For correct determinism user should set random_seed for a Solver
+  static void set_global_seed(uint64_t random_seed);
   // Sets the root device. Function name remains the same for backward compatibility.
   static void SetDevice(const int device_id);
   static int root_device() {
@@ -455,6 +457,7 @@ class Caffe {
 
   static constexpr int STREAM_ID_ASYNC_PUSH = 0;
   static constexpr int STREAM_ID_TRANSFORMER = 1;
+  static constexpr uint64_t SEED_NOT_SET = static_cast<uint64_t>(-1);
 
  protected:
 #ifndef CPU_ONLY
@@ -474,7 +477,6 @@ class Caffe {
 #endif
 #endif
   shared_ptr<RNG> random_generator_;
-  uint64_t last_seed_;
 
   Brew mode_;
   int solver_count_;
@@ -484,7 +486,8 @@ class Caffe {
   // For example, if user runs `caffe train -gpu=1,0,3` then it has to be set to 1.
   static int root_device_;
   static int thread_count_;
-  static std::mutex caffe_mutex_, mutex_, mutex2_, mutex3_;
+  static uint64_t global_seed_;
+  static std::mutex caffe_mutex_, pstream_mutex_, cublas_mutex_, seed_mutex_;
 
  private:
   // The private constructor to avoid duplicate instantiation.

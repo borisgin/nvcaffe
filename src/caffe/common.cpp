@@ -18,11 +18,12 @@ namespace caffe {
 // Must be set before brewing
 int Caffe::root_device_ = -1;
 int Caffe::thread_count_ = 0;
-std::mutex Caffe::caffe_mutex_;
-std::mutex Caffe::mutex_;
-std::mutex Caffe::mutex2_;
-std::mutex Caffe::mutex3_;  // FIXME
+uint64_t Caffe::global_seed_ = Caffe::SEED_NOT_SET;
 
+std::mutex Caffe::caffe_mutex_;
+std::mutex Caffe::pstream_mutex_;
+std::mutex Caffe::cublas_mutex_;
+std::mutex Caffe::seed_mutex_;
 
 #ifndef CPU_ONLY
 // Lifecycle management for CUDA streams
@@ -127,14 +128,13 @@ void* Caffe::RNG::generator() {
 
 uint64_t Caffe::random_seed() {
   uint64_t last_seed = Get().last_seed_;
-  return last_seed == static_cast<uint64_t>(-1) ? cluster_seedgen() : last_seed;
+  return last_seed == Caffe::SEED_NOT_SET ? (*caffe_rng())() : last_seed;
 }
 
 #else  // Normal GPU + CPU Caffe.
 
 Caffe::Caffe()
-    : random_generator_(), last_seed_(static_cast<uint64_t>(-1)), mode_(Caffe::CPU),
-      solver_count_(1), root_solver_(true) {
+    : random_generator_(), mode_(Caffe::CPU), solver_count_(1), root_solver_(true) {
   int count;
   CUDA_CHECK(cudaGetDeviceCount(&count));
   device_streams_.resize(count);
@@ -184,7 +184,7 @@ CudaStream::~CudaStream() {
 }
 
 shared_ptr<CudaStream> Caffe::device_pstream(int group) {
-  std::lock_guard<std::mutex> lock(mutex_);
+  std::lock_guard<std::mutex> lock(pstream_mutex_);
   vector<shared_ptr<CudaStream>>& group_streams = device_streams_[current_device()];
   if (group + 1 > group_streams.size()) {
     group_streams.resize(group + 1);
@@ -197,7 +197,7 @@ shared_ptr<CudaStream> Caffe::device_pstream(int group) {
 }
 
 shared_ptr<CudaStream> Caffe::device_pstream_aux(int id) {
-  std::lock_guard<std::mutex> lock(mutex_);
+  std::lock_guard<std::mutex> lock(pstream_mutex_);
   vector<shared_ptr<CudaStream>>& streams = device_streams_aux_[current_device()];
   if (id + 1 > streams.size()) {
     streams.resize(id + 1);
@@ -210,7 +210,7 @@ shared_ptr<CudaStream> Caffe::device_pstream_aux(int id) {
 }
 
 cublasHandle_t Caffe::device_cublas_handle(int group) {
-  std::lock_guard<std::mutex> lock(mutex2_);
+  std::lock_guard<std::mutex> lock(cublas_mutex_);
   vector<cublasHandle_t>& group_cublas_handles = cublas_handles_[current_device()];
   if (group + 1 > group_cublas_handles.size()) {
     group_cublas_handles.resize(group + 1);
@@ -256,14 +256,19 @@ cudnnHandle_t Caffe::device_cudnn_handle(int group) {
 }
 #endif
 
+void Caffe::set_global_seed(uint64_t random_seed) {
+  std::lock_guard<std::mutex> lock(seed_mutex_);
+  global_seed_ = random_seed;
+}
+
 void Caffe::set_random_seed(uint64_t random_seed) {
-  if (Get().last_seed_ != static_cast<uint64_t>(-1) && random_seed == static_cast<uint64_t>(-1)) {
+  if (Get().global_seed_ != Caffe::SEED_NOT_SET && random_seed == Caffe::SEED_NOT_SET) {
     return;
   }
   {
     // Curand seed
-    std::lock_guard<std::mutex> lock(mutex3_);
-    if (random_seed == static_cast<uint64_t>(-1)) {
+    std::lock_guard<std::mutex> lock(seed_mutex_);
+    if (random_seed == Caffe::SEED_NOT_SET) {
       random_seed = cluster_seedgen();
     }
     static bool g_curand_availability_logged = false;
@@ -278,12 +283,12 @@ void Caffe::set_random_seed(uint64_t random_seed) {
   }
   // RNG seed
   Get().random_generator_.reset(new RNG(random_seed));
-  Get().last_seed_ = random_seed;
 }
 
 uint64_t Caffe::random_seed() {
-  uint64_t last_seed = Get().last_seed_;
-  return last_seed == static_cast<uint64_t>(-1) ? cluster_seedgen() : last_seed;
+  std::lock_guard<std::mutex> lock(seed_mutex_);
+  uint64_t last_seed = Get().global_seed_;
+  return last_seed == Caffe::SEED_NOT_SET ? (*caffe_rng())() : last_seed;
 }
 
 void Caffe::SetDevice(const int device_id) {

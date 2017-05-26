@@ -79,7 +79,7 @@ float SGDSolver<Dtype>::GetMomentum() {
   } else if (momentum_policy == "opt") {
     float lr = GetLearningRate();
     moment = (1. - 0.5*std::sqrt(lr)) * (1. - 0.5*std::sqrt(lr));
-    if ( this->param_.has_max_momentum()) {
+    if (this->param_.has_max_momentum()) {
       float max_momentum  = this->param_.max_momentum();
       moment = std::min(max_momentum, moment);
     }

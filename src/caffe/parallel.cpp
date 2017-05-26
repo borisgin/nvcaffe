@@ -169,7 +169,7 @@ void P2PSync::InternalThreadEntry() {
     Caffe::set_random_seed(solver_->param().random_seed() + static_cast<uint64_t>(rank_));
   } else {
     // Or system generated one
-    Caffe::set_random_seed(static_cast<uint64_t>(-1));
+    Caffe::set_random_seed(Caffe::SEED_NOT_SET);
   }
 
   init_streams();

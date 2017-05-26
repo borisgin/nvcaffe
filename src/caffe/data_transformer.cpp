@@ -730,8 +730,9 @@ template<typename Dtype>
 void DataTransformer<Dtype>::InitRand() {
   const bool needs_rand = param_.mirror() || (phase_ == TRAIN && param_.crop_size());
   if (needs_rand) {
+    // Use random_seed setting for deterministic transformations
     const uint64_t random_seed = param_.random_seed() >= 0 ?
-        static_cast<uint64_t>(param_.random_seed()) : Caffe::random_seed();
+        static_cast<uint64_t>(param_.random_seed()) : caffe_rng_rand();
     rng_.reset(new Caffe::RNG(random_seed));
   } else {
     rng_.reset();

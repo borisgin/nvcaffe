@@ -49,6 +49,7 @@ void Solver::Init() {
   CHECK_GE(param_.average_loss(), 1) << "average_loss should be non-negative.";
   CheckSnapshotWritePermissions();
   if (Caffe::root_solver()) {  // P2PSync does other solvers if they exist
+    Caffe::set_global_seed(static_cast<uint64_t>(param_.random_seed()));
     Caffe::set_random_seed(static_cast<uint64_t>(param_.random_seed()));
   }
   // Scaffolding code
