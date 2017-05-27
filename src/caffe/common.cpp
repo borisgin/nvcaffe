@@ -20,6 +20,7 @@ int Caffe::root_device_ = -1;
 int Caffe::thread_count_ = 0;
 uint64_t Caffe::global_seed_ = Caffe::SEED_NOT_SET;
 
+std::mutex Caffe::props_mutex_;
 std::mutex Caffe::caffe_mutex_;
 std::mutex Caffe::pstream_mutex_;
 std::mutex Caffe::cublas_mutex_;
@@ -166,7 +167,6 @@ CudaStream::CudaStream(bool high_priority = false) {
     int leastPriority, greatestPriority;
     CUDA_CHECK(cudaDeviceGetStreamPriorityRange(&leastPriority, &greatestPriority));
     CUDA_CHECK(cudaStreamCreateWithPriority(&stream_, cudaStreamDefault, greatestPriority));
-
   } else {
     CUDA_CHECK(cudaStreamCreate(&stream_));
   }
@@ -483,14 +483,10 @@ CuDNNHandle::~CuDNNHandle() {
 }
 #endif
 
-
 Caffe::Properties::Properties() :
       init_time_(std::time(nullptr)),
       main_thread_id_(std::this_thread::get_id()),
       caffe_version_(AS_STRING(CAFFE_VERSION)) {
-// gcc 4.8.4
-//  atomic_init(&counter1_, 0);
-//  atomic_init(&counter2_, 0);
 #ifndef CPU_ONLY
   int count = 0;
   CUDA_CHECK(cudaGetDeviceCount(&count));

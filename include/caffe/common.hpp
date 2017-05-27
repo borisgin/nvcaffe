@@ -250,7 +250,7 @@ using boost::upgrade_to_unique_lock;
 #ifndef CPU_ONLY
 // Shared CUDA Stream for correct life cycle management
 class CudaStream {
-  explicit CudaStream(bool nonblocking);
+  explicit CudaStream(bool high_priority);
 
  public:
   ~CudaStream();
@@ -259,6 +259,7 @@ class CudaStream {
     shared_ptr<CudaStream> pstream(new CudaStream(high_priority));
     return pstream;
   }
+
   cudaStream_t get() const {
     return stream_;
   }
@@ -392,53 +393,41 @@ class Caffe {
   static void set_root_solver(bool val) { Get().root_solver_ = val; }
 
   static void set_gpus(const std::vector<int>& gpus) {
-    Properties::instance().gpus_ = gpus;
+    props().gpus_ = gpus;
   }
   static const std::vector<int>& gpus() {
-    return Properties::instance().gpus_;
+    return props().gpus_;
   }
   static const std::string& caffe_version() {
-    return Properties::instance().caffe_version();
+    return props().caffe_version();
   }
   static const std::string& cudnn_version() {
-    return Properties::instance().cudnn_version();
+    return props().cudnn_version();
   }
   static const std::string& cublas_version() {
-    return Properties::instance().cublas_version();
+    return props().cublas_version();
   }
   static const std::string& cuda_version() {
-    return Properties::instance().cuda_version();
+    return props().cuda_version();
   }
   static const std::string& cuda_driver_version() {
-    return Properties::instance().cuda_driver_version();
+    return props().cuda_driver_version();
   }
   static std::thread::id main_thread_id() {
-    return Properties::instance().main_thread_id();
+    return props().main_thread_id();
   }
   static bool is_main_thread() {
-    return Properties::instance().main_thread_id() == std::this_thread::get_id();
+    return props().main_thread_id() == std::this_thread::get_id();
   }
   static std::string start_time() {
-    return Properties::instance().start_time();
+    return props().start_time();
   }
   static std::time_t init_time() {
-    return Properties::instance().init_time();
+    return props().init_time();
   }
   static std::string time_from_init();
   static int device_capability(int device) {
-    return Properties::instance().device_capability(device);
-  }
-  static int counter1() {
-    return Properties::instance().counter1();
-  }
-  static int counter2() {
-    return Properties::instance().counter2();
-  }
-  static void incr1() {
-    Properties::instance().incr1();
-  }
-  static void incr2() {
-    Properties::instance().incr2();
+    return props().device_capability(device);
   }
 
   static int current_device() {
@@ -487,7 +476,7 @@ class Caffe {
   static int root_device_;
   static int thread_count_;
   static uint64_t global_seed_;
-  static std::mutex caffe_mutex_, pstream_mutex_, cublas_mutex_, seed_mutex_;
+  static std::mutex props_mutex_, caffe_mutex_, pstream_mutex_, cublas_mutex_, seed_mutex_;
 
  private:
   // The private constructor to avoid duplicate instantiation.
@@ -497,11 +486,8 @@ class Caffe {
 
   // Caffe Properties singleton
   class Properties {
+    friend class Caffe;
    public:
-    static Properties& instance() {
-      static Properties inst;
-      return inst;
-    }
     const std::string& caffe_version() const {
       return caffe_version_;
     }
@@ -530,24 +516,11 @@ class Caffe {
     int device_capability(int device) const {
       return compute_capabilities_[device];
     }
-    int counter1() const {
-      return counter1_.load();
-    }
-    int counter2() const {
-      return counter2_.load();
-    }
-    void incr1() {
-      counter1_.fetch_add(1, std::memory_order_relaxed);
-    }
-    void incr2() {
-      counter2_.fetch_add(1, std::memory_order_relaxed);
-    }
 
     ~Properties();
 
-    std::vector<int> gpus_;
-
    private:
+    std::vector<int> gpus_;
     std::time_t init_time_;
     std::thread::id main_thread_id_;
     std::string caffe_version_;
@@ -556,11 +529,16 @@ class Caffe {
     std::string cuda_version_;
     std::string cuda_driver_version_;
     std::vector<int> compute_capabilities_;
-    std::atomic<int> counter1_, counter2_;
 
     Properties();
     DISABLE_COPY_MOVE_AND_ASSIGN(Properties);
   };
+
+  static Properties& props() {
+    std::lock_guard<std::mutex> lock(props_mutex_);
+    static Properties props;
+    return props;
+  }
 };
 
 // Yet another Event implementation

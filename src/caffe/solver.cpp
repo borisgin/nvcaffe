@@ -36,8 +36,7 @@ Solver::Solver(const SolverParameter& param, size_t rank, const Solver* root_sol
 Solver::Solver(const string& param_file, size_t rank, const Solver* root_solver)
     : Solver(ReadSolverParamsFromTextFileOrDie(param_file), rank, root_solver) {}
 
-Solver::~Solver() {
-}
+Solver::~Solver() {}
 
 void Solver::Init() {
   LOG(INFO) << "Solver data type: " << Type_Name(data_type_);
@@ -198,12 +197,12 @@ void Solver::Step(int iters) {
 
   net_->set_solver(this);
 
+#ifndef CPU_ONLY
   for (const shared_ptr<Blob>& param : net_->learnable_params()) {
     // To prevent allocations inside on_start call:
-    param->current_mutable_data_memory(mode == Caffe::GPU);
+    param->allocate_data(mode == Caffe::GPU);
   }
 
-#ifndef CPU_ONLY
   net_->InitializeLearnableDiffSpace();
 
   if (solver_count > 1) {
@@ -218,7 +217,6 @@ void Solver::Step(int iters) {
       }
       callback_soft_barrier();
       callback_->on_start(net_->learnable_params());
-      callback_->syncCommStream();
     }
     callback_soft_barrier();
     LOG(INFO) << "Starting Optimization on GPU " << Caffe::current_device();
