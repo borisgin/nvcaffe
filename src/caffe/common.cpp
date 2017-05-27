@@ -127,9 +127,8 @@ void* Caffe::RNG::generator() {
   return static_cast<void*>(generator_->rng());
 }
 
-uint64_t Caffe::random_seed() {
-  uint64_t last_seed = Get().last_seed_;
-  return last_seed == Caffe::SEED_NOT_SET ? (*caffe_rng())() : last_seed;
+uint64_t Caffe::random_seed(bool make_new) {
+  return (make_new || global_seed_ == Caffe::SEED_NOT_SET) ? (*caffe_rng())() : global_seed_;
 }
 
 #else  // Normal GPU + CPU Caffe.
@@ -258,16 +257,21 @@ cudnnHandle_t Caffe::device_cudnn_handle(int group) {
 
 void Caffe::set_global_seed(uint64_t random_seed) {
   std::lock_guard<std::mutex> lock(seed_mutex_);
-  global_seed_ = random_seed;
+  if (random_seed != Caffe::SEED_NOT_SET) {
+    global_seed_ = random_seed;
+  }
 }
 
 void Caffe::set_random_seed(uint64_t random_seed) {
-  if (Get().global_seed_ != Caffe::SEED_NOT_SET && random_seed == Caffe::SEED_NOT_SET) {
+  if (global_seed_ != Caffe::SEED_NOT_SET && random_seed == Caffe::SEED_NOT_SET) {
     return;
   }
   {
     // Curand seed
     std::lock_guard<std::mutex> lock(seed_mutex_);
+    if (global_seed_ == Caffe::SEED_NOT_SET) {
+      global_seed_ = random_seed;
+    }
     if (random_seed == Caffe::SEED_NOT_SET) {
       random_seed = cluster_seedgen();
     }
@@ -285,10 +289,8 @@ void Caffe::set_random_seed(uint64_t random_seed) {
   Get().random_generator_.reset(new RNG(random_seed));
 }
 
-uint64_t Caffe::random_seed() {
-  std::lock_guard<std::mutex> lock(seed_mutex_);
-  uint64_t last_seed = Get().global_seed_;
-  return last_seed == Caffe::SEED_NOT_SET ? (*caffe_rng())() : last_seed;
+uint64_t Caffe::random_seed(bool make_new) {
+  return (make_new || global_seed_ == Caffe::SEED_NOT_SET) ? (*caffe_rng())() : global_seed_;
 }
 
 void Caffe::SetDevice(const int device_id) {

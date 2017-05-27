@@ -368,7 +368,7 @@ class Caffe {
   }
   // Seed used last time if it was set by user on Solver layer.
   // Random seed otherwise.
-  static uint64_t random_seed();
+  static uint64_t random_seed(bool make_new = false);
   // Sets the random seed of both boost and curand
   // Uses system generated one if ull(-1) passed
   static void set_random_seed(uint64_t random_seed = SEED_NOT_SET);
