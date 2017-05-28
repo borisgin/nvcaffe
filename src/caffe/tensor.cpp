@@ -160,14 +160,14 @@ void Tensor::scale(float scale, void* handle, bool synced) {
 }
 
 void Tensor::cpu_scale(float scale) {
-  shared_ptr<SyncedMemory>& mem = mutable_synced_mem(false);
+  shared_ptr<SyncedMemory>& mem = mutable_synced_mem();
   cpu_scal(count_, type_, mem->mutable_cpu_data(), scale);
 }
 
 #ifndef CPU_ONLY
 
 void Tensor::gpu_scale(float scale, cublasHandle_t cublas_handle, bool synced) {
-  shared_ptr<SyncedMemory>& mem = mutable_synced_mem(false);
+  shared_ptr<SyncedMemory>& mem = mutable_synced_mem();
   gpu_scal(count_, type_, mem->mutable_gpu_data(), scale, cublas_handle, synced);
 }
 

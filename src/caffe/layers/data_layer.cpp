@@ -93,7 +93,7 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
     }
     current_transf_num_ = starving ? 1UL : std::min(4UL,
         std::max(current_transf_num_, (size_t) std::lround(fit / current_parsers_num_)));
-    this->RestartAllThreads(current_transf_num_, true, false, Caffe::random_seed());
+    this->RestartAllThreads(current_transf_num_, true, false, Caffe::next_seed());
     this->transf_num_ = this->threads_num();
     this->parsers_num_ = current_parsers_num_;
     this->queues_num_ = this->transf_num_ * this->parsers_num_;

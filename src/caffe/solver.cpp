@@ -36,8 +36,7 @@ Solver::Solver(const SolverParameter& param, size_t rank, const Solver* root_sol
 Solver::Solver(const string& param_file, size_t rank, const Solver* root_solver)
     : Solver(ReadSolverParamsFromTextFileOrDie(param_file), rank, root_solver) {}
 
-Solver::~Solver() {
-}
+Solver::~Solver() {}
 
 void Solver::Init() {
   LOG(INFO) << "Solver data type: " << Type_Name(data_type_);
@@ -49,7 +48,7 @@ void Solver::Init() {
   CHECK_GE(param_.average_loss(), 1) << "average_loss should be non-negative.";
   CheckSnapshotWritePermissions();
   if (Caffe::root_solver()) {  // P2PSync does other solvers if they exist
-    Caffe::set_random_seed(static_cast<uint64_t>(param_.random_seed()));
+    Caffe::set_root_seed(static_cast<uint64_t>(param_.random_seed()));
   }
   // Scaffolding code
   InitTrainNet();
@@ -197,16 +196,12 @@ void Solver::Step(int iters) {
 
   net_->set_solver(this);
 
+#ifndef CPU_ONLY
   for (const shared_ptr<Blob>& param : net_->learnable_params()) {
     // To prevent allocations inside on_start call:
-#ifndef CPU_ONLY
-    param->current_mutable_data_memory(true);
-#else
-    param->current_mutable_data_memory(false);
-#endif
+    param->allocate_data(mode == Caffe::GPU);
   }
 
-#ifndef CPU_ONLY
   net_->InitializeLearnableDiffSpace();
 
   if (solver_count > 1) {
@@ -221,7 +216,6 @@ void Solver::Step(int iters) {
       }
       callback_soft_barrier();
       callback_->on_start(net_->learnable_params());
-      callback_->syncCommStream();
     }
     callback_soft_barrier();
     LOG(INFO) << "Starting Optimization on GPU " << Caffe::current_device();
@@ -234,7 +228,7 @@ void Solver::Step(int iters) {
 #endif
 
   uint64_t random_seed = param_.random_seed() >= 0 ?
-      static_cast<uint64_t>(param_.random_seed()) : Caffe::random_seed();
+      static_cast<uint64_t>(param_.random_seed()) : Caffe::next_seed();
 
   reduce_thread_.reset(new boost::thread(&Solver::Reduce, this,
       Caffe::current_device(), mode, random_seed, solver_count, root_solver));

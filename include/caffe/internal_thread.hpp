@@ -27,14 +27,14 @@ class InternalThread {
    * is initialized using caffe_rng_rand.
    */
   void StartInternalThread(bool set_cpu_affinity = false,
-      uint64_t random_seed = Caffe::random_seed());
+      uint64_t random_seed = Caffe::next_seed());
 
   /**
    * Restarts all threads
    * @param set_cpu_affinity
    */
   void RestartAllThreads(size_t new_threads, bool delayed = false, bool set_cpu_affinity = false,
-      uint64_t random_seed = Caffe::random_seed());
+      uint64_t random_seed = Caffe::next_seed());
 
   /** Will not return until the internal thread has exited. */
   void StopInternalThread();

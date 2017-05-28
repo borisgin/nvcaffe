@@ -526,10 +526,8 @@ class GradientBasedSolverTest : public MultiDeviceTest<TypeParam> {
     param_copies.resize(orig_params.size());
     for (int i = 0; i < orig_params.size(); ++i) {
       param_copies[i].reset(new TBlob<Dtype>());
-      const bool kReshape = true;
-      for (int copy_diff = false; copy_diff <= true; ++copy_diff) {
-        param_copies[i]->CopyFrom(*orig_params[i], copy_diff, kReshape);
-      }
+      param_copies[i]->CopyDataFrom(*orig_params[i], true);
+      param_copies[i]->CopyDiffFrom(*orig_params[i], true);
     }
 
     // Save the solver history
@@ -538,10 +536,8 @@ class GradientBasedSolverTest : public MultiDeviceTest<TypeParam> {
     history_copies.resize(orig_history.size());
     for (int i = 0; i < orig_history.size(); ++i) {
       history_copies[i].reset(new TBlob<Dtype>());
-      const bool kReshape = true;
-      for (int copy_diff = false; copy_diff <= true; ++copy_diff) {
-        history_copies[i]->CopyFrom(*orig_history[i], copy_diff, kReshape);
-      }
+      history_copies[i]->CopyDataFrom(*orig_history[i], true);
+      history_copies[i]->CopyDiffFrom(*orig_history[i], true);
     }
 
     // Run the solver for num_iters iterations and snapshot.

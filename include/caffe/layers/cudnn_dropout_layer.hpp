@@ -15,7 +15,7 @@ class CuDNNDropoutLayer : public DropoutLayer<Ftype, Btype> {
         bottom_desc_(nullptr), top_desc_(nullptr), dropout_desc_(nullptr),
         state_size_(0), reserve_space_size_(0) {
     seed_ = param.dropout_param().random_seed() >= 0 ?
-        static_cast<uint64_t>(param.dropout_param().random_seed()) : Caffe::random_seed();
+        static_cast<uint64_t>(param.dropout_param().random_seed()) : Caffe::next_seed();
   }
 
   virtual void LayerSetUp(const vector<Blob*>& bottom,

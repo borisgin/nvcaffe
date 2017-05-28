@@ -276,6 +276,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
   if ((this->iter() == 3 || (this->iter() > 3 && use_reshape_))
       && this->phase_ == TRAIN
       && mem_req_all_grps_ > 0UL
+      && workspace_.size() > PAGE_SIZE * 2UL
       && workspace_.size() > mem_req_all_grps_ * 2UL) {
     // Winner needs less than half of initial estimate - saving the rest
     // Half because we want to reduce the number of allocs/deallocs

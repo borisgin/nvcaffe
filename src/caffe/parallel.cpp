@@ -42,6 +42,7 @@ void P2PManager::Run(const vector<int>& gpus) {
 #endif  // USE_NCCL
 #endif  // CPU_ONLY
   SolverParameter param = root_solver_->param();
+  this->shared_ = make_shared<SharedScores<float>>(nranks_);
   for (int i = 0; i < gpus.size(); ++i) {
     param.set_device_id(gpus[i]);
     syncs_[i] = make_shared<P2PSync>(this, root_solver_, i, gpus.size(), param);
@@ -52,9 +53,6 @@ void P2PManager::Run(const vector<int>& gpus) {
     LOG(FATAL) << "Multi-GPU execution not available - rebuild with USE_NCCL";
 #endif  // USE_NCCL
 #endif  // CPU_ONLY
-  }
-  this->shared_ = make_shared<SharedScores<float>>(nranks_);
-  for (int i = 0; i < syncs_.size(); ++i) {
     syncs_[i]->shared_ = this->shared_;
   }
 
@@ -97,7 +95,6 @@ P2PSync::P2PSync(P2PManager* mgr, shared_ptr<Solver> root_solver,
       mgr_(mgr),
       rank_(rank),
       nranks_(nranks),
-      children_(),
       initial_iter_(root_solver->iter()),
       solver_(),
       root_solver_(root_solver),
@@ -157,6 +154,7 @@ void P2PSync::InternalThreadEntry() {
   ncclUniqueId* nccl_id = reinterpret_cast<ncclUniqueId*>(this->aux_);
   soft_barrier();
   NCCL_CHECK(ncclCommInitRank(&nccl_comm_, nranks_, *nccl_id, rank_));
+  soft_barrier();
 #endif
 #endif
 
@@ -166,11 +164,10 @@ void P2PSync::InternalThreadEntry() {
     // Fetch random seed and modulate by device ID to make sure
     // everyone doesn't have the same seed.  We seem to have some
     // solver instability if we have everyone with the same seed
-    Caffe::set_random_seed(solver_->param().random_seed() +
-        static_cast<uint64_t>(solver_->param().device_id()));
+    Caffe::set_random_seed(solver_->param().random_seed() + static_cast<uint64_t>(rank_));
   } else {
     // Or system generated one
-    Caffe::set_random_seed(static_cast<uint64_t>(-1));
+    Caffe::set_random_seed(Caffe::SEED_NOT_SET);
   }
 
   init_streams();
@@ -198,7 +195,6 @@ void P2PSync::on_start(const vector<shared_ptr<Blob>>& net) {
   int count = 0;
   NCCL_CHECK(ncclCommCount(nccl_comm_, &count));
   CHECK_EQ(count, nranks_);
-
   for (int i = 0; i < net.size(); ++i) {
     const shared_ptr<Blob>& param = net[i];
     NCCL_CHECK(ncclBcast(param->current_mutable_data_memory(true),
@@ -208,6 +204,7 @@ void P2PSync::on_start(const vector<shared_ptr<Blob>>& net) {
         nccl_comm_,
         comm_stream_->get()));
   }
+  CUDA_CHECK(cudaStreamSynchronize(comm_stream_->get()));
 #endif  // USE_NCCL
 #endif
 }
@@ -223,7 +220,7 @@ void P2PSync::allreduce(int param_id) {
       ncclSum,
       nccl_comm_,
       comm_stream_->get()));
-  syncCommStream();
+  CUDA_CHECK(cudaStreamSynchronize(comm_stream_->get()));
 #endif  // USE_NCCL
 #endif  // CPU_ONLY
 }
@@ -233,15 +230,9 @@ void P2PSync::allreduce_bucket(int count, void* bucket, Type type) {
 #ifdef USE_NCCL
   NCCL_CHECK(ncclAllReduce(bucket, bucket, count, nccl::nccl_type(type),
                            ncclSum, nccl_comm_, comm_stream_->get()));
-  syncCommStream();
+  CUDA_CHECK(cudaStreamSynchronize(comm_stream_->get()));
 #endif  // USE_NCCL
 #endif  // CPU_ONLY
-}
-
-void P2PSync::syncCommStream() {
-#ifndef CPU_ONLY
-  CUDA_CHECK(cudaStreamSynchronize(comm_stream_->get()));
-#endif
 }
 
 // master thread gets aggregate of results for output
