@@ -366,14 +366,14 @@ class Caffe {
   static void set_mode(Brew mode) {
     Get().mode_ = mode;
   }
-  // Seed used last time if it was set by user on Solver layer.
-  // Random seed otherwise.
-  static uint64_t random_seed(bool make_new = false);
+  // Next seed. It's deterministic if root seed is already set.
+  static uint64_t next_seed();
   // Sets the random seed of both boost and curand
-  // Uses system generated one if ull(-1) passed
+  // Uses system generated one if -1 passed
   static void set_random_seed(uint64_t random_seed = SEED_NOT_SET);
-  // For correct determinism user should set random_seed for a Solver
-  static void set_global_seed(uint64_t random_seed);
+  // For correct determinism user should set a seed for a root solver
+  // Note: it invokes set_random_seed internally
+  static void set_root_seed(uint64_t random_seed);
   // Sets the root device. Function name remains the same for backward compatibility.
   static void SetDevice(const int device_id);
   static int root_device() {
@@ -475,7 +475,7 @@ class Caffe {
   // For example, if user runs `caffe train -gpu=1,0,3` then it has to be set to 1.
   static int root_device_;
   static int thread_count_;
-  static uint64_t global_seed_;
+  static std::atomic<uint64_t> root_seed_;
   static std::mutex props_mutex_, caffe_mutex_, pstream_mutex_, cublas_mutex_, seed_mutex_;
 
  private:

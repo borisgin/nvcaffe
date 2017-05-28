@@ -18,7 +18,7 @@ namespace caffe {
 // Must be set before brewing
 int Caffe::root_device_ = -1;
 int Caffe::thread_count_ = 0;
-uint64_t Caffe::global_seed_ = Caffe::SEED_NOT_SET;
+std::atomic<uint64_t> Caffe::root_seed_(Caffe::SEED_NOT_SET);
 
 std::mutex Caffe::props_mutex_;
 std::mutex Caffe::caffe_mutex_;
@@ -64,6 +64,44 @@ uint64_t cluster_seedgen(void) {
   return seed;
 }
 
+void Caffe::set_root_seed(uint64_t random_seed) {
+  if (random_seed != Caffe::SEED_NOT_SET) {
+    root_seed_.store(random_seed);
+    set_random_seed(random_seed);
+  }
+}
+
+void Caffe::set_random_seed(uint64_t random_seed) {
+  if (root_seed_.load() == Caffe::SEED_NOT_SET) {
+    root_seed_.store(random_seed);
+  } else if (random_seed == Caffe::SEED_NOT_SET) {
+    return;  // i.e. root solver was previously set to 0+ and there is no need to re-generate
+  }
+#ifndef CPU_ONLY
+  {
+    // Curand seed
+    std::lock_guard<std::mutex> lock(seed_mutex_);
+    if (random_seed == Caffe::SEED_NOT_SET) {
+      random_seed = cluster_seedgen();
+    }
+    static bool g_curand_availability_logged = false;
+    curandGenerator_t curand_generator_handle = curand_generator();
+    if (curand_generator_handle) {
+      CURAND_CHECK(curandSetPseudoRandomGeneratorSeed(curand_generator_handle, random_seed));
+      CURAND_CHECK(curandSetGeneratorOffset(curand_generator_handle, 0));
+    } else if (!g_curand_availability_logged) {
+      LOG(ERROR) << "Curand not available. Skipping setting the curand seed.";
+      g_curand_availability_logged = true;
+    }
+  }
+#endif
+  // RNG seed
+  Get().random_generator_.reset(new RNG(random_seed));
+}
+
+uint64_t Caffe::next_seed() {
+  return (*caffe_rng())();
+}
 
 void GlobalInit(int* pargc, char*** pargv) {
   // Google flags.
@@ -81,11 +119,6 @@ Caffe::Caffe()
       solver_count_(1), root_solver_(true) { }
 
 Caffe::~Caffe() { }
-
-void Caffe::set_random_seed(uint64_t seed) {
-  // RNG seed
-  Get().random_generator_.reset(new RNG(seed));
-}
 
 void Caffe::SetDevice(const int device_id) {
   NO_GPU;
@@ -125,10 +158,6 @@ Caffe::RNG& Caffe::RNG::operator=(const RNG& other) {
 
 void* Caffe::RNG::generator() {
   return static_cast<void*>(generator_->rng());
-}
-
-uint64_t Caffe::random_seed(bool make_new) {
-  return (make_new || global_seed_ == Caffe::SEED_NOT_SET) ? (*caffe_rng())() : global_seed_;
 }
 
 #else  // Normal GPU + CPU Caffe.
@@ -254,44 +283,6 @@ cudnnHandle_t Caffe::device_cudnn_handle(int group) {
   return cudnn_handle->get();
 }
 #endif
-
-void Caffe::set_global_seed(uint64_t random_seed) {
-  std::lock_guard<std::mutex> lock(seed_mutex_);
-  if (random_seed != Caffe::SEED_NOT_SET) {
-    global_seed_ = random_seed;
-  }
-}
-
-void Caffe::set_random_seed(uint64_t random_seed) {
-  if (global_seed_ != Caffe::SEED_NOT_SET && random_seed == Caffe::SEED_NOT_SET) {
-    return;
-  }
-  {
-    // Curand seed
-    std::lock_guard<std::mutex> lock(seed_mutex_);
-    if (global_seed_ == Caffe::SEED_NOT_SET) {
-      global_seed_ = random_seed;
-    }
-    if (random_seed == Caffe::SEED_NOT_SET) {
-      random_seed = cluster_seedgen();
-    }
-    static bool g_curand_availability_logged = false;
-    curandGenerator_t curand_generator_handle = curand_generator();
-    if (curand_generator_handle) {
-      CURAND_CHECK(curandSetPseudoRandomGeneratorSeed(curand_generator_handle, random_seed));
-      CURAND_CHECK(curandSetGeneratorOffset(curand_generator_handle, 0));
-    } else if (!g_curand_availability_logged) {
-      LOG(ERROR) << "Curand not available. Skipping setting the curand seed.";
-      g_curand_availability_logged = true;
-    }
-  }
-  // RNG seed
-  Get().random_generator_.reset(new RNG(random_seed));
-}
-
-uint64_t Caffe::random_seed(bool make_new) {
-  return (make_new || global_seed_ == Caffe::SEED_NOT_SET) ? (*caffe_rng())() : global_seed_;
-}
 
 void Caffe::SetDevice(const int device_id) {
   root_device_ = device_id;
