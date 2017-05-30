@@ -241,10 +241,8 @@ void BasePrefetchingDataLayer<Ftype, Btype>::Forward_cpu(const vector<Blob*>& bo
   if (this->iter() > 1 && top[0]->data_type() == batch->data_.data_type()
       && top[0]->shape() == batch->data_.shape()) {
     top[0]->Swap(batch->data_);
-    DLOG(INFO) << "Prefetch copied";
   } else {
     top[0]->CopyDataFrom(batch->data_, true);
-    DLOG(INFO) << "Labels copied";
   }
   if (this->output_labels_) {
     if (this->iter() > 1 && top[1]->data_type() == batch->label_.data_type()
