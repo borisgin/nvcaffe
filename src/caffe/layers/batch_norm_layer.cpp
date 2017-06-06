@@ -14,7 +14,8 @@ BatchNormLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bottom, const vect
   moving_average_fraction_ = param.moving_average_fraction();
 
   clip_variance_ = false;
-  use_global_stats_ = false;
+  //use_global_stats_ = false;
+  use_global_stats_= param.use_global_stats();
 
   if (bottom[0]->num_axes() == 1)
     channels_ = 1;
@@ -93,7 +94,6 @@ BatchNormLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bottom, const vect
   mean_ = Blob::create<Ftype>(C);
   var_ = Blob::create<Ftype>(C);
   inv_var_ = Blob::create<Ftype>(C);
-  x_norm_ = Blob::create<Ftype>(C);
 
   ones_C_ = Blob::create<Ftype>(C);
   ones_C_->set_data(1.);
