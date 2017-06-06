@@ -1,4 +1,4 @@
-# Alexnet wih BatchNorm instead of LRN (no groups)
+# Alexnet wih BatchNorm instead of LRN
 
 name: "AlexNet-BT"
 
@@ -91,7 +91,7 @@ layer {
     num_output: 256
     pad: 2
     kernel_size: 5
-    group: 1
+    group: 2
     weight_filler {
       type: "gaussian"
       std: 0.01
@@ -173,7 +173,7 @@ layer {
     num_output: 384
     pad: 1
     kernel_size: 3
-    group: 1
+    group: 2
     weight_filler {
       type: "gaussian"
       std: 0.01
@@ -210,7 +210,7 @@ layer {
     num_output: 256
     pad: 1
     kernel_size: 3
-    group: 1
+    group: 2
     weight_filler {
       type: "gaussian"
       std: 0.01

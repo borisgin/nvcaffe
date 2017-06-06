@@ -52,8 +52,8 @@ BatchNormLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom, const vec
     if (use_global_stats_ && (this->iter()> 100)) {
 
 // Option 2:  Y = X -gmean(c) ---------------------------------------------------------
-//      multicast_gpu<Ftype>(N, C, S, global_mean, temp_NCHW_->template mutable_gpu_data<Ftype>());
-//      caffe_gpu_sub<Ftype>(top_size, bottom_data, temp_NCHW_->template gpu_data<Ftype>(), top_data);
+      multicast_gpu<Ftype>(N, C, S, global_mean, temp_NCHW_->template mutable_gpu_data<Ftype>());
+      caffe_gpu_sub<Ftype>(top_size, bottom_data, temp_NCHW_->template gpu_data<Ftype>(), top_data);
 //----------------------------------------------------------------------------------
 
       // inv_var(c) = 1/sqrt(e + gvar(c))
