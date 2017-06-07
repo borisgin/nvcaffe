@@ -1,6 +1,10 @@
+#------------------------------------------
 # Alexnet wih BatchNorm instead of LRN
-
-name: "AlexNet-BT"
+# BN settings
+#   engine: CAFFE
+#   use_global_stats: true 
+#------------------------------------------
+name: "AlexNet_bn_globalvar"
 
 layer {
   name: "data"
