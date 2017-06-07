@@ -23,9 +23,23 @@ BatchNormLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom, const vec
   const Ftype* global_var  = this->blobs_[1]->template gpu_data<Ftype>();
 
   if (this->phase_ == TEST) {
-    //  Y = X- EX
-    multicast_gpu<Ftype>(N, C, S, global_mean, temp_NCHW_->template mutable_gpu_data<Ftype>());
-    caffe_gpu_sub<Ftype>(top_size, bottom_data, temp_NCHW_->template gpu_data<Ftype>(), top_data);
+      //  Y = X- EX
+//---- this is standard BN: remove global mean-----
+//      multicast_gpu<Ftype>(N, C, S, global_mean, temp_NCHW_->template mutable_gpu_data<Ftype>());
+//      caffe_gpu_sub<Ftype>(top_size, bottom_data, temp_NCHW_->template gpu_data<Ftype>(), top_data);
+// ----end of standard -----------------------------
+
+//--- this is experiment when we use local mean---
+    {
+      compute_mean_per_channel_gpu<Ftype>(N, C, S, bottom_data,
+          mean_->template mutable_gpu_data<Ftype>());
+      multicast_gpu<Ftype>(N, C, S, mean_->template gpu_data<Ftype>(),
+          temp_NCHW_->template mutable_gpu_data<Ftype>());
+      // Y = X-EX
+      caffe_gpu_sub<Ftype>(top_size, bottom_data, temp_NCHW_->template gpu_data<Ftype>(), top_data);
+    }
+//-- end of experiment----------------------------------------------
+
     //  inv_var = (eps + var)^(-0.5)
     caffe_copy<Ftype>(C, global_var, var_->template mutable_gpu_data<Ftype>());
     caffe_gpu_add_scalar<Ftype>(C, Ftype(eps_), var_->template mutable_gpu_data<Ftype>());
@@ -35,6 +49,7 @@ BatchNormLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom, const vec
     multicast_gpu<Ftype>(N, C, S, inv_var_->template gpu_data<Ftype>(),
            temp_NCHW_->template mutable_gpu_data<Ftype>());
     caffe_gpu_mul<Ftype>(top_size, top_data, temp_NCHW_->template gpu_data<Ftype>(), top_data);
+
   } else {
     // if (this->phase_ == TRAIN)
     //  compute mean and variance over batch
@@ -52,6 +67,25 @@ BatchNormLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom, const vec
         var_->template mutable_gpu_data<Ftype>());
 
     if (use_global_stats_ && (this->iter()> BN_GLOBAL_START)) { // use global var instead of local var
+      if ((this->iter() % 100 == 0)) {
+        caffe_gpu_div<Ftype>(C,  var_->template gpu_data<Ftype>(), global_var,
+            temp_C_->template mutable_gpu_data<Ftype>() );
+        Ftype local_gl_var_max = sqrt(temp_C_->amax_data());
+
+        caffe_gpu_div<Ftype>(C,   global_var, var_->template gpu_data<Ftype>(),
+            temp_C_->template mutable_gpu_data<Ftype>() );
+        Ftype local_gl_var_min = sqrt(1.F /  temp_C_->amax_data());
+
+        caffe_gpu_div<Ftype>(C,  mean_->template gpu_data<Ftype>(), global_mean,
+                    temp_C_->template mutable_gpu_data<Ftype>() );
+        Ftype local_gl_mean_max = temp_C_->amax_data();
+        caffe_gpu_div<Ftype>(C,   global_mean, mean_->template gpu_data<Ftype>(),
+            temp_C_->template mutable_gpu_data<Ftype>() );
+        Ftype local_gl_mean_min = 1.F / temp_C_->amax_data();
+
+        LOG(INFO) << this-> name() << " l/g var=["<< local_gl_var_min << "," << local_gl_var_max << "],"
+                  << " l/g mean=[" << local_gl_mean_min << "," << local_gl_mean_max << "]";
+      }
 
 // Option 2:  Y = X -gmean(c) ---------------------------------------------------------
 //
