@@ -20,7 +20,7 @@ momentum: 0.9
 weight_decay: 0.004
 
 snapshot: 1000000
-snapshot_prefix: "examples/cifar10/snapshots/cifar10_nv"
+snapshot_prefix: "models/cifar10_nv/snapshots/cifar10_nv"
 snapshot_after_train: false
 
 solver_mode: GPU
