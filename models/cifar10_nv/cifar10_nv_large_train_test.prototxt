@@ -1,24 +1,24 @@
-name: "CIFAR10_nv"
+name: "CIFAR10_nv_128_512_1024"
 
 #------------------------------------------------------------------------------
 #  LAYER          TYPE          OUTPUT  
 # ---------------------------------------
 #  data layer:                   3x28x28 
-#  conv1_ReLU:    3x3x128      128x28x28  
-#  conv2_ReLU:    3x3x128      128x28x28  
-#  conv3_BN_ReLU: 3x3x128      128x28x28  
-#  MAX-pool3:     3x3xs2       128x14x14
+#  conv1_ReLU:    128x3x3      128x28x28  
+#  conv2_ReLU:    128x3x3      128x28x28  
+#  conv3_BN_ReLU: 128x3x3      128x28x28  
+#  MAX-pool3:      3x3xs2      128x14x14
 #  -------------------------------------
-#  conv4_ReLU:    3x3x256      256x14x14  
-#  conv5_ReLU:    3x3x256      256x14x14  
-#  conv6_BN_ReLU: 3x3x256      256x14x14  
-#  MAX-pool6:     3x3xs2         256x7x7
+#  conv4_ReLU:    512x3x3      512x14x14  
+#  conv5_ReLU:    512x3x3      512x14x14  
+#  conv6_BN_ReLU: 512x3x3      512x14x14  
+#  MAX-pool6:      3x3xs2      512x7x7
 #  --------------------------------------
-#  conv7_ReLU:    3x3x320        320x5x5
-#  conv8_ReLU:    1x1x320        320x5x5
-#  conv9_ReLU:    1x1x10          10x5x5
-#  AVE_pool9:     5x5x10          10x1x1
-#  softmax_loss   10              10
+#  conv7_ReLU:   1024x3x3      1024x5x5
+#  conv8_ReLU:   1024x1x1      1024x5x5
+#  conv9_ReLU:     10x1x1        10x5x5
+#  AVE_pool9:      10x5x5        10x1x1
+#  softmax_loss    10            10
 # -----------------------------------------------------------------------------
 
 layer {
@@ -165,7 +165,7 @@ layer {
   bottom: "pool3"
   top: "conv4"
   convolution_param {
-    num_output: 256
+    num_output: 512
     kernel_size: 3
     pad: 1
     weight_filler {
@@ -190,7 +190,7 @@ layer {
   bottom: "conv4"
   top: "conv5"
   convolution_param {
-    num_output: 256
+    num_output: 512
     kernel_size: 3
     pad: 1
     weight_filler {
@@ -214,7 +214,7 @@ layer {
   bottom: "conv5"
   top: "conv6"
   convolution_param {
-    num_output: 256
+    num_output: 512
     kernel_size: 3
     pad: 1
     weight_filler {
@@ -266,7 +266,7 @@ layer {
   bottom: "pool6"
   top: "conv7"
   convolution_param {
-    num_output: 320
+    num_output: 1024
     kernel_size: 3
 #    pad: 1
     weight_filler {
@@ -290,7 +290,7 @@ layer {
   bottom: "conv7"
   top: "conv8"
   convolution_param {
-    num_output: 320
+    num_output: 1024
     kernel_size: 1
     weight_filler {
       type: "xavier"
