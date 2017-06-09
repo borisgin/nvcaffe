@@ -7,12 +7,13 @@
 #include <glog/logging.h>
 
 #ifdef CPU_ONLY
-  #define CAFFE_UTIL_HD
+  #de`fine CAFFE_UTIL_HD
   #define CAFFE_UTIL_IHD inline
 #else
-  #include "caffe/util/fp16_emu.h"
+//  #include "caffe/util/fp16_emu.h"
   #define CAFFE_UTIL_HD __host__ __device__
   #define CAFFE_UTIL_IHD __inline__ __host__ __device__
+  #include "caffe/util/gpu_util.cuh"
   #include "half_float/half.hpp"
 
 namespace caffe {

@@ -51,72 +51,163 @@
 #ifndef INCLUDE_CAFFE_UTIL_FP16_EMU_H_
 #define INCLUDE_CAFFE_UTIL_FP16_EMU_H_
 
-#include <driver_types.h>
+#include <cuda.h>
 #include <cuda_fp16.h>
+#include <driver_types.h>
 
 #define HLF_EPSILON  4.887581E-04
 #define HLF_MIN      6.103516E-05
 #define HLF_MAX      6.550400E+04
 #define HLF_TRUE_MIN 5.960464E-08
 
-__inline__ __device__ __host__ __half habs(__half h) {
-  h.x &= 0x7fffU;
+/**
+ * GPU-specific float16 data type
+ */
+class alignas(2) half : public __half {
+ public:
+
+  __device__
+  half() {
+    __x = 0U;
+  }
+
+  __device__
+  half(const half& other) {
+    __x = other.__x;
+  }
+
+  __device__
+  half(half&& other) {
+    __x = other.__x;
+  }
+
+  __device__
+  half(const __half& other)
+      : __half(other) {}
+
+  __device__
+  half(__half&& other)
+      : __half(std::move(other)) {}
+
+  __device__
+  half& operator = (const half& other) {
+    __x = other.__x;
+    return *this;
+  }
+
+  __device__
+  unsigned short& x() {
+    return __x;
+  }
+
+  __device__
+  const unsigned short& x() const {
+    return __x;
+  }
+};
+
+struct alignas(4) half2 : public __half2 {
+ public:
+
+  __device__
+  half2() {}
+
+  __device__
+  half2(const half2& other)
+      : __half2(other) {}
+
+  __device__
+  half2(half2&& other)
+      : __half2(std::move(other)) {}
+
+  __device__
+  half2(const __half2& other)
+      : __half2(other) {}
+
+  __device__
+  half2(__half2&& other)
+      : __half2(std::move(other)) {}
+
+  __device__
+  half2(const __half &a, const __half &b)
+      : __half2(a, b) {}
+
+  __device__
+  half lo() const {
+    return x;
+  }
+
+  __device__
+  half hi() const {
+    return y;
+  }
+
+  __device__
+  half2& operator = (const half2& other) {
+    x = other.lo();
+    y = other.hi();
+    return *this;
+  }
+};
+
+__inline__ __device__ __host__ half habs(half h) {
+  h.x() &= 0x7fffU;
   return h;
 }
 
-__inline__ __device__ __host__ __half hneg(__half h) {
-  h.x ^= 0x8000U;
+__inline__ __device__ __host__ half hneg(half h) {
+  h.x() ^= 0x8000U;
   return h;
 }
 
-__inline__ __device__ __host__ int ishnan(__half h) {
+__inline__ __device__ __host__ int ishnan(half h) {
   // When input is NaN, exponent is all ones and mantissa is non-zero.
-  return (h.x & 0x7c00U) == 0x7c00U && (h.x & 0x03ffU) != 0;
+  return (h.x() & 0x7c00U) == 0x7c00U && (h.x() & 0x03ffU) != 0;
 }
 
-__inline__ __device__ __host__ int ishinf(__half h) {
+__inline__ __device__ __host__ int ishinf(half h) {
   // When input is +/- inf, exponent is all ones and mantissa is zero.
-  return (h.x & 0x7c00U) == 0x7c00U && (h.x & 0x03ffU) == 0;
+  return (h.x() & 0x7c00U) == 0x7c00U && (h.x() & 0x03ffU) == 0;
 }
 
-__inline__ __device__ __host__ int ishequ(__half x, __half y) {
-  return ishnan(x) == 0 && ishnan(y) == 0 && x.x == y.x;
+__inline__ __device__ __host__ int ishequ(half x, half y) {
+  return ishnan(x) == 0 && ishnan(y) == 0 && x.x() == y.x(); fixme
 }
 
 // Returns 0.0000 in FP16 binary form
-__inline__ __device__ __host__ __half hzero() {
-  __half ret;
-  ret.x = 0x0000U;
+__inline__ __device__ __host__ half hzero() {
+  half ret;
+  ret.x() = 0U;
   return ret;
 }
 
 // Returns 1.0000 in FP16 binary form
-__inline__ __device__ __host__ __half hone() {
-  __half ret;
-  ret.x = 0x3c00U;
+__inline__ __device__ __host__ half hone() {
+  half ret;
+  ret.x() = 0x3c00U;
   return ret;
 }
 
 // Returns quiet NaN, the most significant fraction bit #9 is set
-__inline__ __device__ __host__ __half hnan() {
-  __half ret;
-  ret.x = 0x7e00U;
+__inline__ __device__ __host__ half hnan() {
+  half ret;
+  ret.x() = 0x7e00U;
   return ret;
 }
 
 // Largest positive FP16 value, corresponds to 6.5504e+04
-__inline__ __device__ __host__ __half hmax() {
-  __half ret;
+__inline__ __device__ __host__ half hmax() {
+  half ret;
   // Exponent all ones except LSB (0x1e), mantissa is all ones (0x3ff)
-  ret.x = 0x7bffU;
+  ret.x() = 0x7bffU;
   return ret;
 }
 
 // Smallest positive (normalized) FP16 value, corresponds to 6.1035e-05
-__inline__ __device__ __host__ __half hmin() {
-  __half ret;
+__inline__ __device__ __host__ half hmin() {
+  half ret;
   // Exponent is 0x01 (5 bits), mantissa is all zeros (10 bits)
-  ret.x = 0x0400U;
+  ret.x() = 0x0400U;
   return ret;
 }
 

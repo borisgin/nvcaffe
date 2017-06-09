@@ -13,6 +13,7 @@ project(Caffe C CXX)
 set(CAFFE_TARGET_VERSION "0.16.1")
 set(CAFFE_TARGET_SOVERSION "0.16")
 add_definitions(-DCAFFE_VERSION=${CAFFE_TARGET_VERSION})
+add_definitions(-DCUDA_NO_HALF=1)
 
 # ---[ Using cmake scripts and modules
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/Modules)

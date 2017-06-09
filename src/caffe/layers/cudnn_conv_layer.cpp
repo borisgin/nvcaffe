@@ -98,15 +98,15 @@ void CuDNNConvolutionLayer<Ftype, Btype>::LayerSetUp(
   std::string param_err = "conv_algos_override parameter vaue '" +
       conv_algos_override + "' is ill formatted";
   CHECK_EQ(3, user_algos_override_.size()) << param_err;
-  if (user_algos_override_[0] >= 0) {
-    CHECK_LT(user_algos_override_[0], CUDNN_CONVOLUTION_FWD_ALGO_COUNT) << param_err;
-  }
-  if (user_algos_override_[1] >= 0) {
-    CHECK_LT(user_algos_override_[1], CUDNN_CONVOLUTION_BWD_DATA_ALGO_COUNT) << param_err;
-  }
-  if (user_algos_override_[2] >= 0) {
-    CHECK_LT(user_algos_override_[2], CUDNN_CONVOLUTION_BWD_FILTER_ALGO_COUNT) << param_err;
-  }
+//  if (user_algos_override_[0] >= 0) {
+//    CHECK_LT(user_algos_override_[0], CUDNN_CONVOLUTION_FWD_ALGO_COUNT) << param_err;
+//  }
+//  if (user_algos_override_[1] >= 0) {
+//    CHECK_LT(user_algos_override_[1], CUDNN_CONVOLUTION_BWD_DATA_ALGO_COUNT) << param_err;
+//  }
+//  if (user_algos_override_[2] >= 0) {
+//    CHECK_LT(user_algos_override_[2], CUDNN_CONVOLUTION_BWD_FILTER_ALGO_COUNT) << param_err;
+//  }
 
   // Initializing algorithms and workspaces
   // Do not rely on initialized algorithms (Reshape will set algorithms
@@ -478,6 +478,8 @@ void CuDNNConvolutionLayer<Ftype, Btype>::EstimateMaxWorkspaceSize(const vector<
       for (int a = 0; a < CUDNN_CONVOLUTION_FWD_ALGO_COUNT; ++a) {
         algos_to_test.emplace_back(a);
       }
+      algos_to_test.emplace_back(CUDNN_CONVOLUTION_FWD_ALGO_HMMA_FP32_NCHW);
+      algos_to_test.emplace_back(CUDNN_CONVOLUTION_FWD_ALGO_HMMA_FP16_NCHW);
     } else {
       algos_to_test.emplace_back(user_algos_override_[0]);
     }
@@ -513,6 +515,8 @@ void CuDNNConvolutionLayer<Ftype, Btype>::EstimateMaxWorkspaceSize(const vector<
       for (int a = 0; a < CUDNN_CONVOLUTION_BWD_DATA_ALGO_COUNT; ++a) {
         algos_to_test.emplace_back(a);
       }
+      algos_to_test.emplace_back(CUDNN_CONVOLUTION_BWD_DATA_ALGO_HMMA_FP32_NCHW);
+      algos_to_test.emplace_back(CUDNN_CONVOLUTION_BWD_DATA_ALGO_HMMA_FP16_NCHW);
     } else {
       algos_to_test.emplace_back(user_algos_override_[1]);
     }
@@ -548,6 +552,8 @@ void CuDNNConvolutionLayer<Ftype, Btype>::EstimateMaxWorkspaceSize(const vector<
       for (int a = 0; a < CUDNN_CONVOLUTION_BWD_FILTER_ALGO_COUNT; ++a) {
         algos_to_test.emplace_back(a);
       }
+      algos_to_test.emplace_back(CUDNN_CONVOLUTION_BWD_FILTER_ALGO_HMMA_FP32_NCHW);
+      algos_to_test.emplace_back(CUDNN_CONVOLUTION_BWD_FILTER_ALGO_HMMA_FP16_NCHW);
     } else {
       algos_to_test.emplace_back(user_algos_override_[2]);
     }

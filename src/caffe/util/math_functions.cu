@@ -1,5 +1,3 @@
-#include <cuda_fp16.h>
-#include <math_functions.h>  // CUDA's, not caffe's, for fabs, signbit
 #include <algorithm>
 #include <device_launch_parameters.h>
 
@@ -57,7 +55,7 @@ void caffe_gpu_gemm<float16>(const CBLAS_TRANSPOSE TransA,
   cublasOperation_t cuTransB =
       (TransB == CblasNoTrans) ? CUBLAS_OP_N : CUBLAS_OP_T;
   // TODO
-  if (Caffe::device_capability(Caffe::current_device()) == 600) {
+  if (Caffe::device_capability(Caffe::current_device()) >= 600) {
     CUBLAS_CHECK(cublasHgemm(Caffe::cublas_handle(), cuTransB, cuTransA,
         N, M, K, alpha.gethp(), B->gethp(), ldb,
         A->gethp(), lda, beta.gethp(), C->gethp(), N));
@@ -191,9 +189,7 @@ void caffe_gpu_axpy<float16>(const int N, const float16 alpha, const float16* x,
   cudaStream_t stream;
   CUBLAS_CHECK(cublasGetStream(cublas_handle, &stream));
   const unsigned int n2 = even(N) / 2;
-  unsigned int alphax = (unsigned int) alpha.getx();
-  __half2 alpha2;
-  alpha2.x = alphax + (alphax << 16);
+  half2 alpha2(alpha, alpha);
   // NOLINT_NEXT_LINE(whitespace/operators)
   axpy_kernel <<<CAFFE_GET_BLOCKS_HALF(n2), CAFFE_CUDA_NUM_THREADS_HALF, 0, stream>>>
       (n2, alpha2, reinterpret_cast<const __half2*>(x), reinterpret_cast<__half2*>(y));

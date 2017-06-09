@@ -197,7 +197,7 @@
 #endif
 
 #ifdef __CUDA_ARCH__
-#include "caffe/util/gpu_math_functions.cuh"
+#include "caffe/util/half.cuh"
 #endif
 
 /// Default rounding mode.
@@ -956,7 +956,7 @@ namespace half_float
 		friend struct std::hash<half>;
 	#endif
 
-	public:
+   public:
 		/// Default constructor.
 		/// This initializes the half to 0. Although this does not match the builtin types' default-initialization semantics
 		/// and may be less efficient than no initialization, it is needed to provide proper value-initialization semantics.
@@ -964,22 +964,25 @@ namespace half_float
 		CAFFE_UTIL_HD
 		half() : data_() {}
 
+#ifdef __CUDA_ARCH__
+    // TODO Unify CUDA's __half with this one
     CAFFE_UTIL_HD
-    __half geth() const {
-      __half h;
-      h.x = data_;
+    ::half geth() const {
+      ::half h;
+      h.x() = data_;
       return h;
     }
 
     CAFFE_UTIL_HD
-    const __half* gethp() const {
-      return reinterpret_cast<const __half*>(this);
+    const ::half* gethp() const {
+      return reinterpret_cast<const ::half*>(this);
     }
 
     CAFFE_UTIL_HD
-    __half* gethp() {
-      return reinterpret_cast<__half*>(this);
+    ::half* gethp() {
+      return reinterpret_cast<::half*>(this);
     }
+#endif
 
     CAFFE_UTIL_HD
     unsigned short getx() const {
@@ -1030,8 +1033,8 @@ namespace half_float
 //		operator float() const { return detail::half2float(data_); }
     CAFFE_UTIL_HD operator float() const {
 #ifdef __CUDA_ARCH__
-      __half h;
-      h.x = data_;
+      ::half h;
+      h.x() = data_;
       return __half2float(h);
 #else
       return detail::half2float(data_);
@@ -1040,7 +1043,7 @@ namespace half_float
 
     CAFFE_UTIL_HD void assign(float rhs) {
 #ifdef __CUDA_ARCH__
-      data_ = float2half_clip(rhs).x;
+      data_ = float2half_clip(rhs).x();
 #else
       data_ = detail::float2half<round_style>(rhs);
 #endif
