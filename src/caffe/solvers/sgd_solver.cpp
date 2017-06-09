@@ -25,11 +25,12 @@ float SGDSolver<Dtype>::GetLearningRate() {
   float rate;
   const string& lr_policy = this->param_.lr_policy();
   if (this->iter_ < this->param_.rampup_interval()) {
+    float alpha = float(this->iter_) / this->param_.rampup_interval();
+    float rampup_lr = 0.;
     if (this->param_.has_rampup_lr()) {
-      rate = this->param_.rampup_lr();
-    } else {
-      rate = this->param_.base_lr() * float(this->iter_) / float(this->param_.rampup_interval());
+      rampup_lr = this->param_.rampup_lr();
     }
+    rate = rampup_lr + (this->param_.base_lr() - rampup_lr) * alpha;
   } else if (lr_policy == "fixed") {
     rate = this->param_.base_lr();
   } else if (lr_policy == "step") {
