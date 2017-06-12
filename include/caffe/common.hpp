@@ -759,7 +759,7 @@ CAFFE_UTIL_IHD float16 max_dtype<float16>() {
   return HLF_MAX;
 }
 // Largest positive FP16 value, corresponds to 6.5504e+04
-#ifdef __CUDA_ARCH__
+#ifdef __CUDACC__
 template <>
 CAFFE_UTIL_IHD half max_dtype<half>() {
     half ret;
@@ -787,7 +787,7 @@ CAFFE_UTIL_IHD float16 min_dtype<float16>() {
   return HLF_MIN;
 }
 // Smallest positive (normalized) FP16 value, corresponds to 6.1035e-05
-#ifdef __CUDA_ARCH__
+#ifdef __CUDACC__
 template <>
 CAFFE_UTIL_IHD half min_dtype<half>() {
   half ret;
@@ -814,7 +814,7 @@ template <>
 CAFFE_UTIL_IHD float16 epsilon_dtype<float16>() {
   return HLF_EPSILON;
 }
-#ifdef __CUDA_ARCH__
+#ifdef __CUDACC__
 template <>
 CAFFE_UTIL_IHD half epsilon_dtype<half>() {
   half ret;

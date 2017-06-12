@@ -201,14 +201,13 @@
   #include "caffe/util/gpu_math_functions.cuh"
 #endif
 
-#ifdef CPU_ONLY
-  #define CAFFE_UTIL_HD
-  #define CAFFE_UTIL_IHD inline
-#else
+#if !defined(CPU_ONLY) && defined(__CUDA_ARCH__)
   #define CAFFE_UTIL_HD __host__ __device__
   #define CAFFE_UTIL_IHD __inline__ __host__ __device__
+#else
+  #define CAFFE_UTIL_HD
+  #define CAFFE_UTIL_IHD inline
 #endif
-
 
 /// Default rounding mode.
 /// This specifies the rounding mode used for all conversions between [half](\ref half_float::half)s and `float`s as well as
@@ -975,21 +974,33 @@ namespace half_float
 		half() : data_() {}
 
     // TODO Unify CUDA's __half with this one
+//    CAFFE_UTIL_HD
+//    ::half geth() const {
+//      ::half h;
+//      h.x() = data_;
+//      return h;
+//    }
+//
+//    CAFFE_UTIL_HD
+//    const ::half* gethp() const {
+//      return reinterpret_cast<const ::half*>(this);
+//    }
+//
+//    CAFFE_UTIL_HD
+//    ::half* gethp() {
+//      return reinterpret_cast<::half*>(this);
+//    }
+
+    template<typename H>
     CAFFE_UTIL_HD
-    ::half geth() const {
-      ::half h;
-      h.x() = data_;
-      return h;
+    const H* gethp() const {
+      return reinterpret_cast<const H*>(this);
     }
 
+    template<typename H>
     CAFFE_UTIL_HD
-    const ::half* gethp() const {
-      return reinterpret_cast<const ::half*>(this);
-    }
-
-    CAFFE_UTIL_HD
-    ::half* gethp() {
-      return reinterpret_cast<::half*>(this);
+    H* gethp() {
+      return reinterpret_cast<H*>(this);
     }
 
     CAFFE_UTIL_HD
@@ -1006,8 +1017,6 @@ namespace half_float
   	/// Copy constructor.
 		/// \tparam T type of concrete half expression
 		/// \param rhs half expression to copy from
-//		half(detail::expr rhs) : data_(detail::float2half<round_style>(rhs)) {}
-
     CAFFE_UTIL_HD
 		half(detail::expr rhs) {
       assign(rhs);
@@ -1015,9 +1024,6 @@ namespace half_float
 
 		/// Conversion constructor.
 		/// \param rhs float to convert
-//		template<typename T>
-//		half(const T& rhs) : data_(detail::float2half<round_style>((float)rhs)) {}
-
     template<typename T>
     CAFFE_UTIL_HD
     half(const T& rhs) {

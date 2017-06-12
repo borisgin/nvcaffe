@@ -57,14 +57,15 @@ void caffe_gpu_gemm<float16>(const CBLAS_TRANSPOSE TransA,
   // TODO
   if (Caffe::device_capability(Caffe::current_device()) >= 600) {
     CUBLAS_CHECK(cublasHgemm(Caffe::cublas_handle(), cuTransB, cuTransA,
-        N, M, K, alpha.gethp(), B->gethp(), ldb,
-        A->gethp(), lda, beta.gethp(), C->gethp(), N));
+        N, M, K, alpha.gethp<half>(), B->gethp<half>(), ldb,
+        A->gethp<half>(), lda, beta.gethp<half>(), C->gethp<half>(), N));
   } else {
     float alpha_fp32 = static_cast<float>(alpha);
     float beta_fp32 = static_cast<float>(beta);
     CUBLAS_CHECK(cublasSgemmEx(Caffe::cublas_handle(), cuTransB, cuTransA,
-        N, M, K, &alpha_fp32, B->gethp(), CAFFE_DATA_HALF, ldb,
-        A->gethp(), CAFFE_DATA_HALF, lda, &beta_fp32, C->gethp(), CAFFE_DATA_HALF, N));
+        N, M, K, &alpha_fp32, B->gethp<half>(), CAFFE_DATA_HALF, ldb,
+        A->gethp<half>(), CAFFE_DATA_HALF, lda, &beta_fp32, C->gethp<half>(),
+        CAFFE_DATA_HALF, N));
   }
   CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
 }
@@ -189,7 +190,9 @@ void caffe_gpu_axpy<float16>(const int N, const float16 alpha, const float16* x,
   cudaStream_t stream;
   CUBLAS_CHECK(cublasGetStream(cublas_handle, &stream));
   const unsigned int n2 = even(N) / 2;
-  half2 alpha2(alpha.geth(), alpha.geth());
+  half ha;
+  ha.setx(alpha.getx());
+  half2 alpha2(ha, ha);
   // NOLINT_NEXT_LINE(whitespace/operators)
   axpy_kernel <<<CAFFE_GET_BLOCKS_HALF(n2), CAFFE_CUDA_NUM_THREADS_HALF, 0, stream>>>
       (n2, alpha2, reinterpret_cast<const half2*>(x), reinterpret_cast<half2*>(y));
@@ -261,9 +264,9 @@ void caffe_gpu_scal_float16(const int n, const float16 alpha, float16* x, cudaSt
     bool sync) {
   if (alpha == 1.F) { return; }
   const unsigned int n2 = even(n) / 2;
-  unsigned int alphax = (unsigned int) alpha.getx();
-  half2 alpha2(alpha.geth(), alpha.geth());
-  alpha2.x = alphax + (alphax << 16);
+  half ha;
+  ha.setx(alpha.getx());
+  half2 alpha2(ha, ha);
   // NOLINT_NEXT_LINE(whitespace/operators)
   scale_in_place_kernel <<<CAFFE_GET_BLOCKS_HALF(n2), CAFFE_CUDA_NUM_THREADS_HALF, 0, stream>>>
       (n2, alpha2, reinterpret_cast<half2*>(x));
@@ -462,9 +465,9 @@ void caffe_gpu_scale<float16>(const int n, const float16 alpha,
     const float16* x, float16* y) {
   cudaStream_t stream = Caffe::thread_stream();
   const unsigned int n2 = even(n) / 2;
-  unsigned int alphax = (unsigned int) alpha.getx();
-  half2 alpha2(alpha.geth(), alpha.geth());
-  alpha2.x = alphax + (alphax << 16);
+  half ha;
+  ha.setx(alpha.getx());
+  half2 alpha2(ha, ha);
   // NOLINT_NEXT_LINE(whitespace/operators)
   scale_kernel <<<CAFFE_GET_BLOCKS_HALF(n2), CAFFE_CUDA_NUM_THREADS_HALF, 0, stream>>>
       (n2, alpha2, reinterpret_cast<const half2*>(x), reinterpret_cast<half2*>(y));

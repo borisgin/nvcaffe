@@ -130,6 +130,16 @@ class alignas(2) half : public __half {
 #endif
   }
 
+  __host__ __device__
+  half& setx(unsigned short x) {
+#ifdef OLD_CUDA_HALF_IMPL
+    __half::x = x;
+#else
+    __x = x;
+#endif
+    return *this;
+  }
+
 #ifdef OLD_CUDA_HALF_IMPL
   __host__ __device__
   operator bool () const {
