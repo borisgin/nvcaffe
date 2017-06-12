@@ -35,14 +35,14 @@
 #  endif
 #  include "caffe/util/device_alternate.hpp"
 #endif
-#include "caffe/util/float16.hpp"
 
 #if defined(CPU_ONLY) && defined(USE_CUDNN)
   #error "USE_CUDNN mode is not compatible with CPU_ONLY"
 #endif
 
 #ifndef CPU_ONLY
-#  include "caffe/util/gpu_math_functions.cuh"
+#include "caffe/util/float16.hpp"
+//#  include "caffe/util/gpu_math_functions.cuh"
 #  if CUDA_VERSION >= 8000
 #    define CAFFE_DATA_HALF CUDA_R_16F
 #  else

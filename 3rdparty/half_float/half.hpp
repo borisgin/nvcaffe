@@ -197,8 +197,18 @@
 #endif
 
 #ifdef __CUDA_ARCH__
-#include "caffe/util/half.cuh"
+  #include "caffe/util/half.cuh"
+  #include "caffe/util/gpu_math_functions.cuh"
 #endif
+
+#ifdef CPU_ONLY
+  #define CAFFE_UTIL_HD
+  #define CAFFE_UTIL_IHD inline
+#else
+  #define CAFFE_UTIL_HD __host__ __device__
+  #define CAFFE_UTIL_IHD __inline__ __host__ __device__
+#endif
+
 
 /// Default rounding mode.
 /// This specifies the rounding mode used for all conversions between [half](\ref half_float::half)s and `float`s as well as
@@ -964,7 +974,6 @@ namespace half_float
 		CAFFE_UTIL_HD
 		half() : data_() {}
 
-#ifdef __CUDA_ARCH__
     // TODO Unify CUDA's __half with this one
     CAFFE_UTIL_HD
     ::half geth() const {
@@ -982,7 +991,6 @@ namespace half_float
     ::half* gethp() {
       return reinterpret_cast<::half*>(this);
     }
-#endif
 
     CAFFE_UTIL_HD
     unsigned short getx() const {

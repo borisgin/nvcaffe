@@ -48,17 +48,18 @@
  */
 
 // Conversion from/to 16-bit floating point (half-precision).
-#ifndef INCLUDE_CAFFE_UTIL_FP16_EMU_H_
-#define INCLUDE_CAFFE_UTIL_FP16_EMU_H_
+#ifndef INCLUDE_CAFFE_UTIL_HALF_CUH_
+#define INCLUDE_CAFFE_UTIL_HALF_CUH_
 
 #include <cuda.h>
 #include <cuda_fp16.h>
 #include <driver_types.h>
 
-#define HLF_EPSILON  4.887581E-04
-#define HLF_MIN      6.103516E-05
-#define HLF_MAX      6.550400E+04
-#define HLF_TRUE_MIN 5.960464E-08
+#if !defined(OLD_CUDA_HALF_IMPL)
+  #if CUDA_VERSION < 9000
+    #define OLD_CUDA_HALF_IMPL
+  #endif
+#endif
 
 /**
  * GPU-specific float16 data type
@@ -66,89 +67,145 @@
 class alignas(2) half : public __half {
  public:
 
-  __device__
+  __host__ __device__
   half() {
+#ifdef OLD_CUDA_HALF_IMPL
+    __half::x = 0U;
+#else
     __x = 0U;
+#endif
   }
 
-  __device__
+  __host__ __device__
   half(const half& other) {
+#ifdef OLD_CUDA_HALF_IMPL
+    __half::x = other.x();
+#else
     __x = other.__x;
+#endif
   }
 
-  __device__
+  __host__ __device__
   half(half&& other) {
+#ifdef OLD_CUDA_HALF_IMPL
+    __half::x = other.x();
+#else
     __x = other.__x;
+#endif
   }
 
-  __device__
+  __host__ __device__
   half(const __half& other)
       : __half(other) {}
 
-  __device__
+  __host__ __device__
   half(__half&& other)
       : __half(std::move(other)) {}
 
-  __device__
+  __host__ __device__
   half& operator = (const half& other) {
+#ifdef OLD_CUDA_HALF_IMPL
+    __half::x = other.x();
+#else
     __x = other.__x;
+#endif
     return *this;
   }
 
-  __device__
+  __host__ __device__
   unsigned short& x() {
+#ifdef OLD_CUDA_HALF_IMPL
+    return __half::x;
+#else
     return __x;
+#endif
   }
 
-  __device__
+  __host__ __device__
   const unsigned short& x() const {
+#ifdef OLD_CUDA_HALF_IMPL
+    return __half::x;
+#else
     return __x;
+#endif
   }
+
+#ifdef OLD_CUDA_HALF_IMPL
+  __host__ __device__
+  operator bool () const {
+    return (__half::x & 0x7fffU) != 0U;  // +0, -0
+  }
+#endif
 };
 
 struct alignas(4) half2 : public __half2 {
  public:
 
-  __device__
+  __host__ __device__
   half2() {}
 
-  __device__
+  __host__ __device__
   half2(const half2& other)
       : __half2(other) {}
 
-  __device__
+  __host__ __device__
   half2(half2&& other)
       : __half2(std::move(other)) {}
 
-  __device__
+  __host__ __device__
   half2(const __half2& other)
       : __half2(other) {}
 
-  __device__
+  __host__ __device__
   half2(__half2&& other)
       : __half2(std::move(other)) {}
 
-  __device__
-  half2(const __half &a, const __half &b)
-      : __half2(a, b) {}
+  __host__ __device__
+  half2(const __half &l, const __half &h)
+#ifdef OLD_CUDA_HALF_IMPL
+      {
+        __half2::x = l.x + (static_cast<unsigned int>(h.x) << 16);
+      }
+#else
+      : __half2(l, h) {}
+#endif
 
-  __device__
+  __host__ __device__
   half lo() const {
+#ifdef OLD_CUDA_HALF_IMPL
+    half l;
+    l.x() = __half2::x & 0xffffU;
+    return l;
+#else
     return x;
+#endif
   }
 
-  __device__
+  __host__ __device__
   half hi() const {
+#ifdef OLD_CUDA_HALF_IMPL
+    half h;
+    h.x() = static_cast<unsigned short>(__half2::x >> 16);
+    return h;
+#else
     return y;
+#endif
   }
 
-  __device__
+  __host__ __device__
   half2& operator = (const half2& other) {
+#ifdef OLD_CUDA_HALF_IMPL
+    __half2::x = other.x;
+#else
     x = other.lo();
     y = other.hi();
+#endif
     return *this;
   }
+
 };
+
+#if false
 
 __inline__ __device__ __host__ half habs(half h) {
   h.x() &= 0x7fffU;
@@ -171,7 +228,8 @@ __inline__ __device__ __host__ int ishinf(half h) {
 }
 
 __inline__ __device__ __host__ int ishequ(half x, half y) {
-  return ishnan(x) == 0 && ishnan(y) == 0 && x.x() == y.x(); fixme
+  return ishnan(x) == 0 && ishnan(y) == 0 &&
+      (x.x() == y.x() || x.x() & 0x7fffU == y.x() & 0x7fffU);
 }
 
 // Returns 0.0000 in FP16 binary form
@@ -210,5 +268,6 @@ __inline__ __device__ __host__ half hmin() {
   ret.x() = 0x0400U;
   return ret;
 }
+#endif
 
-#endif  // INCLUDE_CAFFE_UTIL_FP16_EMU_H_
+#endif  // INCLUDE_CAFFE_UTIL_HALF_CUH_

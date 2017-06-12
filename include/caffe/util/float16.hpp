@@ -6,19 +6,19 @@
 #include <iosfwd>
 #include <glog/logging.h>
 
-#ifdef CPU_ONLY
-  #de`fine CAFFE_UTIL_HD
-  #define CAFFE_UTIL_IHD inline
-#else
-//  #include "caffe/util/fp16_emu.h"
-  #define CAFFE_UTIL_HD __host__ __device__
-  #define CAFFE_UTIL_IHD __inline__ __host__ __device__
-  #include "caffe/util/gpu_util.cuh"
+#ifndef CPU_ONLY
+
+#define HLF_EPSILON  4.887581E-04
+#define HLF_MIN      6.103516E-05
+#define HLF_MAX      6.550400E+04
+#define HLF_TRUE_MIN 5.960464E-08
+
+//  #include "caffe/util/half.cuh"
   #include "half_float/half.hpp"
 
 namespace caffe {
   typedef half_float::half float16;
-}   // namespace caffe
+}
 
 #endif
 #endif

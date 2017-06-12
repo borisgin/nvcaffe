@@ -478,8 +478,10 @@ void CuDNNConvolutionLayer<Ftype, Btype>::EstimateMaxWorkspaceSize(const vector<
       for (int a = 0; a < CUDNN_CONVOLUTION_FWD_ALGO_COUNT; ++a) {
         algos_to_test.emplace_back(a);
       }
+#if CUDNN_VERSION_MIN(7, 0, 0)
       algos_to_test.emplace_back(CUDNN_CONVOLUTION_FWD_ALGO_HMMA_FP32_NCHW);
       algos_to_test.emplace_back(CUDNN_CONVOLUTION_FWD_ALGO_HMMA_FP16_NCHW);
+#endif
     } else {
       algos_to_test.emplace_back(user_algos_override_[0]);
     }
@@ -515,8 +517,10 @@ void CuDNNConvolutionLayer<Ftype, Btype>::EstimateMaxWorkspaceSize(const vector<
       for (int a = 0; a < CUDNN_CONVOLUTION_BWD_DATA_ALGO_COUNT; ++a) {
         algos_to_test.emplace_back(a);
       }
+#if CUDNN_VERSION_MIN(7, 0, 0)
       algos_to_test.emplace_back(CUDNN_CONVOLUTION_BWD_DATA_ALGO_HMMA_FP32_NCHW);
       algos_to_test.emplace_back(CUDNN_CONVOLUTION_BWD_DATA_ALGO_HMMA_FP16_NCHW);
+#endif
     } else {
       algos_to_test.emplace_back(user_algos_override_[1]);
     }
@@ -552,8 +556,10 @@ void CuDNNConvolutionLayer<Ftype, Btype>::EstimateMaxWorkspaceSize(const vector<
       for (int a = 0; a < CUDNN_CONVOLUTION_BWD_FILTER_ALGO_COUNT; ++a) {
         algos_to_test.emplace_back(a);
       }
+#if CUDNN_VERSION_MIN(7, 0, 0)
       algos_to_test.emplace_back(CUDNN_CONVOLUTION_BWD_FILTER_ALGO_HMMA_FP32_NCHW);
       algos_to_test.emplace_back(CUDNN_CONVOLUTION_BWD_FILTER_ALGO_HMMA_FP16_NCHW);
+#endif
     } else {
       algos_to_test.emplace_back(user_algos_override_[2]);
     }

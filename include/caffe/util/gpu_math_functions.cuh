@@ -233,11 +233,7 @@ T tzero() {
 template<>
 __device__ __inline__
 half2 tzero<half2>() {
-  half2 a;
-#if CUDA_VERSION < 9000
-  a.x() = 0U;
-#endif
-  return a;
+  return half2(half(), half());
 }
 
 template<typename T>
