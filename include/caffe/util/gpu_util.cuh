@@ -56,7 +56,6 @@ float16 caffe_gpu_atomic_add(const float16 val, float16* address) {
     assumed.u = old_val.u;
     new_val.u = old_val.u;
     float tmp = __half2float(new_val.h[idx]);
-//    tmp += __half2float(val.geth());
     tmp += static_cast<float>(val);
     new_val.h[idx] = float2half_clip(tmp);
     old_val.u = atomicCAS(aligned_address, assumed.u, new_val.u);

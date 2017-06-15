@@ -1,10 +1,6 @@
 #ifndef CAFFE_CUDNN_LRN_LAYER_HPP_
 #define CAFFE_CUDNN_LRN_LAYER_HPP_
 
-
-
-#define CUDA_NO_HALF 1
-
 #include <vector>
 
 #include "caffe/blob.hpp"

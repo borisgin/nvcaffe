@@ -1,10 +1,6 @@
 #include <vector>
 #include <device_launch_parameters.h>
 
-//#ifndef CPU_ONLY
-//#include "caffe/util/float16.hpp"
-//#endif
-
 #include "caffe/filler.hpp"
 #include "caffe/layers/embed_layer.hpp"
 #include "caffe/util/gpu_util.cuh"
