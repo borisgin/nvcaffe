@@ -12,18 +12,22 @@ __device__ __inline__ half inf_clip(half h) {
   const int isi = __hisinf(h);
   if (isi > 0) {
     // Exponent all ones except LSB (0x1e), mantissa is all ones (0x3ff)
-    h.x() = 0x7bffU;
+    h.setx(0x7bffU);
   } else if (isi < 0) {
     // As above, negated
-    h.x() = 0x7bffU ^ 0x8000U;
+    h.setx(0x7bffU ^ 0x8000U);
   }
   return h;
 }
 
 __device__ __inline__ half float2half_clip(float a) {
+#ifdef OLD_CUDA_HALF_IMPL
   half h;
-  h.x() = __float2half_rn(a);
+  h.setx(__float2half_rn(a));
   return inf_clip(h);
+#else
+  return inf_clip(__float2half_rn(a));
+#endif
 }
 
 __device__ __inline__
@@ -88,17 +92,17 @@ half2 hadd2(half2 a, half2 b) {
 
 __device__ __inline__
 half h_abs(half a) {
-  a.x() &= 0x7FFF;
+  a.setx(a.x() & 0x7FFF);
   return a;
 }
 
 __device__ __inline__
 half2 h2_abs(half2 a) {
-#if CUDA_VERSION >= 9000
-  a.lo().x() &= 0x7FFFU;
-  a.hi().x() &= 0x7FFFU;
-#else
+#ifdef OLD_CUDA_HALF_IMPL
   a.x &= 0x7FFF7FFFU;
+#else
+  a.set_lo(h_abs(a.lo()));
+  a.set_hi(h_abs(a.hi()));
 #endif
   return a;
 }
@@ -114,12 +118,12 @@ void h2_max_replace(volatile half2 *a, half2 b) {
       // (a.low,a.high)
     } else {
       // (a.low,b.high)
-      const_cast<half2*>(a)->hi() = b.hi();
+      const_cast<half2*>(a)->set_hi(b.hi());
     }
   } else {
     if (ah) {
       // (b.low,a.high)
-      const_cast<half2*>(a)->lo() = b.lo();
+      const_cast<half2*>(a)->set_lo(b.lo());
     } else {
       // (b.low,b.high)
       *const_cast<half2*>(a) = b;

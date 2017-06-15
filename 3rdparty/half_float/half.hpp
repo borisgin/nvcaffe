@@ -973,34 +973,16 @@ namespace half_float
 		CAFFE_UTIL_HD
 		half() : data_() {}
 
-    // TODO Unify CUDA's __half with this one
-//    CAFFE_UTIL_HD
-//    ::half geth() const {
-//      ::half h;
-//      h.x() = data_;
-//      return h;
-//    }
-//
-//    CAFFE_UTIL_HD
-//    const ::half* gethp() const {
-//      return reinterpret_cast<const ::half*>(this);
-//    }
-//
-//    CAFFE_UTIL_HD
-//    ::half* gethp() {
-//      return reinterpret_cast<::half*>(this);
-//    }
-
     template<typename H>
     CAFFE_UTIL_HD
     const H* gethp() const {
-      return reinterpret_cast<const H*>(this);
+      return reinterpret_cast<const H*>(&data_);
     }
 
     template<typename H>
     CAFFE_UTIL_HD
     H* gethp() {
-      return reinterpret_cast<H*>(this);
+      return reinterpret_cast<H*>(&data_);
     }
 
     CAFFE_UTIL_HD
@@ -1048,7 +1030,7 @@ namespace half_float
     CAFFE_UTIL_HD operator float() const {
 #ifdef __CUDA_ARCH__
       ::half h;
-      h.x() = data_;
+      h.setx(data_);
       return __half2float(h);
 #else
       return detail::half2float(data_);
@@ -1134,9 +1116,9 @@ namespace half_float
       float after = static_cast<float>(*this);
       if (before == after && before != 0.f && rhs != 0.f) {
 #ifdef __CUDA_ARCH__
-        CUPRINTF("GPU PRECISION LOSS: %g -= %g\n", before, rhs);
+        printf("GPU PRECISION LOSS: %g -= %g\n", before, rhs);
 #else
-        CUPRINTF("CPU PRECISION LOSS: %g -= %g\n", before, rhs);
+        printf("CPU PRECISION LOSS: %g -= %g\n", before, rhs);
 #endif
       }
 #else

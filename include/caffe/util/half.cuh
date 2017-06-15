@@ -113,16 +113,7 @@ class alignas(2) half : public __half {
   }
 
   __host__ __device__
-  unsigned short& x() {
-#ifdef OLD_CUDA_HALF_IMPL
-    return __half::x;
-#else
-    return __x;
-#endif
-  }
-
-  __host__ __device__
-  const unsigned short& x() const {
+  unsigned short x() const {
 #ifdef OLD_CUDA_HALF_IMPL
     return __half::x;
 #else
@@ -142,7 +133,7 @@ class alignas(2) half : public __half {
 
 #ifdef OLD_CUDA_HALF_IMPL
   __host__ __device__
-  operator bool () const {
+  operator bool() const {
     return (__half::x & 0x7fffU) != 0U;  // +0, -0
   }
 #endif
@@ -184,7 +175,7 @@ struct alignas(4) half2 : public __half2 {
   half lo() const {
 #ifdef OLD_CUDA_HALF_IMPL
     half l;
-    l.x() = __half2::x & 0xffffU;
+    l.setx(__half2::x & 0xffffU);
     return l;
 #else
     return x;
@@ -195,11 +186,31 @@ struct alignas(4) half2 : public __half2 {
   half hi() const {
 #ifdef OLD_CUDA_HALF_IMPL
     half h;
-    h.x() = static_cast<unsigned short>(__half2::x >> 16);
+    h.setx(static_cast<unsigned short>(__half2::x >> 16));
     return h;
 #else
     return y;
 #endif
+  }
+
+  __host__ __device__
+  half2& set_lo(half l) {
+#ifdef OLD_CUDA_HALF_IMPL
+    __half2::x = (__half2::x & 0xffff0000U) + l.x();
+#else
+    x = l;
+#endif
+    return *this;
+  }
+
+  __host__ __device__
+  half2& set_hi(half h) {
+#ifdef OLD_CUDA_HALF_IMPL
+    __half2::x = (__half2::x & 0xffffU) + (h.x() << 16);
+#else
+    y = h;
+#endif
+    return *this;
   }
 
   __host__ __device__
@@ -212,18 +223,17 @@ struct alignas(4) half2 : public __half2 {
 #endif
     return *this;
   }
-
 };
 
 #if false
-
+// TODO Clean later
 __inline__ __device__ __host__ half habs(half h) {
-  h.x() &= 0x7fffU;
+  h.setx(h.x() & 0x7fffU);
   return h;
 }
 
 __inline__ __device__ __host__ half hneg(half h) {
-  h.x() ^= 0x8000U;
+  h.setx(h.x() ^ 0x8000U);
   return h;
 }
 
@@ -245,21 +255,21 @@ __inline__ __device__ __host__ int ishequ(half x, half y) {
 // Returns 0.0000 in FP16 binary form
 __inline__ __device__ __host__ half hzero() {
   half ret;
-  ret.x() = 0U;
+  ret.setx(0U);
   return ret;
 }
 
 // Returns 1.0000 in FP16 binary form
 __inline__ __device__ __host__ half hone() {
   half ret;
-  ret.x() = 0x3c00U;
+  ret.setx(0x3c00U);
   return ret;
 }
 
 // Returns quiet NaN, the most significant fraction bit #9 is set
 __inline__ __device__ __host__ half hnan() {
   half ret;
-  ret.x() = 0x7e00U;
+  ret.setx(0x7e00U);
   return ret;
 }
 
@@ -267,7 +277,7 @@ __inline__ __device__ __host__ half hnan() {
 __inline__ __device__ __host__ half hmax() {
   half ret;
   // Exponent all ones except LSB (0x1e), mantissa is all ones (0x3ff)
-  ret.x() = 0x7bffU;
+  ret.setx(0x7bffU);
   return ret;
 }
 
@@ -275,7 +285,7 @@ __inline__ __device__ __host__ half hmax() {
 __inline__ __device__ __host__ half hmin() {
   half ret;
   // Exponent is 0x01 (5 bits), mantissa is all zeros (10 bits)
-  ret.x() = 0x0400U;
+  ret.setx(0x0400U);
   return ret;
 }
 #endif

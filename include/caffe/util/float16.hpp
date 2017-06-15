@@ -7,20 +7,16 @@
 #include <glog/logging.h>
 
 #ifndef CPU_ONLY
-
-  #define HLF_EPSILON  4.887581E-04
-  #define HLF_MIN      6.103516E-05
-  #define HLF_MAX      6.550400E+04
-  #define HLF_TRUE_MIN 5.960464E-08
-
   #ifdef __CUDACC__
     #include "caffe/util/half.cuh"
   #endif
   #include "half_float/half.hpp"
 
-namespace caffe {
-  typedef half_float::half float16;
-}
-
+  namespace caffe {
+    typedef half_float::half float16;
+  }
+#else
+  #define CAFFE_UTIL_HD
+  #define CAFFE_UTIL_IHD inline
 #endif
 #endif

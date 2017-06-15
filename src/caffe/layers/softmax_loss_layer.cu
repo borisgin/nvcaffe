@@ -38,13 +38,13 @@ __global__ void SoftmaxLossForwardGPU<half>(const int nthreads,
     const int s = index % spatial_dim;
     const int label_value = static_cast<int>(__half2float(label[n * spatial_dim + s]));
     if (has_ignore_label_ && label_value == ignore_label_) {
-      loss[index].x() = 0U;
-      counts[index].x() = 0U;
+      loss[index].setx(0U);
+      counts[index].setx(0U);
     } else {
       loss[index] = float2half_clip(- log(max(__half2float(
           prob_data[n * dim + label_value * spatial_dim + s]),
           __half2float(min_dtype<half>()))));
-      counts[index].x() = 1U;
+      counts[index].setx(1U);
     }
   }
 }
@@ -121,13 +121,13 @@ __global__ void SoftmaxLossBackwardGPU<half>(const int nthreads, const half* top
 
     if (has_ignore_label_ && label_value == ignore_label_) {
       for (int c = 0; c < channels; ++c) {
-        bottom_diff[n * dim + c * spatial_dim + s].x() = 0U;
+        bottom_diff[n * dim + c * spatial_dim + s].setx(0U);
       }
-      counts[index].x() = 0U;
+      counts[index].setx(0U);
     } else {
       const int idx = n * dim + label_value * spatial_dim + s;
       bottom_diff[idx] = float2half_clip(__half2float(bottom_diff[idx]) - 1.F);
-      counts[index].x() = 0x3c00U;  // 1.
+      counts[index].setx(0x3c00U);  // 1.
     }
   }
 }
