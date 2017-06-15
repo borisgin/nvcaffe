@@ -48,6 +48,10 @@ TYPED_TEST_CASE(SoftmaxLayerTest, TestDtypesAndDevices);
 TYPED_TEST(SoftmaxLayerTest, TestForward) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter layer_param;
+  layer_param.set_forward_type(tp<Dtype>());
+  layer_param.set_backward_type(tp<Dtype>());
+  layer_param.set_forward_math(tp<Dtype>());
+  layer_param.set_backward_math(tp<Dtype>());
   SoftmaxLayer<Dtype, Dtype> layer(layer_param);
   layer.SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
   layer.Forward(this->blob_bottom_vec_, this->blob_top_vec_);
@@ -59,8 +63,8 @@ TYPED_TEST(SoftmaxLayerTest, TestForward) {
         for (int j = 0; j < this->blob_top_->channels(); ++j) {
           sum += this->blob_top_->data_at(i, j, k, l);
         }
-        EXPECT_GE(sum, 0.999);
-        EXPECT_LE(sum, 1.001);
+        EXPECT_GE(sum, 0.998);
+        EXPECT_LE(sum, 1.002);
         // Test exact values
         Dtype scale = 0;
         for (int j = 0; j < this->blob_bottom_->channels(); ++j) {
@@ -80,6 +84,10 @@ TYPED_TEST(SoftmaxLayerTest, TestForward) {
 TYPED_TEST(SoftmaxLayerTest, TestGradient) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter layer_param;
+  layer_param.set_forward_type(tp<Dtype>());
+  layer_param.set_backward_type(tp<Dtype>());
+  layer_param.set_forward_math(tp<Dtype>());
+  layer_param.set_backward_math(tp<Dtype>());
   SoftmaxLayer<Dtype, Dtype> layer(layer_param);
   GradientChecker<Dtype> checker(tol<Dtype>(1e-2, 1e-1), tol<Dtype>(1e-3, 1e-1));
   checker.CheckGradientExhaustive(&layer, this->blob_bottom_vec_, this->blob_top_vec_);
@@ -115,6 +123,10 @@ TYPED_TEST_CASE(CuDNNSoftmaxLayerTest, TestDtypes);
 
 TYPED_TEST(CuDNNSoftmaxLayerTest, TestForwardCuDNN) {
   LayerParameter layer_param;
+  layer_param.set_forward_type(tp<TypeParam>());
+  layer_param.set_backward_type(tp<TypeParam>());
+  layer_param.set_forward_math(tp<TypeParam>());
+  layer_param.set_backward_math(tp<TypeParam>());
   CuDNNSoftmaxLayer<TypeParam, TypeParam> layer(layer_param);
   layer.SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
   layer.Forward(this->blob_bottom_vec_, this->blob_top_vec_);
@@ -146,6 +158,10 @@ TYPED_TEST(CuDNNSoftmaxLayerTest, TestForwardCuDNN) {
 
 TYPED_TEST(CuDNNSoftmaxLayerTest, TestGradientCuDNN) {
   LayerParameter layer_param;
+  layer_param.set_forward_type(tp<TypeParam>());
+  layer_param.set_backward_type(tp<TypeParam>());
+  layer_param.set_forward_math(tp<TypeParam>());
+  layer_param.set_backward_math(tp<TypeParam>());
   CuDNNSoftmaxLayer<TypeParam, TypeParam> layer(layer_param);
   GradientChecker<TypeParam> checker(tol<TypeParam>(1e-2, 1e-1), tol<TypeParam>(1e-3, 1e-2));
   checker.CheckGradientExhaustive(&layer, this->blob_bottom_vec_, this->blob_top_vec_);

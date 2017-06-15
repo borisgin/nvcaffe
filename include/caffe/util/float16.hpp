@@ -6,18 +6,17 @@
 #include <iosfwd>
 #include <glog/logging.h>
 
-#ifdef CPU_ONLY
-  #define CAFFE_UTIL_HD
-  #define CAFFE_UTIL_IHD inline
-#else
-  #include "caffe/util/fp16_emu.h"
-  #define CAFFE_UTIL_HD __host__ __device__
-  #define CAFFE_UTIL_IHD __inline__ __host__ __device__
+#ifndef CPU_ONLY
+  #ifdef __CUDACC__
+    #include "caffe/util/half.cuh"
+  #endif
   #include "half_float/half.hpp"
 
-namespace caffe {
-  typedef half_float::half float16;
-}   // namespace caffe
-
+  namespace caffe {
+    typedef half_float::half float16;
+  }
+#else
+  #define CAFFE_UTIL_HD
+  #define CAFFE_UTIL_IHD inline
 #endif
 #endif
