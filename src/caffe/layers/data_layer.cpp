@@ -36,7 +36,9 @@ DataLayer<Ftype, Btype>::init_offsets() {
 
 template<typename Ftype, typename Btype>
 DataLayer<Ftype, Btype>::~DataLayer() {
-  this->StopInternalThread();
+  if (layer_inititialized_flag_.is_set()) {
+    this->StopInternalThread();
+  }
 }
 
 template<typename Ftype, typename Btype>
@@ -269,6 +271,9 @@ void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, siz
   for (size_t entry = 0; entry < batch_size; ++entry) {
     datum = reader->full_pop(qid, "Waiting for datum");
     item_id = datum->record_id() % batch_size;
+    CHECK_EQ(top_shape[1], datum->channels()) << "Number of channels can't vary in the same batch";
+    CHECK_EQ(top_shape[2], datum->height()) << "Image height can't vary in the same batch";
+    CHECK_EQ(top_shape[3], datum->width()) << "Image width can't vary in the same batch";
     if (item_id == 0UL) {
       current_batch_id = datum->record_id() / batch_size;
     }
