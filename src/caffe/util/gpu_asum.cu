@@ -201,12 +201,6 @@ void gpu_asum_t(const int n, const T* x, TR* sum) {
   *sum = dev_ptr_sum[0];
 }
 
-template<typename Dtype, typename Mtype>
-void caffe_gpu_asum(const int n, const Dtype* x, Mtype* sum) {
-  static cudaError_t status = set_asum_blocks_count<Dtype>(0U);  // needed just 1 time
-  CUDA_CHECK(status);
-  gpu_asum_t(n, x, sum);
-}
 template<>
 void caffe_gpu_asum<float16, float>(const int n, const float16* x, float* sum) {
   // For odd counts we allocate extra element to speed up kernels.

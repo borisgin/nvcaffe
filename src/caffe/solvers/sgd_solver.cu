@@ -58,7 +58,7 @@ template<typename Gtype, typename Wtype>
 void sgd_reg_update_all_and_clear_gpu(int N,
   Gtype* g, Wtype* w, Wtype* h,
   float momentum, float local_rate, const std::string& reg_type, float local_decay,
-  void* handle,  bool clear_grads, bool synced) {
+  void* handle,  bool clear_grads) {
   cublasHandle_t cublas_handle =
       handle == nullptr ? Caffe::cublas_handle() : reinterpret_cast<cublasHandle_t>(handle);
   cudaStream_t stream;
@@ -68,32 +68,30 @@ void sgd_reg_update_all_and_clear_gpu(int N,
     g, w, h,
     momentum, local_rate, local_decay, reg_type == "L2",  clear_grads);
   CUDA_POST_KERNEL_CHECK;
-  if (synced) {
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-  }
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
 template void sgd_reg_update_all_and_clear_gpu<float16, double>(int, float16*, double*, double*,
-  float, float, const std::string&, float,  void*, bool, bool);
+  float, float, const std::string&, float,  void*, bool);
 template void sgd_reg_update_all_and_clear_gpu<float, float>(int, float*, float*, float*,
-  float, float, const std::string&, float,  void*, bool, bool);
+  float, float, const std::string&, float,  void*, bool);
 template void sgd_reg_update_all_and_clear_gpu<float, double>(int, float*, double*, double*,
-  float, float, const std::string&, float,  void*, bool, bool);
+  float, float, const std::string&, float,  void*, bool);
 template void sgd_reg_update_all_and_clear_gpu<float, float16>(int, float*, float16*, float16*,
-  float, float, const std::string&, float,  void*, bool, bool);
+  float, float, const std::string&, float,  void*, bool);
 template void sgd_reg_update_all_and_clear_gpu<double, float>(int, double*, float*, float*,
-  float, float, const std::string&, float,  void*, bool, bool);
+  float, float, const std::string&, float,  void*, bool);
 template void sgd_reg_update_all_and_clear_gpu<double, double>(int, double*, double*, double*,
-  float, float, const std::string&, float,  void*, bool, bool);
+  float, float, const std::string&, float,  void*, bool);
 template void sgd_reg_update_all_and_clear_gpu<double, float16>(int, double*, float16*, float16*,
-  float, float, const std::string&, float,  void*, bool, bool);
+  float, float, const std::string&, float,  void*, bool);
 
 template<>
 void
 sgd_reg_update_all_and_clear_gpu<float16, float16>(int N,
   float16* g, float16* w, float16* h,
   float momentum, float local_rate, const std::string& reg_type, float local_decay,
-  void* handle, bool clear_grads, bool synced) {
+  void* handle, bool clear_grads) {
   cublasHandle_t cublas_handle =
       handle == nullptr ? Caffe::cublas_handle() : reinterpret_cast<cublasHandle_t>(handle);
   cudaStream_t stream;
@@ -103,9 +101,7 @@ sgd_reg_update_all_and_clear_gpu<float16, float16>(int N,
       reinterpret_cast<half*>(g), reinterpret_cast<half*>(w), reinterpret_cast<half*>(h),
       momentum, local_rate, local_decay, reg_type == "L2",  clear_grads);
   CUDA_POST_KERNEL_CHECK;
-  if (synced) {
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-  }
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
 template<>
@@ -113,7 +109,7 @@ void
 sgd_reg_update_all_and_clear_gpu<float16, float>(int N,
     float16* g, float* w, float* h,
     float momentum,  float local_rate, const std::string& reg_type, float local_decay,
-    void* handle, bool clear_grads, bool synced) {
+    void* handle, bool clear_grads) {
   cublasHandle_t cublas_handle =
       handle == nullptr ? Caffe::cublas_handle() : reinterpret_cast<cublasHandle_t>(handle);
   cudaStream_t stream;
@@ -123,9 +119,7 @@ sgd_reg_update_all_and_clear_gpu<float16, float>(int N,
       (N, reinterpret_cast<half*>(g), w, h, momentum, local_rate,
           local_decay, reg_type == "L2", clear_grads);
   CUDA_POST_KERNEL_CHECK;
-  if (synced) {
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-  }
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
 }  // namespace caffe

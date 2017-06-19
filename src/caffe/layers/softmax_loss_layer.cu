@@ -17,12 +17,12 @@ __global__ void SoftmaxLossForwardGPU(const int nthreads,
     const int s = index % spatial_dim;
     const int label_value = static_cast<int>(label[n * spatial_dim + s]);
     if (has_ignore_label_ && label_value == ignore_label_) {
-      loss[index] = 0.;
-      counts[index] = 0.;
+      loss[index] = 0;
+      counts[index] = 0;
     } else {
       loss[index] = -log(max(prob_data[n * dim + label_value * spatial_dim + s],
           min_dtype<Dtype>()));
-      counts[index] = 1.;
+      counts[index] = 1;
     }
   }
 }
@@ -72,7 +72,7 @@ void SoftmaxWithLossLayer<Ftype, Btype>::Forward_gpu(
   CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
   Ftype loss;
   caffe_gpu_asum(nthreads, loss_data, &loss);
-  Ftype valid_count = -1.F;
+  Ftype valid_count = -1;
   // Only launch another CUDA kernel if we actually need the count of valid outputs.
   if (normalization_ == LossParameter_NormalizationMode_VALID && has_ignore_label_) {
     caffe_gpu_asum(nthreads, counts, &valid_count);
@@ -97,12 +97,12 @@ __global__ void SoftmaxLossBackwardGPU(const int nthreads, const Dtype* top,
 
     if (has_ignore_label_ && label_value == ignore_label_) {
       for (int c = 0; c < channels; ++c) {
-        bottom_diff[n * dim + c * spatial_dim + s] = 0.F;
+        bottom_diff[n * dim + c * spatial_dim + s] = 0;
       }
-      counts[index] = 0.F;
+      counts[index] = 0;
     } else {
-      bottom_diff[n * dim + label_value * spatial_dim + s] -= 1.F;
-      counts[index] = 1.F;
+      bottom_diff[n * dim + label_value * spatial_dim + s] -= 1;
+      counts[index] = 1;
     }
   }
 }
@@ -156,7 +156,7 @@ void SoftmaxWithLossLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
         CAFFE_CUDA_NUM_THREADS, 0, Caffe::thread_stream()>>>(nthreads, top_data, label, bottom_diff,
         outer_num_, dim, inner_num_, has_ignore_label_, ignore_label_, counts);
     CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
-    Btype valid_count = -1.F;
+    Btype valid_count = -1;
     // Only launch another CUDA kernel if we actually need the count of valid
     // outputs.
     if (normalization_ == LossParameter_NormalizationMode_VALID && has_ignore_label_) {

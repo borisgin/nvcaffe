@@ -729,9 +729,10 @@ void Net::BackwardFromToAu(int start, int end, bool apply_update) {
       continue;
     }
     for (int j = 0; j < layers_[i]->blobs().size(); ++j) {
-      if ((j > 0) && (!layers_[i]->bias_term())) {
-        continue;
-      }
+      // TODO
+//      if (j > 0 && !layers_[i]->bias_term() && layers_[i]->type() == "Convolution") {
+//        continue;
+//      }
       int param_id = layer_index_params_[make_pair(i, j)];
       if (param_owners_[param_id] < 0) {
         reduction_queue_.push(learnable_param_ids_[param_id]);

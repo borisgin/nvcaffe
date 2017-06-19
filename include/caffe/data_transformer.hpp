@@ -158,6 +158,9 @@ class DataTransformer {
 #endif  // USE_OPENCV
 
   void Fill3Randoms(unsigned int* rand) const;
+  const TransformationParameter& transform_param() const {
+    return param_;
+  }
 
  protected:
   unsigned int Rand() const;
