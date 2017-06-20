@@ -5,6 +5,7 @@
 
 namespace caffe {
 
+// TODO specialize these kernels for half
 template <typename Dtype>
 __global__ void kernel_channel_max(const int num, const int channels,
     const int spatial_dim, const Dtype* data, Dtype* out) {

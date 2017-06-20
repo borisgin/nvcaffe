@@ -35,14 +35,13 @@
 #  endif
 #  include "caffe/util/device_alternate.hpp"
 #endif
-#include "caffe/util/float16.hpp"
 
 #if defined(CPU_ONLY) && defined(USE_CUDNN)
   #error "USE_CUDNN mode is not compatible with CPU_ONLY"
 #endif
 
+#include "caffe/util/float16.hpp"
 #ifndef CPU_ONLY
-#  include <cuda_fp16.h>
 #  if CUDA_VERSION >= 8000
 #    define CAFFE_DATA_HALF CUDA_R_16F
 #  else
@@ -756,16 +755,21 @@ CAFFE_UTIL_IHD float max_dtype<float>() {
 #ifndef CPU_ONLY
 template <>
 CAFFE_UTIL_IHD float16 max_dtype<float16>() {
-  return HLF_MAX;
+  float16 ret;
+  // Exponent all ones except LSB (0x1e), mantissa is all ones (0x3ff)
+  ret.setx(0x7bffU);
+  return ret;
 }
 // Largest positive FP16 value, corresponds to 6.5504e+04
+#ifdef __CUDACC__
 template <>
-CAFFE_UTIL_IHD __half max_dtype<__half>() {
-    __half ret;
+CAFFE_UTIL_IHD half max_dtype<half>() {
+    half ret;
     // Exponent all ones except LSB (0x1e), mantissa is all ones (0x3ff)
-    ret.x = 0x7bffU;
+    ret.setx(0x7bffU);
     return ret;
 }
+#endif
 #endif
 
 // Normalized minimums:
@@ -782,16 +786,21 @@ CAFFE_UTIL_IHD float min_dtype<float>() {
 #ifndef CPU_ONLY
 template <>
 CAFFE_UTIL_IHD float16 min_dtype<float16>() {
-  return HLF_MIN;
-}
-// Smallest positive (normalized) FP16 value, corresponds to 6.1035e-05
-template <>
-CAFFE_UTIL_IHD __half min_dtype<__half>() {
-  __half ret;
+  float16 ret;
   // Exponent is 0x01 (5 bits), mantissa is all zeros (10 bits)
-  ret.x = 0x0400U;
+  ret.setx(0x0400U);
   return ret;
 }
+// Smallest positive (normalized) FP16 value, corresponds to 6.1035e-05
+#ifdef __CUDACC__
+template <>
+CAFFE_UTIL_IHD half min_dtype<half>() {
+  half ret;
+  // Exponent is 0x01 (5 bits), mantissa is all zeros (10 bits)
+  ret.setx(0x0400U);
+  return ret;
+}
+#endif
 #endif
 
 template <typename Dtype>
@@ -808,14 +817,18 @@ CAFFE_UTIL_IHD float epsilon_dtype<float>() {
 #ifndef CPU_ONLY
 template <>
 CAFFE_UTIL_IHD float16 epsilon_dtype<float16>() {
-  return HLF_EPSILON;
-}
-template <>
-CAFFE_UTIL_IHD __half epsilon_dtype<__half>() {
-  __half ret;
-  ret.x = 0x1001U;
+  float16 ret;
+  ret.setx(0x1001U);
   return ret;
 }
+#ifdef __CUDACC__
+template <>
+CAFFE_UTIL_IHD half epsilon_dtype<half>() {
+  half ret;
+  ret.setx(0x1001U);
+  return ret;
+}
+#endif
 #endif
 
 template <typename Dtype> constexpr

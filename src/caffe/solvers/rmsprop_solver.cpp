@@ -14,8 +14,8 @@ void rmsprop_reg_update_and_clear_gpu(int N,
 #endif
 
 template<typename Dtype>
-void RMSPropSolver<Dtype>::ComputeUpdateValue(int param_id, void *handle,
-    float rate, bool clear_grads, bool) {  // TODO
+void RMSPropSolver<Dtype>::ComputeUpdateValue(int param_id, void *handle, float rate,
+    bool clear_grads) {
   shared_ptr<Blob> param = this->net_->learnable_params()[param_id];
   shared_ptr<TBlob<Dtype>> history = this->history_[param_id];
   shared_ptr<TBlob<Dtype>> update = this->update_[param_id];

@@ -21,7 +21,7 @@ BatchNormLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bottom, const vect
     channels_ = 1;
   else
     channels_ = bottom[0]->shape(1);
-  eps_ = std::max<float>(param.eps(), 0.0001f);
+  eps_ = std::max<float>(param.eps(), 0.00001f);
 
   scale_bias_ = false;
   scale_bias_ = param.scale_bias(); // by default = false;

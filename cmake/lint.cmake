@@ -1,7 +1,7 @@
 
 set(CMAKE_SOURCE_DIR ..)
 set(LINT_COMMAND ${CMAKE_SOURCE_DIR}/scripts/cpp_lint.py)
-set(SRC_FILE_EXTENSIONS h hpp hu c cpp cu cc)
+set(SRC_FILE_EXTENSIONS h hpp hu c cpp cu cc cuh)
 set(EXCLUDE_FILE_EXTENSTIONS pb.h pb.cc)
 set(LINT_DIRS include src/caffe examples tools python matlab)
 

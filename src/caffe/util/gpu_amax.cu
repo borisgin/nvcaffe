@@ -1,5 +1,3 @@
-#include <cuda_fp16.h>
-#include <math_functions.h>  // CUDA's, not caffe's, for fabs, signbit
 #include <algorithm>
 #include <device_launch_parameters.h>
 
@@ -66,7 +64,7 @@ unsigned int* amax_blocks_count_ptr<double>() {
 }
 template<>
 __device__ __inline__
-unsigned int* amax_blocks_count_ptr<__half2>() {
+unsigned int* amax_blocks_count_ptr<half2>() {
   return &amax_blocks_count_h;
 }
 
@@ -83,7 +81,7 @@ cudaError_t set_amax_blocks_count<double>(unsigned int cnt) {
       cudaMemcpyHostToDevice, Caffe::thread_stream());
 }
 template<>
-cudaError_t set_amax_blocks_count<__half2>(unsigned int cnt) {
+cudaError_t set_amax_blocks_count<half2>(unsigned int cnt) {
   return cudaMemcpyToSymbolAsync(amax_blocks_count_h, &cnt, sizeof(unsigned int), 0,
       cudaMemcpyHostToDevice, Caffe::thread_stream());
 }
@@ -102,7 +100,7 @@ void reset_amax_blocks_count<double>() {
 }
 template<>
 __device__ __inline__
-void reset_amax_blocks_count<__half2>() {
+void reset_amax_blocks_count<half2>() {
   amax_blocks_count_h = 0;
 }
 
@@ -217,9 +215,9 @@ void caffe_gpu_amax<float16>(const int n, const float16* x, float* y) {
     clean_last_element(const_cast<float16*>(x) + n, stream);
   }
   const int n2 = even(n) / 2;
-  static cudaError_t status = set_amax_blocks_count<__half2>(0U);  // needed just 1 time
+  static cudaError_t status = set_amax_blocks_count<half2>(0U);  // needed just 1 time
   CUDA_CHECK(status);
-  gpu_amax_t(n2, reinterpret_cast<const __half2*>(x), y);
+  gpu_amax_t(n2, reinterpret_cast<const half2*>(x), y);
 #ifdef DEBUG
   CHECK(!isnan(*y));
   CHECK(!isinf(*y));

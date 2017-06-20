@@ -24,8 +24,8 @@ void adam_reg_update_and_clear_gpu(int N,
 #endif
 
 template <typename Dtype>
-void AdamSolver<Dtype>::ComputeUpdateValue(int param_id, void* handle,
-    float rate, bool clear_grads, bool) {  // TODO
+void AdamSolver<Dtype>::ComputeUpdateValue(int param_id, void* handle, float rate,
+    bool clear_grads) {
   const vector<shared_ptr<Blob>>& net_params = this->net_->learnable_params();
   shared_ptr<Blob> param = net_params[param_id];
   const vector<float>& net_params_lr = this->net_->params_lr();
