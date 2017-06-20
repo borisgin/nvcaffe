@@ -25,11 +25,12 @@ float SGDSolver<Dtype>::GetLearningRate() {
   float rate;
   const string& lr_policy = this->param_.lr_policy();
   if (this->iter_ < this->param_.rampup_interval()) {
+    float alpha = float(this->iter_) / this->param_.rampup_interval();
+    float rampup_lr = 0.;
     if (this->param_.has_rampup_lr()) {
-      rate = this->param_.rampup_lr();
-    } else {
-      rate = this->param_.base_lr() * float(this->iter_) / float(this->param_.rampup_interval());
+      rampup_lr = this->param_.rampup_lr();
     }
+    rate = rampup_lr + (this->param_.base_lr() - rampup_lr) * alpha;
   } else if (lr_policy == "fixed") {
     rate = this->param_.base_lr();
   } else if (lr_policy == "step") {
@@ -121,7 +122,7 @@ void SGDSolver<Dtype>::ClipGradients(void* handle) {
     LOG(INFO) << "Gradient clipping: scaling down gradients (L2 norm " << l2norm_diff << " > "
               << clip_gradients << ") " << "by scale factor " << scale_factor;
     for (int i = 0; i < net_params.size(); ++i) {
-      net_params[i]->scale_diff(scale_factor, handle, false);
+      net_params[i]->scale_diff(scale_factor, handle);
     }
   }
 }
@@ -144,7 +145,7 @@ void SGDSolver<Dtype>::ApplyUpdate(int param_id, void* handle, bool clear_grads)
   ClipGradients(handle);
   Normalize(param_id, handle);
   Regularize(param_id, handle);
-  ComputeUpdateValue(param_id, handle, rate, clear_grads, false);
+  ComputeUpdateValue(param_id, handle, rate, clear_grads);
 }
 
 template<typename Dtype>
@@ -153,7 +154,7 @@ void SGDSolver<Dtype>::Normalize(int param_id, void* handle) {
   // Scale gradient to counterbalance accumulation.
   const vector<shared_ptr<Blob>>& net_params = this->net_->learnable_params();
   const float accum_normalization = 1.F / this->param_.iter_size();
-  net_params[param_id]->scale_diff(accum_normalization, handle, false);
+  net_params[param_id]->scale_diff(accum_normalization, handle);
 }
 
 template<typename Dtype>
@@ -195,14 +196,13 @@ template<typename Gtype, typename Wtype>
 void sgd_reg_update_all_and_clear_gpu(int N,
     Gtype* g, Wtype* w, Wtype* h,
     float momentum, float local_rate, const std::string& regularization_type, float local_decay,
-    void* handle, bool clear_grads, bool synced = true);
+    void* handle, bool clear_grads);
 #endif
 
 
 template<typename Dtype>
 void
-SGDSolver<Dtype>::ComputeUpdateValue(int param_id, void* handle, float rate, bool clear_grads,
-    bool synced) {
+SGDSolver<Dtype>::ComputeUpdateValue(int param_id, void* handle, float rate, bool clear_grads) {
   shared_ptr<Blob> param = this->net_->learnable_params()[param_id];
   shared_ptr<TBlob<Dtype>> history = history_[param_id];
   const vector<float>& net_params_lr = this->net_->params_lr();
@@ -227,19 +227,19 @@ SGDSolver<Dtype>::ComputeUpdateValue(int param_id, void* handle, float rate, boo
           param->mutable_gpu_diff<float16>(),
           param->mutable_gpu_data<Dtype>(),
           history->mutable_gpu_data(),
-          momentum, local_rate, regularization_type, decay,  handle, clear_grads, synced);
+          momentum, local_rate, regularization_type, decay,  handle, clear_grads);
     } else if (gtype == tp<float>()) {
       sgd_reg_update_all_and_clear_gpu<float, Dtype>(param->count(),
           param->mutable_gpu_diff<float>(),
           param->mutable_gpu_data<Dtype>(),
           history->mutable_gpu_data(),
-          momentum, local_rate, regularization_type, decay,  handle, clear_grads, synced);
+          momentum, local_rate, regularization_type, decay,  handle, clear_grads);
     } else if (gtype == tp<double>()) {
       sgd_reg_update_all_and_clear_gpu<double, Dtype>(param->count(),
           param->mutable_gpu_diff<double>(),
           param->mutable_gpu_data<Dtype>(),
           history->mutable_gpu_data(),
-          momentum, local_rate, regularization_type, decay,  handle, clear_grads, synced);
+          momentum, local_rate, regularization_type, decay,  handle, clear_grads);
     } else {
       LOG(FATAL) << "Gradient type " << Type_Name(gtype) << " is not supported";
     }

@@ -6,7 +6,6 @@
 
 #ifndef CPU_ONLY
   #include "caffe/util/float16.hpp"
-  #include "cuda_fp16.h"
 #endif
 
 namespace caffe {

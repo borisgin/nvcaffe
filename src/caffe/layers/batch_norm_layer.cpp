@@ -14,13 +14,14 @@ BatchNormLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bottom, const vect
   moving_average_fraction_ = param.moving_average_fraction();
 
   clip_variance_ = false;
-  use_global_stats_ = false;
+  //use_global_stats_ = false;
+  use_global_stats_= param.use_global_stats();
 
   if (bottom[0]->num_axes() == 1)
     channels_ = 1;
   else
     channels_ = bottom[0]->shape(1);
-  eps_ = std::max<float>(param.eps(), 0.0001f);
+  eps_ = std::max<float>(param.eps(), 0.00001f);
 
   scale_bias_ = false;
   scale_bias_ = param.scale_bias(); // by default = false;
@@ -93,7 +94,6 @@ BatchNormLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bottom, const vect
   mean_ = Blob::create<Ftype>(C);
   var_ = Blob::create<Ftype>(C);
   inv_var_ = Blob::create<Ftype>(C);
-  x_norm_ = Blob::create<Ftype>(C);
 
   ones_C_ = Blob::create<Ftype>(C);
   ones_C_->set_data(1.);
