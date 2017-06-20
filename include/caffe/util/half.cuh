@@ -66,7 +66,6 @@
  */
 class alignas(2) half : public __half {
  public:
-
   __host__ __device__
   half() {
 #ifdef OLD_CUDA_HALF_IMPL
@@ -113,6 +112,7 @@ class alignas(2) half : public __half {
   }
 
   __host__ __device__
+  // NOLINT_NEXT_LINE(runtime/int)
   unsigned short x() const {
 #ifdef OLD_CUDA_HALF_IMPL
     return __half::x;
@@ -122,6 +122,7 @@ class alignas(2) half : public __half {
   }
 
   __host__ __device__
+  // NOLINT_NEXT_LINE(runtime/int)
   half& setx(unsigned short x) {
 #ifdef OLD_CUDA_HALF_IMPL
     __half::x = x;
@@ -141,7 +142,6 @@ class alignas(2) half : public __half {
 
 struct alignas(4) half2 : public __half2 {
  public:
-
   __host__ __device__
   half2() {}
 
@@ -186,6 +186,7 @@ struct alignas(4) half2 : public __half2 {
   half hi() const {
 #ifdef OLD_CUDA_HALF_IMPL
     half h;
+    // NOLINT_NEXT_LINE(runtime/int)
     h.setx(static_cast<unsigned short>(__half2::x >> 16));
     return h;
 #else
