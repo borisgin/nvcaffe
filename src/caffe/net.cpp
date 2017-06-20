@@ -8,6 +8,7 @@
 #include <caffe/util/signal_handler.h>
 
 #include "hdf5.h"
+#include <string.h>
 
 #include "caffe/common.hpp"
 #include "caffe/layer.hpp"
@@ -729,10 +730,11 @@ void Net::BackwardFromToAu(int start, int end, bool apply_update) {
       continue;
     }
     for (int j = 0; j < layers_[i]->blobs().size(); ++j) {
-      // TODO
-//      if (j > 0 && !layers_[i]->bias_term() && layers_[i]->type() == "Convolution") {
-//        continue;
-//      }
+      // TODO: Add skip first 2 blobs ( global mean and global_var for BN
+      if ( (strcmp(layers_[i]->type(), "Convolution") == 0 )  &&
+           (!layers_[i]->bias_term()) && (j == 1)) {
+        continue;
+      }
       int param_id = layer_index_params_[make_pair(i, j)];
       if (param_owners_[param_id] < 0) {
         reduction_queue_.push(learnable_param_ids_[param_id]);
