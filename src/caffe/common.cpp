@@ -18,6 +18,7 @@ namespace caffe {
 // Must be set before brewing
 int Caffe::root_device_ = -1;
 int Caffe::thread_count_ = 0;
+int Caffe::restored_iter_ = -1;
 std::atomic<uint64_t> Caffe::root_seed_(Caffe::SEED_NOT_SET);
 
 std::mutex Caffe::props_mutex_;
@@ -101,6 +102,11 @@ void Caffe::set_random_seed(uint64_t random_seed) {
 
 uint64_t Caffe::next_seed() {
   return (*caffe_rng())();
+}
+
+void Caffe::set_restored_iter(int val) {
+  std::lock_guard<std::mutex> lock(caffe_mutex_);
+  restored_iter_ = val;
 }
 
 void GlobalInit(int* pargc, char*** pargv) {

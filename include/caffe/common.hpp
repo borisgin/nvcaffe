@@ -390,6 +390,8 @@ class Caffe {
   static void set_solver_count(int val) { Get().solver_count_ = val; }
   static bool root_solver() { return Get().root_solver_; }
   static void set_root_solver(bool val) { Get().root_solver_ = val; }
+  static int restored_iter() { return restored_iter_; }
+  static void set_restored_iter(int val);
 
   static void set_gpus(const std::vector<int>& gpus) {
     props().gpus_ = gpus;
@@ -474,6 +476,7 @@ class Caffe {
   // For example, if user runs `caffe train -gpu=1,0,3` then it has to be set to 1.
   static int root_device_;
   static int thread_count_;
+  static int restored_iter_;
   static std::atomic<uint64_t> root_seed_;
   static std::mutex props_mutex_, caffe_mutex_, pstream_mutex_, cublas_mutex_, seed_mutex_;
 
