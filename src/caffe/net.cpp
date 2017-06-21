@@ -733,11 +733,11 @@ void Net::BackwardFromToAu(int start, int end, bool apply_update) {
       // TODO: delegate to layer layer->SkipUpdate(j) : true/false default false
       if (strcmp(layers_[i]->type(), "BatchNorm") == 0 )  {
         if ( (j == 0) || (j == 1) || (j==4)  ) {
-          LOG(INFO) << " ----- " << layers_[i]->name() << " " << layers_[i]->type() << " " << j;
+//          LOG(INFO) << " ----- " << layers_[i]->name() << " " << layers_[i]->type() << " " << j;
           continue;
         }
       }
-      LOG(INFO) << " + " << layers_[i]->name() << " " << layers_[i]->type() << " " << j;
+//      LOG(INFO) << " + " << layers_[i]->name() << " " << layers_[i]->type() << " " << j;
 
       int param_id = layer_index_params_[make_pair(i, j)];
       if (param_owners_[param_id] < 0) {
