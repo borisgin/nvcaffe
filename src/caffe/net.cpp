@@ -730,11 +730,15 @@ void Net::BackwardFromToAu(int start, int end, bool apply_update) {
       continue;
     }
     for (int j = 0; j < layers_[i]->blobs().size(); ++j) {
-      // TODO: Add skip first 2 blobs ( global mean and global_var for BN
-      if ( (strcmp(layers_[i]->type(), "Convolution") == 0 )  &&
-           (!layers_[i]->bias_term()) && (j == 1)) {
-        continue;
+      // TODO: delegate to layer layer->SkipUpdate(j) : true/false default false
+      if (strcmp(layers_[i]->type(), "BatchNorm") == 0 )  {
+        if ( (j == 0) || (j == 1) || (j==4)  ) {
+          LOG(INFO) << " ----- " << layers_[i]->name() << " " << layers_[i]->type() << " " << j;
+          continue;
+        }
       }
+      LOG(INFO) << " + " << layers_[i]->name() << " " << layers_[i]->type() << " " << j;
+
       int param_id = layer_index_params_[make_pair(i, j)];
       if (param_owners_[param_id] < 0) {
         reduction_queue_.push(learnable_param_ids_[param_id]);
