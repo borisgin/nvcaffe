@@ -39,6 +39,11 @@ void EltwiseLayer<Ftype, Btype>::Reshape(const vector<Blob*>& bottom,
       EltwiseParameter_EltwiseOp_MAX && top.size() == 1) {
     max_idx_.Reshape(bottom[0]->shape());
   }
+
+  top[0]->allocate_data();
+  for (int i = 0; i < bottom.size(); ++i) {
+    bottom[i]->allocate_data();
+  }
 }
 
 template <typename Ftype, typename Btype>

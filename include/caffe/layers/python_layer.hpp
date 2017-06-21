@@ -34,11 +34,9 @@ DISABLE_COPY_MOVE_AND_ASSIGN(PyGILRelease);
 
 namespace caffe {
 
-inline void PyErrReport() {
-  PyErr_Print();
-  std::cerr << std::endl;
-  LOG(FATAL) << "Python error";
-}
+void PyErrFatal();
+void PyErrReportAndForward();
+
 
 #define PYTHON_CALL_BEGIN  \
 {                          \
@@ -65,8 +63,10 @@ class PythonLayer : public Layer<Ftype, Btype> {
       self_.attr("phase") = static_cast<int>(this->phase_);
       self_.attr("setup")(bottom, top);
       PYTHON_CALL_END
+    } catch (const bp::error_already_set&) {
+      PyErrReportAndForward();
     } catch (...) {
-      PyErrReport();
+      PyErrFatal();
     }
   }
 
@@ -76,8 +76,10 @@ class PythonLayer : public Layer<Ftype, Btype> {
       PYTHON_CALL_BEGIN
       self_.attr("reshape")(bottom, top);
       PYTHON_CALL_END
+    } catch (const bp::error_already_set&) {
+      PyErrReportAndForward();
     } catch (...) {
-      PyErrReport();
+      PyErrFatal();
     }
   }
 
@@ -98,8 +100,10 @@ class PythonLayer : public Layer<Ftype, Btype> {
       PYTHON_CALL_BEGIN
       self_.attr("forward")(bottom, top);
       PYTHON_CALL_END
+    } catch (const bp::error_already_set&) {
+      PyErrReportAndForward();
     } catch (...) {
-      PyErrReport();
+      PyErrFatal();
     }
   }
 
@@ -110,8 +114,10 @@ class PythonLayer : public Layer<Ftype, Btype> {
       PYTHON_CALL_BEGIN
       self_.attr("backward")(top, propagate_down, bottom);
       PYTHON_CALL_END
+    } catch (const bp::error_already_set&) {
+      PyErrReportAndForward();
     } catch (...) {
-      PyErrReport();
+      PyErrFatal();
     }
   }
 

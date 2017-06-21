@@ -330,7 +330,7 @@ shared_ptr<LayerBase> GetPythonLayer(const LayerParameter& param, Type, Type) {
     CHECK(ret);
     return ret;
   } catch (...) {
-    PyErrReport();
+    PyErrFatal();
   }
 }
 
