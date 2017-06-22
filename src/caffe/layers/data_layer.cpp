@@ -1,9 +1,3 @@
-#ifdef USE_OPENCV
-
-#include <opencv2/core/core.hpp>
-
-#endif  // USE_OPENCV
-
 #include "caffe/data_transformer.hpp"
 #include "caffe/layer.hpp"
 #include "caffe/layers/data_layer.hpp"
@@ -177,10 +171,17 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
   shared_ptr<Datum> sample_datum = sample_only_ ? sample_reader_->sample() : reader_->sample();
   init_offsets();
 
+  // Calculate the variable sized transformed datum shape.
+  vector<int> sample_datum_shape = this->data_transformers_[0]->InferDatumShape(*sample_datum);
+  if (this->data_transformers_[0]->var_sized_transforms_enabled()) {
+    sample_datum_shape =
+        this->data_transformers_[0]->var_sized_transforms_shape(sample_datum_shape);
+  }
+
   // Reshape top[0] and prefetch_data according to the batch_size.
   // Note: all these reshapings here in load_batch are needed only in case of
   // different datum shapes coming from database.
-  vector<int> top_shape = this->data_transformers_[0]->InferBlobShape(*sample_datum);
+  vector<int> top_shape = this->data_transformers_[0]->InferBlobShape(sample_datum_shape);
   top_shape[0] = batch_size;
   top[0]->Reshape(top_shape);
 
@@ -227,14 +228,20 @@ void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, siz
   shared_ptr<Datum> datum = reader->full_peek(qid);
   CHECK(datum);
 
+  // Calculate the variable sized transformed datum shape.
+  vector<int> datum_shape = this->data_transformers_[thread_id]->InferDatumShape(*datum);
+  if (this->data_transformers_[thread_id]->var_sized_transforms_enabled()) {
+    datum_shape = this->data_transformers_[thread_id]->var_sized_transforms_shape(datum_shape);
+  }
+
   // Use data_transformer to infer the expected blob shape from datum.
-  vector<int> top_shape = this->data_transformers_[thread_id]->InferBlobShape(*datum,
+  vector<int> top_shape = this->data_transformers_[thread_id]->InferBlobShape(datum_shape,
       use_gpu_transform);
   // Reshape batch according to the batch_size.
   top_shape[0] = batch_size;
   batch->data_.Reshape(top_shape);
   if (use_gpu_transform) {
-    top_shape = this->data_transformers_[thread_id]->InferBlobShape(*datum, false);
+    top_shape = this->data_transformers_[thread_id]->InferBlobShape(datum_shape, false);
     top_shape[0] = batch_size;
     batch->gpu_transformed_data_->Reshape(top_shape);
   }
@@ -262,7 +269,12 @@ void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, siz
   size_t current_batch_id = 0UL;
   size_t item_id;
   for (size_t entry = 0; entry < batch_size; ++entry) {
-    datum = reader->full_pop(qid, "Waiting for datum");
+    shared_ptr<Datum> pop_datum = reader->full_pop(qid, "Waiting for datum");
+    datum = pop_datum;
+    // Apply variable-sized transforms.
+    if (this->data_transformers_[thread_id]->var_sized_transforms_enabled()) {
+      datum = this->data_transformers_[thread_id]->VariableSizedTransforms(*datum);
+    }
     item_id = datum->record_id() % batch_size;
     if (datum->channels() > 0) {
       CHECK_EQ(top_shape[1], datum->channels())
@@ -304,7 +316,7 @@ void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, siz
       this->data_transformers_[thread_id]->TransformPtrEntry(datum, ptr, rand, this->output_labels_,
           label_ptr);
     }
-    reader->free_push(qid, datum);
+    reader->free_push(qid, pop_datum);
   }
 
   if (use_gpu_transform) {

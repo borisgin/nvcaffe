@@ -480,6 +480,36 @@ message LayerParameter {
 // Message that stores parameters used to apply transformation
 // to the data layer's data
 message TransformationParameter {
+  // When the images in a batch are of different shapes, we need to preprocess
+  // them into the same fixed shape, as downstream operations in caffe require
+  // images within a batch to be of the same shape.
+  //
+  // To transform one image of arbitrary shape into an image of fixed shape,
+  // we allow specifying a sequence of "variable-sized image transforms."
+  // There are three possible transforms, and it is possible for _all of them_
+  // to be enabled at the same time. They are always applied in the same order:
+  // (1) first random resize, (2) then random crop, (3) finally center crop.
+  // The last transform must be either a random crop or a center crop.
+  //
+  // The three supported transforms are as follows:
+  //
+  // 1. Random resize. This takes two parameters, "lower" and "upper," or
+  //    "L" and "U" for short. If the original image has shape (oldW, oldH),
+  //    the shorter side, D = min(oldW, oldH), is calculated. Then a resize
+  //    target size R is chosing uniformly from the interval [L, U], and both
+  //    sides of the original image are resized by a scaling factor R/D to yield
+  //    a new image with shape (R/D * oldW, R/D * oldH).
+  //
+  // 2. Random crop. This takes one crop parameter. A square region is randomly
+  //    chosen from the image for cropping.
+  //
+  // 3. Center crop. This takes one crop parameter. A square region is chosen
+  //    from the center of the image for cropping.
+  //
+  optional uint32 var_sz_img_rand_resize_lower = 10 [default = 0];
+  optional uint32 var_sz_img_rand_resize_upper = 11 [default = 0];
+  optional uint32 var_sz_img_rand_crop = 12 [default = 0];
+  optional uint32 var_sz_img_center_crop = 13 [default = 0];
   // For data pre-processing, we can do simple scaling and subtracting the
   // data mean, if provided. Note that the mean subtraction is always carried
   // out before scaling.

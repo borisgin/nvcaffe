@@ -210,30 +210,68 @@ bool DecodeDatum(Datum* datum, bool is_color) {
   }
 }
 
-void CVMatToDatum(const cv::Mat& cv_img, Datum* datum) {
-  CHECK(cv_img.depth() == CV_8U) << "Image data type must be unsigned byte";
-  datum->set_channels(cv_img.channels());
-  datum->set_height(cv_img.rows);
-  datum->set_width(cv_img.cols);
-  datum->clear_data();
-  datum->clear_float_data();
-  datum->set_encoded(false);
-  int datum_channels = datum->channels();
-  int datum_height = datum->height();
-  int datum_width = datum->width();
-  int datum_size = datum_channels * datum_height * datum_width;
-  std::string buffer(datum_size, ' ');
+cv::Mat DatumToCVMat(const Datum& datum) {
+  if (datum.encoded()) {
+    LOG(FATAL) << "Datum encoded";
+  }
+  const int datum_channels = datum.channels();
+  const int datum_height = datum.height();
+  const int datum_width = datum.width();
+  const int datum_size = datum_channels * datum_height * datum_width;
+  CHECK_GT(datum_channels, 0);
+  CHECK_GT(datum_height, 0);
+  CHECK_GT(datum_width, 0);
+  cv::Mat img = cv::Mat::zeros(cv::Size(datum_width, datum_height), CV_8UC(datum_channels));
+  CHECK_EQ(img.channels(), datum_channels);
+  CHECK_EQ(img.rows, datum_height);
+  CHECK_EQ(img.cols, datum_width);
+  const std::string& datum_buf = datum.data();
+  CHECK_EQ(datum_buf.size(), datum_size);
+  const int datum_hw_stride = datum_height * datum_width;
   for (int h = 0; h < datum_height; ++h) {
-    const uchar* ptr = cv_img.ptr<uchar>(h);
-    int img_index = 0;
+    const int datum_h_offset = h * datum_width;
+    uchar* img_row_ptr = img.ptr<uchar>(h);
+    int img_row_index = 0;
     for (int w = 0; w < datum_width; ++w) {
-      for (int c = 0; c < datum_channels; ++c) {
-        int datum_index = (c * datum_height + h) * datum_width + w;
-        buffer[datum_index] = static_cast<char>(ptr[img_index++]);
+      int datum_index = datum_h_offset + w;
+      for (int c = 0; c < datum_channels; ++c, datum_index += datum_hw_stride) {
+        img_row_ptr[img_row_index++] = datum_buf[datum_index];
       }
     }
   }
-  datum->set_data(buffer);
+  return img;
+}
+
+void CVMatToDatum(const cv::Mat& cv_img, Datum* datum) {
+  CHECK(cv_img.depth() == CV_8U) << "Image data type must be unsigned byte";
+  const int img_channels = cv_img.channels();
+  const int img_height = cv_img.rows;
+  const int img_width = cv_img.cols;
+  const int img_size = img_channels * img_height * img_width;
+  CHECK_GT(img_channels, 0);
+  CHECK_GT(img_height, 0);
+  CHECK_GT(img_width, 0);
+  datum->set_channels(img_channels);
+  datum->set_height(img_height);
+  datum->set_width(img_width);
+  datum->clear_float_data();
+  datum->set_encoded(false);
+  datum->mutable_data()->reserve(img_size);
+  datum->mutable_data()->resize(img_size);
+  CHECK_EQ(datum->mutable_data()->size(), img_size);
+  char* mut_data = &datum->mutable_data()->at(0);
+  const int datum_hw_stride = img_height * img_width;
+  for (int h = 0; h < img_height; ++h) {
+    const int datum_h_offset = h * img_width;
+    const uchar* row_ptr = cv_img.ptr<uchar>(h);
+    int row_index = 0;
+    for (int w = 0; w < img_width; ++w) {
+      int datum_index = datum_h_offset + w;
+      for (int c = 0; c < img_channels; ++c, datum_index += datum_hw_stride) {
+        mut_data[datum_index] = static_cast<char>(row_ptr[row_index++]);
+      }
+    }
+  }
 }
 #endif  // USE_OPENCV
 }  // namespace caffe

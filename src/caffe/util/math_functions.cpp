@@ -421,6 +421,22 @@ void caffe_rng_uniform(int n, float a, float b, Dtype* r) {
   }
 }
 
+template <>
+void caffe_rng_uniform<int>(int n, float a, float b, int* r) {
+  CHECK_GE(n, 0);
+  CHECK(r);
+  CHECK_LE(a, b);
+  // NOTE: `boost::uniform_int` uses an inclusive (closed) interval.
+  const int lower = static_cast<int>(a);
+  const int upper = static_cast<int>(b);
+  boost::uniform_int<> incl_range(lower, upper);
+  boost::variate_generator<caffe::rng_t*, boost::uniform_int<> >
+       variate_generator(caffe_rng(), incl_range);
+  for (int i = 0; i < n; ++i) {
+    r[i] = variate_generator();
+  }
+}
+
 template
 void caffe_rng_uniform<float>(int n, float a, float b, float* r);
 
