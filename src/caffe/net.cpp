@@ -113,7 +113,10 @@ void Net::Init(const NetParameter& in_param) {
   }
 
 
-  global_grad_scale_ = in_param.global_grad_scale();
+  global_grad_scale_ = 1.F;
+  if (in_param.has_global_grad_scale()) {
+    global_grad_scale_ = in_param.global_grad_scale();
+  }
 
   for (int layer_id = 0; layer_id < param.layer_size(); ++layer_id) {
     // For non-root solvers, whether this layer is shared from root_net_.
@@ -815,11 +818,9 @@ void Net::ReduceAndUpdate() {
         NO_GPU;
 #endif
       } else {
-
         if (global_grad_scale_ != 1.F) {
           this->learnable_params()[param_id]->scale_diff(1.F/global_grad_scale_, handle, true);
         }
-
         solver_->ApplyUpdate(param_id, handle, clear_grads);
         continue;
       }
