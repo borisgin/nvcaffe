@@ -35,14 +35,13 @@
 #  endif
 #  include "caffe/util/device_alternate.hpp"
 #endif
-#include "caffe/util/float16.hpp"
 
 #if defined(CPU_ONLY) && defined(USE_CUDNN)
   #error "USE_CUDNN mode is not compatible with CPU_ONLY"
 #endif
 
+#include "caffe/util/float16.hpp"
 #ifndef CPU_ONLY
-#  include <cuda_fp16.h>
 #  if CUDA_VERSION >= 8000
 #    define CAFFE_DATA_HALF CUDA_R_16F
 #  else
@@ -250,7 +249,7 @@ using boost::upgrade_to_unique_lock;
 #ifndef CPU_ONLY
 // Shared CUDA Stream for correct life cycle management
 class CudaStream {
-  explicit CudaStream(bool nonblocking);
+  explicit CudaStream(bool high_priority);
 
  public:
   ~CudaStream();
@@ -259,6 +258,7 @@ class CudaStream {
     shared_ptr<CudaStream> pstream(new CudaStream(high_priority));
     return pstream;
   }
+
   cudaStream_t get() const {
     return stream_;
   }
@@ -311,9 +311,9 @@ class Caffe {
   class RNG {
    public:
     RNG();
-    explicit RNG(unsigned int seed);
-    explicit RNG(const RNG&);
-    RNG& operator=(const RNG&);
+    explicit RNG(uint64_t seed);
+    RNG(const RNG&);
+    RNG& operator = (const RNG&);
     void* generator();
    private:
     class Generator;
@@ -365,8 +365,14 @@ class Caffe {
   static void set_mode(Brew mode) {
     Get().mode_ = mode;
   }
+  // Next seed. It's deterministic if root seed is already set.
+  static uint64_t next_seed();
   // Sets the random seed of both boost and curand
-  static void set_random_seed(const unsigned int seed);
+  // Uses system generated one if -1 passed
+  static void set_random_seed(uint64_t random_seed = SEED_NOT_SET);
+  // For correct determinism user should set a seed for a root solver
+  // Note: it invokes set_random_seed internally
+  static void set_root_seed(uint64_t random_seed);
   // Sets the root device. Function name remains the same for backward compatibility.
   static void SetDevice(const int device_id);
   static int root_device() {
@@ -384,55 +390,45 @@ class Caffe {
   static void set_solver_count(int val) { Get().solver_count_ = val; }
   static bool root_solver() { return Get().root_solver_; }
   static void set_root_solver(bool val) { Get().root_solver_ = val; }
+  static int restored_iter() { return restored_iter_; }
+  static void set_restored_iter(int val);
 
   static void set_gpus(const std::vector<int>& gpus) {
-    Properties::instance().gpus_ = gpus;
+    props().gpus_ = gpus;
   }
   static const std::vector<int>& gpus() {
-    return Properties::instance().gpus_;
+    return props().gpus_;
   }
   static const std::string& caffe_version() {
-    return Properties::instance().caffe_version();
+    return props().caffe_version();
   }
   static const std::string& cudnn_version() {
-    return Properties::instance().cudnn_version();
+    return props().cudnn_version();
   }
   static const std::string& cublas_version() {
-    return Properties::instance().cublas_version();
+    return props().cublas_version();
   }
   static const std::string& cuda_version() {
-    return Properties::instance().cuda_version();
+    return props().cuda_version();
   }
   static const std::string& cuda_driver_version() {
-    return Properties::instance().cuda_driver_version();
+    return props().cuda_driver_version();
   }
   static std::thread::id main_thread_id() {
-    return Properties::instance().main_thread_id();
+    return props().main_thread_id();
   }
   static bool is_main_thread() {
-    return Properties::instance().main_thread_id() == std::this_thread::get_id();
+    return props().main_thread_id() == std::this_thread::get_id();
   }
   static std::string start_time() {
-    return Properties::instance().start_time();
+    return props().start_time();
   }
   static std::time_t init_time() {
-    return Properties::instance().init_time();
+    return props().init_time();
   }
   static std::string time_from_init();
   static int device_capability(int device) {
-    return Properties::instance().device_capability(device);
-  }
-  static int counter1() {
-    return Properties::instance().counter1();
-  }
-  static int counter2() {
-    return Properties::instance().counter2();
-  }
-  static void incr1() {
-    Properties::instance().incr1();
-  }
-  static void incr2() {
-    Properties::instance().incr2();
+    return props().device_capability(device);
   }
 
   static int current_device() {
@@ -451,6 +447,7 @@ class Caffe {
 
   static constexpr int STREAM_ID_ASYNC_PUSH = 0;
   static constexpr int STREAM_ID_TRANSFORMER = 1;
+  static constexpr uint64_t SEED_NOT_SET = static_cast<uint64_t>(-1);
 
  protected:
 #ifndef CPU_ONLY
@@ -479,8 +476,9 @@ class Caffe {
   // For example, if user runs `caffe train -gpu=1,0,3` then it has to be set to 1.
   static int root_device_;
   static int thread_count_;
-  static shared_mutex caffe_mutex_;
-  static std::mutex mutex_, mutex2_;
+  static int restored_iter_;
+  static std::atomic<uint64_t> root_seed_;
+  static std::mutex props_mutex_, caffe_mutex_, pstream_mutex_, cublas_mutex_, seed_mutex_;
 
  private:
   // The private constructor to avoid duplicate instantiation.
@@ -490,11 +488,8 @@ class Caffe {
 
   // Caffe Properties singleton
   class Properties {
+    friend class Caffe;
    public:
-    static Properties& instance() {
-      static Properties inst;
-      return inst;
-    }
     const std::string& caffe_version() const {
       return caffe_version_;
     }
@@ -523,24 +518,11 @@ class Caffe {
     int device_capability(int device) const {
       return compute_capabilities_[device];
     }
-    int counter1() const {
-      return counter1_.load();
-    }
-    int counter2() const {
-      return counter2_.load();
-    }
-    void incr1() {
-      counter1_.fetch_add(1, std::memory_order_relaxed);
-    }
-    void incr2() {
-      counter2_.fetch_add(1, std::memory_order_relaxed);
-    }
 
     ~Properties();
 
-    std::vector<int> gpus_;
-
    private:
+    std::vector<int> gpus_;
     std::time_t init_time_;
     std::thread::id main_thread_id_;
     std::string caffe_version_;
@@ -549,11 +531,16 @@ class Caffe {
     std::string cuda_version_;
     std::string cuda_driver_version_;
     std::vector<int> compute_capabilities_;
-    std::atomic<int> counter1_, counter2_;
 
     Properties();
     DISABLE_COPY_MOVE_AND_ASSIGN(Properties);
   };
+
+  static Properties& props() {
+    std::lock_guard<std::mutex> lock(props_mutex_);
+    static Properties props;
+    return props;
+  }
 };
 
 // Yet another Event implementation
@@ -771,16 +758,21 @@ CAFFE_UTIL_IHD float max_dtype<float>() {
 #ifndef CPU_ONLY
 template <>
 CAFFE_UTIL_IHD float16 max_dtype<float16>() {
-  return HLF_MAX;
+  float16 ret;
+  // Exponent all ones except LSB (0x1e), mantissa is all ones (0x3ff)
+  ret.setx(0x7bffU);
+  return ret;
 }
 // Largest positive FP16 value, corresponds to 6.5504e+04
+#ifdef __CUDACC__
 template <>
-CAFFE_UTIL_IHD __half max_dtype<__half>() {
-    __half ret;
+CAFFE_UTIL_IHD half max_dtype<half>() {
+    half ret;
     // Exponent all ones except LSB (0x1e), mantissa is all ones (0x3ff)
-    ret.x = 0x7bffU;
+    ret.setx(0x7bffU);
     return ret;
 }
+#endif
 #endif
 
 // Normalized minimums:
@@ -797,16 +789,21 @@ CAFFE_UTIL_IHD float min_dtype<float>() {
 #ifndef CPU_ONLY
 template <>
 CAFFE_UTIL_IHD float16 min_dtype<float16>() {
-  return HLF_MIN;
-}
-// Smallest positive (normalized) FP16 value, corresponds to 6.1035e-05
-template <>
-CAFFE_UTIL_IHD __half min_dtype<__half>() {
-  __half ret;
+  float16 ret;
   // Exponent is 0x01 (5 bits), mantissa is all zeros (10 bits)
-  ret.x = 0x0400U;
+  ret.setx(0x0400U);
   return ret;
 }
+// Smallest positive (normalized) FP16 value, corresponds to 6.1035e-05
+#ifdef __CUDACC__
+template <>
+CAFFE_UTIL_IHD half min_dtype<half>() {
+  half ret;
+  // Exponent is 0x01 (5 bits), mantissa is all zeros (10 bits)
+  ret.setx(0x0400U);
+  return ret;
+}
+#endif
 #endif
 
 template <typename Dtype>
@@ -823,14 +820,18 @@ CAFFE_UTIL_IHD float epsilon_dtype<float>() {
 #ifndef CPU_ONLY
 template <>
 CAFFE_UTIL_IHD float16 epsilon_dtype<float16>() {
-  return HLF_EPSILON;
-}
-template <>
-CAFFE_UTIL_IHD __half epsilon_dtype<__half>() {
-  __half ret;
-  ret.x = 0x1001U;
+  float16 ret;
+  ret.setx(0x1001U);
   return ret;
 }
+#ifdef __CUDACC__
+template <>
+CAFFE_UTIL_IHD half epsilon_dtype<half>() {
+  half ret;
+  ret.setx(0x1001U);
+  return ret;
+}
+#endif
 #endif
 
 template <typename Dtype> constexpr

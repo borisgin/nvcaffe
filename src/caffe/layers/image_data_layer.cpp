@@ -46,8 +46,7 @@ void ImageDataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom,
   if (this->layer_param_.image_data_param().shuffle()) {
     // randomly shuffle data
     LOG(INFO) << "Shuffling data";
-    const unsigned int prefetch_rng_seed = caffe_rng_rand();
-    prefetch_rng_.reset(new Caffe::RNG(prefetch_rng_seed));
+    prefetch_rng_.reset(new Caffe::RNG(caffe_rng_rand()));
     ShuffleImages();
   }
   LOG(INFO) << "A total of " << lines_.size() << " images.";

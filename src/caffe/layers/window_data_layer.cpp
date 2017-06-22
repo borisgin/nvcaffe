@@ -69,8 +69,7 @@ void WindowDataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom,
       this->transform_param_.mirror() ||
       this->transform_param_.crop_size();
   if (prefetch_needs_rand) {
-    const unsigned int prefetch_rng_seed = caffe_rng_rand();
-    prefetch_rng_.reset(new Caffe::RNG(prefetch_rng_seed));
+    prefetch_rng_.reset(new Caffe::RNG(Caffe::next_seed()));
   } else {
     prefetch_rng_.reset();
   }

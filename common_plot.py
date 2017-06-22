@@ -10,7 +10,13 @@ def get_test_accuracy(log, top_k):
     iteration = re.findall(r'Iteration (\d*), Testing net \(#0\)', log)
     accuracy = re.findall(r'Test net output #\d: accuracy/top-{top_k} = (\d*.\d*)'.format(top_k=top_k), log)
     if len(accuracy)==0:
+        accuracy = re.findall(r'Test net output #\d: top-{top_k} = (\d*.\d*)'.format(top_k=top_k), log)
+    if len(accuracy)==0:
         accuracy = re.findall(r'Test net output #\d: loss/top-{top_k} = (\d*.\d*)'.format(top_k=top_k), log)
+    if len(accuracy)==0:
+        accuracy = re.findall(r'Test net output #\d: accuracy/top{top_k} = (\d*.\d*)'.format(top_k=top_k), log)
+    if len(accuracy)==0:
+        accuracy = re.findall(r'Test net output #\d: accuracy = (\d*.\d*)', log)
     iteration = [int(i) for i in iteration]
     accuracy = [float(i) for i in accuracy]
     return iteration, accuracy
@@ -21,6 +27,13 @@ def get_test_loss(log):
     loss = re.findall(r'Test net output #\d: loss = (\d*.\d*)', log)
     if len(loss)==0:
         loss = re.findall(r'Test net output #\d: loss/loss = (\d*.\d*)', log)
+    iteration = [int(i) for i in iteration]
+    loss = [float(i) for i in loss]
+    return iteration, loss
+
+def get_train_loss(log):
+    iteration = re.findall(r'Iteration (\d*), lr = ', log)
+    loss = re.findall(r'Train net output #\d: loss = (\d*.\d*)', log)
     iteration = [int(i) for i in iteration]
     loss = [float(i) for i in loss]
     return iteration, loss
@@ -44,6 +57,10 @@ def parse_files(files, top_k=1, separate=False):
                 data[net_name]["loss"] = {}
                 data[net_name]["loss"]["loss"] = []
                 data[net_name]["loss"]["iteration"] = []
+                data[net_name]["train_loss"] = {}
+                data[net_name]["train_loss"]["loss"] = []
+                data[net_name]["train_loss"]["iteration"] = []
+
             iteration, accuracy = get_test_accuracy(log, top_k)
             data[net_name]["accuracy"]["iteration"].extend(iteration)
             data[net_name]["accuracy"]["accuracy"].extend(accuracy)
@@ -51,6 +68,11 @@ def parse_files(files, top_k=1, separate=False):
             iteration, loss = get_test_loss(log)
             data[net_name]["loss"]["iteration"].extend(iteration)
             data[net_name]["loss"]["loss"].extend(loss)
+
+            iteration, loss = get_train_loss(log)
+            data[net_name]["train_loss"]["iteration"].extend(iteration)
+            data[net_name]["train_loss"]["loss"].extend(loss)
+
     return data
 
 
@@ -172,3 +194,25 @@ def plot_loss(data, value_at_hover=False):
     plt.xlim(0)
     plt.grid()
     return plt
+
+def plot_train_loss(data, value_at_hover=False):
+    nets =  data.keys()
+    colors = iter(cm.rainbow(np.linspace(0, 1, len(nets))))
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    for net in nets:
+        iteration = data[net]["train_loss"]["iteration"]
+        loss = data[net]["train_loss"]["loss"]
+        iteration, loss = (list(t) for t in zip(*sorted(zip(iteration, loss))))
+        ax.scatter(iteration, loss, color=next(colors))
+        if value_at_hover:
+            cursor = FollowDotCursor(ax, iteration, loss)
+
+    plt.legend(nets, loc='upper right')
+    plt.title("Log Loss")
+    plt.xlabel("Iteration")
+    plt.ylabel("Log Loss")
+    plt.xlim(0)
+    plt.grid()
+    return plt
+

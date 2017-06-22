@@ -1,5 +1,4 @@
 #include <string>
-#include <cuda_fp16.h>
 
 #include "caffe/util/gpu_math_functions.cuh"
 #include "caffe/util/math_functions.hpp"
@@ -27,19 +26,17 @@ __global__ void AdaDeltaRegUpdateAllAndClear(int N,
 #pragma clang diagnostic pop
 
 template<>
-__global__ void AdaDeltaRegUpdateAllAndClear<__half, __half>(int N,
-    __half* g, __half *w, __half* h, __half* h2,
+__global__ void AdaDeltaRegUpdateAllAndClear<half, half>(int N,
+    half* g, half *w, half* h, half* h2,
     float momentum, float delta, float local_rate, float local_decay, bool reg_L2,
     bool clear_grads) {
-  __half hz;
-  hz.x = 0;
+  half hz;
   CUDA_KERNEL_LOOP(i, N) {
     float wf = __half2float(w[i]);
     float hf = __half2float(h[i]);
     float h2f = __half2float(h2[i]);
     float gr = __half2float(g[i]);
 
-//    float reg = reg_L2 ? wf : ((hlt(hz, w[i]) ? 1.F : 0.F) - (hlt(w[i], hz) ? 1.F : 0.F));
     float reg = reg_L2 ? wf : float((0.F < wf)-(wf < 0.F));
     gr +=  reg * local_decay;
 
@@ -55,7 +52,6 @@ __global__ void AdaDeltaRegUpdateAllAndClear<__half, __half>(int N,
     g[i] = clear_grads ? hz : float2half_clip(gr);
   }
 }
-
 
 template<typename Gtype, typename Wtype>
 void adadelta_reg_update_and_clear_gpu(int N,
@@ -85,11 +81,11 @@ void adadelta_reg_update_and_clear_gpu<float16, float16>(int N,
   CUBLAS_CHECK(cublasGetStream(cublas_handle, &stream));
   // NOLINT_NEXT_LINE(whitespace/operators)
   AdaDeltaRegUpdateAllAndClear<<<CAFFE_GET_BLOCKS(N), CAFFE_CUDA_NUM_THREADS, 0, stream>>>
-      (N, reinterpret_cast<__half*>(g), reinterpret_cast<__half*>(w),
-          reinterpret_cast<__half*>(h), reinterpret_cast<__half*>(h2),
+      (N, reinterpret_cast<half*>(g), reinterpret_cast<half*>(w),
+          reinterpret_cast<half*>(h), reinterpret_cast<half*>(h2),
           momentum, delta, local_rate, local_decay, reg_type == "L2", clear_grads);
-CUDA_POST_KERNEL_CHECK;
-CUDA_CHECK(cudaStreamSynchronize(stream));
+  CUDA_POST_KERNEL_CHECK;
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
 template void adadelta_reg_update_and_clear_gpu<float16, float>(int, float16*, float*, float*,

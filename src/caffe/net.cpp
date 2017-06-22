@@ -8,6 +8,7 @@
 #include <caffe/util/signal_handler.h>
 
 #include "hdf5.h"
+#include <string.h>
 
 #include "caffe/common.hpp"
 #include "caffe/layer.hpp"
@@ -109,6 +110,12 @@ void Net::Init(const NetParameter& in_param) {
   } else {
     default_bmath = in_param.default_backward_type();
     LOG(INFO) << "Using " << Type_Name(default_bmath) << " as default backward math type";
+  }
+
+
+  global_grad_scale_ = 1.F;
+  if (in_param.has_global_grad_scale()) {
+    global_grad_scale_ = in_param.global_grad_scale();
   }
 
   for (int layer_id = 0; layer_id < param.layer_size(); ++layer_id) {
@@ -729,7 +736,7 @@ void Net::BackwardFromToAu(int start, int end, bool apply_update) {
       continue;
     }
     for (int j = 0; j < layers_[i]->blobs().size(); ++j) {
-      if ((j > 0) && (!layers_[i]->bias_term())) {
+      if (layers_[i]->skip_apply_update(j)) {
         continue;
       }
       int param_id = layer_index_params_[make_pair(i, j)];
@@ -778,7 +785,6 @@ void Net::ReduceAndUpdate() {
   size_t received_count = 0U;
   std::list<int> au_ids;
 #endif
-
   const bool clear_grads = !solver_->param().snapshot_diff();
   while (true) {
     int param_id = reduction_queue_.pop();
@@ -806,6 +812,9 @@ void Net::ReduceAndUpdate() {
         NO_GPU;
 #endif
       } else {
+        if (global_grad_scale_ != 1.F) {
+          this->learnable_params()[param_id]->scale_diff(1.F/global_grad_scale_, handle, true);
+        }
         solver_->ApplyUpdate(param_id, handle, clear_grads);
         continue;
       }
@@ -829,6 +838,9 @@ void Net::ReduceAndUpdate() {
         ReduceBucket(count, dtype, learnable_params_ptrs_[id_from]);
 
         for (int i : au_ids) {
+          if (global_grad_scale_ != 1.F) {
+            this->learnable_params()[i]->scale_diff(1.F/ global_grad_scale_, handle, true);
+          }
           solver_->ApplyUpdate(i, handle, clear_grads);
         }
         au_ids.clear();
@@ -874,9 +886,10 @@ void Net::Reduce(int param_id) {
     }
     solver_->callback()->reduce_barrier();
     solver_->callback()->allreduce(param_id);
+    solver_->callback()->reduce_barrier();
   }
   this->learnable_params()[param_id]->gpu_scale_diff(1.F / Caffe::solver_count(),
-      solver_->callback()->cublas_handle(), false);
+      solver_->callback()->cublas_handle(), true);
   // Also need to barrier to make sure lock isn't undone
   // until all have completed, but the current nature of
   // NCCL makes this unnecessary.
@@ -892,9 +905,10 @@ void Net::ReduceBucket(size_t count, Type bucket_type, void* bucket) {
     }
     solver_->callback()->reduce_barrier();
     solver_->callback()->allreduce_bucket(count, bucket, bucket_type);
+    solver_->callback()->reduce_barrier();
   }
   Tensor::gpu_scal(count, bucket_type, bucket, 1.F / Caffe::solver_count(),
-      solver_->callback()->cublas_handle(), false);
+      solver_->callback()->cublas_handle(), true);
 }
 #endif
 
@@ -1305,7 +1319,6 @@ const shared_ptr<LayerBase> Net::layer_by_name(
 void Net::set_solver(Solver* s) {
   solver_ = s;
   for (auto& layer : layers_) {
-    layer->set_piter(solver_->piter());
     layer->set_parent_net(this);
   }
 }

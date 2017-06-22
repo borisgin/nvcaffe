@@ -1,10 +1,9 @@
 #include <algorithm>
 #include <device_launch_parameters.h>
-#include <math_functions.h>
-#include <cuda_fp16.h>
 
 #include "caffe/layers/softmax_loss_layer.hpp"
 #include "caffe/util/gpu_math_functions.cuh"
+#include "caffe/net.hpp"
 
 namespace caffe {
 
@@ -19,34 +18,34 @@ __global__ void SoftmaxLossForwardGPU(const int nthreads,
     const int s = index % spatial_dim;
     const int label_value = static_cast<int>(label[n * spatial_dim + s]);
     if (has_ignore_label_ && label_value == ignore_label_) {
-      loss[index] = 0.;
-      counts[index] = 0.;
+      loss[index] = 0;
+      counts[index] = 0;
     } else {
       loss[index] = -log(max(prob_data[n * dim + label_value * spatial_dim + s],
           min_dtype<Dtype>()));
-      counts[index] = 1.;
+      counts[index] = 1;
     }
   }
 }
 
 template <>
-__global__ void SoftmaxLossForwardGPU<__half>(const int nthreads,
-    const __half* prob_data, const __half* label, __half* loss,
+__global__ void SoftmaxLossForwardGPU<half>(const int nthreads,
+    const half* prob_data, const half* label, half* loss,
     const int num, const int dim, const int spatial_dim,
     const bool has_ignore_label_, const int ignore_label_,
-    __half* counts) {
+    half* counts) {
   CUDA_KERNEL_LOOP(index, nthreads) {
     const int n = index / spatial_dim;
     const int s = index % spatial_dim;
     const int label_value = static_cast<int>(__half2float(label[n * spatial_dim + s]));
     if (has_ignore_label_ && label_value == ignore_label_) {
-      loss[index].x = 0U;
-      counts[index].x = 0U;
+      loss[index].setx(0U);
+      counts[index].setx(0U);
     } else {
       loss[index] = float2half_clip(- log(max(__half2float(
           prob_data[n * dim + label_value * spatial_dim + s]),
-          __half2float(min_dtype<__half>()))));
-      counts[index].x = 1U;
+          __half2float(min_dtype<half>()))));
+      counts[index].setx(1U);
     }
   }
 }
@@ -74,7 +73,7 @@ void SoftmaxWithLossLayer<Ftype, Btype>::Forward_gpu(
   CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
   Ftype loss;
   caffe_gpu_asum(nthreads, loss_data, &loss);
-  Ftype valid_count = -1.F;
+  Ftype valid_count = -1;
   // Only launch another CUDA kernel if we actually need the count of valid outputs.
   if (normalization_ == LossParameter_NormalizationMode_VALID && has_ignore_label_) {
     caffe_gpu_asum(nthreads, counts, &valid_count);
@@ -99,21 +98,21 @@ __global__ void SoftmaxLossBackwardGPU(const int nthreads, const Dtype* top,
 
     if (has_ignore_label_ && label_value == ignore_label_) {
       for (int c = 0; c < channels; ++c) {
-        bottom_diff[n * dim + c * spatial_dim + s] = 0.F;
+        bottom_diff[n * dim + c * spatial_dim + s] = 0;
       }
-      counts[index] = 0.F;
+      counts[index] = 0;
     } else {
-      bottom_diff[n * dim + label_value * spatial_dim + s] -= 1.F;
-      counts[index] = 1.F;
+      bottom_diff[n * dim + label_value * spatial_dim + s] -= 1;
+      counts[index] = 1;
     }
   }
 }
 
 template <>
-__global__ void SoftmaxLossBackwardGPU<__half>(const int nthreads, const __half* top,
-    const __half* label, __half* bottom_diff, const int num, const int dim,
+__global__ void SoftmaxLossBackwardGPU<half>(const int nthreads, const half* top,
+    const half* label, half* bottom_diff, const int num, const int dim,
     const int spatial_dim, const bool has_ignore_label_,
-    const int ignore_label_, __half* counts) {
+    const int ignore_label_, half* counts) {
   const int channels = dim / spatial_dim;
 
   CUDA_KERNEL_LOOP(index, nthreads) {
@@ -123,13 +122,13 @@ __global__ void SoftmaxLossBackwardGPU<__half>(const int nthreads, const __half*
 
     if (has_ignore_label_ && label_value == ignore_label_) {
       for (int c = 0; c < channels; ++c) {
-        bottom_diff[n * dim + c * spatial_dim + s].x = 0U;
+        bottom_diff[n * dim + c * spatial_dim + s].setx(0U);
       }
-      counts[index].x = 0U;
+      counts[index].setx(0U);
     } else {
       const int idx = n * dim + label_value * spatial_dim + s;
       bottom_diff[idx] = float2half_clip(__half2float(bottom_diff[idx]) - 1.F);
-      counts[index].x = 0x3c00U;  // 1.
+      counts[index].setx(0x3c00U);  // 1.
     }
   }
 }
@@ -143,7 +142,7 @@ void SoftmaxWithLossLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
                << " Layer cannot backpropagate to label inputs.";
   }
   if (propagate_down[0]) {
-    Btype* bottom_diff = bottom[0]->mutable_gpu_diff<Btype>(false);
+    Btype* bottom_diff = bottom[0]->mutable_gpu_diff<Btype>();
     const Btype* prob_data = prob_.template gpu_data<Btype>();
     const Btype* top_data = top[0]->gpu_data<Btype>();
     caffe_gpu_memcpy(prob_.count() * sizeof(Btype), prob_data, bottom_diff);
@@ -152,20 +151,27 @@ void SoftmaxWithLossLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
     const int nthreads = outer_num_ * inner_num_;
     // Since this memory is never used for anything else,
     // we use to to avoid allocating new GPU memory.
-    Btype* counts = prob_.template mutable_gpu_diff<Btype>(false);
+    Btype* counts = prob_.template mutable_gpu_diff<Btype>();
     // NOLINT_NEXT_LINE(whitespace/operators)
     SoftmaxLossBackwardGPU<<<CAFFE_GET_BLOCKS(nthreads),
         CAFFE_CUDA_NUM_THREADS, 0, Caffe::thread_stream()>>>(nthreads, top_data, label, bottom_diff,
         outer_num_, dim, inner_num_, has_ignore_label_, ignore_label_, counts);
     CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
-    Btype valid_count = -1.F;
+    int valid_count = -1;
     // Only launch another CUDA kernel if we actually need the count of valid
     // outputs.
     if (normalization_ == LossParameter_NormalizationMode_VALID && has_ignore_label_) {
-      caffe_gpu_asum(nthreads, counts, &valid_count);
+      Btype float_count;
+      caffe_gpu_asum(nthreads, counts, &float_count);
+      valid_count = int(float_count);
     }
-    const Btype loss_weight = top[0]->cpu_diff<Btype>()[0] /
+    Btype loss_weight = top[0]->cpu_diff<Btype>()[0] /
                               get_normalizer(normalization_, valid_count);
+
+    if (this->parent_net() != NULL) {
+      float global_grad_scale = this->parent_net()->global_grad_scale();
+      loss_weight = loss_weight * global_grad_scale;
+    }
     caffe_gpu_scal(prob_.count(), loss_weight , bottom_diff);
   }
 }

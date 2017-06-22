@@ -1,6 +1,5 @@
 #include <string>
 #include <device_launch_parameters.h>
-#include <cuda_fp16.h>
 
 #include "caffe/util/gpu_math_functions.cuh"
 #include "caffe/util/math_functions.hpp"
@@ -26,12 +25,11 @@ __global__ void RMSPropRegUpdateAllAndClear(int N,
 #pragma clang diagnostic pop
 
 template<>
-__global__ void RMSPropRegUpdateAllAndClear<__half, __half>(int N,
-    __half* g, __half* w, __half* h,
+__global__ void RMSPropRegUpdateAllAndClear<half, half>(int N,
+    half* g, half* w, half* h,
     float rms_decay, float delta, float local_rate, float local_decay, bool reg_L2,
     bool clear_grads) {
-  __half hz;
-  hz.x = 0;
+  half hz;
   CUDA_KERNEL_LOOP(i, N) {
     float wf = __half2float(w[i]);
     float gf = __half2float(g[i]);
@@ -78,7 +76,7 @@ void rmsprop_reg_update_and_clear_gpu<float16, float16>(int N,
   CUBLAS_CHECK(cublasGetStream(cublas_handle, &stream));
   RMSPropRegUpdateAllAndClear  // NOLINT_NEXT_LINE(whitespace/operators)
       <<<CAFFE_GET_BLOCKS(N), CAFFE_CUDA_NUM_THREADS, 0, stream>>>(N,
-        reinterpret_cast<__half*>(g), reinterpret_cast<__half*>(w), reinterpret_cast<__half*>(h),
+        reinterpret_cast<half*>(g), reinterpret_cast<half*>(w), reinterpret_cast<half*>(h),
         rms_decay, delta, local_rate, local_decay, reg_type == "L2", clear_grads);
   CUDA_POST_KERNEL_CHECK;
   CUDA_CHECK(cudaStreamSynchronize(stream));

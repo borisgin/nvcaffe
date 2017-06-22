@@ -65,8 +65,19 @@ void LayerBase::Unlock() {
   }
 }
 
-Solver* LayerBase::parent_solver() {
+const Solver* LayerBase::parent_solver() const {
   return parent_net_ == nullptr ? nullptr : parent_net_->parent_solver();
+}
+
+// Iteration counter maintained by Solver
+int LayerBase::iter() const {
+  const Solver* psolver = parent_solver();
+  return psolver == nullptr ? 0 : psolver->iter();
+}
+
+int LayerBase::relative_iter() const {
+  const Solver* psolver = parent_solver();
+  return psolver == nullptr ? 0 : psolver->relative_iter();
 }
 
 INSTANTIATE_CLASS_FB(Layer);

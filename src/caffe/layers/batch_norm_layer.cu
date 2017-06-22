@@ -27,14 +27,12 @@ BatchNormLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom, const vec
     caffe_copy<Ftype>(C, global_var, var_->template mutable_gpu_data<Ftype>());
     caffe_gpu_add_scalar<Ftype>(C, Ftype(eps_), var_->template mutable_gpu_data<Ftype>());
     caffe_gpu_powx<Ftype>(C, var_->template gpu_data<Ftype>(), Ftype(-0.5F),
-            inv_var_->template mutable_gpu_data<Ftype>());
+        inv_var_->template mutable_gpu_data<Ftype>());
     //  X_norm = (X-EX) * inv_var
     multicast_gpu<Ftype>(N, C, S, inv_var_->template gpu_data<Ftype>(),
-           temp_NCHW_->template mutable_gpu_data<Ftype>());
+        temp_NCHW_->template mutable_gpu_data<Ftype>());
     caffe_gpu_mul<Ftype>(top_size, top_data, temp_NCHW_->template gpu_data<Ftype>(), top_data);
-  } else {
-    // if (this->phase_ == TRAIN)
-
+  } else {  // if (this->phase_ == TRAIN)
     // temp = EX
     compute_mean_per_channel_gpu<Ftype>(N, C, S, bottom_data,
         mean_->template mutable_gpu_data<Ftype>());
@@ -91,6 +89,7 @@ BatchNormLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom, const vec
         top_data);
   }
 }
+
 
 template<typename Ftype, typename Btype>
 void BatchNormLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
@@ -155,6 +154,7 @@ void BatchNormLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
      temp_NCHW_->template mutable_gpu_data<Btype>());
   caffe_gpu_mul<Btype>(top_size, bottom_diff, temp_NCHW_->template gpu_data<Btype>(), bottom_diff);
 }
+
 
 INSTANTIATE_LAYER_GPU_FUNCS_FB(BatchNormLayer);
 

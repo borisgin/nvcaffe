@@ -79,7 +79,7 @@ void AccuracyLayer<Ftype, Btype>::Forward_cpu(const vector<Blob*>& bottom,
       // check if true label is in top k predictions
       for (int k = 0; k < top_k_; k++) {
         if (bottom_data_vector[k].second == label_value) {
-          accuracy += 1.;
+          accuracy += 1.F;
           if (top.size() > 1) {
             Ftype* top_label = top[1]->mutable_cpu_data<Ftype>();
             top_label[label_value] = top_label[label_value] + 1.;
@@ -91,7 +91,7 @@ void AccuracyLayer<Ftype, Btype>::Forward_cpu(const vector<Blob*>& bottom,
     }
   }
 
-  top[0]->mutable_cpu_data<Ftype>()[0] = accuracy / (float) count;
+  top[0]->mutable_cpu_data<Ftype>()[0] = accuracy / count;
   if (top.size() > 1) {
     for (int i = 0; i < top[1]->count(); ++i) {
       const float num = nums_buffer_.cpu_data()[i];
@@ -100,10 +100,6 @@ void AccuracyLayer<Ftype, Btype>::Forward_cpu(const vector<Blob*>& bottom,
     }
   }
   // Accuracy layer should not be used as a loss function.
-
-  // convert diff to Btype
-  bottom[0]->mutable_cpu_diff<Btype>(false);
-  bottom[0]->set_diff(0.F);
 }
 
 

@@ -17,9 +17,6 @@ void CuDNNDropoutLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bottom,
   CUDNN_CHECK(cudnnDropoutGetStatesSize(Caffe::cudnn_handle(), &state_size_));
   states_.reserve(state_size_);
 
-  int seed = this->layer_param_.dropout_param().random_seed();
-  seed_ = seed < 0 ? caffe_rng_rand() : seed;
-
   // setup dropout descriptor
   CUDNN_CHECK(cudnnSetDropoutDescriptor(dropout_desc_,
                                         Caffe::cudnn_handle(),
