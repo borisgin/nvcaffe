@@ -314,8 +314,7 @@ void SGDSolver<Dtype>::RestoreSolverStateFromBinaryProto(const string& state_fil
   SolverState state;
   ReadProtoFromBinaryFile(state_file, &state);
   this->iter_ = state.iter();
-  this->iterations_restored_ = this->iter_;
-  this->iterations_last_ = -1;  // for correct benchmarking
+  Caffe::set_restored_iter(this->iter_);
   if (state.has_learned_net()) {
     NetParameter net_param;
     ReadNetParamsFromBinaryFileOrDie(state.learned_net().c_str(), &net_param);
@@ -334,8 +333,7 @@ void SGDSolver<Dtype>::RestoreSolverStateFromHDF5(const string& state_file) {
   hid_t file_hid = H5Fopen(state_file.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
   CHECK_GE(file_hid, 0) << "Couldn't open solver state file " << state_file;
   this->iter_ = hdf5_load_int(file_hid, "iter");
-  this->iterations_restored_ = this->iter_;
-  this->iterations_last_ = -1;  // for correct benchmarking
+  Caffe::set_restored_iter(this->iter_);
   if (H5LTfind_dataset(file_hid, "learned_net")) {
     string learned_net = hdf5_load_string(file_hid, "learned_net");
     this->net_->CopyTrainedLayersFrom(learned_net);

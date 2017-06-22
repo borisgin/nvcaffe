@@ -240,13 +240,15 @@ void Solver::Step(int iters) {
 
     // Just started or restored?
     const bool first_loop = iter_ == 0 || iterations_last_ < 0;
-    if (first_loop) {
+    if (iter_ == 0) {
       if (TestAll(1, use_multi_gpu_testing)) {
         break;
       }
       callback_soft_barrier();
       LOG_IF(INFO, Caffe::root_solver()) << mgpu_str << "Initial Test completed";
-    } else if (param_.test_interval() && iter_ % param_.test_interval() == 0) {
+    } else if (param_.test_interval()
+        && iter_ % param_.test_interval() == 0
+        && iterations_last_ >= 0) {
       test_timer_.Start();
       if (TestAll(0, use_multi_gpu_testing)) {
         break;
@@ -372,15 +374,20 @@ void Solver::Reduce(int device, Caffe::Brew mode, uint64_t random_seed,
 }
 
 bool Solver::Solve(const char* resume_file) {
-  callback_soft_barrier();
   LOG(INFO) << "Solving " << net_->name();
   LOG(INFO) << "Learning Rate Policy: " << param_.lr_policy();
   // Initialize to false every time we start solving.
   requested_early_exit_ = false;
 
-  if (resume_file) {
+  if (resume_file != nullptr) {
     LOG(INFO) << "Restoring previous solver status from " << resume_file;
     Restore(resume_file);
+  }
+  callback_soft_barrier();
+  if (Caffe::restored_iter() != -1) {
+    iter_ = Caffe::restored_iter();
+    iterations_restored_ = iter_;  // for correct benchmarking
+    iterations_last_ = -1;
   }
 
   // For a network that is trained by the solver, no bottom or top vecs
@@ -395,6 +402,9 @@ bool Solver::Solve(const char* resume_file) {
       Snapshot();
     }
   }
+  Caffe::set_restored_iter(-1);
+  iterations_restored_ = 0;
+  iterations_last_ = 0;
   if (requested_early_exit_) {
     LOG(INFO) << "Optimization stopped early.";
     return true;
@@ -484,9 +494,9 @@ bool Solver::Test(const int test_net_id, const int iters, bool use_multi_gpu) {
       }
     }
   }
-  callback_soft_barrier();
 
   if (use_multi_gpu) {
+    callback_soft_barrier();
     // now we've done, transfer results
     for (int i = 0; i < root_callbacks_.size(); ++i) {
       root_callbacks_[i]->saveTestResults(loss, test_score);
