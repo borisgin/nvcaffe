@@ -273,7 +273,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
     // do reshape which also initializes cached descriptors.
     use_reshape_ = true;
   }
-  if ((this->iter() == 3 || (this->iter() > 3 && use_reshape_))
+  if ((this->relative_iter() == 3 || (this->relative_iter() > 3 && use_reshape_))
       && this->phase_ == TRAIN
       && mem_req_all_grps_ > 0UL
       && workspace_.size() > PAGE_SIZE * 2UL
@@ -372,7 +372,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
 
   // Ask cuDNN to find the best algorithm
   // When batch is small and every image is different we don't want to call Find* over and over
-  if (use_algo_seeker_ && this->iter() <= 2) {
+  if (use_algo_seeker_ && this->relative_iter() <= 2) {
     // FindEx: A workspace of size workspace_bytes is allocated for FindEx.
     //         Besides, workspace, a buffer is allocated for the output of
     //         FindEx-backward-filter. The size of buffer is as big as weights.
@@ -392,8 +392,6 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
       }
       for (int i = 0; i < bottom.size(); ++i) {
         top[i]->allocate_data();
-        top[i]->allocate_diff();
-        bottom[i]->allocate_data();
         bottom[i]->allocate_diff();
       }
       workspace_bytes = ComputeFindExWorkspaceSize();

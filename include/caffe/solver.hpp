@@ -42,10 +42,8 @@ typedef boost::function<SolverAction::Enum()> ActionCallback;
  */
 class Solver {
  public:
-  explicit Solver(const SolverParameter& param,
-      size_t rank, const Solver* root_solver = NULL);
-  explicit Solver(const string& param_file,
-      size_t rank, const Solver* root_solver = NULL);
+  explicit Solver(const SolverParameter& param, size_t rank, const Solver* root_solver = NULL);
+  explicit Solver(const string& param_file, size_t rank, const Solver* root_solver = NULL);
   void Init();
   void InitTrainNet();
   void InitTestNets();
@@ -74,7 +72,7 @@ class Solver {
   shared_ptr<Net> net() { return net_; }
   const vector<shared_ptr<Net>>& test_nets() { return test_nets_; }
   int iter() const { return iter_; }
-  const int* piter() const { return &iter_; }
+  int relative_iter() const { return iter_ - (iterations_last_ > 0 ? iterations_last_ : 0); }
   float total_lapse() const { return total_lapse_; }
   bool is_root() const { return rank_ == 0; }
   float perf_report(std::ostream& os, int device, int align = 0) const;

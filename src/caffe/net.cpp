@@ -736,15 +736,9 @@ void Net::BackwardFromToAu(int start, int end, bool apply_update) {
       continue;
     }
     for (int j = 0; j < layers_[i]->blobs().size(); ++j) {
-      // TODO: delegate to layer layer->SkipUpdate(j) : true/false default false
-      if (strcmp(layers_[i]->type(), "BatchNorm") == 0 )  {
-        if ( j < 3 ) {
-//          LOG(INFO) << " ----- " << layers_[i]->name() << " " << layers_[i]->type() << " " << j;
-          continue;
-        }
+      if (layers_[i]->skip_apply_update(j)) {
+        continue;
       }
-//      LOG(INFO) << " + " << layers_[i]->name() << " " << layers_[i]->type() << " " << j;
-
       int param_id = layer_index_params_[make_pair(i, j)];
       if (param_owners_[param_id] < 0) {
         reduction_queue_.push(learnable_param_ids_[param_id]);
@@ -1325,7 +1319,6 @@ const shared_ptr<LayerBase> Net::layer_by_name(
 void Net::set_solver(Solver* s) {
   solver_ = s;
   for (auto& layer : layers_) {
-    layer->set_piter(solver_->piter());
     layer->set_parent_net(this);
   }
 }

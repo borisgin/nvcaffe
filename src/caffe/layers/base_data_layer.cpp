@@ -83,7 +83,7 @@ void BasePrefetchingDataLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bot
   bottom_init_ = bottom;
   top_init_ = top;
   BaseDataLayer<Ftype, Btype>::LayerSetUp(bottom, top);
-  Solver* psolver = this->parent_solver();
+  const Solver* psolver = this->parent_solver();
   const uint64_t random_seed = (psolver == nullptr ||
       static_cast<uint64_t>(psolver->param().random_seed()) == Caffe::SEED_NOT_SET) ?
           Caffe::next_seed() : static_cast<uint64_t>(psolver->param().random_seed());
@@ -238,14 +238,14 @@ void BasePrefetchingDataLayer<Ftype, Btype>::Forward_cpu(const vector<Blob*>& bo
   // Note: this function runs in one thread per object and one object per one Solver thread
   shared_ptr<Batch<Ftype>> batch = prefetches_full_[next_batch_queue_]->pop(
       "Data layer prefetch queue empty");
-  if (this->iter() > 1 && top[0]->data_type() == batch->data_.data_type()
+  if (this->relative_iter() > 1 && top[0]->data_type() == batch->data_.data_type()
       && top[0]->shape() == batch->data_.shape()) {
     top[0]->Swap(batch->data_);
   } else {
     top[0]->CopyDataFrom(batch->data_, true);
   }
   if (this->output_labels_) {
-    if (this->iter() > 1 && top[1]->data_type() == batch->label_.data_type()
+    if (this->relative_iter() > 1 && top[1]->data_type() == batch->label_.data_type()
         && top[1]->shape() == batch->label_.shape()) {
       top[1]->Swap(batch->label_);
     } else {

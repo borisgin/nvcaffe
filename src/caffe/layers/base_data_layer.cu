@@ -11,14 +11,14 @@ void BasePrefetchingDataLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bo
   shared_ptr<Batch<Ftype>> batch =
       prefetches_full_[next_batch_queue_]->pop("Data layer prefetch queue empty");
   Blob& transformed_blob = is_gpu_transform() ? *batch->gpu_transformed_data_ : batch->data_;
-  if (this->iter() > 1 && top[0]->data_type() == transformed_blob.data_type()
+  if (this->relative_iter() > 1 && top[0]->data_type() == transformed_blob.data_type()
       && top[0]->shape() == transformed_blob.shape()) {
     top[0]->Swap(transformed_blob);
   } else {
     top[0]->CopyDataFrom(transformed_blob, true);
   }
   if (this->output_labels_) {
-    if (this->iter() > 1 && top[1]->data_type() == batch->label_.data_type()
+    if (this->relative_iter() > 1 && top[1]->data_type() == batch->label_.data_type()
         && top[1]->shape() == batch->label_.shape()) {
       top[1]->Swap(batch->label_);
     } else {

@@ -95,9 +95,7 @@ CuDNNBatchNormLayer<Ftype, Btype>::Reshape(const vector<Blob*>& bottom, const ve
     }
   }
 #ifndef CPU_ONLY
-  bottom[0]->allocate_data();
   bottom[0]->allocate_diff();
-  top[0]->allocate_diff();
 #endif
 }
 
