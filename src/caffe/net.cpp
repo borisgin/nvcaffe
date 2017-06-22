@@ -112,6 +112,9 @@ void Net::Init(const NetParameter& in_param) {
     LOG(INFO) << "Using " << Type_Name(default_bmath) << " as default backward math type";
   }
 
+
+  global_grad_scale_ = in_param.global_grad_scale();
+
   for (int layer_id = 0; layer_id < param.layer_size(); ++layer_id) {
     // For non-root solvers, whether this layer is shared from root_net_.
     bool share_from_root = !Caffe::root_solver()
@@ -812,6 +815,11 @@ void Net::ReduceAndUpdate() {
         NO_GPU;
 #endif
       } else {
+
+        if (global_grad_scale_ != 1.F) {
+          this->learnable_params()[param_id]->scale_diff(1.F/global_grad_scale_, handle, true);
+        }
+
         solver_->ApplyUpdate(param_id, handle, clear_grads);
         continue;
       }
@@ -835,6 +843,9 @@ void Net::ReduceAndUpdate() {
         ReduceBucket(count, dtype, learnable_params_ptrs_[id_from]);
 
         for (int i : au_ids) {
+          if ( global_grad_scale_ != 1.F) {
+            this->learnable_params()[i]->scale_diff(1.F/ global_grad_scale_, handle, true);
+          }
           solver_->ApplyUpdate(i, handle, clear_grads);
         }
         au_ids.clear();

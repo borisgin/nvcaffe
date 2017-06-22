@@ -5,6 +5,7 @@
 #endif
 #include "caffe/layers/softmax_loss_layer.hpp"
 #include "caffe/util/math_functions.hpp"
+#include "caffe/net.hpp"
 
 namespace caffe {
 
@@ -147,6 +148,10 @@ void SoftmaxWithLossLayer<Ftype, Btype>::Backward_cpu(const vector<Blob*>& top,
     }
     // Scale gradient
     Btype loss_weight = top[0]->cpu_diff<Btype>()[0] / get_normalizer(normalization_, count);
+
+    float fp16_global_grad_scale = this->parent_net()->global_grad_scale();
+    loss_weight = loss_weight * fp16_global_grad_scale;
+
     caffe_scal(prob_.count(), loss_weight, bottom_diff);
   }
 }

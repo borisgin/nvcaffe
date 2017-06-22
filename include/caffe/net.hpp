@@ -260,6 +260,10 @@ class Net {
     }
   }
 
+  float global_grad_scale() {
+    return global_grad_scale_;
+  }
+
 
  protected:
   // Helpers for Init.
@@ -373,6 +377,8 @@ class Net {
   Flag* solver_iter0_flag_;
   vector<Flag*> layer_inititialized_flags_;
   NetParameter net_param_;
+
+  float global_grad_scale_;
 
   static constexpr int END_OF_ITERATION = -1;
   static constexpr int END_OF_BATCH = -2;

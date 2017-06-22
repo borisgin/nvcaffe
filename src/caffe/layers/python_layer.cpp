@@ -1,3 +1,4 @@
+#ifdef WITH_PYTHON_LAYER
 #include "caffe/layers/python_layer.hpp"
 
 namespace caffe {
@@ -53,3 +54,4 @@ void PyErrReportAndForward() {
 }
 
 }
+#endif

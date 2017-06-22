@@ -3,6 +3,7 @@
 
 #include "caffe/layers/softmax_loss_layer.hpp"
 #include "caffe/util/gpu_math_functions.cuh"
+#include "caffe/net.hpp"
 
 namespace caffe {
 
@@ -156,14 +157,20 @@ void SoftmaxWithLossLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
         CAFFE_CUDA_NUM_THREADS, 0, Caffe::thread_stream()>>>(nthreads, top_data, label, bottom_diff,
         outer_num_, dim, inner_num_, has_ignore_label_, ignore_label_, counts);
     CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
-    Btype valid_count = -1;
+    int valid_count = -1;
     // Only launch another CUDA kernel if we actually need the count of valid
     // outputs.
     if (normalization_ == LossParameter_NormalizationMode_VALID && has_ignore_label_) {
-      caffe_gpu_asum(nthreads, counts, &valid_count);
+      Btype float_count;
+      caffe_gpu_asum(nthreads, counts, &float_count);
+      valid_count = int(float_count);
     }
-    const Btype loss_weight = top[0]->cpu_diff<Btype>()[0] /
+    Btype loss_weight = top[0]->cpu_diff<Btype>()[0] /
                               get_normalizer(normalization_, valid_count);
+
+    float global_grad_scale = this->parent_net()->global_grad_scale();
+    loss_weight = loss_weight * global_grad_scale;
+
     caffe_gpu_scal(prob_.count(), loss_weight , bottom_diff);
   }
 }

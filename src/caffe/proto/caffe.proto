@@ -125,6 +125,10 @@ message NetParameter {
   optional Type default_backward_type = 12 [default = FLOAT];
   optional Type default_forward_math  = 13 [default = FLOAT];
   optional Type default_backward_math = 14 [default = FLOAT];
+  
+  
+  optional float global_grad_scale = 15 [default = 1.];
+
 
   // Sets default "conv_algos_override" value for every convolution layer
   optional string default_conv_algos_override = 17 [default = "-1,-1,-1"];
