@@ -168,7 +168,7 @@ void SoftmaxWithLossLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
     Btype loss_weight = top[0]->cpu_diff<Btype>()[0] /
                               get_normalizer(normalization_, valid_count);
 
-    if (this->parent_net()!=NULL) {
+    if (this->parent_net() != NULL) {
       float global_grad_scale = this->parent_net()->global_grad_scale();
       loss_weight = loss_weight * global_grad_scale;
     }

@@ -838,7 +838,7 @@ void Net::ReduceAndUpdate() {
         ReduceBucket(count, dtype, learnable_params_ptrs_[id_from]);
 
         for (int i : au_ids) {
-          if ( global_grad_scale_ != 1.F) {
+          if (global_grad_scale_ != 1.F) {
             this->learnable_params()[i]->scale_diff(1.F/ global_grad_scale_, handle, true);
           }
           solver_->ApplyUpdate(i, handle, clear_grads);
