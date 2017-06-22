@@ -738,7 +738,7 @@ void Net::BackwardFromToAu(int start, int end, bool apply_update) {
     for (int j = 0; j < layers_[i]->blobs().size(); ++j) {
       // TODO: delegate to layer layer->SkipUpdate(j) : true/false default false
       if (strcmp(layers_[i]->type(), "BatchNorm") == 0 )  {
-        if ( (j == 0) || (j == 1) || (j==4)  ) {
+        if ( j < 3 ) {
 //          LOG(INFO) << " ----- " << layers_[i]->name() << " " << layers_[i]->type() << " " << j;
           continue;
         }
