@@ -1,5 +1,3 @@
-#include <cuda_fp16.h>
-#include <math_functions.h>  // CUDA's, not caffe's, for fabs, signbit
 #include <algorithm>
 #include <device_launch_parameters.h>
 
@@ -278,10 +276,10 @@ __global__ void popcll_kernel(const int n, const double* a,
   }
 }
 
-__global__ void popch_kernel(const int n, const __half* a,
-    const __half* b, uint8_t* y) {
+__global__ void popch_kernel(const int n, const half* a,
+    const half* b, uint8_t* y) {
   CUDA_KERNEL_LOOP(index, n) {
-    y[index] = __popc(a[index].x ^ b[index].x);
+    y[index] = __popc(a[index].x() ^ b[index].x());
   }
 }
 
@@ -294,14 +292,14 @@ void convert_kernel(const unsigned int n, const T* in, TR* out) {
 }
 template<>
 __global__
-void convert_kernel(const unsigned int n, const __half2* in, float2* out) {
+void convert_kernel(const unsigned int n, const half2* in, float2* out) {
   CUDA_KERNEL_LOOP(i, n) {
     out[i] = __half22float2(in[i]);
   }
 }
 template<>
 __global__
-void convert_kernel(const unsigned int n, const float2* in, __half2* out) {
+void convert_kernel(const unsigned int n, const float2* in, half2* out) {
   CUDA_KERNEL_LOOP(i, n) {
     out[i] = float22half2_clip(in[i]);
   }
@@ -323,7 +321,7 @@ void caffe_gpu_convert<float, float16>(const unsigned int n,
   const unsigned int n2 = even(n) / 2;
   // NOLINT_NEXT_LINE(whitespace/operators)
   convert_kernel<<<CAFFE_GET_BLOCKS_HALF(n2), CAFFE_CUDA_NUM_THREADS_HALF, 0, stream>>>
-      (n2, reinterpret_cast<const float2*>(in), reinterpret_cast<__half2*>(out));
+      (n2, reinterpret_cast<const float2*>(in), reinterpret_cast<half2*>(out));
   CUDA_POST_KERNEL_CHECK;
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }
@@ -335,7 +333,7 @@ void caffe_gpu_convert<float16, float>(const unsigned int n,
   const unsigned int n2 = even(n) / 2;
   // NOLINT_NEXT_LINE(whitespace/operators)
   convert_kernel<<<CAFFE_GET_BLOCKS_HALF(n2), CAFFE_CUDA_NUM_THREADS_HALF, 0, stream>>>
-      (n2, reinterpret_cast<const __half2*>(in), reinterpret_cast<float2*>(out));
+      (n2, reinterpret_cast<const half2*>(in), reinterpret_cast<float2*>(out));
   CUDA_POST_KERNEL_CHECK;
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }

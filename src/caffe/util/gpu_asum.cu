@@ -1,4 +1,3 @@
-#include <cuda_fp16.h>
 #include <device_launch_parameters.h>
 
 #include "caffe/common.hpp"
@@ -62,7 +61,7 @@ unsigned int* asum_blocks_count_ptr<double>() {
 }
 template<>
 __device__ __inline__
-unsigned int* asum_blocks_count_ptr<__half2>() {
+unsigned int* asum_blocks_count_ptr<half2>() {
   return &asum_blocks_count_h;
 }
 
@@ -79,7 +78,7 @@ cudaError_t set_asum_blocks_count<double>(unsigned int cnt) {
       cudaMemcpyHostToDevice, Caffe::thread_stream());
 }
 template<>
-cudaError_t set_asum_blocks_count<__half2>(unsigned int cnt) {
+cudaError_t set_asum_blocks_count<half2>(unsigned int cnt) {
   return cudaMemcpyToSymbolAsync(asum_blocks_count_h, &cnt, sizeof(unsigned int), 0,
       cudaMemcpyHostToDevice, Caffe::thread_stream());
 }
@@ -98,7 +97,7 @@ void reset_asum_blocks_count<double>() {
 }
 template<>
 __device__ __inline__
-void reset_asum_blocks_count<__half2>() {
+void reset_asum_blocks_count<half2>() {
   asum_blocks_count_h = 0;
 }
 
@@ -202,12 +201,6 @@ void gpu_asum_t(const int n, const T* x, TR* sum) {
   *sum = dev_ptr_sum[0];
 }
 
-template<typename Dtype, typename Mtype>
-void caffe_gpu_asum(const int n, const Dtype* x, Mtype* sum) {
-  static cudaError_t status = set_asum_blocks_count<Dtype>(0U);  // needed just 1 time
-  CUDA_CHECK(status);
-  gpu_asum_t(n, x, sum);
-}
 template<>
 void caffe_gpu_asum<float16, float>(const int n, const float16* x, float* sum) {
   // For odd counts we allocate extra element to speed up kernels.
@@ -217,9 +210,9 @@ void caffe_gpu_asum<float16, float>(const int n, const float16* x, float* sum) {
     clean_last_element(const_cast<float16*>(x) + n, stream);
   }
   const int n2 = even(n) / 2;
-  static cudaError_t status = set_asum_blocks_count<__half2>(0U);  // needed just 1 time
+  static cudaError_t status = set_asum_blocks_count<half2>(0U);  // needed just 1 time
   CUDA_CHECK(status);
-  gpu_asum_t(n2, reinterpret_cast<const __half2*>(x), sum);
+  gpu_asum_t(n2, reinterpret_cast<const half2*>(x), sum);
 }
 template<>
 void caffe_gpu_asum<float16, double>(const int n, const float16* x, double* sum) {

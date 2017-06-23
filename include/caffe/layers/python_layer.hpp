@@ -34,11 +34,9 @@ DISABLE_COPY_MOVE_AND_ASSIGN(PyGILRelease);
 
 namespace caffe {
 
-inline void PyErrReport() {
-  PyErr_Print();
-  std::cerr << std::endl;
-  LOG(FATAL) << "Python error";
-}
+void PyErrFatal();
+void PyErrReportAndForward();
+
 
 #define PYTHON_CALL_BEGIN  \
 {                          \
@@ -58,19 +56,31 @@ class PythonLayer : public Layer<Ftype, Btype> {
       : Layer<Ftype, Btype>(param), self_(bp::handle<>(bp::borrowed(self))) {}
 
   void LayerSetUp(const vector<Blob*>& bottom, const vector<Blob*>& top) override {
-    std::lock_guard<std::mutex> lock(mutex());
-    PYTHON_CALL_BEGIN
-    self_.attr("param_str") = bp::str(this->layer_param_.python_param().param_str());
-    self_.attr("phase") = static_cast<int>(this->phase_);
-    self_.attr("setup")(bottom, top);
-    PYTHON_CALL_END
+    try {
+      std::lock_guard<std::mutex> lock(mutex());
+      PYTHON_CALL_BEGIN
+      self_.attr("param_str") = bp::str(this->layer_param_.python_param().param_str());
+      self_.attr("phase") = static_cast<int>(this->phase_);
+      self_.attr("setup")(bottom, top);
+      PYTHON_CALL_END
+    } catch (const bp::error_already_set&) {
+      PyErrReportAndForward();
+    } catch (...) {
+      PyErrFatal();
+    }
   }
 
   void Reshape(const vector<Blob*>& bottom, const vector<Blob*>& top) override {
-    std::lock_guard<std::mutex> lock(mutex());
-    PYTHON_CALL_BEGIN
-    self_.attr("reshape")(bottom, top);
-    PYTHON_CALL_END
+    try {
+      std::lock_guard<std::mutex> lock(mutex());
+      PYTHON_CALL_BEGIN
+      self_.attr("reshape")(bottom, top);
+      PYTHON_CALL_END
+    } catch (const bp::error_already_set&) {
+      PyErrReportAndForward();
+    } catch (...) {
+      PyErrFatal();
+    }
   }
 
   inline bool ShareInParallel() const override {
@@ -85,18 +95,30 @@ class PythonLayer : public Layer<Ftype, Btype> {
 
  protected:
   void Forward_cpu(const vector<Blob*>& bottom, const vector<Blob*>& top) override {
-    std::lock_guard<std::mutex> lock(mutex());
-    PYTHON_CALL_BEGIN
-    self_.attr("forward")(bottom, top);
-    PYTHON_CALL_END
+    try {
+      std::lock_guard<std::mutex> lock(mutex());
+      PYTHON_CALL_BEGIN
+      self_.attr("forward")(bottom, top);
+      PYTHON_CALL_END
+    } catch (const bp::error_already_set&) {
+      PyErrReportAndForward();
+    } catch (...) {
+      PyErrFatal();
+    }
   }
 
   void Backward_cpu(const vector<Blob*>& top,
       const vector<bool>& propagate_down, const vector<Blob*>& bottom) override {
-    std::lock_guard<std::mutex> lock(mutex());
-    PYTHON_CALL_BEGIN
-    self_.attr("backward")(top, propagate_down, bottom);
-    PYTHON_CALL_END
+    try {
+      std::lock_guard<std::mutex> lock(mutex());
+      PYTHON_CALL_BEGIN
+      self_.attr("backward")(top, propagate_down, bottom);
+      PYTHON_CALL_END
+    } catch (const bp::error_already_set&) {
+      PyErrReportAndForward();
+    } catch (...) {
+      PyErrFatal();
+    }
   }
 
  private:

@@ -1,35 +1,43 @@
 #ifndef INCLUDE_CAFFE_GPU_MATH_FUNCTIONS_H_
 #define INCLUDE_CAFFE_GPU_MATH_FUNCTIONS_H_
 
+#include <cuda.h>
 #include <cuda_fp16.h>
 #include <math_functions.h>
+#include <driver_types.h>
 
-__device__ __inline__ __half inf_clip(__half h) {
+#include "caffe/util/half.cuh"
+
+__device__ __inline__ half inf_clip(half h) {
   const int isi = __hisinf(h);
   if (isi > 0) {
     // Exponent all ones except LSB (0x1e), mantissa is all ones (0x3ff)
-    h.x = 0x7bffU;
+    h.setx(0x7bffU);
   } else if (isi < 0) {
     // As above, negated
-    h.x = 0x7bffU ^ 0x8000U;
+    h.setx(0x7bffU ^ 0x8000U);
   }
   return h;
 }
 
-__device__ __inline__ __half float2half_clip(float a) {
-  __half h;
-  h.x = __float2half_rn(a);
+__device__ __inline__ half float2half_clip(float a) {
+#ifdef OLD_CUDA_HALF_IMPL
+  half h;
+  h.setx(__float2half_rn(a));
   return inf_clip(h);
+#else
+  return inf_clip(__float2half_rn(a));
+#endif
 }
 
 __device__ __inline__
-__half2 float22half2_clip(float2 a) {
-  __half2 h = __float22half2_rn(a);
+half2 float22half2_clip(float2 a) {
+  half2 h = __float22half2_rn(a);
   return __halves2half2(inf_clip(__low2half(h)), inf_clip(__high2half(h)));
 }
 
 __device__ __inline__
-bool hlt(__half a, __half b) {
+bool hlt(half a, half b) {
 #if __CUDA_ARCH__ >= 530
 return __hlt(a, b);
 #else
@@ -38,7 +46,7 @@ return __half2float(a) < __half2float(b);
 }
 
 __device__ __inline__
-__half2 hmul2(__half2 a, __half2 b) {
+half2 hmul2(half2 a, half2 b) {
 #if __CUDA_ARCH__ >= 530
   return __hmul2(a, b);
 #else
@@ -53,7 +61,7 @@ __half2 hmul2(__half2 a, __half2 b) {
 }
 
 __device__ __inline__
-__half2 hge2(__half2 a, __half2 b) {
+half2 hge2(half2 a, half2 b) {
 #if __CUDA_ARCH__ >= 530
   return __hge2(a, b);
 #else
@@ -68,7 +76,7 @@ __half2 hge2(__half2 a, __half2 b) {
 }
 
 __device__ __inline__
-__half2 hadd2(__half2 a, __half2 b) {
+half2 hadd2(half2 a, half2 b) {
 #if __CUDA_ARCH__ >= 530
   return __hadd2(a, b);
 #else
@@ -83,45 +91,50 @@ __half2 hadd2(__half2 a, __half2 b) {
 }
 
 __device__ __inline__
-__half h_abs(__half a) {
-  a.x &= 0x7FFF;
+half h_abs(half a) {
+  a.setx(a.x() & 0x7FFF);
   return a;
 }
 
 __device__ __inline__
-__half2 h2_abs(__half2 a) {
+half2 h2_abs(half2 a) {
+#ifdef OLD_CUDA_HALF_IMPL
   a.x &= 0x7FFF7FFFU;
+#else
+  a.set_lo(h_abs(a.lo()));
+  a.set_hi(h_abs(a.hi()));
+#endif
   return a;
 }
 
 // a <- max(a,b)
 __device__ __inline__
-void h2_max_replace(volatile __half2 *a, __half2 b) {
-  __half2 cmp = hge2(*a, b);         // 00 01 10 11
-  bool al = (cmp.x & 0xffffU) != 0;  // true: a.low >= b.low
-  bool ah = (cmp.x >> 16) != 0;      // true: a.high >= b.high
+void h2_max_replace(volatile half2 *a, half2 b) {
+  half2 cmp = hge2(*const_cast<half2*>(a), b);  // 00 01 10 11
+  bool al = cmp.lo();                // true: a.low >= b.low
+  bool ah = cmp.hi();               // true: a.high >= b.high
   if (al) {
     if (ah) {
       // (a.low,a.high)
     } else {
       // (a.low,b.high)
-      a->x = (a->x & 0xffffU) + (b.x & 0xffff0000U);
+      const_cast<half2*>(a)->set_hi(b.hi());
     }
   } else {
     if (ah) {
       // (b.low,a.high)
-      a->x = (b.x & 0xffffU) + (a->x & 0xffff0000U);
+      const_cast<half2*>(a)->set_lo(b.lo());
     } else {
       // (b.low,b.high)
-      a->x = b.x;
+      *const_cast<half2*>(a) = b;
     }
   }
 }
 
 // <- max(a,b)
 __device__ __inline__
-__half2 h2_max(__half2 a, __half2 b) {
-  __half2 m = a;
+half2 h2_max(half2 a, half2 b) {
+  half2 m = a;
   h2_max_replace(&m, b);
   return m;
 }
@@ -147,10 +160,10 @@ template<> struct __dyn_shmem__<double> {
     return Dptr;
   }
 };
-template<> struct __dyn_shmem__<__half2> {
+template<> struct __dyn_shmem__<half2> {
   __device__
-  __half2* getPtr() {
-    extern __shared__ __half2 Hptr[];
+  half2* getPtr() {
+    extern __shared__ half2 Hptr[];
     return Hptr;
   }
 };
@@ -212,7 +225,7 @@ double tabs<double>(double t) {
 }
 template<>
 __device__ __inline__
-__half2 tabs<__half2>(__half2 t) {
+half2 tabs<half2>(half2 t) {
   return h2_abs(t);
 }
 
@@ -223,10 +236,8 @@ T tzero() {
 }
 template<>
 __device__ __inline__
-__half2 tzero<__half2>() {
-  __half2 a;
-  a.x = 0U;
-  return a;
+half2 tzero<half2>() {
+  return half2(half(), half());
 }
 
 template<typename T>
@@ -246,8 +257,8 @@ int non_zero_count<double>(double a) {
 }
 template<>
 __device__ __inline__
-int non_zero_count<__half2>(__half2 a) {
-  return (a.x & 0xFFFFU ? 1 : 0) + (a.x & 0xFFFF0000U ? 1 : 0);
+int non_zero_count<half2>(half2 a) {
+  return (a.lo() ? 1 : 0) + (a.hi() ? 1 : 0);
 }
 
 template<typename T, typename TR>
@@ -257,18 +268,18 @@ TR tmax(T a, T b) {
 }
 template<>
 __device__ __inline__
-__half2 tmax<__half2, __half2>(__half2 a, __half2 b) {
+half2 tmax<half2, half2>(half2 a, half2 b) {
   return h2_max(a, b);
 }
 template<>
 __device__ __inline__
-float tmax<__half2, float>(__half2 a, __half2 b) {
+float tmax<half2, float>(half2 a, half2 b) {
   float2 fm = __half22float2(h2_max(a, b));
   return tmax<float, float>(fm.x, fm.y);
 }
 template<>
 __device__ __inline__
-double tmax<__half2, double>(__half2 a, __half2 b) {
+double tmax<half2, double>(half2 a, half2 b) {
   float2 fm = __half22float2(h2_max(a, b));
   return tmax<float, float>(fm.x, fm.y);
 }
@@ -280,31 +291,26 @@ TR tsum(T a, T b) {
 }
 template<>
 __device__ __inline__
-__half2 tsum<__half2, __half2>(__half2 a, __half2 b) {
+half2 tsum<half2, half2>(half2 a, half2 b) {
   return hadd2(a, b);
 }
 template<>
 __device__ __inline__
-float tsum<__half2, float>(__half2 a, __half2 b) {
-  __half2 h = hadd2(a, b);
+float tsum<half2, float>(half2 a, half2 b) {
+  half2 h = hadd2(a, b);
   float2 f = __half22float2(h);
   return f.x + f.y;
 }
 template<>
 __device__ __inline__
-double tsum<__half2, double>(__half2 a, __half2 b) {
-  return tsum<__half2, float>(a, b);
+double tsum<half2, double>(half2 a, half2 b) {
+  return tsum<half2, float>(a, b);
 }
 
 template<typename T>
 __device__ __inline__
 void tassign(volatile T *a, T b) {
   *a = b;
-}
-template<>
-__device__ __inline__
-void tassign<__half2>(volatile __half2 *a, __half2 b) {
-  a->x = b.x;
 }
 
 template<typename T, typename TR>
@@ -316,12 +322,12 @@ void tmax_replace(volatile TR *a, T b) {
 }
 template<>
 __device__ __inline__
-void tmax_replace<__half2, __half2>(volatile __half2 *a, __half2 b) {
+void tmax_replace<half2, half2>(volatile half2 *a, half2 b) {
   h2_max_replace(a, b);
 }
 template<>
 __device__ __inline__
-void tmax_replace<__half2, float>(volatile float *a, __half2 b) {
+void tmax_replace<half2, float>(volatile float *a, half2 b) {
   float2 f = __half22float2(b);
   if (f.x > f.y) {
     tmax_replace(a, f.x);
@@ -331,7 +337,7 @@ void tmax_replace<__half2, float>(volatile float *a, __half2 b) {
 }
 template<>
 __device__ __inline__
-void tmax_replace<__half2, double>(volatile double *a, __half2 b) {
+void tmax_replace<half2, double>(volatile double *a, half2 b) {
   float2 f = __half22float2(b);
   if (f.x > f.y) {
     tmax_replace(a, f.x);
@@ -347,18 +353,18 @@ void tsum_replace(volatile TR *a, T b) {
 }
 template<>
 __device__ __inline__
-void tsum_replace<__half2, __half2>(volatile __half2 *a, __half2 b) {
-  a->x = hadd2(*a, b).x;
+void tsum_replace<half2, half2>(volatile half2 *a, half2 b) {
+  *const_cast<half2*>(a) = hadd2(*const_cast<half2*>(a), b);
 }
 template<>
 __device__ __inline__
-void tsum_replace<__half2, float>(volatile float *a, __half2 b) {
+void tsum_replace<half2, float>(volatile float *a, half2 b) {
   float2 f = __half22float2(b);
   *a += f.x + f.y;
 }
 template<>
 __device__ __inline__
-void tsum_replace<__half2, double>(volatile double *a, __half2 b) {
+void tsum_replace<half2, double>(volatile double *a, half2 b) {
   float2 f = __half22float2(b);
   *a += f.x + f.y;
 }

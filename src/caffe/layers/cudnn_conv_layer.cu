@@ -50,7 +50,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& botto
     }
   }  // end of for i
 
-  Solver* psolver = this->parent_solver();
+  const Solver* psolver = this->parent_solver();
   if (psolver == nullptr || psolver->is_iter_size_complete()) {
     // Possibly use faster algorithms by allowing larger workspace.
     use_modest_workspace_ = false;
@@ -65,20 +65,14 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
 
   // compute dE/dB = sum_c(dE/dy)
   if (this->bias_term_ && this->param_propagate_down_[1]) {
-    float alpha = 1.F;
     Btype* bias_diff = this->blobs_[1]->template mutable_gpu_diff<Btype>();
     for (int i = 0; i < top.size(); ++i) {
       Btype* top_diff = top[i]->mutable_gpu_diff<Btype>();
       // in parallel over groups
       for (int g = 0; g < this->group_; ++g) {
-        if (is_type<Btype>(FLOAT16))
-          CUDNN_CHECK(cudnnConvolutionBackwardBias(Caffe::cudnn_handle(idxg(g)),
-              & alpha, bwd_top_descs_[i], top_diff + top_offset_ * g,
-              cudnn::dataType<Btype>::one, bwd_bias_desc_, bias_diff + bias_offset_ * g));
-        else
-          CUDNN_CHECK(cudnnConvolutionBackwardBias(Caffe::cudnn_handle(idxg(g)),
-              cudnn::dataType<Btype>::one, bwd_top_descs_[i], top_diff + top_offset_ * g,
-              cudnn::dataType<Btype>::one, bwd_bias_desc_, bias_diff + bias_offset_ * g));
+        CUDNN_CHECK(cudnnConvolutionBackwardBias(Caffe::cudnn_handle(idxg(g)),
+            cudnn::dataType<Btype>::one, bwd_top_descs_[i], top_diff + top_offset_ * g,
+            cudnn::dataType<Btype>::one, bwd_bias_desc_, bias_diff + bias_offset_ * g));
       }  // end of groups
       // Synchronize the work across groups, each of which went into its own stream
       // NOLINT_NEXT_LINE(whitespace/operators)

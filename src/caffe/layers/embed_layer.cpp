@@ -2,7 +2,6 @@
 
 #include "caffe/filler.hpp"
 #include "caffe/layers/embed_layer.hpp"
-#include "caffe/util/math_functions.hpp"
 
 namespace caffe {
 

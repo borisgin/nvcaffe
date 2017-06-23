@@ -188,6 +188,13 @@ int train() {
     for (int i = 0; i < gpus.size(); ++i) {
       s << (i ? ", " : "") << gpus[i];
     }
+
+    solver_param.set_device_id(gpus[0]);
+    Caffe::set_mode(Caffe::GPU);
+    Caffe::set_gpus(gpus);
+    Caffe::set_solver_count(gpus.size());
+    CHECK_EQ(gpus.size(), Caffe::solver_count());
+
     LOG(INFO) << "Using GPUs " << s.str();
 #ifndef CPU_ONLY
     cudaDeviceProp device_prop;
@@ -196,10 +203,6 @@ int train() {
       LOG(INFO) << "GPU " << gpus[i] << ": " << device_prop.name;
     }
 #endif
-    solver_param.set_device_id(gpus[0]);
-    Caffe::set_mode(Caffe::GPU);
-    Caffe::set_solver_count(gpus.size());
-    Caffe::set_gpus(gpus);
   }
 
   caffe::SignalHandler signal_handler(
@@ -360,6 +363,7 @@ int time() {
   solver_param.set_base_lr(0.01F);
   solver_param.set_random_seed(1371LL);
   solver_param.set_test_interval(FLAGS_iterations + 1);
+  solver_param.set_display(FLAGS_iterations + 1);
   shared_ptr<Solver> solver(caffe::SolverRegistry::CreateSolver(solver_param));
   shared_ptr<Net> caffe_net = solver->net();
 
@@ -379,17 +383,8 @@ int time() {
   const vector<vector<Blob*> >& bottom_vecs = caffe_net->bottom_vecs();
   const vector<vector<Blob*> >& top_vecs = caffe_net->top_vecs();
   const vector<vector<bool> >& bottom_need_backward = caffe_net->bottom_need_backward();
-  float initial_loss = 0.F;
   init_timer.Start();
-  for (int j = 0; j < kInitIterations; ++j) {
-    for (int i = 0; i < layers.size(); ++i) {
-      initial_loss += layers[i]->Forward(bottom_vecs[i], top_vecs[i]);
-    }
-    for (int i = layers.size() - 1; i >= 0; --i) {
-      layers[i]->Backward(top_vecs[i], bottom_need_backward[i],
-                          bottom_vecs[i]);
-    }
-  }
+  solver->Step(kInitIterations);
   double init_time = init_timer.MilliSeconds();
   LOG(INFO) << "Initial Forward/Backward complete";
   LOG(INFO) << "Average Initialization Forward/Backward pass: "

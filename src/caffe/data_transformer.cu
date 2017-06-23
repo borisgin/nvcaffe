@@ -3,7 +3,6 @@
 #endif  // USE_OPENCV
 
 #include <device_launch_parameters.h>
-#include <cuda_fp16.h>
 
 #include "caffe/util/gpu_math_functions.cuh"
 #include "caffe/data_transformer.hpp"

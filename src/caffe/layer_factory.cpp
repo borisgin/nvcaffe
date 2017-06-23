@@ -1,7 +1,6 @@
 // Make sure we include Python.h before any system header
 // to avoid _POSIX_C_SOURCE redefinition
 #ifdef WITH_PYTHON_LAYER
-#include <boost/filesystem.hpp>
 #include <boost/python.hpp>
 #endif
 #include <string>
@@ -331,7 +330,7 @@ shared_ptr<LayerBase> GetPythonLayer(const LayerParameter& param, Type, Type) {
     CHECK(ret);
     return ret;
   } catch (...) {
-    PyErrReport();
+    PyErrFatal();
   }
 }
 

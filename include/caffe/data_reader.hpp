@@ -28,16 +28,20 @@ class DataReader : public InternalThread {
   class CursorManager {
     shared_ptr<db::DB> db_;
     unique_ptr<db::Cursor> cursor_;
+    DataReader* reader_;
     const size_t solver_count_, solver_rank_, batch_size_;
     const size_t parser_threads_, parser_thread_id_;
     const size_t rank_cycle_, full_cycle_;
     size_t rec_id_, rec_end_;
+    bool cache_, shuffle_;
+    bool cached_all_;
 
    public:
-    CursorManager(shared_ptr<db::DB> db, size_t solver_count, size_t solver_rank,
-        size_t parser_threads, size_t parser_thread_id, size_t batch_size_);
+    CursorManager(shared_ptr<db::DB> db, DataReader* reader, size_t solver_count,
+        size_t solver_rank, size_t parser_threads, size_t parser_thread_id, size_t batch_size_,
+        bool cache, bool shuffle);
     ~CursorManager();
-    void next(Datum* datum);
+    void next(shared_ptr<Datum>& datum);
     void fetch(Datum* datum);
     void rewind();
 
@@ -48,6 +52,54 @@ class DataReader : public InternalThread {
     DISABLE_COPY_MOVE_AND_ASSIGN(CursorManager);
   };
 
+  class DataCache {
+   public:
+    static DataCache* data_cache_inst(size_t threads, bool shuffle) {
+      if (!data_cache_inst_) {
+        std::lock_guard<std::mutex> lock(cache_mutex_);
+        if (!data_cache_inst_) {
+          data_cache_inst_.reset(new DataCache(threads, shuffle));
+        }
+      }
+      return data_cache_inst_.get();
+    }
+
+    shared_ptr<Datum>& next_new();
+    shared_ptr<Datum>& next_cached();
+    bool check_memory();
+    void check_db(const std::string& db_source) {
+      std::lock_guard<std::mutex> lock(cache_mutex_);
+      if (db_source_.empty()) {
+        db_source_ = db_source;
+      } else {
+        CHECK_EQ(db_source_, db_source) << "Caching of two DB sources is not supported";
+      }
+    }
+
+    void just_cached();
+    void register_new_thread() {
+      std::lock_guard<std::mutex> lock(cache_mutex_);
+      cached_flags_.emplace(std::this_thread::get_id(), make_shared<Flag>());
+    }
+
+   private:
+    DataCache(size_t threads, bool shuffle)
+        : cache_idx_(0UL),
+          cache_bar_(threads),
+          shuffle_(shuffle),
+          just_cached_(false) {}
+
+    std::string db_source_;
+    vector<shared_ptr<Datum>> cache_buffer_;
+    size_t cache_idx_;
+    boost::barrier cache_bar_;
+    bool shuffle_;
+    std::atomic_bool just_cached_;
+    std::unordered_map<std::thread::id, shared_ptr<Flag>> cached_flags_;
+    static std::mutex cache_mutex_;
+    static unique_ptr<DataCache> data_cache_inst_;
+  };
+
  public:
   DataReader(const LayerParameter& param,
       size_t solver_count,
@@ -56,7 +108,9 @@ class DataReader : public InternalThread {
       size_t transf_threads_num,
       size_t queue_depth,
       bool sample_only,
-      bool skip_one_batch);
+      bool skip_one_batch,
+      bool cache,
+      bool shuffle);
   virtual ~DataReader();
 
   void start_reading() {
@@ -77,10 +131,6 @@ class DataReader : public InternalThread {
     return init_->peek();
   }
 
-  bool sample_only() const {
-    return sample_only_;
-  }
-
   void full_push(size_t queue_id, const shared_ptr<Datum>& datum) {
     full_[queue_id]->push(datum);
   }
@@ -91,6 +141,22 @@ class DataReader : public InternalThread {
 
   shared_ptr<Datum> full_pop(size_t queue_id, const char* log_on_wait) {
     return full_[queue_id]->pop(log_on_wait);
+  }
+
+  shared_ptr<Datum>& next_new() {
+    return data_cache_->next_new();
+  }
+
+  shared_ptr<Datum>& next_cached() {
+    return data_cache_->next_cached();
+  }
+
+  bool check_memory() {
+    return data_cache_->check_memory();
+  }
+
+  void just_cached() {
+    data_cache_->just_cached();
   }
 
  protected:
@@ -114,6 +180,9 @@ class DataReader : public InternalThread {
   int current_queue_;
   Flag start_reading_flag_;
   bool sample_only_;
+  const bool cache_, shuffle_;
+
+  DataCache* data_cache_;
 
   DISABLE_COPY_MOVE_AND_ASSIGN(DataReader);
 };

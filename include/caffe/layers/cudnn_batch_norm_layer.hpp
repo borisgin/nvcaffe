@@ -27,6 +27,10 @@ class CuDNNBatchNormLayer : public BatchNormLayer<Ftype, Btype> {
       const vector<Blob*>& top);
   virtual ~CuDNNBatchNormLayer();
 
+  bool skip_apply_update(int blob_id) const override {
+    return blob_id < 3;
+  }
+
  protected:
   virtual void Forward_gpu(const vector<Blob*>& bottom,
       const vector<Blob*>& top);

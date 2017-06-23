@@ -167,7 +167,6 @@ struct GPUMemory {
     vector<vector<size_t>> pinned_buffer_sizes_;
     vector<size_t> update_thresholds_;
     shared_mutex mutex_;
-    std::mutex m_;
 
     static const unsigned int BIN_GROWTH;  ///< Geometric growth factor
     static const unsigned int MIN_BIN;  ///< Minimum bin

@@ -13,7 +13,9 @@ namespace caffe {
 
 template<typename Ftype, typename Btype>
 DataLayer<Ftype, Btype>::DataLayer(const LayerParameter& param)
-  : BasePrefetchingDataLayer<Ftype, Btype>(param) {
+  : BasePrefetchingDataLayer<Ftype, Btype>(param),
+    cache_(param.data_param().cache()),
+    shuffle_(param.data_param().shuffle()) {
   sample_only_.store(this->auto_mode_ && this->phase_ == TRAIN);
   init_offsets();
 }
@@ -34,7 +36,9 @@ DataLayer<Ftype, Btype>::init_offsets() {
 
 template<typename Ftype, typename Btype>
 DataLayer<Ftype, Btype>::~DataLayer() {
-  this->StopInternalThread();
+  if (layer_inititialized_flag_.is_set()) {
+    this->StopInternalThread();
+  }
 }
 
 template<typename Ftype, typename Btype>
@@ -55,14 +59,7 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
     const size_t batch_bytes = this->prefetch_[0]->bytes(this->is_gpu_transform());
     size_t gpu_bytes, total_memory;
     GPUMemory::GetInfo(&gpu_bytes, &total_memory, true);
-
-    // minimum accross all GPUs
-    static std::atomic<size_t> min_gpu_bytes((size_t) -1);
-    atomic_minimum(min_gpu_bytes, gpu_bytes);
-    P2PManager::dl_bar_wait();
-    gpu_bytes = min_gpu_bytes.load();
     bool starving = gpu_bytes * 6UL < total_memory;
-
     size_t batches_fit = gpu_bytes / batch_bytes;
     size_t total_batches_fit = current_queues_num_ + batches_fit;
 #else
@@ -84,9 +81,14 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
     starving = fit <= 1UL || starving;  // enforce 1x1
     current_parsers_num_ = starving ? 1UL : std::min(4UL,
         std::max(1UL, (size_t) std::lround(std::sqrt(fit))));
+    if (cache_ && current_parsers_num_ > 1UL) {
+      LOG(INFO) << "[" << Caffe::current_device() << "] Reduced parser threads count from "
+                << current_parsers_num_ << " to 1 because cache is used";
+      current_parsers_num_ = 1UL;
+    }
     current_transf_num_ = starving ? 1UL : std::min(4UL,
         std::max(current_transf_num_, (size_t) std::lround(fit / current_parsers_num_)));
-    this->RestartAllThreads(current_transf_num_, true);
+    this->RestartAllThreads(current_transf_num_, true, false, Caffe::next_seed());
     this->transf_num_ = this->threads_num();
     this->parsers_num_ = current_parsers_num_;
     this->queues_num_ = this->transf_num_ * this->parsers_num_;
@@ -105,9 +107,9 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
   this->go();  // kick off new threads if any
 
   CHECK_EQ(this->threads_num(), this->transf_num_);
-  LOG(INFO) << "[" << Caffe::current_device() << "] Number of parser threads: "
+  LOG(INFO) << "[" << Caffe::current_device() << "] Parser threads: "
       << this->parsers_num_ << (this->auto_mode_ ? " (auto)" : "");
-  LOG(INFO) << "[" << Caffe::current_device() << "] Number of transformer threads: "
+  LOG(INFO) << "[" << Caffe::current_device() << "] Transformer threads: "
       << this->transf_num_ << (this->auto_mode_ ? " (auto)" : "");
   layer_inititialized_flag_.set();
 }
@@ -129,6 +131,8 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
   const LayerParameter& param = this->layer_param();
   const int batch_size = param.data_param().batch_size();
   const bool use_gpu_transform = this->is_gpu_transform();
+  const bool cache = cache_ && this->phase_ == TRAIN;
+  const bool shuffle = cache && shuffle_ && this->phase_ == TRAIN;
 
   if (Caffe::mode() == Caffe::GPU && this->phase_ == TRAIN && this->auto_mode_) {
     if (!sample_reader_) {
@@ -137,7 +141,11 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
           this->solver_rank_,
           this->parsers_num_,
           this->threads_num(),
-          batch_size, true, false);
+          batch_size,
+          true,
+          false,
+          cache,
+          shuffle);
     } else if (!reader_) {
       reader_ = make_shared<DataReader>(param,
           Caffe::solver_count(),
@@ -146,7 +154,9 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
           this->threads_num(),
           batch_size,
           false,
-          true);
+          true,
+          cache,
+          shuffle);
     } else {
       // still need to run the rest
     }
@@ -158,7 +168,9 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
         this->threads_num(),
         batch_size,
         false,
-        false);
+        false,
+        cache,
+        shuffle);
     start_reading();
   }
   // Read a data point, and use it to initialize the top blob.
@@ -252,6 +264,20 @@ void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, siz
   for (size_t entry = 0; entry < batch_size; ++entry) {
     datum = reader->full_pop(qid, "Waiting for datum");
     item_id = datum->record_id() % batch_size;
+    if (datum->channels() > 0) {
+      CHECK_EQ(top_shape[1], datum->channels())
+        << "Number of channels can't vary in the same batch";
+    }
+    if (!this->data_transformers_[thread_id]->transform_param().has_crop_size()) {
+      if (datum->height() > 0) {
+        CHECK_EQ(top_shape[2], datum->height())
+          << "Image height can't vary in the same batch (crop might help here)";
+      }
+      if (datum->width() > 0) {
+        CHECK_EQ(top_shape[3], datum->width())
+          << "Image width can't vary in the same batch (crop might help here)";
+      }
+    }
     if (item_id == 0UL) {
       current_batch_id = datum->record_id() / batch_size;
     }
@@ -289,7 +315,7 @@ void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, siz
         batch->data_.shape(2),  // non-crop
         batch->data_.shape(3),  // non-crop
         out_sizeof_element, batch->data_.gpu_data(),
-        batch->gpu_transformed_data_->template mutable_gpu_data<Ftype>(false),
+        batch->gpu_transformed_data_->template mutable_gpu_data<Ftype>(),
         batch->random_vec_.gpu_data());
 #else
     NO_GPU;

@@ -5,8 +5,9 @@
 
 namespace caffe {
 
-Tensor::Tensor(Type dtype) : type_(dtype), locked_(false), async_state_(false), synced_arrays_(
-    make_shared<vector<shared_ptr<SyncedMemory>>>(Type_ARRAYSIZE)), count_(0) {}
+Tensor::Tensor(Type dtype)
+    : type_(dtype), locked_(false),
+      synced_arrays_(make_shared<vector<shared_ptr<SyncedMemory>>>(Type_ARRAYSIZE)), count_(0) {}
 
 const shared_ptr<SyncedMemory>& Tensor::synced_mem() const {
   const shared_ptr<SyncedMemory>& mem = synced_arrays_->at(type_);
@@ -69,7 +70,7 @@ void Tensor::convert(Type new_type) {
       copy_helper(data_gpu, count_,
           data_gpu ? current_mem->gpu_data() : current_mem->cpu_data(),
           type_,
-          data_gpu ? new_mem->mutable_gpu_data(false) : new_mem->mutable_cpu_data(false),
+          data_gpu ? new_mem->mutable_gpu_data() : new_mem->mutable_cpu_data(),
           new_type);
     }
   } // we just trust its current status otherwise
@@ -159,14 +160,14 @@ void Tensor::scale(float scale, void* handle, bool synced) {
 }
 
 void Tensor::cpu_scale(float scale) {
-  shared_ptr<SyncedMemory>& mem = mutable_synced_mem(false);
+  shared_ptr<SyncedMemory>& mem = mutable_synced_mem();
   cpu_scal(count_, type_, mem->mutable_cpu_data(), scale);
 }
 
 #ifndef CPU_ONLY
 
 void Tensor::gpu_scale(float scale, cublasHandle_t cublas_handle, bool synced) {
-  shared_ptr<SyncedMemory>& mem = mutable_synced_mem(false);
+  shared_ptr<SyncedMemory>& mem = mutable_synced_mem();
   gpu_scal(count_, type_, mem->mutable_gpu_data(), scale, cublas_handle, synced);
 }
 

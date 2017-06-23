@@ -94,7 +94,6 @@ class P2PSync : public Solver::Callback, public InternalThread {
 
   void allreduce(int param_id) override;
   void allreduce_bucket(int count, void* bucket, Type type) override;
-  void syncCommStream() override;
   void soft_barrier() override;
   void reduce_barrier() override;
   void saveTestResults(float loss, const vector<float>& scores) override;
@@ -120,7 +119,6 @@ class P2PSync : public Solver::Callback, public InternalThread {
   P2PManager* mgr_;
   const int rank_;
   const size_t nranks_;
-  vector<P2PSync*> children_;
 #ifndef CPU_ONLY
   shared_ptr<CudaStream> comm_stream_;
   cublasHandle_t cublas_handle_;

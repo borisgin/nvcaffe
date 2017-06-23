@@ -1,4 +1,5 @@
 #include <vector>
+#include <device_launch_parameters.h>
 
 #include "caffe/filler.hpp"
 #include "caffe/layers/embed_layer.hpp"

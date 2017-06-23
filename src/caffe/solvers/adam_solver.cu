@@ -1,5 +1,4 @@
 #include <string>
-#include <cuda_fp16.h>
 
 #include "caffe/util/gpu_math_functions.cuh"
 #include "caffe/util/math_functions.hpp"
@@ -26,12 +25,11 @@ __global__ void AdamRegUpdateAllAndClear(int N,
 #pragma clang diagnostic pop
 
 template<>
-__global__ void AdamRegUpdateAllAndClear<__half, __half>(int N,
-  __half* g, __half *w, __half* m, __half* v,
+__global__ void AdamRegUpdateAllAndClear<half, half>(int N,
+  half* g, half *w, half* m, half* v,
     float beta1, float beta2, float eps_hat, float local_rate, float local_decay,
     bool reg_L2,  bool clear_grads) {
-  __half hz;
-  hz.x = 0;
+  half hz;
   CUDA_KERNEL_LOOP(i, N) {
     float wf = __half2float(w[i]);
     float gf = __half2float(g[i]);
@@ -80,8 +78,8 @@ void adam_reg_update_and_clear_gpu<float16, float16>(int N,
   CUBLAS_CHECK(cublasGetStream(cublas_handle, &stream));
   AdamRegUpdateAllAndClear  // NOLINT_NEXT_LINE(whitespace/operators)
       <<<CAFFE_GET_BLOCKS(N), CAFFE_CUDA_NUM_THREADS, 0, stream>>>(N,
-      reinterpret_cast<__half*>(g), reinterpret_cast<__half*>(w),
-      reinterpret_cast<__half*>(m), reinterpret_cast<__half*>(v),
+      reinterpret_cast<half*>(g), reinterpret_cast<half*>(w),
+      reinterpret_cast<half*>(m), reinterpret_cast<half*>(v),
       beta1, beta2, eps_hat, local_rate, local_decay, reg_type == "L2",  clear_grads);
   CUDA_POST_KERNEL_CHECK;
   CUDA_CHECK(cudaStreamSynchronize(stream));
