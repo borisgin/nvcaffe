@@ -2,8 +2,9 @@ name: "Resnet50_fp16"
 
 default_forward_type:  FLOAT16
 default_backward_type: FLOAT16
-default_forward_math:  FLOAT16
-default_backward_math: FLOAT16
+default_forward_math:  FLOAT
+default_backward_math: FLOAT
+#global_grad_scale: 1.
 
 layer {
   name: "data"

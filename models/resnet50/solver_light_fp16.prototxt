@@ -8,6 +8,8 @@ display: 100
 max_iter: 500000 	# 100 epoch B=256
 
 base_lr:  0.2 	        # B=256
+rampup_interval: 5000
+rampup_lr: 0.02
 
 lr_policy: "poly"
 power: 2.0
