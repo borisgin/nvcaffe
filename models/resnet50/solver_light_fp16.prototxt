@@ -1,4 +1,4 @@
-net: "models/resnet50/resnet50_lightbn.prototxt"
+net: "models/resnet50/resnet50_light_fp16.prototxt"
 
 test_iter: 1562         # 50000/32
 test_interval: 20000    
@@ -15,7 +15,7 @@ momentum: 0.9
 weight_decay: 1e-4
 
 snapshot: 2500000
-snapshot_prefix: "models/resnet50/snapshots/resnet50"
+snapshot_prefix: "models/resnet50/snapshots/resnet50_light_fp16"
 snapshot_after_train: false
 
 solver_mode: GPU

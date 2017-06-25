@@ -1,10 +1,21 @@
-name: "Resnet50_lightBN"
+name: "Resnet50_light_fp16"
 
+#----------------------------------------------
+# Resnet50 with only 4 BN layers:
+# BatchNorm is used only after each super-block 
+#----------------------------------------------
 # n:  ch	:  s	:  g	: skip	:
 # 0:  64	:  3	:  1	:  0	:
 # 1:  128	:  4	:  1	:  1	:
 # 2:  256	:  6	:  1	:  1	:
 # 3:  512	:  3	:  1	:  1	:
+#----------------------------------------------
+
+default_forward_type:  FLOAT16
+default_backward_type: FLOAT16
+default_forward_math:  FLOAT16
+default_backward_math: FLOAT16
+global_grad_scale: 1.
 
 layer {
   name: "data"
@@ -12,15 +23,17 @@ layer {
   top: "data"
   top: "label"
   data_param {
-    source: "examples/imagenet/ilsvrc12_train_lmdb"
+#    source: "examples/imagenet/ilsvrc12_train_lmdb"
+    source: "/data/imagenet/train-lmdb-uncompressed-256x256"
     backend: LMDB
-    batch_size: 128 #256
-#    cache: true
-#    shuffle: true
+    batch_size: 256
+    cache:   true
+    shuffle: true
   }
   transform_param {
+#    mean_file: "data/ilsvrc12/imagenet_mean.binaryproto"
+    mean_file: "/data/imagenet/imagenet_256x256_mean.binaryproto"
     crop_size: 224
-    mean_file: "data/ilsvrc12/imagenet_mean.binaryproto"
     mirror: true
     scale: 0.00390625
   }
@@ -32,12 +45,14 @@ layer {
   top: "data"
   top: "label"
   data_param {
-    source: "examples/imagenet/ilsvrc12_val_lmdb"
+ #    source: "examples/imagenet/ilsvrc12_val_lmdb"
+    source: "/data/imagenet/val-lmdb-uncompressed-256x256"
     backend: LMDB
     batch_size: 32
   }
   transform_param {
-    mean_file: "data/ilsvrc12/imagenet_mean.binaryproto"
+#    mean_file: "data/ilsvrc12/imagenet_mean.binaryproto"
+    mean_file: "/data/imagenet/imagenet_256x256_mean.binaryproto"
     crop_size: 224
     mirror: false
     scale: 0.00390625
