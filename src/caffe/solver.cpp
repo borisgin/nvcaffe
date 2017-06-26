@@ -233,6 +233,7 @@ void Solver::Step(int iters) {
   reduce_thread_.reset(new boost::thread(&Solver::Reduce, this,
       Caffe::current_device(), mode, random_seed, solver_count, root_solver));
 
+  // FIXME max_iter: 0
   while (iter_ < stop_iter) {
     if (param_.snapshot_diff()) {
       net_->ClearParamDiffs();
@@ -269,8 +270,11 @@ void Solver::Step(int iters) {
     float loss = 0.F;
     if (first_loop) {
       iterations_last_ = iter_;
-      iteration_timer_.Start();
       init_flag_.set();
+    }
+    const int rel_iter = relative_iter();
+    if (rel_iter == 0) {
+      iteration_timer_.Start();
     }
 
     iteration_start_signal();
@@ -294,9 +298,9 @@ void Solver::Step(int iters) {
 
     // average the loss across iterations for smoothed reporting
     UpdateSmoothedLoss(loss, start_iter, average_loss);
-    if (display || iter_ <= 2 || iter_ + 1 >= stop_iter) {
+    if (display || rel_iter <= 2 || iter_ + 1 >= stop_iter) {
       float lapse = iteration_timer_.Seconds();
-      if (iter_ >= 2) {  // we skip 0th and 1st for correct benchmarking
+      if (rel_iter > 2) {  // we skip 0,1,2 for correct benchmarking
         total_lapse_ += lapse;
         float per_s = (iter_ - iterations_last_) / (lapse > 0.F ? lapse : 1.F);
         LOG_IF(INFO, Caffe::root_solver()) << "Iteration " << iter_
@@ -619,7 +623,7 @@ void Solver::UpdateSmoothedLoss(float loss, int start_iter,
 float Solver::perf_report(std::ostream& os, int device, int align) const {
   std::string al(align, ' ');
   float perf_ratio = total_lapse() > 0. ?
-      (iter() > 2 ? iter() - 2 - iterations_restored_ : 0) / total_lapse() : 0.F;
+      (relative_iter() > 2 ? relative_iter() - 2 : 0) / total_lapse() : 0.F;
   float perf = perf_ratio * net_->batch_per_solver();
   os << al << "Solver performance on device " << device << ": "
       << perf_ratio << " * " << net_->batch_per_solver()

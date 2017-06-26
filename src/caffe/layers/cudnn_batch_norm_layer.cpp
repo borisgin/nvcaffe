@@ -22,7 +22,11 @@ void CuDNNBatchNormLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bottom,
   cudnn::createTensor4dDesc<Btype>(&bwd_top_desc_);
   cudnn::createTensor4dDesc<Btype>(&bwd_scale_bias_mean_var_desc_);
 
+#if CUDNN_VERSION_MIN(7, 0, 0)
+  mode_ = CUDNN_BATCHNORM_SPATIAL_PERSISTENT;
+#else
   mode_ = CUDNN_BATCHNORM_SPATIAL;      // only SPATIAL mode is supported
+#endif
   this->eps_ = std::max(this->eps_, CUDNN_BN_MIN_EPSILON);
 
   int channels = bottom[0]->channels();
@@ -62,20 +66,16 @@ CuDNNBatchNormLayer<Ftype, Btype>::Reshape(const vector<Blob*>& bottom, const ve
   cudnn::setTensor4dDesc<Btype>(&bwd_bottom_desc_, N, C, H, W);
   cudnn::setTensor4dDesc<Btype>(&bwd_top_desc_, N, C, H, W);
   // aux tensors for caching mean & invVar from fwd to bwd pass
-  if (mode_ == CUDNN_BATCHNORM_SPATIAL) {
-    save_mean_->Reshape(1, C, 1, 1);
-    save_inv_var_->Reshape(1, C, 1, 1);
-    if (!this->scale_bias_) {
-      int C_old = scale_ones_->channels();
-      if (C_old != C) {
-        scale_ones_->Reshape(1, C, 1, 1);
-        bias_zeros_->Reshape(1, C, 1, 1);
-        scale_ones_->set_data(1.F);
-        bias_zeros_->set_data(0.F);
-      }
+  save_mean_->Reshape(1, C, 1, 1);
+  save_inv_var_->Reshape(1, C, 1, 1);
+  if (!this->scale_bias_) {
+    int C_old = scale_ones_->channels();
+    if (C_old != C) {
+      scale_ones_->Reshape(1, C, 1, 1);
+      bias_zeros_->Reshape(1, C, 1, 1);
+      scale_ones_->set_data(1.F);
+      bias_zeros_->set_data(0.F);
     }
-  } else {
-    LOG(FATAL) << "Unsuppoted cudnnBatchNormMode";
   }
   CUDNN_CHECK(
       cudnnDeriveBNTensorDescriptor(fwd_scale_bias_mean_var_desc_, fwd_bottom_desc_, mode_));
