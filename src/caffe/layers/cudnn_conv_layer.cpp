@@ -752,7 +752,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
 #if CUDNN_VERSION_MIN(7, 0, 0)
         float top_algo_time0 = 0.F, top_algo_time1 = 0.F;
         for (int cmt = 0; cmt < 2; ++cmt) {
-          if ((!top_device && cmt > 0) || use_modest_workspace_) {
+          if ((/*!top_device &&*/ cmt > 0) || use_modest_workspace_) {
             continue;
           }
           bwd_filter_cudnn_math_[i] = cmt == 0 ? CUDNN_DEFAULT_MATH : CUDNN_TENSOR_OP_MATH;
