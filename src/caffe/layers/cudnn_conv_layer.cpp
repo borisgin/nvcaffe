@@ -6,7 +6,6 @@
 
 #include "caffe/filler.hpp"
 #include "caffe/layers/cudnn_conv_layer.hpp"
-#include "caffe/solver.hpp"
 
 namespace caffe {
 
@@ -287,7 +286,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
     // do reshape which also initializes cached descriptors.
     use_reshape_ = true;
   }
-  if ((this->relative_iter() == 2 || (this->relative_iter() > 2 && use_reshape_))
+  if ((this->relative_iter() == 3 || (this->relative_iter() > 3 && use_reshape_))
       && this->phase_ == TRAIN
       && mem_req_all_grps_ > 0UL
       && workspace_.size() > PAGE_SIZE * 2UL
@@ -386,7 +385,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
 
   // Ask cuDNN to find the best algorithm
   // When batch is small and every image is different we don't want to call Find* over and over
-  if (use_algo_seeker_ && this->relative_iter() < 2) {
+  if (use_algo_seeker_ && this->relative_iter() <= 2) {
     // FindEx: A workspace of size workspace_bytes is allocated for FindEx.
     //         Besides, workspace, a buffer is allocated for the output of
     //         FindEx-backward-filter. The size of buffer is as big as weights.
@@ -418,9 +417,10 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
         break;
       case ConvolutionParameter_CuDNNConvolutionAlgorithmSeeker_FINDEX:
         if (this->phase_ == TRAIN && use_modest_workspace_) {
-          // This is iteration 0 or 1, we collect max size from all conv layers
+          // This is 0th iteration, we collect max size from all conv layers
           // We'll use it to reserve space *once* on the next iteration
-          CHECK_GE(1, this->relative_iter());
+          // TODO verify snapshots flow for this assert:
+          // CHECK_EQ(0, this->relative_iter());
           this->EstimateMaxWorkspaceSize(bottom, top);
         }
         workspace_.safe_reserve(workspace_bytes);
@@ -710,13 +710,6 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
   // does it support TENSOR_OP?
   const bool top_device = Caffe::device_capability(Caffe::current_device()) >= 700;
 
-  int rel_iter = 0;
-  const Solver* psolver = this->parent_solver();
-  if (psolver != nullptr) {
-    rel_iter = psolver->relative_iter();
-  }
-  const bool try_top = top_device && (!use_modest_workspace_ || rel_iter > 0);
-
   const size_t ngroups = groups();
   const size_t gsize = workspace_.size() / ngroups;
   CHECK(is_even(gsize)) << workspace_.size() << " / " << ngroups << " -> " << gsize;
@@ -733,7 +726,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
       float algo_time = 0.F;
 #if CUDNN_VERSION_MIN(7, 0, 0)
       cudnnMathType_t fwd_cudnn_math_0 = CUDNN_DEFAULT_MATH;
-      if (try_top) {
+      if (top_device && !use_modest_workspace_) {
         fwd_cudnn_math_[i] = fwd_cudnn_math_0 = CUDNN_TENSOR_OP_MATH;
         CUDNN_CHECK(cudnnSetConvolutionMathType(fwd_conv_descs_[i], fwd_cudnn_math_[i]));
       }
@@ -741,7 +734,9 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
       for (int m = 0; m < 2; ++m) {
         if (m > 0 &&
             // if user wants specific math type, no need to check anything else
-            this->is_fm_by_user()) {
+            (this->is_fm_by_user() ||
+            // and we skip 1st cycle
+            use_modest_workspace_)) {
           break;
         }
         if (m == 1) {
@@ -803,7 +798,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
         float algo_time = 0.F;
 #if CUDNN_VERSION_MIN(7, 0, 0)
         cudnnMathType_t bwd_filter_cudnn_math_0 = CUDNN_DEFAULT_MATH;
-        if (try_top) {
+        if (top_device && !use_modest_workspace_) {
           bwd_filter_cudnn_math_[i] = bwd_filter_cudnn_math_0 = CUDNN_TENSOR_OP_MATH;
           CUDNN_CHECK(cudnnSetConvolutionMathType(bwd_conv_filter_descs_[i],
               bwd_filter_cudnn_math_[i]));
@@ -812,7 +807,9 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
         for (int m = 0; m < 2; ++m) {
           if (m > 0 &&
               // if user wants specific math type, no need to check anything else
-              this->is_fm_by_user()) {
+              (this->is_bm_by_user() ||
+              // and we skip 1st cycle
+              use_modest_workspace_)) {
             break;
           }
           if (m == 1) {
@@ -874,7 +871,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
         float algo_time = 0.F;
 #if CUDNN_VERSION_MIN(7, 0, 0)
         cudnnMathType_t bwd_data_cudnn_math_0 = CUDNN_DEFAULT_MATH;
-        if (try_top) {
+        if (top_device && !use_modest_workspace_) {
           bwd_data_cudnn_math_[i] = bwd_data_cudnn_math_0 = CUDNN_TENSOR_OP_MATH;
           CUDNN_CHECK(cudnnSetConvolutionMathType(bwd_conv_data_descs_[i],
               bwd_data_cudnn_math_[i]));
@@ -883,7 +880,9 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
         for (int m = 0; m < 2; ++m) {
           if (m > 0 &&
               // if user wants specific math type, no need to check anything else
-              this->is_fm_by_user()) {
+              (this->is_bm_by_user() ||
+              // and we skip 1st cycle
+              use_modest_workspace_)) {
             break;
           }
           if (m == 1) {

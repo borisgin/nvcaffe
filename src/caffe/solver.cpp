@@ -298,9 +298,9 @@ void Solver::Step(int iters) {
 
     // average the loss across iterations for smoothed reporting
     UpdateSmoothedLoss(loss, start_iter, average_loss);
-    if (display || rel_iter < 2 || iter_ + 1 >= stop_iter) {
+    if (display || rel_iter <= 2 || iter_ + 1 >= stop_iter) {
       float lapse = iteration_timer_.Seconds();
-      if (rel_iter > 1) {  // we skip 0,1 for correct benchmarking
+      if (rel_iter > 2) {  // we skip 0,1,2 for correct benchmarking
         total_lapse_ += lapse;
         float per_s = (iter_ - iterations_last_) / (lapse > 0.F ? lapse : 1.F);
         LOG_IF(INFO, Caffe::root_solver()) << "Iteration " << iter_
