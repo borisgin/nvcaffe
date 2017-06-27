@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <vector>
 #include <boost/tokenizer.hpp>
+#include <cudnn.h>
 
 #include "caffe/filler.hpp"
 #include "caffe/layers/cudnn_conv_layer.hpp"
@@ -418,7 +419,8 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
         if (this->phase_ == TRAIN && use_modest_workspace_) {
           // This is 0th iteration, we collect max size from all conv layers
           // We'll use it to reserve space *once* on the next iteration
-          // TODO verify snapshots flow for this assert: CHECK_EQ(0, this->iter());
+          // TODO verify snapshots flow for this assert:
+          // CHECK_EQ(0, this->relative_iter());
           this->EstimateMaxWorkspaceSize(bottom, top);
         }
         workspace_.safe_reserve(workspace_bytes);
@@ -479,6 +481,8 @@ void CuDNNConvolutionLayer<Ftype, Btype>::EstimateMaxWorkspaceSize(const vector<
   cudnnStatus_t status;
   size_t size;
   size_t available_memory, total_memory;
+  // does it support TENSOR_OP?
+  const bool top_device = Caffe::device_capability(Caffe::current_device()) >= 700;
   GPUMemory::GetInfo(&available_memory, &total_memory, true);
   // As per our experiments, it's not healthy to take more than 50% of total
   available_memory = std::min(available_memory, total_memory / 2);
@@ -492,7 +496,18 @@ void CuDNNConvolutionLayer<Ftype, Btype>::EstimateMaxWorkspaceSize(const vector<
       algos_to_test.emplace_back(user_algos_override_[0]);
     }
     for (int a : algos_to_test) {
-      for (int m = 0; m < 2; ++m) {
+
+#if CUDNN_VERSION_MIN(7, 0, 0)
+      for (int cm = 0; cm < 2; ++cm) {
+        if (top_device) {
+          CUDNN_CHECK(cudnnSetConvolutionMathType(fwd_conv_descs_[i],
+              cm == 0 ? CUDNN_DEFAULT_MATH : CUDNN_TENSOR_OP_MATH));
+        } else if (cm > 0) {
+          break;
+        }
+#endif
+
+        for (int m = 0; m < 2; ++m) {
         if (m == 1) {
           if (is_type<Ftype>(FLOAT16) &&
               convolutionDescDataType(fwd_conv_descs_[i]) == CUDNN_DATA_HALF) {
@@ -516,6 +531,9 @@ void CuDNNConvolutionLayer<Ftype, Btype>::EstimateMaxWorkspaceSize(const vector<
           setConvolutionDescMath(FLOAT16, fwd_conv_descs_[i]);
         }
       }
+#if CUDNN_VERSION_MIN(7, 0, 0)
+      }
+#endif
     }
 
     algos_to_test.clear();
@@ -527,7 +545,18 @@ void CuDNNConvolutionLayer<Ftype, Btype>::EstimateMaxWorkspaceSize(const vector<
       algos_to_test.emplace_back(user_algos_override_[1]);
     }
     for (int a : algos_to_test) {
-      for (int m = 0; m < 2; ++m) {
+
+#if CUDNN_VERSION_MIN(7, 0, 0)
+      for (int cm = 0; cm < 2; ++cm) {
+        if (top_device) {
+          CUDNN_CHECK(cudnnSetConvolutionMathType(bwd_conv_data_descs_[i],
+              cm == 0 ? CUDNN_DEFAULT_MATH : CUDNN_TENSOR_OP_MATH));
+        } else if (cm > 0) {
+          break;
+        }
+#endif
+
+        for (int m = 0; m < 2; ++m) {
         if (m == 1) {
           if (is_type<Ftype>(FLOAT16) &&
               convolutionDescDataType(bwd_conv_data_descs_[i]) == CUDNN_DATA_HALF) {
@@ -551,6 +580,9 @@ void CuDNNConvolutionLayer<Ftype, Btype>::EstimateMaxWorkspaceSize(const vector<
           setConvolutionDescMath(FLOAT16, bwd_conv_data_descs_[i]);
         }
       }
+#if CUDNN_VERSION_MIN(7, 0, 0)
+      }
+#endif
     }
 
     algos_to_test.clear();
@@ -562,7 +594,18 @@ void CuDNNConvolutionLayer<Ftype, Btype>::EstimateMaxWorkspaceSize(const vector<
       algos_to_test.emplace_back(user_algos_override_[2]);
     }
     for (int a : algos_to_test) {
-      for (int m = 0; m < 2; ++m) {
+
+#if CUDNN_VERSION_MIN(7, 0, 0)
+      for (int cm = 0; cm < 2; ++cm) {
+        if (top_device) {
+          CUDNN_CHECK(cudnnSetConvolutionMathType(bwd_conv_filter_descs_[i],
+              cm == 0 ? CUDNN_DEFAULT_MATH : CUDNN_TENSOR_OP_MATH));
+        } else if (cm > 0) {
+          break;
+        }
+#endif
+
+        for (int m = 0; m < 2; ++m) {
         if (m == 1) {
           if (is_type<Ftype>(FLOAT16) &&
               convolutionDescDataType(bwd_conv_filter_descs_[i]) == CUDNN_DATA_HALF) {
@@ -586,7 +629,22 @@ void CuDNNConvolutionLayer<Ftype, Btype>::EstimateMaxWorkspaceSize(const vector<
           setConvolutionDescMath(FLOAT16, bwd_conv_filter_descs_[i]);
         }
       }
+#if CUDNN_VERSION_MIN(7, 0, 0)
+      }
+#endif
     }
+
+#if CUDNN_VERSION_MIN(7, 0, 0)
+    if (top_device) {
+      // Restore current values
+      CUDNN_CHECK(cudnnSetConvolutionMathType(fwd_conv_descs_[i],
+          fwd_cudnn_math_[i]));
+      CUDNN_CHECK(cudnnSetConvolutionMathType(bwd_conv_filter_descs_[i],
+          bwd_filter_cudnn_math_[i]));
+      CUDNN_CHECK(cudnnSetConvolutionMathType(bwd_conv_data_descs_[i],
+          bwd_data_cudnn_math_[i]));
+    }
+#endif
   }
 }
 
@@ -667,17 +725,12 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
     if (user_algos_override_[0] < 0) {
       float algo_time = 0.F;
 #if CUDNN_VERSION_MIN(7, 0, 0)
-      float top_algo_time0 = 0.F, top_algo_time1 = 0.F;
-      for (int cmt = 0; cmt < 2; ++cmt) {
-        if ((!top_device && cmt > 0) || use_modest_workspace_) {
-          continue;
-        }
-        fwd_cudnn_math_[i] = cmt == 0 ? CUDNN_DEFAULT_MATH : CUDNN_TENSOR_OP_MATH;
+      cudnnMathType_t fwd_cudnn_math_0 = CUDNN_DEFAULT_MATH;
+      if (top_device && !use_modest_workspace_) {
+        fwd_cudnn_math_[i] = fwd_cudnn_math_0 = CUDNN_TENSOR_OP_MATH;
         CUDNN_CHECK(cudnnSetConvolutionMathType(fwd_conv_descs_[i], fwd_cudnn_math_[i]));
-#else
-        const int cmt = 0;
+      }
 #endif
-
       for (int m = 0; m < 2; ++m) {
         if (m > 0 &&
             // if user wants specific math type, no need to check anything else
@@ -720,12 +773,8 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
             }
             fwd_algo_[i] = fwd_results[k].algo;
 #if CUDNN_VERSION_MIN(7, 0, 0)
-            // storing current winning time
-            if (cmt == 0) {
-              top_algo_time0 = algo_time;
-            } else {
-              top_algo_time1 = algo_time;
-            }
+            // Winning Math for either native or pseudo mode:
+            fwd_cudnn_math_0 = fwd_results[k].mathType;
 #endif
             workspace_fwd_sizes_[i] = fwd_results[k].memory;
             mem_req_all_grps_ = std::max(mem_req_all_grps_,
@@ -736,11 +785,9 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
         }
       }
 #if CUDNN_VERSION_MIN(7, 0, 0)
-      }
-      if (top_device && top_algo_time1 > top_algo_time0) {
-        // CUDNN_TENSOR_OP_MATH is slower for some reason, back to default
-        fwd_cudnn_math_[i] = CUDNN_DEFAULT_MATH;
-        CUDNN_CHECK(cudnnSetConvolutionMathType(fwd_conv_descs_[i], CUDNN_DEFAULT_MATH));
+      if (top_device && !use_modest_workspace_) {
+        fwd_cudnn_math_[i] = fwd_cudnn_math_0;
+        CUDNN_CHECK(cudnnSetConvolutionMathType(fwd_conv_descs_[i], fwd_cudnn_math_[i]));
       }
 #endif
     }
@@ -750,17 +797,13 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
       if (user_algos_override_[2] < 0) {
         float algo_time = 0.F;
 #if CUDNN_VERSION_MIN(7, 0, 0)
-        float top_algo_time0 = 0.F, top_algo_time1 = 0.F;
-        for (int cmt = 0; cmt < 2; ++cmt) {
-          if ((/*!top_device &&*/ cmt > 0) || use_modest_workspace_) {
-            continue;
-          }
-          bwd_filter_cudnn_math_[i] = cmt == 0 ? CUDNN_DEFAULT_MATH : CUDNN_TENSOR_OP_MATH;
-          CUDNN_CHECK(cudnnSetConvolutionMathType(bwd_conv_filter_descs_[i], bwd_filter_cudnn_math_[i]));
-#else
-          const int cmt = 0;
+        cudnnMathType_t bwd_filter_cudnn_math_0 = CUDNN_DEFAULT_MATH;
+        if (top_device && !use_modest_workspace_) {
+          bwd_filter_cudnn_math_[i] = bwd_filter_cudnn_math_0 = CUDNN_TENSOR_OP_MATH;
+          CUDNN_CHECK(cudnnSetConvolutionMathType(bwd_conv_filter_descs_[i],
+              bwd_filter_cudnn_math_[i]));
+        }
 #endif
-
         for (int m = 0; m < 2; ++m) {
           if (m > 0 &&
               // if user wants specific math type, no need to check anything else
@@ -800,16 +843,12 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
                   break;
                 }
                 // pseudo fp32 won
-                backward_filter_math_ = FLOAT;
+                backward_filter_math_ = tpm(tp<Btype>(), FLOAT);
               }
               bwd_filter_algo_[i] = bwd_filter_results[k].algo;
 #if CUDNN_VERSION_MIN(7, 0, 0)
-              // storing current winning time
-              if (cmt == 0) {
-                top_algo_time0 = algo_time;
-              } else {
-                top_algo_time1 = algo_time;
-              }
+              // Winning Math for either native or pseudo mode:
+              bwd_filter_cudnn_math_0 = fwd_results[k].mathType;
 #endif
               workspace_bwd_filter_sizes_[i] = bwd_filter_results[k].memory;
               mem_req_all_grps_ = std::max(mem_req_all_grps_,
@@ -820,11 +859,10 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
           }
         }
 #if CUDNN_VERSION_MIN(7, 0, 0)
-        }
-        if (top_device && top_algo_time1 > top_algo_time0) {
-          // CUDNN_TENSOR_OP_MATH is slower for some reason, back to default
-          bwd_filter_cudnn_math_[i] = CUDNN_DEFAULT_MATH;
-          CUDNN_CHECK(cudnnSetConvolutionMathType(bwd_conv_filter_descs_[i], CUDNN_DEFAULT_MATH));
+        if (top_device && !use_modest_workspace_) {
+          bwd_filter_cudnn_math_[i] = bwd_filter_cudnn_math_0;
+          CUDNN_CHECK(cudnnSetConvolutionMathType(bwd_conv_filter_descs_[i],
+              bwd_filter_cudnn_math_[i]));
         }
 #endif
       }
@@ -832,17 +870,13 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
       if (user_algos_override_[1] < 0) {
         float algo_time = 0.F;
 #if CUDNN_VERSION_MIN(7, 0, 0)
-        float top_algo_time0 = 0.F, top_algo_time1 = 0.F;
-        for (int cmt = 0; cmt < 2; ++cmt) {
-          if ((!top_device && cmt > 0) || use_modest_workspace_) {
-            continue;
-          }
-          bwd_data_cudnn_math_[i] = cmt == 0 ? CUDNN_DEFAULT_MATH : CUDNN_TENSOR_OP_MATH;
-          CUDNN_CHECK(cudnnSetConvolutionMathType(bwd_conv_data_descs_[i], bwd_data_cudnn_math_[i]));
-#else
-          const int cmt = 0;
+        cudnnMathType_t bwd_data_cudnn_math_0 = CUDNN_DEFAULT_MATH;
+        if (top_device && !use_modest_workspace_) {
+          bwd_data_cudnn_math_[i] = bwd_data_cudnn_math_0 = CUDNN_TENSOR_OP_MATH;
+          CUDNN_CHECK(cudnnSetConvolutionMathType(bwd_conv_data_descs_[i],
+              bwd_data_cudnn_math_[i]));
+        }
 #endif
-
         for (int m = 0; m < 2; ++m) {
           if (m > 0 &&
               // if user wants specific math type, no need to check anything else
@@ -882,9 +916,13 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
                   break;
                 }
                 // pseudo fp32 won
-                backward_data_math_ = FLOAT;
+                backward_data_math_ = tpm(tp<Btype>(), FLOAT);
               }
               bwd_data_algo_[i] = bwd_data_results[k].algo;
+#if CUDNN_VERSION_MIN(7, 0, 0)
+              // Winning Math for either native or pseudo mode:
+              bwd_data_cudnn_math_0 = fwd_results[k].mathType;
+#endif
               workspace_bwd_data_sizes_[i] = bwd_data_results[k].memory;
               mem_req_all_grps_ = std::max(mem_req_all_grps_,
                   align_up<7>(workspace_bwd_data_sizes_[i] * ngroups));
@@ -894,11 +932,10 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
           }
         }
 #if CUDNN_VERSION_MIN(7, 0, 0)
-        }
-        if (top_device && top_algo_time1 > top_algo_time0) {
-          // CUDNN_TENSOR_OP_MATH is slower for some reason, back to default
-          bwd_data_cudnn_math_[i] = CUDNN_DEFAULT_MATH;
-          CUDNN_CHECK(cudnnSetConvolutionMathType(bwd_conv_data_descs_[i], CUDNN_DEFAULT_MATH));
+        if (top_device && !use_modest_workspace_) {
+          bwd_data_cudnn_math_[i] = bwd_data_cudnn_math_0;
+          CUDNN_CHECK(cudnnSetConvolutionMathType(bwd_conv_data_descs_[i],
+              bwd_data_cudnn_math_[i]));
         }
 #endif
       }
