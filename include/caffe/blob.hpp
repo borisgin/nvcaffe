@@ -94,14 +94,6 @@ class Blob {
     return diff_tensor_ ? diff_tensor_->type() : last_diff_type_;
   }
 
-  void lock_data() {
-    data_tensor_->lock_tensor();
-  }
-
-  void lock_diff() {
-    diff_tensor_->lock_tensor();
-  }
-
   bool diff_equals(const Blob& other) const {
     return diff_tensor_ == other.diff_tensor_;
   }

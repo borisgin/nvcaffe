@@ -94,9 +94,10 @@ CuDNNBatchNormLayer<Ftype, Btype>::Reshape(const vector<Blob*>& bottom, const ve
       private_bottom_->ReshapeLike(bottom[0]);
     }
   }
-#ifndef CPU_ONLY
-  bottom[0]->allocate_diff();
-#endif
+//#ifndef CPU_ONLY
+//  top[0]->allocate_data();
+//  bottom[0]->allocate_diff();
+//#endif
 }
 
 template<typename Ftype, typename Btype>

@@ -441,7 +441,15 @@ class Caffe {
 #endif
   }
 
-  static int thread_count() {
+#ifndef CPU_ONLY
+  /**
+   * Minimum memory available across all deviced currently used
+   * @return size_t
+   */
+  static size_t min_avail_device_memory();
+#endif
+
+    static int thread_count() {
     return thread_count_;
   }
 

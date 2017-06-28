@@ -697,7 +697,12 @@ void CuDNNConvolutionLayer<Ftype, Btype>::GetConvAlgo(const vector<Blob*>& botto
 template<typename Ftype, typename Btype>
 void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
     const vector<Blob*>& bottom, const vector<Blob*>& top) {
-  int fwd_algo_count = 0;
+
+  if (this->phase_ == TEST) {  // Using default algos
+    return;
+  }
+
+    int fwd_algo_count = 0;
   int filter_algo_count = 0;
   int data_algo_count = 0;
   cudnnConvolutionFwdAlgoPerf_t fwd_results[REQUEST_ALGO_COUNT];

@@ -196,6 +196,27 @@ Caffe::~Caffe() {
   });
 }
 
+size_t Caffe::min_avail_device_memory() {
+  size_t ret = 0UL;
+  const std::vector<int>& cur_gpus = gpus();
+  int cur_device;
+  size_t gpu_bytes, total_memory;
+  CUDA_CHECK(cudaGetDevice(&cur_device));
+  GPUMemory::GetInfo(&ret, &total_memory, true);
+
+  for (int gpu : cur_gpus) {
+    if (gpu != cur_device) {
+      CUDA_CHECK(cudaSetDevice(gpu));
+      GPUMemory::GetInfo(&gpu_bytes, &total_memory, true);
+      if (gpu_bytes < ret) {
+        ret = gpu_bytes;
+      }
+    }
+  }
+  CUDA_CHECK(cudaSetDevice(cur_device));
+  return ret;
+}
+
 CudaStream::CudaStream(bool high_priority = false) {
   if (high_priority) {
     int leastPriority, greatestPriority;

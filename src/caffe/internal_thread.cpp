@@ -43,7 +43,6 @@ void InternalThread::RestartAllThreads(size_t new_threads, bool delayed, bool se
     CHECK_GE(target_device_, 0);
   }
   const int solver_count = Caffe::solver_count();
-  CHECK_EQ(1, threads_.size());
   threads_.clear();
   delay_flags_.clear();
   threads_.resize(new_threads);

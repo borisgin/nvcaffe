@@ -47,6 +47,7 @@ void caffe_gpu_gemm<float16>(const CBLAS_TRANSPOSE TransA,
     const CBLAS_TRANSPOSE TransB, const int M, const int N, const int K,
     const float16 alpha, const float16* A, const float16* B, const float16 beta,
     float16* C) {
+  cublasHandle_t handle = Caffe::cublas_handle();
   // Note that cublas follows fortran order.
   const int lda = (TransA == CblasNoTrans) ? K : M;
   const int ldb = (TransB == CblasNoTrans) ? N : K;
@@ -54,15 +55,39 @@ void caffe_gpu_gemm<float16>(const CBLAS_TRANSPOSE TransA,
       (TransA == CblasNoTrans) ? CUBLAS_OP_N : CUBLAS_OP_T;
   cublasOperation_t cuTransB =
       (TransB == CblasNoTrans) ? CUBLAS_OP_N : CUBLAS_OP_T;
-  // TODO
+
   if (Caffe::device_capability(Caffe::current_device()) >= 600) {
-    CUBLAS_CHECK(cublasHgemm(Caffe::cublas_handle(), cuTransB, cuTransA,
-        N, M, K, alpha.gethp<half>(), B->gethp<half>(), ldb,
-        A->gethp<half>(), lda, beta.gethp<half>(), C->gethp<half>(), N));
+#if CUDA_VERSION >= 9000
+    cublasMath_t math_mode;
+    CUBLAS_CHECK(cublasGetMathMode(handle, &math_mode));
+    CUBLAS_CHECK(cublasSetMathMode(handle, CUBLAS_TENSOR_OP_MATH));
+
+    float alpha_fp32 = static_cast<float>(alpha);
+    float beta_fp32 = static_cast<float>(beta);
+    CUBLAS_CHECK(cublasGemmEx(handle, cuTransB, cuTransA,
+        N, M, K, &alpha_fp32, B->gethp<half>(), CUDA_R_16F, ldb,
+        A->gethp<half>(), CUDA_R_16F, lda, &beta_fp32, C->gethp<half>(),
+        CUDA_R_16F, N, CUDA_R_32F, CUBLAS_GEMM_DFALT_TENSOR_OP));
+
+//    CUBLAS_CHECK(cublasGemmEx(handle, cuTransB, cuTransA,
+//        N, M, K, alpha.gethp<half>(), B->gethp<half>(), CUDA_R_16F, ldb,
+//        A->gethp<half>(), CUDA_R_16F, lda, beta.gethp<half>(), C->gethp<half>(),
+//        CUDA_R_16F, N, CUDA_R_16F, CUBLAS_GEMM_DFALT_TENSOR_OP));
+
+
+    CUBLAS_CHECK(cublasSetMathMode(handle, math_mode));
+    //
+#else
+    CUBLAS_CHECK(cublasHgemm(handle, cuTransB, cuTransA,
+    N, M, K, alpha.gethp<half>(), B->gethp<half>(), ldb,
+    A->gethp<half>(), lda, beta.gethp<half>(), C->gethp<half>(), N));
+
+#endif
+
   } else {
     float alpha_fp32 = static_cast<float>(alpha);
     float beta_fp32 = static_cast<float>(beta);
-    CUBLAS_CHECK(cublasSgemmEx(Caffe::cublas_handle(), cuTransB, cuTransA,
+    CUBLAS_CHECK(cublasSgemmEx(handle, cuTransB, cuTransA,
         N, M, K, &alpha_fp32, B->gethp<half>(), CAFFE_DATA_HALF, ldb,
         A->gethp<half>(), CAFFE_DATA_HALF, lda, &beta_fp32, C->gethp<half>(),
         CAFFE_DATA_HALF, N));

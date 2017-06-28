@@ -102,6 +102,13 @@ void Solver::InitTrainNet() {
     net_.reset(new Net(net_param, rank_, &init_flag_, &iter0_flag_,
         root_solver_->net_.get()));
   }
+#ifndef CPU_ONLY
+  for (const shared_ptr<Blob>& param : net_->learnable_params()) {
+    // To prevent allocations inside on_start call:
+    param->allocate_data(Caffe::mode() == Caffe::GPU);
+  }
+  net_->InitializeLearnableDiffSpace();
+#endif
 }
 
 void Solver::InitTestNets() {
@@ -197,13 +204,6 @@ void Solver::Step(int iters) {
   net_->set_solver(this);
 
 #ifndef CPU_ONLY
-  for (const shared_ptr<Blob>& param : net_->learnable_params()) {
-    // To prevent allocations inside on_start call:
-    param->allocate_data(mode == Caffe::GPU);
-  }
-
-  net_->InitializeLearnableDiffSpace();
-
   if (solver_count > 1) {
     // we need to sync all threads before starting, otherwise some cuda init,
     // malloc or other cuda stuff could interlock with in-loop cuda GPU sync
