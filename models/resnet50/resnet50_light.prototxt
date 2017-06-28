@@ -1,9 +1,5 @@
-name: "Resnet50_light"
+name: "Resnet50"
 
-#----------------------------------------------
-# Resnet50 with only 4 BN layers:
-# BatchNorm is used only after each super-block 
-#----------------------------------------------
 # n:  ch	:  s	:  g	: skip	:
 # 0:  64	:  3	:  1	:  0	:
 # 1:  128	:  4	:  1	:  1	:
@@ -616,26 +612,15 @@ layer {
   }
 }
 layer {
-  name: "res3.3.bn"
-  type: "BatchNorm"
-  bottom: "res3.3.sum"
-  top: "res3.3.bn"
-  batch_norm_param {
-    moving_average_fraction: 0.9
-    eps: 0.0001
-    scale_bias: true
-  }
-}
-layer {
   name: "res3.3.relu"
   type: "ReLU"
-  bottom: "res3.3.bn"
-  top: "res3.3.bn"
+  bottom: "res3.3.sum"
+  top: "res3.3.sum"
 }
 layer {
   name: "res3.4.conv1"
   type: "Convolution"
-  bottom: "res3.3.bn"
+  bottom: "res3.3.sum"
   top: "res3.4.conv1"
   convolution_param {
     num_output: 128
@@ -700,17 +685,28 @@ layer {
   name: "res3.4.sum"
   type: "Eltwise"
   bottom: "res3.4.conv3"
-  bottom: "res3.3.bn"
+  bottom: "res3.3.sum"
   top: "res3.4.sum"
   eltwise_param {
     operation: SUM
   }
 }
 layer {
+  name: "res3.4.bn"
+  type: "BatchNorm"
+  bottom: "res3.4.sum"
+  top: "res3.4.bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
+  }
+}
+layer {
   name: "res3.4.relu"
   type: "ReLU"
-  bottom: "res3.4.sum"
-  top: "res3.4.sum"
+  bottom: "res3.4.bn"
+  top: "res3.4.bn"
 }
 #
 # res4
@@ -718,7 +714,7 @@ layer {
 layer {
   name: "res4.1.conv1"
   type: "Convolution"
-  bottom: "res3.4.sum"
+  bottom: "res3.4.bn"
   top: "res4.1.conv1"
   convolution_param {
     num_output: 256
@@ -783,7 +779,7 @@ layer {
 layer {
   name: "res4.1.skipConv"
   type: "Convolution"
-  bottom: "res3.4.sum"
+  bottom: "res3.4.bn"
   top: "res4.1.skipConv"
   convolution_param {
     num_output: 1024
@@ -969,26 +965,15 @@ layer {
   }
 }
 layer {
-  name: "res4.3.bn"
-  type: "BatchNorm"
-  bottom: "res4.3.sum"
-  top: "res4.3.bn"
-  batch_norm_param {
-    moving_average_fraction: 0.9
-    eps: 0.0001
-    scale_bias: true
-  }
-}
-layer {
   name: "res4.3.relu"
   type: "ReLU"
-  bottom: "res4.3.bn"
-  top: "res4.3.bn"
+  bottom: "res4.3.sum"
+  top: "res4.3.sum"
 }
 layer {
   name: "res4.4.conv1"
   type: "Convolution"
-  bottom: "res4.3.bn"
+  bottom: "res4.3.sum"
   top: "res4.4.conv1"
   convolution_param {
     num_output: 256
@@ -1053,7 +1038,7 @@ layer {
   name: "res4.4.sum"
   type: "Eltwise"
   bottom: "res4.4.conv3"
-  bottom: "res4.3.bn"
+  bottom: "res4.3.sum"
   top: "res4.4.sum"
   eltwise_param {
     operation: SUM
@@ -1220,10 +1205,21 @@ layer {
   }
 }
 layer {
+  name: "res4.6.bn"
+  type: "BatchNorm"
+  bottom: "res4.6.sum"
+  top: "res4.6.bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
+  }
+}
+layer {
   name: "res4.6.relu"
   type: "ReLU"
-  bottom: "res4.6.sum"
-  top: "res4.6.sum"
+  bottom: "res4.6.bn"
+  top: "res4.6.bn"
 }
 #
 # res5
@@ -1231,7 +1227,7 @@ layer {
 layer {
   name: "res5.1.conv1"
   type: "Convolution"
-  bottom: "res4.6.sum"
+  bottom: "res4.6.bn"
   top: "res5.1.conv1"
   convolution_param {
     num_output: 512
@@ -1296,7 +1292,7 @@ layer {
 layer {
   name: "res5.1.skipConv"
   type: "Convolution"
-  bottom: "res4.6.sum"
+  bottom: "res4.6.bn"
   top: "res5.1.skipConv"
   convolution_param {
     num_output: 2048

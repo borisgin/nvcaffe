@@ -37,7 +37,7 @@ def addRes_small(model, name , bottom, num_output, group, j, fix_dim, dilation =
 #------------------------------------------------------------------------------------
 # Resnet with less BN
 #------------------------------------------------------------------------------------
-def addRes_lightbn(model, name , bottom, num_output, group, j, fix_dim, dilation = False):
+def addRes_light(model, name , bottom, num_output, group, j, fix_dim, dilation = False, BN = False) :
 
     prefix="{name}.{j}.".format(name=name,j=str(j))
     block=""
@@ -59,7 +59,7 @@ def addRes_lightbn(model, name , bottom, num_output, group, j, fix_dim, dilation
 
     block, top = addEltwise(model=block, name='{}sum'.format(prefix),
                             bottom_1=top, bottom_2=res_top, operation="SUM")
-    if (j == 3):
+    if (BN):
         block, top = addBN(model=block, name='{}bn'.format(prefix), bottom=top)
 
     block, top = addActivation(model=block, name="{}relu".format(prefix), bottom=top)
@@ -78,8 +78,8 @@ def addResSuperBlock(model, bottom, i, num_subBlocks, num_output, group, fix_dim
           model, top = addRes_small(model, name, bottom=top, num_output=num_output, group=group,
                                     j=j, fix_dim=fix_dim, dilation=dilation)
         else:
-          model, top = addRes_lightbn(model, name, bottom=top, num_output=num_output, group=group,
-                                    j=j, fix_dim=fix_dim, dilation=dilation)
+          model, top = addRes_light(model, name, bottom=top, num_output=num_output, group=group,
+                                    j=j, fix_dim=fix_dim, dilation=dilation, BN=(j==num_subBlocks))
     return model, top
 
 #------------------------------------------------------------------------------
@@ -169,7 +169,7 @@ def main():
         [256, 6, 1, 1],
         [512, 3, 1, 1]])
     model = buildResidualModel(netConfig, name="Resnet50", net_type="large")
-    fp = open("resnet_50_lightbn.prototxt", 'w')
+    fp = open("resnet50_light.prototxt", 'w')
     fp.write(model)
 
 if __name__ == '__main__':

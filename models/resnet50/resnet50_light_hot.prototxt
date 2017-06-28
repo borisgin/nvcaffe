@@ -1537,14 +1537,18 @@ layer {
   scale_param {
     filler {
       type: "constant"
-      value: 0.5
+      value: 1.0
     }
-    bias_term: false
+#    bias_term: false
+    bias_filler {
+      type: "constant"
+      value: 0.
+    }
   }
-  param {
-    lr_mult: 0
-    decay_mult: 0
-  }
+#  param {
+#    lr_mult: 1
+#    decay_mult: 1
+#  }
 }
 
 layer {
