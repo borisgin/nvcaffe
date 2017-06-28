@@ -895,7 +895,8 @@ message ELUParameter {
   // Described in:
   // Clevert, D.-A., Unterthiner, T., & Hochreiter, S. (2015). Fast and Accurate
   // Deep Network Learning by Exponential Linear Units (ELUs). arXiv
-  optional float alpha = 1 [default = 1];
+  optional float alpha = 1 [default = 1.];
+  optional float lambda = 2 [default = 1.];
 }
 
 // Message that stores parameters used by EmbedLayer

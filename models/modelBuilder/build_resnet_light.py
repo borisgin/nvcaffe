@@ -168,7 +168,7 @@ def main():
         [128, 4, 1, 1],
         [256, 6, 1, 1],
         [512, 3, 1, 1]])
-    model = buildResidualModel(netConfig, name="Resnet50", net_type="large")
+    model = buildResidualModel(netConfig, name="Resnet50_light", net_type="large")
     fp = open("resnet50_light.prototxt", 'w')
     fp.write(model)
 

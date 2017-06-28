@@ -170,6 +170,23 @@ layer {{
 
 #------------------------------------------------------------------------------
 
+def addSELU(model, name, bottom):
+    layer = '''
+layer {{
+  name: "{name}"
+  type: "ELU"
+  bottom: "{bottom}"
+  top: "{top}"
+  elu_param {{
+    alpha: 1.6733
+    lambda: 1.0507
+  }}
+}}'''.format(name=name, top=bottom, bottom=bottom)
+    model += layer
+    return model, bottom
+
+#------------------------------------------------------------------------------
+
 def addConvRelu(model, name, bottom, num_output,
                 kernel_size=0, kernel_h=0, kernel_w=0,
                 pad=0, pad_h=0, pad_w=0,
