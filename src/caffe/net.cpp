@@ -739,7 +739,7 @@ void Net::BackwardFromToAu(int start, int end, bool apply_update) {
       if (layers_[i]->skip_apply_update(j)) {
         continue;
       }
-      int param_id = layer_index_params_[make_pair(i, j)];
+      const int param_id = layer_index_params_[make_pair(i, j)];
       if (param_owners_[param_id] < 0) {
         reduction_queue_.push(learnable_param_ids_[param_id]);
       }  // leave it to the owner otherwise
@@ -1362,9 +1362,12 @@ void Net::InitializeLearnableDiffSpace() {
       if (layers_[i]->skip_apply_update(j)) {
         continue;
       }
-      const int param_id = layer_index_params_[make_pair(i, j)];
-      learnable_space_count_ += align_up<6>(learnable_params_[param_id]->count());
-      workspace_size += align_up<6>(learnable_params_[param_id]->count()) * max_tsize;
+      const int lip = layer_index_params_[make_pair(i, j)];
+      if (param_owners_[lip] < 0) {
+        const int param_id = learnable_param_ids_[lip];
+        learnable_space_count_ += align_up<6>(learnable_params_[param_id]->count());
+        workspace_size += align_up<6>(learnable_params_[param_id]->count()) * max_tsize;
+      }
     }
   }
   // Size have at least one byte, otherwise cudaMalloc fails if net has no
@@ -1381,10 +1384,13 @@ void Net::InitializeLearnableDiffSpace() {
       if (layers_[i]->skip_apply_update(j)) {
         continue;
       }
-      const int param_id = layer_index_params_[make_pair(i, j)];
-      learnable_params_[param_id]->set_gpu_diff(static_cast<void*>(ptr));
-      learnable_params_ptrs_[param_id] = ptr;
-      ptr += align_up<6>(learnable_params_[param_id]->count()) * max_tsize;
+      const int lip = layer_index_params_[make_pair(i, j)];
+      if (param_owners_[lip] < 0) {
+        const int param_id = learnable_param_ids_[lip];
+        learnable_params_[param_id]->set_gpu_diff(static_cast<void*>(ptr));
+        learnable_params_ptrs_[param_id] = ptr;
+        ptr += align_up<6>(learnable_params_[param_id]->count()) * max_tsize;
+      }
     }
   }
 }

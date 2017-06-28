@@ -286,7 +286,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
     // do reshape which also initializes cached descriptors.
     use_reshape_ = true;
   }
-  if ((this->relative_iter() == 3 || (this->relative_iter() > 3 && use_reshape_))
+  if ((this->iterations_sized() == 3 || (this->iterations_sized() > 3 && use_reshape_))
       && this->phase_ == TRAIN
       && mem_req_all_grps_ > 0UL
       && workspace_.size() > PAGE_SIZE * 2UL
@@ -385,7 +385,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
 
   // Ask cuDNN to find the best algorithm
   // When batch is small and every image is different we don't want to call Find* over and over
-  if (use_algo_seeker_ && this->relative_iter() <= 2) {
+  if (use_algo_seeker_ && this->iterations_sized() <= 2) {
     // FindEx: A workspace of size workspace_bytes is allocated for FindEx.
     //         Besides, workspace, a buffer is allocated for the output of
     //         FindEx-backward-filter. The size of buffer is as big as weights.
@@ -417,9 +417,9 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
         break;
       case ConvolutionParameter_CuDNNConvolutionAlgorithmSeeker_FINDEX:
         if (this->phase_ == TRAIN && use_modest_workspace_) {
-          // This is iteration 0 or 1, we collect max size from all conv layers
+          // This is (iter_size-ed) iteration 0 or 1, we collect max size from all conv layers
           // We'll use it to reserve space *once* on the next iteration
-          CHECK_GE(1, this->relative_iter());
+          CHECK_GE(1, this->iterations_sized());
           this->EstimateMaxWorkspaceSize(bottom, top);
         }
         workspace_.safe_reserve(workspace_bytes);
@@ -696,16 +696,8 @@ void CuDNNConvolutionLayer<Ftype, Btype>::GetConvAlgo(const vector<Blob*>& botto
 template<typename Ftype, typename Btype>
 void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
     const vector<Blob*>& bottom, const vector<Blob*>& top) {
-
-  if (this->phase_ == TEST) {  // Using default algos
-    return;
-  }
-  int rel_iter = 0;
-  const Solver* psolver = this->parent_solver();
-  if (psolver != nullptr) {
-    rel_iter = psolver->relative_iter();
-  }
-  if (rel_iter == 1) {
+  int iter_sized = this->iterations_sized();
+  if (iter_sized == 1) {
     return;
   }
 
@@ -722,17 +714,15 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
   // does it support TENSOR_OP?
   const bool top_device = Caffe::device_capability(Caffe::current_device()) >= 700;
 
-  const bool try_top = top_device && (!use_modest_workspace_ || rel_iter > 0);
+  const bool try_top = top_device && (!use_modest_workspace_ || iter_sized > 0);
 
   const size_t ngroups = groups();
   const size_t gsize = workspace_.size() / ngroups;
   CHECK(is_even(gsize)) << workspace_.size() << " / " << ngroups << " -> " << gsize;
 
   // Allocate temporary buffer for weights used for backward filter FindEx
-  if (this->phase_ == TRAIN) {
-    const size_t tmp_weights_size = even(this->weight_offset_) * sizeof(Btype);
-    tmp_weights_.safe_reserve(tmp_weights_size);
-  }
+  const size_t tmp_weights_size = even(this->weight_offset_) * sizeof(Btype);
+  tmp_weights_.safe_reserve(tmp_weights_size);
 
   for (int i = 0; i < bottom.size(); ++i) {
     // Find forward algorithm
@@ -967,25 +957,32 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
         }
 #endif
       }
+    }
 
-      CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
-      size_t workspace_limit_bytes, total_memory;
-      GPUMemory::GetInfo(&workspace_limit_bytes, &total_memory, true);
+    CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
+    size_t workspace_limit_bytes, total_memory;
+    GPUMemory::GetInfo(&workspace_limit_bytes, &total_memory, true);
 
-      LOG(INFO)<< "[" << Caffe::current_device() << "]"
-          << " Conv Algos (F,BD,BF): '" << this->name() << "' with space "
-          << gb_round2(workspace_.size()) << "G/" << groups()
+    std::ostringstream os;
+    os << (this->phase_ == TRAIN ? "[" : "(")
+        << Caffe::current_device()
+        << (this->phase_ == TRAIN ? "]" : ")")
+        << (this->phase_ == TRAIN ? " Conv Algos (F,BD,BF): '" : " Conv Algo (F): '")
+        << this->name() << "' with space "
+        << gb_round2(workspace_.size()) << "G/" << groups()
 #ifdef DEBUG
-          << " -> [" << workspace_fwd_sizes_[i]
-          << " " << workspace_bwd_data_sizes_[i]
-          << " " << workspace_bwd_filter_sizes_[i] << "]"
+        << " -> [" << workspace_fwd_sizes_[i]
+        << " " << workspace_bwd_data_sizes_[i]
+        << " " << workspace_bwd_filter_sizes_[i] << "]"
 #endif
-          << " " << fwd_algo_[i]
+        << " " << fwd_algo_[i]
 #if CUDNN_VERSION_MIN(7, 0, 0)
-          << (fwd_cudnn_math_[i] == CUDNN_TENSOR_OP_MATH ? "T" : "")
+        << (fwd_cudnn_math_[i] == CUDNN_TENSOR_OP_MATH ? "T" : "")
 #endif
-          << (user_algos_override_[0] >= 0 ? "u " : (fwd_pseudo ? "p " : " "))
-          << bwd_data_algo_[i]
+        << (user_algos_override_[0] >= 0 ? "u " : (fwd_pseudo ? "p " : " "));
+
+    if (this->phase_ == TRAIN) {
+      os << bwd_data_algo_[i]
 #if CUDNN_VERSION_MIN(7, 0, 0)
           << (bwd_data_cudnn_math_[i] == CUDNN_TENSOR_OP_MATH ? "T" : "")
 #endif
@@ -994,10 +991,13 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
 #if CUDNN_VERSION_MIN(7, 0, 0)
           << (bwd_filter_cudnn_math_[i] == CUDNN_TENSOR_OP_MATH ? "T" : "")
 #endif
-          << (user_algos_override_[2] >= 0 ? "u " : (bwd_filter_pseudo ? "p " : " "))
-          << " (limit " << gb_round2(workspace_limit_bytes) << "G, req "
-          << gb_round2(mem_req_all_grps_) << "G)";
+          << (user_algos_override_[2] >= 0 ? "u " : (bwd_filter_pseudo ? "p " : " "));
     }
+
+    os << " (limit " << gb_round2(workspace_limit_bytes) << "G, req "
+        << gb_round2(mem_req_all_grps_) << "G)";
+
+    LOG(INFO) << os.str();
   }
 }
 

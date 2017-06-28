@@ -73,6 +73,7 @@ class Solver {
   const vector<shared_ptr<Net>>& test_nets() { return test_nets_; }
   int iter() const { return iter_; }
   int relative_iter() const { return iter_ - iterations_restored_; }
+  int iterations_sized() const { return iterations_sized_; }
   float total_lapse() const { return total_lapse_; }
   bool is_root() const { return rank_ == 0; }
   float perf_report(std::ostream& os, int device, int align = 0) const;
@@ -128,10 +129,6 @@ class Solver {
 
   bool display() {
     return param_.display() && iter_ % param_.display() == 0;
-  }
-
-  bool is_iter_size_complete() const {
-    return iter_size_complete_;
   }
 
   /**
@@ -195,7 +192,7 @@ class Solver {
   Timer test_timer_;
   int iterations_last_;
   int iterations_restored_;
-  bool iter_size_complete_;
+  int iterations_sized_;
 
   DISABLE_COPY_MOVE_AND_ASSIGN(Solver);
 };

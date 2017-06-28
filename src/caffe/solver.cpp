@@ -29,7 +29,7 @@ Solver::Solver(const SolverParameter& param, size_t rank, const Solver* root_sol
     : param_(param), data_type_(param_.solver_data_type()), iter_(0), id_(0), net_(),
       callback_(nullptr), root_solver_(root_solver), rank_(rank), requested_early_exit_(false),
       iteration_timer_(), test_timer_(), iterations_last_(0), iterations_restored_(0),
-      iter_size_complete_(false) {
+      iterations_sized_(0) {
   Init();
 }
 
@@ -286,8 +286,8 @@ void Solver::Step(int iters) {
           iter0_flag_.set();
           net_->wait_layers_init();
         }
-        iter_size_complete_ = true;
       }
+      ++iterations_sized_;
     }
     loss /= param_.iter_size();
     iteration_wait();
