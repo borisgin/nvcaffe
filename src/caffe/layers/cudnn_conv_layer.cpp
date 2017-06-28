@@ -2,7 +2,6 @@
 #include <algorithm>
 #include <vector>
 #include <boost/tokenizer.hpp>
-#include <cudnn.h>
 
 #include "caffe/filler.hpp"
 #include "caffe/layers/cudnn_conv_layer.hpp"
@@ -287,7 +286,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
     // do reshape which also initializes cached descriptors.
     use_reshape_ = true;
   }
-  if ((this->relative_iter() == 2 || (this->relative_iter() > 2 && use_reshape_))
+  if ((this->relative_iter() == 3 || (this->relative_iter() > 3 && use_reshape_))
       && this->phase_ == TRAIN
       && mem_req_all_grps_ > 0UL
       && workspace_.size() > PAGE_SIZE * 2UL
@@ -386,7 +385,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
 
   // Ask cuDNN to find the best algorithm
   // When batch is small and every image is different we don't want to call Find* over and over
-  if (use_algo_seeker_ && this->relative_iter() < 2) {
+  if (use_algo_seeker_ && this->relative_iter() <= 2) {
     // FindEx: A workspace of size workspace_bytes is allocated for FindEx.
     //         Besides, workspace, a buffer is allocated for the output of
     //         FindEx-backward-filter. The size of buffer is as big as weights.
@@ -701,8 +700,16 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
   if (this->phase_ == TEST) {  // Using default algos
     return;
   }
+  int rel_iter = 0;
+  const Solver* psolver = this->parent_solver();
+  if (psolver != nullptr) {
+    rel_iter = psolver->relative_iter();
+  }
+  if (rel_iter == 1) {
+    return;
+  }
 
-    int fwd_algo_count = 0;
+  int fwd_algo_count = 0;
   int filter_algo_count = 0;
   int data_algo_count = 0;
   cudnnConvolutionFwdAlgoPerf_t fwd_results[REQUEST_ALGO_COUNT];
@@ -715,11 +722,6 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
   // does it support TENSOR_OP?
   const bool top_device = Caffe::device_capability(Caffe::current_device()) >= 700;
 
-  int rel_iter = 0;
-  const Solver* psolver = this->parent_solver();
-  if (psolver != nullptr) {
-    rel_iter = psolver->relative_iter();
-  }
   const bool try_top = top_device && (!use_modest_workspace_ || rel_iter > 0);
 
   const size_t ngroups = groups();
@@ -746,7 +748,13 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
       for (int m = 0; m < 2; ++m) {
         if (m > 0 &&
             // if user wants specific math type, no need to check anything else
-            this->is_fm_by_user()) {
+            (this->is_fm_by_user() ||
+             // also, we skip this in fp32/64 modes
+             !is_type<Ftype>(FLOAT16) ||
+             // and we skip 1st cycle
+             use_modest_workspace_ ||
+             // and sanity check for current descriptor type
+             convolutionDescDataType(fwd_conv_descs_[i]) != CUDNN_DATA_HALF)) {
           break;
         }
         if (m == 1) {
@@ -817,7 +825,14 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
         for (int m = 0; m < 2; ++m) {
           if (m > 0 &&
               // if user wants specific math type, no need to check anything else
-              this->is_fm_by_user()) {
+              (this->is_bm_by_user() ||
+               // also, we skip this in fp32/64 modes
+               !is_type<Ftype>(FLOAT16) ||
+               // and we skip 1st cycle
+               use_modest_workspace_ ||
+               // and sanity check for current descriptor type
+               convolutionDescDataType(bwd_conv_filter_descs_[i])
+               != CUDNN_DATA_HALF)) {
             break;
           }
           if (m == 1) {
@@ -888,7 +903,14 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
         for (int m = 0; m < 2; ++m) {
           if (m > 0 &&
               // if user wants specific math type, no need to check anything else
-              this->is_fm_by_user()) {
+              (this->is_bm_by_user() ||
+               // also, we skip this in fp32/64 modes
+               !is_type<Ftype>(FLOAT16) ||
+               // and we skip 1st cycle
+               use_modest_workspace_ ||
+               // and sanity check for current descriptor type
+               convolutionDescDataType(bwd_conv_data_descs_[i])
+               != CUDNN_DATA_HALF)) {
             break;
           }
           if (m == 1) {
