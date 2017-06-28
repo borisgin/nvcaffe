@@ -236,6 +236,44 @@ def addBnRelu(model, name, bottom):
 
 #------------------------------------------------------------------------------
 
+def addConvElu(model, name, bottom, num_output,
+                kernel_size=0, kernel_h=0, kernel_w=0,
+                pad=0, pad_h=0, pad_w=0,
+                group=1, stride=1, dilation=1,
+                filler="msra",
+                weight_sharing=False, weight_name="", bias_name="",
+                residual=False, residual_init=False):
+    model, top = addConv(model=model, name=name, bottom=bottom, num_output=num_output,
+                         kernel_size=kernel_size, kernel_h=kernel_h, kernel_w=kernel_w,
+                         pad=pad, pad_h=pad_h, pad_w=pad_w,
+                         group=group, stride=stride, dilation=dilation,
+                         bias_term=True,filler=filler,
+                         weight_sharing=weight_sharing, weight_name=weight_name, bias_name=bias_name,
+                         residual=residual, residual_init=residual_init)
+    model, top = addActivation(model=model, name="{}/elu".format(name), bottom=top, type="ELU")
+    return model, top
+
+#---------------------------------------------------------------------------------
+def addConvBnElu(model, name, bottom, num_output,
+                       kernel_size=0, kernel_h=0, kernel_w=0,
+                       pad=0, pad_h=0, pad_w=0,
+                       group=1, stride=1, dilation=1,
+                       filler="msra", weight_sharing=False, weight_name="", bias_name="",
+                       residual=False, residual_init=False):
+
+    model, top = addConv(model=model, name=name, bottom=bottom, num_output=num_output,
+                       kernel_size=kernel_size, kernel_h=kernel_h, kernel_w=kernel_w,
+                       pad=pad, pad_h=pad_h, pad_w=pad_w,
+                       group=group, stride=stride, dilation=dilation,
+                       bias_term=False,filler=filler,
+                       weight_sharing=weight_sharing, weight_name=weight_name, bias_name=bias_name,
+                       residual=residual, residual_init=residual_init)
+    model, top = addBN(model, name="{}/bn".format(name), bottom=top)
+    model, top = addActivation(model=model, name="{}/elu".format(name), bottom=top, type="ELU")
+    return model, top
+
+#---------------------------------------------------------------------------------
+
 def addPool(model, name, bottom, kernel_size, stride, pool_type, pad=0):
 
     layer = '''
