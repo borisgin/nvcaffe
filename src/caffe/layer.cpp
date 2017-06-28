@@ -80,6 +80,12 @@ int LayerBase::relative_iter() const {
   return psolver == nullptr ? 0 : psolver->relative_iter();
 }
 
+int LayerBase::iterations_sized() const {
+  const Solver* psolver = parent_solver();
+  return psolver == nullptr ? 0 : psolver->iterations_sized();
+}
+
+
 INSTANTIATE_CLASS_FB(Layer);
 
 }  // namespace caffe

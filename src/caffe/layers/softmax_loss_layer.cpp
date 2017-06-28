@@ -23,7 +23,7 @@ void SoftmaxWithLossLayer<Ftype, Btype>::LayerSetUp(
   softmax_bottom_vec_.clear();
   softmax_bottom_vec_.push_back(bottom[0]);
   softmax_top_vec_.clear();
-  softmax_top_vec_.push_back(&prob_);
+  softmax_top_vec_.push_back(prob_.get());
   softmax_layer_->SetUp(softmax_bottom_vec_, softmax_top_vec_);
 
   has_ignore_label_ =
@@ -96,9 +96,9 @@ void SoftmaxWithLossLayer<Ftype, Btype>::Forward_cpu(
     const vector<Blob*>& bottom, const vector<Blob*>& top) {
   // The forward pass computes the softmax prob values.
   softmax_layer_->Forward(softmax_bottom_vec_, softmax_top_vec_);
-  const Ftype* prob_data = prob_.template cpu_data<Ftype>();
+  const Ftype* prob_data = prob_->template cpu_data<Ftype>();
   const Ftype* label = bottom[1]->cpu_data<Ftype>();
-  int dim = prob_.count() / outer_num_;
+  int dim = prob_->count() / outer_num_;
   int count = 0;
   float loss = 0.F;
   for (int i = 0; i < outer_num_; ++i) {
@@ -108,7 +108,7 @@ void SoftmaxWithLossLayer<Ftype, Btype>::Forward_cpu(
         continue;
       }
       DCHECK_GE(label_value, 0);
-      DCHECK_LT(label_value, prob_.shape(softmax_axis_));
+      DCHECK_LT(label_value, prob_->shape(softmax_axis_));
       loss -= log(std::max(prob_data[i * dim + label_value * inner_num_ + j],
           min_dtype<Ftype>()));
       ++count;
@@ -116,7 +116,7 @@ void SoftmaxWithLossLayer<Ftype, Btype>::Forward_cpu(
   }
   top[0]->mutable_cpu_data<Ftype>()[0] = loss / get_normalizer(normalization_, count);
   if (top.size() == 2) {
-    top[1]->ShareData(prob_);
+    top[1]->ShareData(*prob_);
   }
 }
 
@@ -128,10 +128,10 @@ void SoftmaxWithLossLayer<Ftype, Btype>::Backward_cpu(const vector<Blob*>& top,
   }
   if (propagate_down[0]) {
     Btype* bottom_diff = bottom[0]->mutable_cpu_diff<Btype>();
-    const Btype* prob_data = prob_.template cpu_data<Btype>();
-    caffe_copy(prob_.count(), prob_data, bottom_diff);
+    const Btype* prob_data = prob_->template cpu_data<Btype>();
+    caffe_copy(prob_->count(), prob_data, bottom_diff);
     const Btype* label = bottom[1]->cpu_data<Btype>();
-    int dim = prob_.count() / outer_num_;
+    int dim = prob_->count() / outer_num_;
     int count = 0;
     for (int i = 0; i < outer_num_; ++i) {
       for (int j = 0; j < inner_num_; ++j) {
@@ -152,7 +152,7 @@ void SoftmaxWithLossLayer<Ftype, Btype>::Backward_cpu(const vector<Blob*>& top,
      float fp16_global_grad_scale = this->parent_net()->global_grad_scale();
      loss_weight = loss_weight * fp16_global_grad_scale;
     }
-    caffe_scal(prob_.count(), loss_weight, bottom_diff);
+    caffe_scal(prob_->count(), loss_weight, bottom_diff);
   }
 }
 
