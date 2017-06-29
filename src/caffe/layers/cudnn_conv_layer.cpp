@@ -472,8 +472,10 @@ void CuDNNConvolutionLayer<Ftype, Btype>::EstimateMaxWorkspaceSize(const vector<
   cudnnStatus_t status;
   size_t size;
   size_t available_memory, total_memory;
+#if CUDNN_VERSION_MIN(7, 0, 0)
   // does it support TENSOR_OP?
   const bool top_device = Caffe::device_capability(Caffe::current_device()) >= 700;
+#endif
   GPUMemory::GetInfo(&available_memory, &total_memory, true);
   // As per our experiments, it's not healthy to take more than 50% of total
   available_memory = std::min(available_memory, total_memory / 2);
@@ -698,10 +700,11 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
   bool bwd_filter_pseudo = false;
   bool bwd_data_pseudo = false;
 
+#if CUDNN_VERSION_MIN(7, 0, 0)
   // does it support TENSOR_OP?
   const bool top_device = Caffe::device_capability(Caffe::current_device()) >= 700;
-
   const bool try_top = top_device && (!use_modest_workspace_ || iter_sized > 0);
+#endif
 
   const size_t ngroups = groups();
   const size_t gsize = workspace_.size() / ngroups;
