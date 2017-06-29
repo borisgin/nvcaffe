@@ -245,7 +245,7 @@ size_t CuDNNConvolutionLayer<Ftype, Btype>::ComputeFindExWorkspaceSize() {
   workspace_limit_bytes = workspace_limit_bytes > PAGE_SIZE ?
       workspace_limit_bytes - PAGE_SIZE : 0UL;
   if (workspace_bytes > workspace_limit_bytes) {
-    LOG(WARNING) << "[" << Caffe::current_device()
+    LOG(WARNING) << " [" << Caffe::current_device()
         << "] Current workspace (" << gb_round2(workspace_.size()) << "G)"
         << " Estimated requirement (" << gb_round2(workspace_bytes) << "G)";
     workspace_bytes = align_down<7>(workspace_limit_bytes);
@@ -698,6 +698,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
     const vector<Blob*>& bottom, const vector<Blob*>& top) {
   int iter_sized = this->iterations_sized();
   if (iter_sized == 1) {
+    // Skip _second_ run and allow layers to allocate all they need
     return;
   }
 
@@ -720,9 +721,11 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
   const size_t gsize = workspace_.size() / ngroups;
   CHECK(is_even(gsize)) << workspace_.size() << " / " << ngroups << " -> " << gsize;
 
-  // Allocate temporary buffer for weights used for backward filter FindEx
-  const size_t tmp_weights_size = even(this->weight_offset_) * sizeof(Btype);
-  tmp_weights_.safe_reserve(tmp_weights_size);
+  if (this->phase_ == TRAIN) {
+    // Allocate temporary buffer for weights used for backward filter FindEx
+    const size_t tmp_weights_size = even(this->weight_offset_) * sizeof(Btype);
+    tmp_weights_.safe_reserve(tmp_weights_size);
+  }
 
   for (int i = 0; i < bottom.size(); ++i) {
     // Find forward algorithm
