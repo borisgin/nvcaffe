@@ -226,10 +226,6 @@ size_t CuDNNConvolutionLayer<Ftype, Btype>::ComputeFindExWorkspaceSize() {
   if (was_reduced_) {
     return workspace_.size();
   }
-  if (this->phase_ == TEST) {
-    workspace_.safe_reserve(INITIAL_WORKSPACE_SIZE * groups());
-    return workspace_.size();
-  }
   size_t workspace_limit_bytes, total_memory, workspace_bytes = 0UL;
   GPUMemory::GetInfo(&workspace_limit_bytes, &total_memory, true);
   if (mem_size_estimated_ == 0UL) {
@@ -245,8 +241,8 @@ size_t CuDNNConvolutionLayer<Ftype, Btype>::ComputeFindExWorkspaceSize() {
   workspace_limit_bytes = workspace_limit_bytes > PAGE_SIZE ?
       workspace_limit_bytes - PAGE_SIZE : 0UL;
   if (workspace_bytes > workspace_limit_bytes) {
-    LOG(WARNING) << " [" << Caffe::current_device()
-        << "] Current workspace (" << gb_round2(workspace_.size()) << "G)"
+    LOG(WARNING) << this->print_current_device()
+        << " Current workspace (" << gb_round2(workspace_.size()) << "G)"
         << " Estimated requirement (" << gb_round2(workspace_bytes) << "G)";
     workspace_bytes = align_down<7>(workspace_limit_bytes);
   }
@@ -255,7 +251,7 @@ size_t CuDNNConvolutionLayer<Ftype, Btype>::ComputeFindExWorkspaceSize() {
     workspace_bytes = workspace_bytes > PAGE_SIZE ? workspace_bytes - PAGE_SIZE : 0UL;
     workspace_bytes = align_down<7>(workspace_bytes);
     --attempts;
-    LOG(INFO) << "[" << Caffe::current_device() << "] Retrying to allocate " << workspace_bytes
+    LOG(INFO) << this->print_current_device() << " Retrying to allocate " << workspace_bytes
               << " bytes, attempts left: " << attempts;
   }
   return workspace_.size();
@@ -287,13 +283,12 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
     use_reshape_ = true;
   }
   if ((this->iterations_sized() == 3 || (this->iterations_sized() > 3 && use_reshape_))
-      && this->phase_ == TRAIN
       && mem_req_all_grps_ > 0UL
       && workspace_.size() > PAGE_SIZE * 2UL
       && workspace_.size() > mem_req_all_grps_ * 2UL) {
     // Winner needs less than half of initial estimate - saving the rest
     // Half because we want to reduce the number of allocs/deallocs
-    LOG(INFO) << "[" << Caffe::current_device() << "]"
+    LOG(INFO) << this->print_current_device()
               << " Layer '" << this->name() << "' reallocating workspace: "
               << gb_round2(workspace_.size()) << "G -> "
               << gb_round2(mem_req_all_grps_ * 2UL) << "G";
@@ -398,14 +393,11 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
       workspace_bytes = INITIAL_WORKSPACE_SIZE * groups();
     } else {
       // Make sure it's all allocated before we take the rest
-      this->blobs_[0]->allocate_data();
-      this->blobs_[0]->allocate_diff();
-      if (this->bias_term_) {
-        this->blobs_[1]->allocate_data();
-      }
-      for (int i = 0; i < bottom.size(); ++i) {
-        top[i]->allocate_data();
-        bottom[i]->allocate_diff();
+      if (this->phase_ == TRAIN) {
+        for (int i = 0; i < bottom.size(); ++i) {
+          top[i]->allocate_data();
+          bottom[i]->allocate_diff();
+        }
       }
       workspace_bytes = ComputeFindExWorkspaceSize();
       // Avoid seeking for an algorithm in subsequent iterations
@@ -416,7 +408,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
         this->GetConvAlgo(bottom, top, workspace_bytes, pad_h, pad_w, stride_h, stride_w);
         break;
       case ConvolutionParameter_CuDNNConvolutionAlgorithmSeeker_FINDEX:
-        if (this->phase_ == TRAIN && use_modest_workspace_) {
+        if (use_modest_workspace_) {
           // This is (iter_size-ed) iteration 0 or 1, we collect max size from all conv layers
           // We'll use it to reserve space *once* on the next iteration
           CHECK_GE(1, this->iterations_sized());
@@ -495,7 +487,6 @@ void CuDNNConvolutionLayer<Ftype, Btype>::EstimateMaxWorkspaceSize(const vector<
       algos_to_test.emplace_back(user_algos_override_[0]);
     }
     for (int a : algos_to_test) {
-
 #if CUDNN_VERSION_MIN(7, 0, 0)
       for (int cm = 0; cm < 2; ++cm) {
         if (top_device) {
@@ -505,7 +496,6 @@ void CuDNNConvolutionLayer<Ftype, Btype>::EstimateMaxWorkspaceSize(const vector<
           break;
         }
 #endif
-
         for (int m = 0; m < 2; ++m) {
         if (m == 1) {
           if (is_type<Ftype>(FLOAT16) &&
@@ -544,7 +534,6 @@ void CuDNNConvolutionLayer<Ftype, Btype>::EstimateMaxWorkspaceSize(const vector<
       algos_to_test.emplace_back(user_algos_override_[1]);
     }
     for (int a : algos_to_test) {
-
 #if CUDNN_VERSION_MIN(7, 0, 0)
       for (int cm = 0; cm < 2; ++cm) {
         if (top_device) {
@@ -554,7 +543,6 @@ void CuDNNConvolutionLayer<Ftype, Btype>::EstimateMaxWorkspaceSize(const vector<
           break;
         }
 #endif
-
         for (int m = 0; m < 2; ++m) {
         if (m == 1) {
           if (is_type<Ftype>(FLOAT16) &&
@@ -593,7 +581,6 @@ void CuDNNConvolutionLayer<Ftype, Btype>::EstimateMaxWorkspaceSize(const vector<
       algos_to_test.emplace_back(user_algos_override_[2]);
     }
     for (int a : algos_to_test) {
-
 #if CUDNN_VERSION_MIN(7, 0, 0)
       for (int cm = 0; cm < 2; ++cm) {
         if (top_device) {
@@ -603,7 +590,6 @@ void CuDNNConvolutionLayer<Ftype, Btype>::EstimateMaxWorkspaceSize(const vector<
           break;
         }
 #endif
-
         for (int m = 0; m < 2; ++m) {
         if (m == 1) {
           if (is_type<Ftype>(FLOAT16) &&
@@ -967,9 +953,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
     GPUMemory::GetInfo(&workspace_limit_bytes, &total_memory, true);
 
     std::ostringstream os;
-    os << (this->phase_ == TRAIN ? "[" : "(")
-        << Caffe::current_device()
-        << (this->phase_ == TRAIN ? "]" : ")")
+    os << this->print_current_device()
         << (this->phase_ == TRAIN ? " Conv Algos (F,BD,BF): '" : " Conv Algo (F): '")
         << this->name() << "' with space "
         << gb_round2(workspace_.size()) << "G/" << groups()

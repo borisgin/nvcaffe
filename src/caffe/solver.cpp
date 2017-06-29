@@ -203,6 +203,11 @@ void Solver::Step(int iters) {
 
   net_->set_solver(this);
 
+  if (iters <= 0) {
+    iter0_flag_.set();
+    init_flag_.set();
+  }
+
 #ifndef CPU_ONLY
   if (solver_count > 1) {
     // we need to sync all threads before starting, otherwise some cuda init,
@@ -233,7 +238,6 @@ void Solver::Step(int iters) {
   reduce_thread_.reset(new boost::thread(&Solver::Reduce, this,
       Caffe::current_device(), mode, random_seed, solver_count, root_solver));
 
-  // FIXME max_iter: 0
   while (iter_ < stop_iter) {
     if (param_.snapshot_diff()) {
       net_->ClearParamDiffs();
@@ -300,12 +304,13 @@ void Solver::Step(int iters) {
     UpdateSmoothedLoss(loss, start_iter, average_loss);
     if (display || rel_iter <= 2 || iter_ + 1 >= stop_iter) {
       float lapse = iteration_timer_.Seconds();
+      iteration_timer_.Start();
       if (rel_iter > 2) {  // we skip 0,1,2 for correct benchmarking
         total_lapse_ += lapse;
         float per_s = (iter_ - iterations_last_) / (lapse > 0.F ? lapse : 1.F);
         LOG_IF(INFO, Caffe::root_solver()) << "Iteration " << iter_
                                            << " (" << per_s << " iter/s, " << lapse << "s/"
-                                           << param_.display() << " iter), loss = "
+                                           << (iter_ - iterations_last_) << " iter), loss = "
                                            << smoothed_loss_;
       } else {
         LOG_IF(INFO, Caffe::root_solver()) << "Iteration " << iter_
@@ -332,7 +337,6 @@ void Solver::Step(int iters) {
       }
       PrintRate();
       iterations_last_ = iter_;
-      iteration_timer_.Start();
     }
     // Increment the internal iter_ counter -- its value should always indicate
     // the number of times the weights have been updated.
@@ -432,7 +436,7 @@ bool Solver::Solve(const char* resume_file) {
     LOG_IF(INFO, Caffe::root_solver()) << "Iteration "
         << iter_ << ", loss = " << smoothed_loss_;
   }
-  if (param_.test_interval() && iter_ % param_.test_interval() == 0) {
+  if (param_.test_interval() && iter_ > 0 && iter_ % param_.test_interval() == 0) {
     bool use_multi_gpu_testing = Caffe::solver_count() > 1;
     TestAll(0, use_multi_gpu_testing);
     callback_soft_barrier();
@@ -627,7 +631,8 @@ float Solver::perf_report(std::ostream& os, int device, int align) const {
   float perf = perf_ratio * net_->batch_per_solver();
   os << al << "Solver performance on device " << device << ": "
       << perf_ratio << " * " << net_->batch_per_solver()
-      << " = " << perf << " img/sec";
+      << " = " << perf << " img/sec (" << relative_iter()
+      << " itr in " << total_lapse() << " sec)";
   return perf;
 }
 

@@ -54,7 +54,7 @@ class SoftmaxWithLossLayer : public LossLayer<Ftype, Btype> {
   explicit SoftmaxWithLossLayer(const LayerParameter& param)
       : LossLayer<Ftype, Btype>(param) {
      prob_ = Blob::create<Ftype>();
-   }
+  }
   virtual void LayerSetUp(const vector<Blob*>& bottom,
       const vector<Blob*>& top);
   virtual void Reshape(const vector<Blob*>& bottom,
