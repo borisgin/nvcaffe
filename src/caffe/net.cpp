@@ -1,14 +1,9 @@
 #include <algorithm>
 #include <map>
 #include <set>
-#include <string>
-#include <utility>
-#include <vector>
 #include <boost/thread.hpp>
 #include <caffe/util/signal_handler.h>
-
-#include "hdf5.h"
-#include <string.h>
+#include <hdf5.h>
 
 #include "caffe/common.hpp"
 #include "caffe/layer.hpp"
