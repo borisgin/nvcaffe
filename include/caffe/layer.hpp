@@ -129,8 +129,6 @@ class LayerBase {
    */
   virtual inline const char* type() const { return ""; }
 
-  virtual bool bias_term() const { return false; }  // FIXME
-
   /**
    * @brief Returns the layer name.
    */
@@ -141,6 +139,7 @@ class LayerBase {
   // Iteration counter maintained by Solver
   int iter() const;
   int relative_iter() const;
+  int iterations_sized() const;
 
   void set_solver_rank(size_t solver_rank) {
     solver_rank_ = solver_rank;
@@ -384,6 +383,10 @@ class LayerBase {
    * @brief Writes the layer parameter to a protocol buffer
    */
   virtual void ToProto(LayerParameter* param, bool write_diff = false) = 0;
+
+#ifndef CPU_ONLY
+  std::string print_current_device() const;
+#endif
 
  protected:
   /** The vector that stores the learnable parameters as a set of blobs. */

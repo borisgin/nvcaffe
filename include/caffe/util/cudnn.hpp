@@ -62,8 +62,7 @@ cudnnDataType_t conv_type(Type math) {
     break;
 #ifndef CPU_ONLY
   case FLOAT16:
-    // TODO
-    if (caffe::Caffe::device_capability(caffe::Caffe::current_device()) == 600) {
+    if (caffe::Caffe::device_capability(caffe::Caffe::current_device()) >= 600) {
       ret = dataType<float16>::conv_type;
     } else {
       ret = dataType<float>::conv_type;

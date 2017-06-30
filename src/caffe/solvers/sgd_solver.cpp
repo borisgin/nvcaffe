@@ -50,11 +50,11 @@ float SGDSolver<Dtype>::GetLearningRate() {
     }
     rate = this->param_.base_lr() * pow(this->param_.gamma(), this->current_step_);
   } else if (lr_policy == "poly") {
-  float min_lr  = this->param_.min_lr();
-  float base_lr = this->param_.base_lr();
-  float power = this->param_.power();
-  rate = min_lr + (base_lr - min_lr) *
-      pow(1.F - (float(this->iter_) / float(this->param_.max_iter())), power);
+    float min_lr  = this->param_.min_lr();
+    float base_lr = this->param_.base_lr();
+    float power = this->param_.power();
+    float maxiter = this->param_.max_iter() > 0 ? float(this->param_.max_iter()) : 1.F;
+    rate = min_lr + (base_lr - min_lr) * pow(1.F - (float(this->iter_) / maxiter), power);
   } else if (lr_policy == "sigmoid") {
     rate = this->param_.base_lr() / (1.F +
         exp(-this->param_.gamma() * (double(this->iter_ - this->param_.stepsize()))));

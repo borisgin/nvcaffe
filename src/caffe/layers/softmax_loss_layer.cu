@@ -55,9 +55,9 @@ template <typename Ftype, typename Btype>
 void SoftmaxWithLossLayer<Ftype, Btype>::Forward_gpu(
     const vector<Blob*>& bottom, const vector<Blob*>& top) {
   softmax_layer_->Forward(softmax_bottom_vec_, softmax_top_vec_);
-  const Ftype* prob_data = prob_.template gpu_data<Ftype>();
+  const Ftype* prob_data = prob_->template gpu_data<Ftype>();
   const Ftype* label = bottom[1]->gpu_data<Ftype>();
-  const int dim = prob_.count() / outer_num_;
+  const int dim = prob_->count() / outer_num_;
   const int nthreads = outer_num_ * inner_num_;
   // Since this memory is not used for anything until it is overwritten
   // on the backward pass, we use it here to avoid having to allocate new GPU
@@ -65,7 +65,7 @@ void SoftmaxWithLossLayer<Ftype, Btype>::Forward_gpu(
   Ftype* loss_data = bottom[0]->mutable_gpu_diff<Ftype>();
   // Similarly, this memory is never used elsewhere, and thus we can use it
   // to avoid having to allocate additional GPU memory.
-  Ftype* counts = prob_.template mutable_gpu_diff<Ftype>();
+  Ftype* counts = prob_->template mutable_gpu_diff<Ftype>();
   // NOLINT_NEXT_LINE(whitespace/operators)
   SoftmaxLossForwardGPU<<<CAFFE_GET_BLOCKS(nthreads),
       CAFFE_CUDA_NUM_THREADS, 0, Caffe::thread_stream()>>>(nthreads, prob_data, label, loss_data,
@@ -80,7 +80,7 @@ void SoftmaxWithLossLayer<Ftype, Btype>::Forward_gpu(
   }
   top[0]->mutable_cpu_data<Ftype>()[0] = loss / get_normalizer(normalization_, valid_count);
   if (top.size() == 2) {
-    top[1]->ShareData(prob_);
+    top[1]->ShareData(*prob_);
   }
 }
 
@@ -143,15 +143,15 @@ void SoftmaxWithLossLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
   }
   if (propagate_down[0]) {
     Btype* bottom_diff = bottom[0]->mutable_gpu_diff<Btype>();
-    const Btype* prob_data = prob_.template gpu_data<Btype>();
+    const Btype* prob_data = prob_->template gpu_data<Btype>();
     const Btype* top_data = top[0]->gpu_data<Btype>();
-    caffe_gpu_memcpy(prob_.count() * sizeof(Btype), prob_data, bottom_diff);
+    caffe_gpu_memcpy(prob_->count() * sizeof(Btype), prob_data, bottom_diff);
     const Btype* label = bottom[1]->gpu_data<Btype>();
-    const int dim = prob_.count() / outer_num_;
+    const int dim = prob_->count() / outer_num_;
     const int nthreads = outer_num_ * inner_num_;
     // Since this memory is never used for anything else,
     // we use to to avoid allocating new GPU memory.
-    Btype* counts = prob_.template mutable_gpu_diff<Btype>();
+    Btype* counts = prob_->template mutable_gpu_diff<Btype>();
     // NOLINT_NEXT_LINE(whitespace/operators)
     SoftmaxLossBackwardGPU<<<CAFFE_GET_BLOCKS(nthreads),
         CAFFE_CUDA_NUM_THREADS, 0, Caffe::thread_stream()>>>(nthreads, top_data, label, bottom_diff,
@@ -172,7 +172,7 @@ void SoftmaxWithLossLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
       float global_grad_scale = this->parent_net()->global_grad_scale();
       loss_weight = loss_weight * global_grad_scale;
     }
-    caffe_gpu_scal(prob_.count(), loss_weight , bottom_diff);
+    caffe_gpu_scal(prob_->count(), loss_weight , bottom_diff);
   }
 }
 
