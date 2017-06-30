@@ -80,14 +80,14 @@ def addResSELU_large(model, name , bottom, num_output, group, j, fix_dim, dilati
 
     prefix="{name}.{j}.".format(name=name,j=str(j))
     block=""
-    block, top = addConvBnSELU(model=block, name='{}conv1'.format(prefix), bottom=bottom, num_output=num_output,
+    block, top = addConvSELU(model=block, name='{}conv1'.format(prefix), bottom=bottom, num_output=num_output,
                                kernel_size=1, group=1, stride=2 if (fix_dim and (j==1)) else 1, pad=0)
-    block, top = addConvBnSELU(model=block, name='{}conv2'.format(prefix), bottom=top, num_output=num_output,
+    block, top = addConvSELU(model=block, name='{}conv2'.format(prefix), bottom=top, num_output=num_output,
                                kernel_size=3, group=group, stride=1, pad=1)
-    block, top = addConvBn(model=block, name='{}conv3'.format(prefix), bottom=top, num_output=(num_output * 4),
+    block, top = addConv(model=block, name='{}conv3'.format(prefix), bottom=top, num_output=(num_output * 4),
                                kernel_size=1, group=1, stride=1, pad=0)
     if (j == 1):
-        block, res_top = addConvBn(model=block, name='{}skipConv'.format(prefix), bottom=bottom,
+        block, res_top = addConv(model=block, name='{}skipConv'.format(prefix), bottom=bottom,
                                num_output=(num_output * 4),
                                kernel_size=1, group=1, stride=2 if fix_dim  else 1, pad=0)
     else:
@@ -188,7 +188,7 @@ def buildResnetSELU(netConfig, name, net_type):
     test_batch  = 32
     model, last_top = addData(model, train_batch, test_batch)
 
-    model, top = addConvBnSELU(model, name="conv1", bottom="data", num_output=64,
+    model, top = addConvSELU(model, name="conv1", bottom="data", num_output=64,
                                kernel_size=7, group=1, stride=2, pad=3)
     model, top = addPool(model, name="pool1", bottom=top,
                                kernel_size=3, stride=2, pool_type="MAX")
@@ -228,8 +228,8 @@ def main():
     fp.write(model)
 
 
-    model = buildResnetSELU(netConfig, name="Resnet50_SELU", net_type="large")
-    fp = open("resnet50_selu.prototxt", 'w')
+    model = buildResnetSELU(netConfig, name="Resnet50_SELU_NOBN", net_type="large")
+    fp = open("resnet50_selu_nobn.prototxt", 'w')
     fp.write(model)
 
 if __name__ == '__main__':

@@ -272,7 +272,7 @@ def addConvElu(model, name, bottom, num_output,
 
 #------------------------------------------------------------------------------
 
-def addConvSElu(model, name, bottom, num_output,
+def addConvSELU(model, name, bottom, num_output,
                 kernel_size=0, kernel_h=0, kernel_w=0,
                 pad=0, pad_h=0, pad_w=0,
                 group=1, stride=1, dilation=1,
