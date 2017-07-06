@@ -113,6 +113,8 @@ def addResSELU_SuperBlock(model, bottom, i, num_subBlocks, num_output, group, fi
         else:
           model, top = addResSELU_large(model, name, bottom=top, num_output=num_output, group=group,
                                     j=j, fix_dim=fix_dim, dilation=dilation)
+
+    model, top = addDropout(model, name="{}dropout".format(name), bottom=top, ratio=0.5)
     return model, top
 
 
@@ -165,7 +167,7 @@ def buildResnetELU(netConfig, name, net_type):
         model, top = addResELU_SuperBlock(model, bottom, i+1, num_subBlocks, num_output, group, fix_dim, net_type)
 
     model, top = addPool(model, name="pool2", bottom=top, kernel_size=7, stride=1, pool_type="AVE")
-#    model, top = addDropout(model, name="dropout", bottom=top, ratio=0.5)
+ #   model, top = addDropout(model, name="dropout", bottom=top, ratio=0.5)
     model, top = addFC(model, name="fc", bottom=top, num_output=1000, filler='msra')
 
     fc_top = top
@@ -184,7 +186,7 @@ def buildResnetSELU(netConfig, name, net_type):
     model += print_netconfig(netConfig)
     print model
 
-    train_batch = 256 if net_type=="small" else 128
+    train_batch = 256 #if net_type=="small" else 128
     test_batch  = 32
     model, last_top = addData(model, train_batch, test_batch)
 
@@ -228,8 +230,8 @@ def main():
     fp.write(model)
 
 
-    model = buildResnetSELU(netConfig, name="Resnet50_SELU_NOBN", net_type="large")
-    fp = open("resnet50_selu_nobn.prototxt", 'w')
+    model = buildResnetSELU(netConfig, name="Resnet50_SELU_dropout", net_type="large")
+    fp = open("resnet50_selu_dropout.prototxt", 'w')
     fp.write(model)
 
 if __name__ == '__main__':

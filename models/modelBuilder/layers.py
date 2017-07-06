@@ -29,13 +29,17 @@ layer {{
   top: "label"
   data_param {{
     source: "{train_file}"
+#    source: "/data/imagenet/train-lmdb-uncompressed-256x256"
     backend: LMDB
     batch_size: {train_batch}
+    cache:   true
+    shuffle: true
   }}
   transform_param {{
     crop_size: {crop_size}
     mean_file: "{mean_file}"
     mirror: true
+    scale: 0.00390625
   }}
   include: {{ phase: TRAIN }}
 }}
@@ -46,6 +50,7 @@ layer {{
   top: "label"
   data_param {{
     source: "{test_file}"
+#    source: "/data/imagenet/val-lmdb-uncompressed-256x256"
     backend: LMDB
     batch_size: {test_batch}
   }}
@@ -53,6 +58,7 @@ layer {{
     mean_file: "{mean_file}"
     crop_size: {crop_size}
     mirror: false
+    scale: 0.00390625
   }}
   include: {{ phase: TEST }}
 }}'''.format(train_batch=train_batch, test_batch=test_batch,
@@ -178,7 +184,7 @@ layer {{
   bottom: "{bottom}"
   top: "{top}"
   elu_param {{
-    alpha: 1.6733
+    alpha:  1.6733
     lambda: 1.0507
   }}
 }}'''.format(name=name, top=bottom, bottom=bottom)

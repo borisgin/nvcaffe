@@ -1,10 +1,8 @@
 #------------------------------------------
 # Alexnet wih BatchNorm instead of LRN
 # BN settings
-#   engine: CAFFE
-#   use_global_stats: true 
 #------------------------------------------
-name: "AlexNet_bn_globalvar"
+name: "AlexNet_bn"
 
 layer {
   name: "data"
@@ -12,14 +10,17 @@ layer {
   top: "data"
   top: "label"
   transform_param {
+    mean_file: "data/ilsvrc12/imagenet_mean.binaryproto"
     mirror: true
     crop_size: 227
-    mean_file: "data/ilsvrc12/imagenet_mean.binaryproto"
+    scale: 0.00390625
   }
   data_param {
     source: "examples/imagenet/ilsvrc12_train_lmdb"
     batch_size: 512
     backend: LMDB
+    cache:   true
+    shuffle: true 
   }
   include { phase: TRAIN }
 }
@@ -29,9 +30,10 @@ layer {
   top: "data"
   top: "label"
   transform_param {
+    mean_file: "data/ilsvrc12/imagenet_mean.binaryproto"
     mirror: false
     crop_size: 227
-    mean_file: "data/ilsvrc12/imagenet_mean.binaryproto"
+    scale: 0.00390625
   }
   data_param {
     source: "examples/imagenet/ilsvrc12_val_lmdb"
@@ -65,9 +67,7 @@ layer {
     moving_average_fraction: 0.9
     eps: 0.0001
     scale_bias: true
-                                       engine: CAFFE
-#                                       use_global_stats: true 
-  }
+#  }
 }
 layer {
   name: "relu1"
@@ -112,8 +112,6 @@ layer {
     moving_average_fraction: 0.9
     eps: 0.0001
     scale_bias: true
-                                       engine: CAFFE
-                                       use_global_stats: true 
   }
 }
 layer {
@@ -158,8 +156,6 @@ layer {
     moving_average_fraction: 0.9
     eps: 0.0001
     scale_bias: true
-                                       engine: CAFFE
-                                       use_global_stats: true 
   }
 }
 layer {
@@ -194,8 +190,6 @@ layer {
     moving_average_fraction: 0.9
     eps: 0.0001
     scale_bias: true
-                                       engine: CAFFE
-                                       use_global_stats: true 
   }
 }
 
@@ -234,8 +228,6 @@ layer {
     moving_average_fraction: 0.9
     eps: 0.0001
     scale_bias: true
-                                       engine: CAFFE
-                                       use_global_stats: true 
   }
 }
 
