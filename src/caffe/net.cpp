@@ -1,14 +1,9 @@
 #include <algorithm>
 #include <map>
 #include <set>
-#include <string>
-#include <utility>
-#include <vector>
 #include <boost/thread.hpp>
 #include <caffe/util/signal_handler.h>
-
-#include "hdf5.h"
-#include <string.h>
+#include <hdf5.h>
 
 #include "caffe/common.hpp"
 #include "caffe/layer.hpp"
@@ -75,6 +70,7 @@ void Net::Init(const NetParameter& in_param) {
   LOG_IF(INFO, Caffe::root_solver())
       << "Initializing net from parameters: " << std::endl
       << filtered_param.DebugString();
+  infer_count_ = 0UL;
   // Create a copy of filtered_param with splits added where necessary.
   NetParameter param;
   InsertSplits(filtered_param, &param);
@@ -111,7 +107,6 @@ void Net::Init(const NetParameter& in_param) {
     default_bmath = in_param.default_backward_type();
     LOG(INFO) << "Using " << Type_Name(default_bmath) << " as default backward math type";
   }
-
 
   global_grad_scale_ = 1.F;
   if (in_param.has_global_grad_scale()) {
@@ -678,6 +673,7 @@ float Net::ForwardFromTo(int start, int end) {
     loss += layer_loss;
     if (debug_info_) { ForwardDebugInfo(i); }
   }
+  ++infer_count_;
   return loss;
 }
 
@@ -1321,29 +1317,6 @@ void Net::set_solver(Solver* s) {
   for (auto& layer : layers_) {
     layer->set_parent_net(this);
   }
-}
-
-size_t Net::total_batch_size() const {
-  size_t ret = 0U;
-  for (size_t i = 0; i < net_param_.layer_size(); ++i) {
-    const LayerParameter& lparam = net_param_.layer(i);
-    if (lparam.has_data_param() && lparam.data_param().has_batch_size()) {
-      ret += lparam.data_param().batch_size();
-    }
-    if (lparam.has_hdf5_data_param() && lparam.hdf5_data_param().has_batch_size()) {
-      ret += lparam.hdf5_data_param().batch_size();
-    }
-    if (lparam.has_image_data_param() && lparam.image_data_param().has_batch_size()) {
-      ret += lparam.image_data_param().batch_size();
-    }
-    if (lparam.has_memory_data_param() && lparam.memory_data_param().has_batch_size()) {
-      ret += lparam.memory_data_param().batch_size();
-    }
-    if (lparam.has_window_data_param() && lparam.window_data_param().has_batch_size()) {
-      ret += lparam.window_data_param().batch_size();
-    }
-  }
-  return ret;
 }
 
 #ifndef CPU_ONLY

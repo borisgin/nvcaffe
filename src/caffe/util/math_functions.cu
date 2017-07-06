@@ -5,7 +5,6 @@
 #include "caffe/util/math_functions.hpp"
 #include "caffe/util/gpu_math_functions.cuh"
 
-
 namespace caffe {
 
 template<>
@@ -61,29 +60,18 @@ void caffe_gpu_gemm<float16>(const CBLAS_TRANSPOSE TransA,
     cublasMath_t math_mode;
     CUBLAS_CHECK(cublasGetMathMode(handle, &math_mode));
     CUBLAS_CHECK(cublasSetMathMode(handle, CUBLAS_TENSOR_OP_MATH));
-
-    float alpha_fp32 = static_cast<float>(alpha);
-    float beta_fp32 = static_cast<float>(beta);
+    const float alpha_fp32 = static_cast<float>(alpha);
+    const float beta_fp32 = static_cast<float>(beta);
     CUBLAS_CHECK(cublasGemmEx(handle, cuTransB, cuTransA,
         N, M, K, &alpha_fp32, B->gethp<half>(), CUDA_R_16F, ldb,
         A->gethp<half>(), CUDA_R_16F, lda, &beta_fp32, C->gethp<half>(),
         CUDA_R_16F, N, CUDA_R_32F, CUBLAS_GEMM_DFALT_TENSOR_OP));
-
-//    CUBLAS_CHECK(cublasGemmEx(handle, cuTransB, cuTransA,
-//        N, M, K, alpha.gethp<half>(), B->gethp<half>(), CUDA_R_16F, ldb,
-//        A->gethp<half>(), CUDA_R_16F, lda, beta.gethp<half>(), C->gethp<half>(),
-//        CUDA_R_16F, N, CUDA_R_16F, CUBLAS_GEMM_DFALT_TENSOR_OP));
-
-
     CUBLAS_CHECK(cublasSetMathMode(handle, math_mode));
-    //
 #else
     CUBLAS_CHECK(cublasHgemm(handle, cuTransB, cuTransA,
     N, M, K, alpha.gethp<half>(), B->gethp<half>(), ldb,
     A->gethp<half>(), lda, beta.gethp<half>(), C->gethp<half>(), N));
-
 #endif
-
   } else {
     float alpha_fp32 = static_cast<float>(alpha);
     float beta_fp32 = static_cast<float>(beta);

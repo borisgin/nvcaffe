@@ -363,7 +363,7 @@ int time() {
   solver_param.set_base_lr(0.01F);
   solver_param.set_random_seed(1371LL);
   solver_param.set_test_interval(FLAGS_iterations + 1);
-  solver_param.set_display(FLAGS_iterations + 1);
+  solver_param.set_display(0);
   shared_ptr<Solver> solver(caffe::SolverRegistry::CreateSolver(solver_param));
   shared_ptr<Net> caffe_net = solver->net();
 

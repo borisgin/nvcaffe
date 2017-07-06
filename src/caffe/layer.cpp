@@ -85,6 +85,15 @@ int LayerBase::iterations_sized() const {
   return psolver == nullptr ? 0 : psolver->iterations_sized();
 }
 
+#ifndef CPU_ONLY
+std::string LayerBase::print_current_device() const {
+  std::ostringstream os;
+  os << (phase_ == TRAIN ? "[" : "(")
+      << Caffe::current_device()
+      << (phase_ == TRAIN ? "]" : ")");
+  return os.str();
+}
+#endif
 
 INSTANTIATE_CLASS_FB(Layer);
 
