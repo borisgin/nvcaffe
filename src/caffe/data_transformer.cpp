@@ -37,7 +37,7 @@ DataTransformer<Dtype>::DataTransformer(const TransformationParameter& param, Ph
       mean_values_.push_back(param_.mean_value(c));
     }
   }
-  var_sized_transform_datum_ = make_shared<Datum>();
+  varsz_datum_ = make_shared<Datum>();
 }
 
 #ifdef USE_OPENCV
@@ -170,20 +170,19 @@ vector<int> DataTransformer<Dtype>::var_sized_transforms_shape(
 
 template<typename Dtype>
 shared_ptr<Datum> DataTransformer<Dtype>::VariableSizedTransforms(const Datum& old_datum) {
-  cv::Mat orig_img;
   if (old_datum.encoded()) {
     CHECK(!(param_.force_color() && param_.force_gray()))
         << "cannot set both force_color and force_gray";
     if (param_.force_color() || param_.force_gray()) {
       // If force_color then decode in color otherwise decode in gray.
-      orig_img = DecodeDatumToCVMat(old_datum, param_.force_color());
+      DecodeDatumToCVMat(old_datum, param_.force_color(), varsz_orig_img_);
     } else {
-      orig_img = DecodeDatumToCVMatNative(old_datum);
+      DecodeDatumToCVMatNative(old_datum, varsz_orig_img_);
     }
   } else {
-    orig_img = DatumToCVMat(old_datum);
+    DatumToCVMat(old_datum, varsz_orig_img_);
   }
-  cv::Mat& img = orig_img;
+  cv::Mat& img = varsz_orig_img_;
   if (var_sized_image_random_resize_enabled()) {
     img = var_sized_image_random_resize(img);
   }
@@ -194,7 +193,7 @@ shared_ptr<Datum> DataTransformer<Dtype>::VariableSizedTransforms(const Datum& o
     img = var_sized_image_center_crop(img);
   }
   {
-    Datum* new_datum = var_sized_transform_datum_.get();
+    Datum* new_datum = varsz_datum_.get();
     CVMatToDatum(img, new_datum);
     if (old_datum.has_label()) {
       new_datum->set_label(old_datum.label());
@@ -203,7 +202,7 @@ shared_ptr<Datum> DataTransformer<Dtype>::VariableSizedTransforms(const Datum& o
     }
     new_datum->set_record_id(old_datum.record_id());
   }
-  return var_sized_transform_datum_;
+  return varsz_datum_;
 }
 
 template<typename Dtype>
@@ -268,11 +267,11 @@ cv::Mat& DataTransformer<Dtype>::var_sized_image_random_resize(cv::Mat& img) {
     CHECK_LE(resize_width, img_width)
         << "cannot downsample height without downsampling width";
     cv::resize(
-        img, tmp_rand_resize_img_,
+        img, varsz_rand_resize_img_,
         cv::Size(resize_width, resize_height),
         0.0, 0.0,
         cv::INTER_AREA);
-    return tmp_rand_resize_img_;
+    return varsz_rand_resize_img_;
   } else if (resize_height > img_height || resize_width > img_width) {
     // Upsample with cubic interpolation.
     CHECK_GE(resize_height, img_height)
@@ -280,11 +279,11 @@ cv::Mat& DataTransformer<Dtype>::var_sized_image_random_resize(cv::Mat& img) {
     CHECK_GE(resize_width, img_width)
         << "cannot upsample height without upsampling width";
     cv::resize(
-        img, tmp_rand_resize_img_,
+        img, varsz_rand_resize_img_,
         cv::Size(resize_width, resize_height),
         0.0, 0.0,
         cv::INTER_CUBIC);
-    return tmp_rand_resize_img_;
+    return varsz_rand_resize_img_;
   } else if (resize_height == img_height && resize_width == img_width) {
     return img;
   }
@@ -336,8 +335,8 @@ cv::Mat& DataTransformer<Dtype>::var_sized_image_random_crop(const cv::Mat& img)
   CHECK_NE(crop_offset_w, -1)
       << "uniform random sampling inexplicably failed";
   cv::Rect crop_roi(crop_offset_w, crop_offset_h, crop_size, crop_size);
-  tmp_rand_crop_img_ = img(crop_roi);
-  return tmp_rand_crop_img_;
+  varsz_rand_crop_img_ = img(crop_roi);
+  return varsz_rand_crop_img_;
 }
 
 template<typename Dtype>
@@ -376,8 +375,8 @@ cv::Mat& DataTransformer<Dtype>::var_sized_image_center_crop(const cv::Mat& img)
   const int crop_offset_h = (img_height - crop_size) / 2;
   const int crop_offset_w = (img_width - crop_size) / 2;
   cv::Rect crop_roi(crop_offset_w, crop_offset_h, crop_size, crop_size);
-  tmp_center_crop_img_ = img(crop_roi);
-  return tmp_center_crop_img_;
+  varsz_center_crop_img_ = img(crop_roi);
+  return varsz_center_crop_img_;
 }
 
 #ifndef CPU_ONLY

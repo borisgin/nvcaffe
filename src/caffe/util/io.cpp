@@ -166,6 +166,11 @@ bool ReadFileToDatum(const string& filename, const int label,
 #ifdef USE_OPENCV
 cv::Mat DecodeDatumToCVMatNative(const Datum& datum) {
   cv::Mat cv_img;
+  DecodeDatumToCVMatNative(datum, cv_img);
+  return cv_img;
+}
+
+void DecodeDatumToCVMatNative(const Datum& datum, cv::Mat& cv_img) {
   CHECK(datum.encoded()) << "Datum not encoded";
   const string& data = datum.data();
   std::vector<char> vec_data(data.c_str(), data.c_str() + data.size());
@@ -173,10 +178,15 @@ cv::Mat DecodeDatumToCVMatNative(const Datum& datum) {
   if (!cv_img.data) {
     LOG(ERROR) << "Could not decode datum ";
   }
-  return cv_img;
 }
+
 cv::Mat DecodeDatumToCVMat(const Datum& datum, bool is_color) {
   cv::Mat cv_img;
+  DecodeDatumToCVMat(datum, is_color, cv_img);
+  return cv_img;
+}
+
+void DecodeDatumToCVMat(const Datum& datum, bool is_color, cv::Mat& cv_img) {
   CHECK(datum.encoded()) << "Datum not encoded";
   const string& data = datum.data();
   std::vector<char> vec_data(data.c_str(), data.c_str() + data.size());
@@ -186,7 +196,6 @@ cv::Mat DecodeDatumToCVMat(const Datum& datum, bool is_color) {
   if (!cv_img.data) {
     LOG(ERROR) << "Could not decode datum ";
   }
-  return cv_img;
 }
 
 // If Datum is encoded will decoded using DecodeDatumToCVMat and CVMatToDatum
@@ -210,7 +219,7 @@ bool DecodeDatum(Datum* datum, bool is_color) {
   }
 }
 
-cv::Mat DatumToCVMat(const Datum& datum) {
+void DatumToCVMat(const Datum& datum, cv::Mat& img) {
   if (datum.encoded()) {
     LOG(FATAL) << "Datum encoded";
   }
@@ -221,7 +230,7 @@ cv::Mat DatumToCVMat(const Datum& datum) {
   CHECK_GT(datum_channels, 0);
   CHECK_GT(datum_height, 0);
   CHECK_GT(datum_width, 0);
-  cv::Mat img = cv::Mat::zeros(cv::Size(datum_width, datum_height), CV_8UC(datum_channels));
+  img = cv::Mat::zeros(cv::Size(datum_width, datum_height), CV_8UC(datum_channels));
   CHECK_EQ(img.channels(), datum_channels);
   CHECK_EQ(img.rows, datum_height);
   CHECK_EQ(img.cols, datum_width);
@@ -239,7 +248,6 @@ cv::Mat DatumToCVMat(const Datum& datum) {
       }
     }
   }
-  return img;
 }
 
 void CVMatToDatum(const cv::Mat& cv_img, Datum* datum) {

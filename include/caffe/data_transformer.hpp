@@ -238,10 +238,11 @@ class DataTransformer {
 #ifndef CPU_ONLY
   GPUMemory::Workspace mean_values_gpu_;
 #endif
-  shared_ptr<Datum> var_sized_transform_datum_;
-  cv::Mat tmp_rand_resize_img_;
-  cv::Mat tmp_rand_crop_img_;
-  cv::Mat tmp_center_crop_img_;
+  shared_ptr<Datum> varsz_datum_;
+  cv::Mat varsz_orig_img_;
+  cv::Mat varsz_rand_resize_img_;
+  cv::Mat varsz_rand_crop_img_;
+  cv::Mat varsz_center_crop_img_;
 };
 
 }  // namespace caffe
