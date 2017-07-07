@@ -71,9 +71,6 @@ void CuDNNPoolingLayer<Ftype, Btype>::Reshape(const vector<Blob*>& bottom,
       }
     }
   }
-//#ifndef CPU_ONLY
-//  top[0]->allocate_data();
-//#endif
 }
 
 template <typename Ftype, typename Btype>
