@@ -79,25 +79,25 @@ def addResELU_SuperBlock(model, bottom, i, num_subBlocks, num_output, group, fix
 def addResSELU_large(model, name , bottom, num_output, group, j, fix_dim, dilation = False):
 
     prefix="{name}.{j}.".format(name=name,j=str(j))
-    block=""
-    block, top = addConvSELU(model=block, name='{}conv1'.format(prefix), bottom=bottom, num_output=num_output,
+
+    model, top = addConvSELU(model, name='{}conv1'.format(prefix), bottom=bottom, num_output=num_output,
                                kernel_size=1, group=1, stride=2 if (fix_dim and (j==1)) else 1, pad=0)
-    block, top = addConvSELU(model=block, name='{}conv2'.format(prefix), bottom=top, num_output=num_output,
+    model, top = addConvSELU(model, name='{}conv2'.format(prefix), bottom=top, num_output=num_output,
                                kernel_size=3, group=group, stride=1, pad=1)
-    block, top = addConv(model=block, name='{}conv3'.format(prefix), bottom=top, num_output=(num_output * 4),
+    model, top = addDropout(model, name='{}dropout'.format(prefix), bottom=top, ratio=0.5)
+    model, top = addConv(model, name='{}conv3'.format(prefix), bottom=top, num_output=(num_output * 4),
                                kernel_size=1, group=1, stride=1, pad=0)
     if (j == 1):
-        block, res_top = addConv(model=block, name='{}skipConv'.format(prefix), bottom=bottom,
+        model, res_top = addConv(model, name='{}skipConv'.format(prefix), bottom=bottom,
                                num_output=(num_output * 4),
                                kernel_size=1, group=1, stride=2 if fix_dim  else 1, pad=0)
     else:
         res_top = bottom
-    block, top = addEltwise(model=block, name='{}sum'.format(prefix),
+    model, top = addEltwise(model, name='{}sum'.format(prefix),
                             bottom_1=top, bottom_2=res_top, operation="SUM")
 
-    block, top = addSELU(model=block, name="{}selu".format(prefix), bottom=top)
+    model, top = addSELU(model, name="{}selu".format(prefix), bottom=top)
 
-    model += block
     return model, top
 
 #------------------------------------------------------------------------------
@@ -113,8 +113,6 @@ def addResSELU_SuperBlock(model, bottom, i, num_subBlocks, num_output, group, fi
         else:
           model, top = addResSELU_large(model, name, bottom=top, num_output=num_output, group=group,
                                     j=j, fix_dim=fix_dim, dilation=dilation)
-
-    model, top = addDropout(model, name="{}dropout".format(name), bottom=top, ratio=0.5)
     return model, top
 
 
@@ -167,7 +165,6 @@ def buildResnetELU(netConfig, name, net_type):
         model, top = addResELU_SuperBlock(model, bottom, i+1, num_subBlocks, num_output, group, fix_dim, net_type)
 
     model, top = addPool(model, name="pool2", bottom=top, kernel_size=7, stride=1, pool_type="AVE")
- #   model, top = addDropout(model, name="dropout", bottom=top, ratio=0.5)
     model, top = addFC(model, name="fc", bottom=top, num_output=1000, filler='msra')
 
     fc_top = top
@@ -205,7 +202,7 @@ def buildResnetSELU(netConfig, name, net_type):
         model, top = addResSELU_SuperBlock(model, bottom, i+1, num_subBlocks, num_output, group, fix_dim, net_type)
 
     model, top = addPool(model, name="pool2", bottom=top, kernel_size=7, stride=1, pool_type="AVE")
-#    model, top = addDropout(model, name="dropout", bottom=top, ratio=0.5)
+    model, top = addDropout(model, name="dropout", bottom=top, ratio=0.5)
     model, top = addFC(model, name="fc", bottom=top, num_output=1000, filler='msra')
 
     fc_top = top
@@ -230,8 +227,8 @@ def main():
     fp.write(model)
 
 
-    model = buildResnetSELU(netConfig, name="Resnet50_SELU_dropout", net_type="large")
-    fp = open("resnet50_selu_dropout.prototxt", 'w')
+    model = buildResnetSELU(netConfig, name="Resnet50_SELU_dropout2", net_type="large")
+    fp = open("resnet50_selu.prototxt", 'w')
     fp.write(model)
 
 if __name__ == '__main__':

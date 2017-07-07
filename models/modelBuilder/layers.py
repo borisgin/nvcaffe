@@ -506,7 +506,7 @@ def addReplicator(model, name, bottom, multiplier):
     return model, top
 #------------------------------------------------------------------------------
 
-def addDropout(train_val, name, bottom, ratio=0.5):
+def addDropout(model, name, bottom, ratio=0.5):
 
     layer_str = '''
 layer {{
@@ -519,8 +519,8 @@ layer {{
   }}
 }}'''.format(name=name, bottom=bottom, top=name, ratio=ratio)
 
-    train_val += layer_str
-    return train_val, name
+    model += layer_str
+    return model, name
 
 #------------------------------------------------------------------------------
 
