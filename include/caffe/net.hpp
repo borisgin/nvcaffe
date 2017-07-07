@@ -200,6 +200,12 @@ class Net {
   const vector<string>& param_display_names() const {
     return param_display_names_;
   }
+
+  const pair<int, int>& param_layer_indices(int param_id) {
+    return  param_layer_indices_[param_id];
+  }
+
+
   /// @brief Input and output blob numbers
   int num_inputs() const { return net_input_blobs_.size(); }
   int num_outputs() const { return net_output_blobs_.size(); }

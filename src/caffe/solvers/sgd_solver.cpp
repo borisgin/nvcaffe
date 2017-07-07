@@ -90,7 +90,6 @@ float SGDSolver<Dtype>::GetMomentum() {
   return moment;
 }
 
-
 template<typename Dtype>
 void SGDSolver<Dtype>::PreSolve() {
   // Initialize the history
@@ -204,6 +203,7 @@ template<typename Dtype>
 void
 SGDSolver<Dtype>::ComputeUpdateValue(int param_id, void* handle, float rate, bool clear_grads) {
   shared_ptr<Blob> param = this->net_->learnable_params()[param_id];
+
   shared_ptr<TBlob<Dtype>> history = history_[param_id];
   const vector<float>& net_params_lr = this->net_->params_lr();
   float momentum = GetMomentum();
@@ -254,8 +254,31 @@ SGDSolver<Dtype>::ComputeUpdateValue(int param_id, void* handle, float rate, boo
 template<typename Dtype>
 float SGDSolver<Dtype>::local_decay(int param_id) const {
   const vector<float>& net_params_weight_decay = this->net_->params_weight_decay();
-  float weight_decay = this->param_.weight_decay();
-  return weight_decay * net_params_weight_decay[param_id];
+  float weight_decay = this->param_.weight_decay() * net_params_weight_decay[param_id];
+  const std::string& regularization_type = this->param_.regularization_type();
+  //FIXME: BG
+  if (regularization_type == "L2_unitary") {
+    const int layer_id = this->net_->param_layer_indices(param_id).first;
+    const int blob_id  = this->net_->param_layer_indices(param_id).second;
+    const string& layer_name = this->net_->layer_names()[layer_id];
+    const string& layer_type = this->net_->layers()[layer_id]->type();
+    float factor = 1.;
+    if ( (layer_type == "Convolution") && (blob_id==0)  ) {
+      shared_ptr<Blob> param = this->net_->learnable_params()[param_id];
+      float w_norm = param->sumsq_data();
+      if (w_norm > 0.) {
+//        factor = 1. - 1./(w_norm * w_norm);
+        factor =  w_norm * w_norm - 1;
+      }
+      if ( this->param_.display() && (this->iter_ % this->param_.display() == 0)) {
+        //LOG(INFO) << "L2_unitary: " << layer_id <<"."<< blob_id << " " << layer_name << " " << factor;
+        LOG(INFO) << "L2_unitary: " << layer_name << " " << factor;
+      }
+    }
+    return (weight_decay * factor) ;
+  } else
+    return weight_decay;
+
 }
 
 template<typename Dtype>
