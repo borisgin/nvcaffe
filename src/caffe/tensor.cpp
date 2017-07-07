@@ -6,8 +6,9 @@
 namespace caffe {
 
 Tensor::Tensor(Type dtype)
-    : type_(dtype), locked_(false),
-      synced_arrays_(make_shared<vector<shared_ptr<SyncedMemory>>>(Type_ARRAYSIZE)), count_(0) {}
+    : type_(dtype),
+      synced_arrays_(make_shared<vector<shared_ptr<SyncedMemory>>>(Type_ARRAYSIZE)),
+      count_(0) {}
 
 const shared_ptr<SyncedMemory>& Tensor::synced_mem() const {
   const shared_ptr<SyncedMemory>& mem = synced_arrays_->at(type_);
@@ -45,7 +46,6 @@ void Tensor::Reshape(int count) {
   const std::size_t cur_size = even(count_) * tsize(type_);
   const std::size_t new_size = even(count) * tsize(type_);
   if (!mem || new_size > cur_size) {
-    CHECK(!locked_) << "Tensor is locked";
     mem = make_shared<SyncedMemory>(new_size);
   }
   count_ = count;
@@ -55,8 +55,6 @@ void Tensor::convert(Type new_type) {
   if (new_type == type_) {
     return;
   }
-  CHECK(!locked_) << "Tensor is locked and its type " << Type_Name(type_) << " can't be changed to "
-                  << Type_Name(new_type);
   const shared_ptr<SyncedMemory>& current_mem = synced_mem();
   shared_ptr<SyncedMemory>& new_mem = synced_arrays_->at(new_type);
 

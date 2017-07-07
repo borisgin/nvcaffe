@@ -77,6 +77,10 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
   vector<cudnnConvolutionBwdFilterAlgo_t> bwd_filter_algo_;
   vector<cudnnConvolutionBwdDataAlgo_t> bwd_data_algo_;
 
+#if CUDNN_VERSION_MIN(7, 0, 0)
+  vector<cudnnMathType_t> fwd_cudnn_math_, bwd_filter_cudnn_math_, bwd_data_cudnn_math_;
+#endif
+
   vector<cudnnTensorDescriptor_t> fwd_bottom_descs_, fwd_top_descs_;
   vector<cudnnTensorDescriptor_t> bwd_bottom_descs_, bwd_top_descs_;
   cudnnTensorDescriptor_t fwd_bias_desc_, bwd_bias_desc_;

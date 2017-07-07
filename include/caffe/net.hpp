@@ -252,8 +252,6 @@ class Net {
   void InitializeLearnableDiffSpace();
 #endif
 
-  size_t total_batch_size() const;
-
   void wait_layers_init() {
     for (Flag* flag : layer_inititialized_flags_) {
       flag->wait();
@@ -264,6 +262,9 @@ class Net {
     return global_grad_scale_;
   }
 
+  size_t infer_count() const {
+    return infer_count_;
+  }
 
  protected:
   // Helpers for Init.
@@ -378,6 +379,7 @@ class Net {
   vector<Flag*> layer_inititialized_flags_;
   NetParameter net_param_;
 
+  size_t infer_count_;
   float global_grad_scale_;
 
   static constexpr int END_OF_ITERATION = -1;
