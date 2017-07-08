@@ -267,8 +267,8 @@ float SGDSolver<Dtype>::local_decay(int param_id) const {
       shared_ptr<Blob> param = this->net_->learnable_params()[param_id];
       float w_norm = param->sumsq_data();
       if (w_norm > 0.) {
-//        factor = 1. - 1./(w_norm * w_norm);
-        factor =  w_norm * w_norm - 1;
+        factor = 1. - 1./(w_norm * w_norm);
+//        factor =  w_norm * w_norm - 1;
       }
       if ( this->param_.display() && (this->iter_ % this->param_.display() == 0)) {
         //LOG(INFO) << "L2_unitary: " << layer_id <<"."<< blob_id << " " << layer_name << " " << factor;
