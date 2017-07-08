@@ -1,6 +1,12 @@
 #ifndef CAFFE_DATA_TRANSFORMER_HPP
 #define CAFFE_DATA_TRANSFORMER_HPP
 
+#ifdef USE_OPENCV
+
+#include <opencv2/core/core.hpp>
+
+#endif  // USE_OPENCV
+
 #include <string>
 #include <vector>
 
@@ -48,6 +54,44 @@ class DataTransformer {
   void Copy(const cv::Mat& datum, Dtype* data);
   void CopyPtrEntry(shared_ptr<Datum> datum, Dtype* transformed_ptr, size_t& out_sizeof_element,
       bool output_labels, Dtype* label);
+
+  /**
+   * @brief Whether there are any "variable_sized" transformations defined
+   * in the data layer's transform_param block.
+   */
+  bool var_sized_transforms_enabled() const;
+
+  /**
+   * @brief Calculate the final shape from applying the "variable_sized"
+   * transformations defined in the data layer's transform_param block
+   * on the provided image, without actually performing any transformations.
+   *
+   * @param orig_shape
+   *    The shape of the data to be transformed.
+   */
+  vector<int> var_sized_transforms_shape(const vector<int>& orig_shape) const;
+
+  /**
+   * @brief Applies "variable_sized" transformations defined in the data layer's
+   * transform_param block to the data.
+   *
+   * @param old_datum
+   *    The source Datum containing data of arbitrary shape.
+   * @param new_datum
+   *    The destination Datum that will store transformed data of a fixed
+   *    shape. Suitable for other transformations.
+   */
+  shared_ptr<Datum> VariableSizedTransforms(const Datum& old_datum);
+
+  bool        var_sized_image_random_resize_enabled() const;
+  vector<int> var_sized_image_random_resize_shape(const vector<int>& prev_shape) const;
+  cv::Mat&    var_sized_image_random_resize(cv::Mat& img);
+  bool        var_sized_image_random_crop_enabled() const;
+  vector<int> var_sized_image_random_crop_shape(const vector<int>& prev_shape) const;
+  cv::Mat&    var_sized_image_random_crop(const cv::Mat& img);
+  bool        var_sized_image_center_crop_enabled() const;
+  vector<int> var_sized_image_center_crop_shape(const vector<int>& prev_shape) const;
+  cv::Mat&    var_sized_image_center_crop(const cv::Mat& img);
 
   /**
    * @brief Applies the transformation defined in the data layer's
@@ -137,6 +181,20 @@ class DataTransformer {
       const std::array<unsigned int, 3>& rand);
 #endif  // USE_OPENCV
 
+  vector<int> InferDatumShape(const Datum& datum);
+#ifdef USE_OPENCV
+  vector<int> InferCVMatShape(const cv::Mat& img);
+#endif  // USE_OPENCV
+
+  /**
+   * @brief Infers the shape of transformed_blob will have when
+   *    the transformation is applied to the data.
+   *
+   * @param bottom_shape
+   *    The shape of the data to be transformed.
+   */
+  vector<int> InferBlobShape(const vector<int>& bottom_shape, bool use_gpu = false);
+
   /**
    * @brief Infers the shape of transformed_blob will have when
    *    the transformation is applied to the data.
@@ -180,6 +238,11 @@ class DataTransformer {
 #ifndef CPU_ONLY
   GPUMemory::Workspace mean_values_gpu_;
 #endif
+  shared_ptr<Datum> varsz_datum_;
+  cv::Mat varsz_orig_img_;
+  cv::Mat varsz_rand_resize_img_;
+  cv::Mat varsz_rand_crop_img_;
+  cv::Mat varsz_center_crop_img_;
 };
 
 }  // namespace caffe
