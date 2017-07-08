@@ -15,8 +15,8 @@ layer {
     batch_size: 256
 #    batch_size: 1024          # DGX1
     backend: LMDB
-    cache: true
-    shuffle: true
+#    cache: true
+#    shuffle: true
   }
   include { phase: TRAIN }
 }

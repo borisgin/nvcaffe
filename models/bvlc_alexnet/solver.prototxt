@@ -18,8 +18,8 @@ base_lr:  0.01
 lr_policy: "poly"
 power: 2.
 momentum: 0.9
-weight_decay: 0.0005
-#weight_decay: 0.000001 # L2_unitary
+#weight_decay: 0.0005
+weight_decay: 0.00005 # L2_unitary
 
 snapshot: 500000
 snapshot_prefix: "models/bvlc_alexnet/snapshots/alexnet_fp32"
