@@ -270,7 +270,7 @@ float SGDSolver<Dtype>::local_decay(int param_id) const {
 //        factor = 1. - 1./(w_norm * w_norm);
         factor =  w_norm * w_norm - 1;
       }
-      if ( this->param_.display() && (this->iter_ % this->param_.display() == 0)) {
+      if ( Caffe::root_solver() && this->param_.display() && (this->iter_ % this->param_.display() == 0)) {
         //LOG(INFO) << "L2_unitary: " << layer_id <<"."<< blob_id << " " << layer_name << " " << factor;
         LOG(INFO) << "L2_unitary: " << layer_name << " " << w_norm;
       }

@@ -1,6 +1,5 @@
 #------------------------------------------
 # Alexnet wih BatchNorm instead of LRN
-# BN settings
 #------------------------------------------
 name: "AlexNet_bn"
 
@@ -67,7 +66,7 @@ layer {
     moving_average_fraction: 0.9
     eps: 0.0001
     scale_bias: true
-#  }
+  }
 }
 layer {
   name: "relu1"
