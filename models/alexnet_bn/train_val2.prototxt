@@ -1,7 +1,8 @@
 #------------------------------------------
 # Alexnet wih BatchNorm instead of LRN
+# BN before conv layers
 #------------------------------------------
-name: "AlexNet_bn"
+name: "AlexNet_bn2"
 
 layer {
   name: "data"
