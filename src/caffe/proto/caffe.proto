@@ -129,8 +129,7 @@ message NetParameter {
   
   optional float global_grad_scale = 15 [default = 1.];
 
-
-  // Sets default "conv_algos_override" value for every convolution layer
+  // Sets the default "conv_algos_override" value for every convolution layer
   optional string default_conv_algos_override = 17 [default = "-1,-1,-1"];
 
   // While using multiple GPUs we have to run reduction process after every iteration.
@@ -138,6 +137,9 @@ message NetParameter {
   // This parameter sets approximate number of buckets to combine layers to.
   // Default value is good for majority of nets.
   optional int32 reduce_buckets = 18 [default = 6];
+
+  // Sets the default "cudnn_math_override" value for every layer
+  optional int32 default_cudnn_math_override = 19 [default = -1];
 }
 
 // NOTE
@@ -364,7 +366,7 @@ message ParamSpec {
 // NOTE
 // Update the next available ID when you add a new LayerParameter field.
 //
-// LayerParameter next available layer-specific ID: 150 (last added: debug)
+// LayerParameter next available layer-specific ID: 151 (last added: cudnn_math_override)
 message LayerParameter {
   optional string name = 1; // the layer name
   optional string type = 2; // the layer type
@@ -382,7 +384,15 @@ message LayerParameter {
   optional Type backward_math = 148 [default = FLOAT];
 
   optional bool debug = 149 [default = false];
-  
+
+  // Sets the default cudnnMathType_t value for all cuDNN-based
+  // computations in current lyer, if applicable. Ignored otherwise.
+  // If negative or omitted, assumes implicit default and allows
+  // optimizers like cudnnFindConvolution*AlgorithmEx to choose the best type.
+  // If set to zero, enforces using CUDNN_DEFAULT_MATH everywhere in current lyer.
+  // If set to one, enforces using CUDNN_TENSOR_OP_MATH everywhere in current lyer.
+  optional int32 cudnn_math_override = 150 [default = -1];
+
   // The train / test phase for computation.
   optional Phase phase = 10;
   
@@ -480,6 +490,36 @@ message LayerParameter {
 // Message that stores parameters used to apply transformation
 // to the data layer's data
 message TransformationParameter {
+  // When the images in a batch are of different shapes, we need to preprocess
+  // them into the same fixed shape, as downstream operations in caffe require
+  // images within a batch to be of the same shape.
+  //
+  // To transform one image of arbitrary shape into an image of fixed shape,
+  // we allow specifying a sequence of "variable-sized image transforms."
+  // There are three possible transforms, and it is possible for _all of them_
+  // to be enabled at the same time. They are always applied in the same order:
+  // (1) first random resize, (2) then random crop, (3) finally center crop.
+  // The last transform must be either a random crop or a center crop.
+  //
+  // The three supported transforms are as follows:
+  //
+  // 1. Random resize. This takes two parameters, "lower" and "upper," or
+  //    "L" and "U" for short. If the original image has shape (oldW, oldH),
+  //    the shorter side, D = min(oldW, oldH), is calculated. Then a resize
+  //    target size R is chosing uniformly from the interval [L, U], and both
+  //    sides of the original image are resized by a scaling factor R/D to yield
+  //    a new image with shape (R/D * oldW, R/D * oldH).
+  //
+  // 2. Random crop. This takes one crop parameter. A square region is randomly
+  //    chosen from the image for cropping.
+  //
+  // 3. Center crop. This takes one crop parameter. A square region is chosen
+  //    from the center of the image for cropping.
+  //
+  optional uint32 var_sz_img_rand_resize_lower = 10 [default = 0];
+  optional uint32 var_sz_img_rand_resize_upper = 11 [default = 0];
+  optional uint32 var_sz_img_rand_crop = 12 [default = 0];
+  optional uint32 var_sz_img_center_crop = 13 [default = 0];
   // For data pre-processing, we can do simple scaling and subtracting the
   // data mean, if provided. Note that the mean subtraction is always carried
   // out before scaling.
@@ -773,9 +813,9 @@ message ConvolutionParameter {
   //Specifies which cudnn routine should be used to find the best convolution algorithm
   optional CuDNNConvolutionAlgorithmSeeker cudnn_convolution_algo_seeker = 19 [default = FINDEX];
 
-  // If set to non-negative value, enforces using the algo by the index provided.
+  // If set to a non-negative value, enforces using the algo by the index provided.
   // It has priority over CuDNNConvolutionAlgorithmSeeker and essentially disables seeking.
-  // The index should correspond the ordinal in structures cudnnConvolutionFwdAlgo_t,
+  // The index should correspond to the ordinal in structures cudnnConvolutionFwdAlgo_t,
   // cudnnConvolutionBwdDataAlgo_t and cudnnConvolutionBwdFilterAlgo_t.
   // For example, conv_algos_override set to "7,5,7" means using CUDNN_CONVOLUTION_FWD_ALGO_WINOGRAD_NONFUSED,
   // CUDNN_CONVOLUTION_BWD_DATA_ALGO_WINOGRAD_NONFUSED and CUDNN_CONVOLUTION_BWD_FILTER_ALGO_WINOGRAD_NONFUSED

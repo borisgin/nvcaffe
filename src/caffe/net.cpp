@@ -157,6 +157,11 @@ void Net::Init(const NetParameter& in_param) {
           set_conv_algos_override(param.default_conv_algos_override());
     }
 
+    // cuDNN math
+    if (param.has_default_cudnn_math_override() && !param.layer(layer_id).has_cudnn_math_override()) {
+      param.mutable_layer(layer_id)->set_cudnn_math_override(param.default_cudnn_math_override());
+    }
+
     // Setup layer.
     const LayerParameter& layer_param = param.layer(layer_id);
     if (layer_param.propagate_down_size() > 0) {
