@@ -1,4 +1,4 @@
-net: "models/alexnet_bn/train_val.prototxt"
+net: "models/alexnet_bn/train_val2.prototxt"
 
 test_iter: 195   	#  50000/256
 test_interval: 5000      
@@ -6,21 +6,21 @@ test_initialization: false
 
 display:  100
 
-max_iter: 150000  	# 60 epochs 
+max_iter: 250000  	# 100 epochs 
 
 lr_policy: "poly"
-#lr_policy: "fixed"
-base_lr:  0.02
+base_lr:  0.08
 power: 2.
 momentum: 0.9
 weight_decay: 0.0005
 
 snapshot: 500000
 snapshot_prefix: "models/alexnet_bn/snapshots/alexnet_bn"
-snapshot_after_train: true
+snapshot_after_train: false
 
 solver_mode: GPU
 random_seed: 1
+#regularization_type: "L2_unitary"
 
 # Train dataset size = 1,281,167
 # Test dataset size  =    50,000
