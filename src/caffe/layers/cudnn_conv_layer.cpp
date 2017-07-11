@@ -704,7 +704,11 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
 #if CUDNN_VERSION_MIN(7, 0, 0)
   // does it support TENSOR_OP?
   const bool top_device = Caffe::device_capability(Caffe::current_device()) >= 700;
-  const bool try_top = top_device && (!use_modest_workspace_ || iter_sized > 0);
+  bool try_top = top_device && (!use_modest_workspace_ || iter_sized > 0);
+  if (cudnn_math_override_ < 0 && (is_precise<Ftype>() || is_precise<Btype>())) {
+    // 32/64 mode, user doesn't override => default math only
+    try_top = false;
+  }
 #endif
 
   const size_t ngroups = groups();
