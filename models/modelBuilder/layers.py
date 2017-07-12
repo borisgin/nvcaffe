@@ -176,7 +176,7 @@ layer {{
 
 #------------------------------------------------------------------------------
 
-def addSELU(model, name, bottom):
+def addSelu(model, name, bottom):
     layer = '''
 layer {{
   name: "{name}"
@@ -278,7 +278,7 @@ def addConvElu(model, name, bottom, num_output,
 
 #------------------------------------------------------------------------------
 
-def addConvSELU(model, name, bottom, num_output,
+def addConvSelu(model, name, bottom, num_output,
                 kernel_size=0, kernel_h=0, kernel_w=0,
                 pad=0, pad_h=0, pad_w=0,
                 group=1, stride=1, dilation=1,
@@ -292,7 +292,7 @@ def addConvSELU(model, name, bottom, num_output,
                          bias_term=True,filler=filler,
                          weight_sharing=weight_sharing, weight_name=weight_name, bias_name=bias_name,
                          residual=residual, residual_init=residual_init)
-    model, top = addSELU(model=model, name="{}/selu".format(name), bottom=top)
+    model, top = addSelu(model=model, name="{}/selu".format(name), bottom=top)
     return model, top
 
 
@@ -316,7 +316,7 @@ def addConvBnElu(model, name, bottom, num_output,
     return model, top
 
 #---------------------------------------------------------------------------------
-def addConvBnSELU(model, name, bottom, num_output,
+def addConvBnSelu(model, name, bottom, num_output,
                        kernel_size=0, kernel_h=0, kernel_w=0,
                        pad=0, pad_h=0, pad_w=0,
                        group=1, stride=1, dilation=1,
@@ -331,7 +331,7 @@ def addConvBnSELU(model, name, bottom, num_output,
                        weight_sharing=weight_sharing, weight_name=weight_name, bias_name=bias_name,
                        residual=residual, residual_init=residual_init)
     model, top = addBN(model, name="{}/bn".format(name), bottom=top)
-    model, top = addSELU(model=model, name="{}/selu".format(name), bottom=top)
+    model, top = addSelu(model=model, name="{}/selu".format(name), bottom=top)
     return model, top
 
 
