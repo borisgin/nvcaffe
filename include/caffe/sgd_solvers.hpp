@@ -28,9 +28,11 @@ class SGDSolver : public Solver {
   void PreSolve();
   float GetLearningRate();
   float GetMomentum();
-  float local_decay(int param_id) const;
-  void ApplyUpdate(int param_id, void* handle, bool clear_grads) override;
 
+  float getLocalRate(int param_id) const;
+  float local_decay(int param_id) const;
+
+  void ApplyUpdate(int param_id, void* handle, bool clear_grads) override;
   virtual void Normalize(int param_id, void* handle);
   virtual void Regularize(int param_id, void* handle);
   virtual void ComputeUpdateValue(int param_id, void* handle, float rate, bool clear_grads);
@@ -40,6 +42,8 @@ class SGDSolver : public Solver {
   virtual void SnapshotSolverStateToHDF5(const string& model_filename);
   virtual void RestoreSolverStateFromHDF5(const string& state_file);
   virtual void RestoreSolverStateFromBinaryProto(const string& state_file);
+  void PrintParams(int param_id);
+
   // history maintains the historical momentum data.
   // update maintains update related data and is not needed in snapshots.
   // temp maintains other information that might be needed in computation

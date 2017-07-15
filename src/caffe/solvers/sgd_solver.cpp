@@ -58,7 +58,11 @@ float SGDSolver<Dtype>::GetLearningRate() {
   } else if (lr_policy == "sigmoid") {
     rate = this->param_.base_lr() / (1.F +
         exp(-this->param_.gamma() * (double(this->iter_ - this->param_.stepsize()))));
-  } else {
+  }
+//  else if (lr_policy == "auto") {
+//    rate = 1.0;
+//  }
+    else {
     LOG(FATAL) << "Unknown learning rate policy: " << lr_policy;
   }
   return rate;
@@ -202,12 +206,18 @@ void sgd_reg_update_all_and_clear_gpu(int N,
 template<typename Dtype>
 void
 SGDSolver<Dtype>::ComputeUpdateValue(int param_id, void* handle, float rate, bool clear_grads) {
+  if (this->param_.debug_info() ) {
+    PrintParams(param_id);
+  }
   shared_ptr<Blob> param = this->net_->learnable_params()[param_id];
-
   shared_ptr<TBlob<Dtype>> history = history_[param_id];
-  const vector<float>& net_params_lr = this->net_->params_lr();
   float momentum = GetMomentum();
-  float local_rate = rate * net_params_lr[param_id];
+
+//  const vector<float>& net_params_lr = this->net_->params_lr();
+//  float local_rate = rate * net_params_lr[param_id];
+  float local_rate = rate * getLocalRate(param_id);
+  //LOG(INFO) << "local_rate=" << local_rate;
+
   // Compute the update to history, then copy it to the parameter diff.
   if (Caffe::mode() == Caffe::CPU) {
     caffe_cpu_axpby<Dtype>(param->count(), local_rate, param->cpu_diff<Dtype>(), momentum,
@@ -252,33 +262,61 @@ SGDSolver<Dtype>::ComputeUpdateValue(int param_id, void* handle, float rate, boo
 }
 
 template<typename Dtype>
+float SGDSolver<Dtype>::getLocalRate(int param_id) const {
+  const vector<float>& net_params_lr = this->net_->params_lr();
+  float local_lr = net_params_lr[param_id];
+
+  if (this->param_.local_lr_auto()) {
+    const int layer_id = this->net_->param_layer_indices(param_id).first;
+    shared_ptr<Blob> param = this->net_->learnable_params()[param_id];
+    float w_norm = std::sqrt(param->sumsq_data());
+    float wgrad_norm = std::sqrt(param->sumsq_diff());
+//   shared_ptr<TBlob<Dtype>> history = history_[param_id];
+//   float h_norm = std::sqrt(history->sumsq_data());
+    float ratio = 1.;
+    if (wgrad_norm >  0.) {
+     ratio = 0.001 * w_norm / wgrad_norm;
+    }
+//    LOG(INFO) << "ratio=" << ratio;
+    if (local_lr > 0.) {
+      local_lr = ratio;
+    }
+    if ( Caffe::root_solver() && this->param_.display() && (this->iter_ % this->param_.display() == 0)) {
+        const string& layer_name = this->net_->layer_names()[layer_id];
+//        const string& layer_type = this->net_->layers()[layer_id]->type();
+        const int blob_id  = this->net_->param_layer_indices(param_id).second;
+        LOG(INFO) << layer_name <<"."<< blob_id << " lr=" << local_lr;
+    }
+  }
+
+  return local_lr;
+}
+
+template<typename Dtype>
 float SGDSolver<Dtype>::local_decay(int param_id) const {
   const vector<float>& net_params_weight_decay = this->net_->params_weight_decay();
   float weight_decay = this->param_.weight_decay() * net_params_weight_decay[param_id];
-  const std::string& regularization_type = this->param_.regularization_type();
-  //FIXME: BG
-  if (regularization_type == "L2_unitary") {
+  return weight_decay;
+}
+
+template<typename Dtype>
+void SGDSolver<Dtype>::PrintParams(int param_id) {
+  if ( Caffe::root_solver() && this->param_.display() && (this->iter_ % this->param_.display() == 0)) {
     const int layer_id = this->net_->param_layer_indices(param_id).first;
     const int blob_id  = this->net_->param_layer_indices(param_id).second;
     const string& layer_name = this->net_->layer_names()[layer_id];
     const string& layer_type = this->net_->layers()[layer_id]->type();
-    float factor = 1.;
-    if ( (layer_type == "Convolution") && (blob_id==0)  ) {
-      shared_ptr<Blob> param = this->net_->learnable_params()[param_id];
-      float w_norm = param->sumsq_data();
-      if (w_norm > 0.) {
-//        factor = 1. - 1./(w_norm * w_norm);
-        factor =  w_norm * w_norm - 1;
-      }
-      if ( Caffe::root_solver() && this->param_.display() && (this->iter_ % this->param_.display() == 0)) {
-        //LOG(INFO) << "L2_unitary: " << layer_id <<"."<< blob_id << " " << layer_name << " " << factor;
-        LOG(INFO) << "L2_unitary: " << layer_name << " " << w_norm;
-      }
-    }
-    return (weight_decay * factor) ;
-  } else
-    return weight_decay;
+    shared_ptr<Blob> param = this->net_->learnable_params()[param_id];
+    shared_ptr<TBlob<Dtype>> history = history_[param_id];
 
+    if ((layer_type == "Convolution") || (layer_type == "InnerProduct")) {
+      float w_norm = std::sqrt(param->sumsq_data());
+      float wgrad_norm = std::sqrt(param->sumsq_diff());
+      float h_norm = std::sqrt(history->sumsq_data());
+      DLOG(INFO) << "SGD_update " << layer_name << "." <<  blob_id
+          << " W=" << w_norm << " \tdW=" << wgrad_norm << " \tH="<< h_norm;
+    }
+  }
 }
 
 template<typename Dtype>

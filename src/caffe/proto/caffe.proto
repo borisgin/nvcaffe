@@ -145,7 +145,7 @@ message NetParameter {
 // NOTE
 // Update the next available ID when you add a new SolverParameter field.
 //
-// SolverParameter next available ID: 49 (last added: momentum_power)
+// SolverParameter next available ID: 50 (last added: local_lr_auto)
 message SolverParameter {
   //////////////////////////////////////////////////////////////////////////////
   // Specifying the train and test networks
@@ -230,6 +230,8 @@ message SolverParameter {
   optional string momentum_policy = 46 [default = "fixed"];  
   optional float max_momentum     = 47 [default = 0.99];
   optional float momentum_power   = 48 [default = 1.];
+  
+  optional bool local_lr_auto = 49 [default = false]; 
     
   optional float weight_decay = 12; // The weight decay.
   // regularization types supported: L1 and L2
