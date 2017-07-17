@@ -229,6 +229,8 @@ size_t CuDNNConvolutionLayer<Ftype, Btype>::ComputeFindExWorkspaceSize() {
   }
   size_t workspace_limit_bytes, total_memory, workspace_bytes = 0UL;
   GPUMemory::GetInfo(&workspace_limit_bytes, &total_memory, true);
+  workspace_limit_bytes = workspace_limit_bytes - 256000UL;
+
   if (mem_size_estimated_ == 0UL) {
     mem_size_estimated_ = workspace_limit_bytes;
   }
@@ -478,6 +480,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::EstimateMaxWorkspaceSize(const vector<
   const bool top_device = Caffe::device_capability(Caffe::current_device()) >= 700;
 #endif
   GPUMemory::GetInfo(&available_memory, &total_memory, true);
+  available_memory = available_memory - 256000UL;
   // As per our experiments, it's not healthy to take more than 50% of total
   available_memory = std::min(available_memory, total_memory / 2);
   std::list<int> algos_to_test;
@@ -975,7 +978,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
     CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
     size_t workspace_limit_bytes, total_memory;
     GPUMemory::GetInfo(&workspace_limit_bytes, &total_memory, true);
-
+    workspace_limit_bytes = workspace_limit_bytes - 256000UL;
     std::ostringstream os;
     os << this->print_current_device()
         << (this->phase_ == TRAIN ? " Conv Algos (F,BD,BF): '" : " Conv Algo (F): '")
