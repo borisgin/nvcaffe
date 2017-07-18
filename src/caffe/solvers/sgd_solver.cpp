@@ -272,14 +272,14 @@ float SGDSolver<Dtype>::getLocalRate(int param_id) const {
     float w_norm = std::sqrt(param->sumsq_data());
     float wgrad_norm = std::sqrt(param->sumsq_diff());
     shared_ptr<TBlob<Dtype>> history = history_[param_id];
-    float h_norm = std::sqrt(history->sumsq_data());
+//    float h_norm = std::sqrt(history->sumsq_data());
 
     float ratio = 1.;
-    if ((w_norm >0.) && (h_norm >  0.)) {
-      ratio = 0.001 * w_norm / h_norm;
-    }
+//    if ((w_norm >0.) && (h_norm >  0.)) {
+//      ratio = 0.001 * w_norm / h_norm;
+//    }
     if ((w_norm >0.) && (wgrad_norm >  0.)) {
-     ratio = std::min(ratio, 0.001F * w_norm / wgrad_norm);
+     ratio =  0.001F * w_norm / wgrad_norm;
     }
 //    LOG(INFO) << "ratio=" << ratio;
     if (local_lr > 0.) {
