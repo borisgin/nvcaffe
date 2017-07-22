@@ -1,25 +1,23 @@
 net: "models/bvlc_alexnet/train_val.prototxt"
 
 test_iter: 1562            #196  #1562 = 50000/32
-test_interval:  1250     
+test_interval:  625     
 test_initialization: false
 
-display:  50
+display:  10
 
-max_iter: 31250  	# 60 epochs 
-base_lr:  10             # B=4096  # B=2048: 2-6 #0.01
+max_iter:  15625 	# 10 epochs 
+
+#base_lr:  0.02          # B=1024
+base_lr:   0.2           # B=8192
 local_lr_auto: true
-rampup_lr: 1
-rampup_interval: 2000
 
-# DGX1 =====================================
-# max_iter: 125000	# B=1024, 100 epochs
-# base_lr:  0.02  	# init lr for B=1024            
-# min_lr:   0.000005	# end  lr for B=1024  
-# ==========================================
+rampup_lr: 0.01
+rampup_interval: 1250
 
 lr_policy: "poly"
 power: 2.
+
 momentum: 0.9
 weight_decay: 0.0005
 
@@ -41,3 +39,4 @@ random_seed: 1
 # batch 1024--> epoch =  1,250
 # batch 1024--> epoch =    625
 # batch 4096--> epoch =    312
+# batch 8192--> epoch =    156

@@ -278,8 +278,8 @@ float SGDSolver<Dtype>::getLocalRate(int param_id) const {
 //    if ((w_norm >0.) && (h_norm >  0.)) {
 //      ratio = 0.001 * w_norm / h_norm;
 //    }
-    if ((w_norm >0.) && (wgrad_norm >  0.)) {
-     ratio =  0.001F * w_norm / wgrad_norm;
+    if ((w_norm > 0.) && (wgrad_norm >  0.)) {
+     ratio =  0.1F * w_norm / wgrad_norm;
     }
 //    LOG(INFO) << "ratio=" << ratio;
     if (local_lr > 0.) {
