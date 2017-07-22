@@ -12,11 +12,11 @@ layer {
   }
   data_param {
     source: "examples/imagenet/ilsvrc12_train_lmdb"
-    batch_size: 256
-#    batch_size: 1024          # DGX1
+#    batch_size: 256
+    batch_size: 4096          # DGX1
     backend: LMDB
-#    cache: true
-#    shuffle: true
+    cache: true
+    shuffle: true
   }
   include { phase: TRAIN }
 }
@@ -33,8 +33,8 @@ layer {
   }
   data_param {
     source: "examples/imagenet/ilsvrc12_val_lmdb"
-#    batch_size: 32
-    batch_size: 256          # DGX1
+    batch_size: 32
+#    batch_size: 256          # DGX1
     backend: LMDB
   }
   include { phase: TEST }
