@@ -289,7 +289,7 @@ float SGDSolver<Dtype>::getLocalRate(int param_id) const {
         const string& layer_name = this->net_->layer_names()[layer_id];
 //        const string& layer_type = this->net_->layers()[layer_id]->type();
         const int blob_id  = this->net_->param_layer_indices(param_id).second;
-        LOG(INFO) << layer_name <<"."<< blob_id << " lr=" << local_lr;
+        LOG(INFO) << layer_name <<"."<< blob_id << " lr=" << local_lr << " " << "\t  w=" << w_norm << "\t dw=" << wgrad_norm;
     }
   }
 
