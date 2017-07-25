@@ -122,7 +122,7 @@ layer {{
     if bias_term:
         layer += '''    bias_filler {
       type: "constant"
-      value: 0
+      value: 0.0001
     }\n'''
     else:
         layer += '''    bias_term: false\n'''
