@@ -141,7 +141,7 @@ layer {
   bottom: "res2.1.conv2"
   top: "res2.1.dropout"
   dropout_param {
-    dropout_ratio: 0.1
+    dropout_ratio: 0.5
   }
 }
 layer {
@@ -241,7 +241,7 @@ layer {
   bottom: "res2.2.conv2"
   top: "res2.2.dropout"
   dropout_param {
-    dropout_ratio: 0.1
+    dropout_ratio: 0.5
   }
 }
 layer {
@@ -327,7 +327,7 @@ layer {
   bottom: "res2.3.conv2"
   top: "res2.3.dropout"
   dropout_param {
-    dropout_ratio: 0.1
+    dropout_ratio: 0.5
   }
 }
 layer {
@@ -417,7 +417,7 @@ layer {
   bottom: "res3.1.conv2"
   top: "res3.1.dropout"
   dropout_param {
-    dropout_ratio: 0.1
+    dropout_ratio: 0.5
   }
 }
 layer {
@@ -518,7 +518,7 @@ layer {
   bottom: "res3.2.conv2"
   top: "res3.2.dropout"
   dropout_param {
-    dropout_ratio: 0.1
+    dropout_ratio: 0.5
   }
 }
 layer {
@@ -604,7 +604,7 @@ layer {
   bottom: "res3.3.conv2"
   top: "res3.3.dropout"
   dropout_param {
-    dropout_ratio: 0.1
+    dropout_ratio: 0.5
   }
 }
 layer {
@@ -690,7 +690,7 @@ layer {
   bottom: "res3.4.conv2"
   top: "res3.4.dropout"
   dropout_param {
-    dropout_ratio: 0.1
+    dropout_ratio: 0.5
   }
 }
 layer {
@@ -780,7 +780,7 @@ layer {
   bottom: "res4.1.conv2"
   top: "res4.1.dropout"
   dropout_param {
-    dropout_ratio: 0.1
+    dropout_ratio: 0.5
   }
 }
 layer {
@@ -881,7 +881,7 @@ layer {
   bottom: "res4.2.conv2"
   top: "res4.2.dropout"
   dropout_param {
-    dropout_ratio: 0.1
+    dropout_ratio: 0.5
   }
 }
 layer {
@@ -967,7 +967,7 @@ layer {
   bottom: "res4.3.conv2"
   top: "res4.3.dropout"
   dropout_param {
-    dropout_ratio: 0.1
+    dropout_ratio: 0.5
   }
 }
 layer {
@@ -1053,7 +1053,7 @@ layer {
   bottom: "res4.4.conv2"
   top: "res4.4.dropout"
   dropout_param {
-    dropout_ratio: 0.1
+    dropout_ratio: 0.5
   }
 }
 layer {
@@ -1139,7 +1139,7 @@ layer {
   bottom: "res4.5.conv2"
   top: "res4.5.dropout"
   dropout_param {
-    dropout_ratio: 0.1
+    dropout_ratio: 0.5
   }
 }
 layer {
@@ -1225,7 +1225,7 @@ layer {
   bottom: "res4.6.conv2"
   top: "res4.6.dropout"
   dropout_param {
-    dropout_ratio: 0.1
+    dropout_ratio: 0.5
   }
 }
 layer {
@@ -1315,7 +1315,7 @@ layer {
   bottom: "res5.1.conv2"
   top: "res5.1.dropout"
   dropout_param {
-    dropout_ratio: 0.1
+    dropout_ratio: 0.5
   }
 }
 layer {
@@ -1416,7 +1416,7 @@ layer {
   bottom: "res5.2.conv2"
   top: "res5.2.dropout"
   dropout_param {
-    dropout_ratio: 0.1
+    dropout_ratio: 0.5
   }
 }
 layer {
@@ -1502,7 +1502,7 @@ layer {
   bottom: "res5.3.conv2"
   top: "res5.3.dropout"
   dropout_param {
-    dropout_ratio: 0.1
+    dropout_ratio: 0.5
   }
 }
 layer {
