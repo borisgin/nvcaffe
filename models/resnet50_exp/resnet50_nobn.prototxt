@@ -49,6 +49,7 @@ layer {
   }
   include: { phase: TEST }
 }
+
 layer {
   name: "conv1"
   type: "Convolution"
@@ -136,18 +137,9 @@ layer {
   top: "res2.1.conv2"
 }
 layer {
-  name: "res2.1.dropout"
-  type: "Dropout"
-  bottom: "res2.1.conv2"
-  top: "res2.1.dropout"
-  dropout_param {
-    dropout_ratio: 0.5
-  }
-}
-layer {
   name: "res2.1.conv3"
   type: "Convolution"
-  bottom: "res2.1.dropout"
+  bottom: "res2.1.conv2"
   top: "res2.1.conv3"
   convolution_param {
     num_output: 256
@@ -236,18 +228,9 @@ layer {
   top: "res2.2.conv2"
 }
 layer {
-  name: "res2.2.dropout"
-  type: "Dropout"
-  bottom: "res2.2.conv2"
-  top: "res2.2.dropout"
-  dropout_param {
-    dropout_ratio: 0.5
-  }
-}
-layer {
   name: "res2.2.conv3"
   type: "Convolution"
-  bottom: "res2.2.dropout"
+  bottom: "res2.2.conv2"
   top: "res2.2.conv3"
   convolution_param {
     num_output: 256
@@ -322,18 +305,9 @@ layer {
   top: "res2.3.conv2"
 }
 layer {
-  name: "res2.3.dropout"
-  type: "Dropout"
-  bottom: "res2.3.conv2"
-  top: "res2.3.dropout"
-  dropout_param {
-    dropout_ratio: 0.5
-  }
-}
-layer {
   name: "res2.3.conv3"
   type: "Convolution"
-  bottom: "res2.3.dropout"
+  bottom: "res2.3.conv2"
   top: "res2.3.conv3"
   convolution_param {
     num_output: 256
@@ -412,18 +386,9 @@ layer {
   top: "res3.1.conv2"
 }
 layer {
-  name: "res3.1.dropout"
-  type: "Dropout"
-  bottom: "res3.1.conv2"
-  top: "res3.1.dropout"
-  dropout_param {
-    dropout_ratio: 0.5
-  }
-}
-layer {
   name: "res3.1.conv3"
   type: "Convolution"
-  bottom: "res3.1.dropout"
+  bottom: "res3.1.conv2"
   top: "res3.1.conv3"
   convolution_param {
     num_output: 512
@@ -513,18 +478,9 @@ layer {
   top: "res3.2.conv2"
 }
 layer {
-  name: "res3.2.dropout"
-  type: "Dropout"
-  bottom: "res3.2.conv2"
-  top: "res3.2.dropout"
-  dropout_param {
-    dropout_ratio: 0.5
-  }
-}
-layer {
   name: "res3.2.conv3"
   type: "Convolution"
-  bottom: "res3.2.dropout"
+  bottom: "res3.2.conv2"
   top: "res3.2.conv3"
   convolution_param {
     num_output: 512
@@ -599,18 +555,9 @@ layer {
   top: "res3.3.conv2"
 }
 layer {
-  name: "res3.3.dropout"
-  type: "Dropout"
-  bottom: "res3.3.conv2"
-  top: "res3.3.dropout"
-  dropout_param {
-    dropout_ratio: 0.5
-  }
-}
-layer {
   name: "res3.3.conv3"
   type: "Convolution"
-  bottom: "res3.3.dropout"
+  bottom: "res3.3.conv2"
   top: "res3.3.conv3"
   convolution_param {
     num_output: 512
@@ -685,18 +632,9 @@ layer {
   top: "res3.4.conv2"
 }
 layer {
-  name: "res3.4.dropout"
-  type: "Dropout"
-  bottom: "res3.4.conv2"
-  top: "res3.4.dropout"
-  dropout_param {
-    dropout_ratio: 0.5
-  }
-}
-layer {
   name: "res3.4.conv3"
   type: "Convolution"
-  bottom: "res3.4.dropout"
+  bottom: "res3.4.conv2"
   top: "res3.4.conv3"
   convolution_param {
     num_output: 512
@@ -775,18 +713,9 @@ layer {
   top: "res4.1.conv2"
 }
 layer {
-  name: "res4.1.dropout"
-  type: "Dropout"
-  bottom: "res4.1.conv2"
-  top: "res4.1.dropout"
-  dropout_param {
-    dropout_ratio: 0.5
-  }
-}
-layer {
   name: "res4.1.conv3"
   type: "Convolution"
-  bottom: "res4.1.dropout"
+  bottom: "res4.1.conv2"
   top: "res4.1.conv3"
   convolution_param {
     num_output: 1024
@@ -876,18 +805,9 @@ layer {
   top: "res4.2.conv2"
 }
 layer {
-  name: "res4.2.dropout"
-  type: "Dropout"
-  bottom: "res4.2.conv2"
-  top: "res4.2.dropout"
-  dropout_param {
-    dropout_ratio: 0.5
-  }
-}
-layer {
   name: "res4.2.conv3"
   type: "Convolution"
-  bottom: "res4.2.dropout"
+  bottom: "res4.2.conv2"
   top: "res4.2.conv3"
   convolution_param {
     num_output: 1024
@@ -962,18 +882,9 @@ layer {
   top: "res4.3.conv2"
 }
 layer {
-  name: "res4.3.dropout"
-  type: "Dropout"
-  bottom: "res4.3.conv2"
-  top: "res4.3.dropout"
-  dropout_param {
-    dropout_ratio: 0.5
-  }
-}
-layer {
   name: "res4.3.conv3"
   type: "Convolution"
-  bottom: "res4.3.dropout"
+  bottom: "res4.3.conv2"
   top: "res4.3.conv3"
   convolution_param {
     num_output: 1024
@@ -1048,18 +959,9 @@ layer {
   top: "res4.4.conv2"
 }
 layer {
-  name: "res4.4.dropout"
-  type: "Dropout"
-  bottom: "res4.4.conv2"
-  top: "res4.4.dropout"
-  dropout_param {
-    dropout_ratio: 0.5
-  }
-}
-layer {
   name: "res4.4.conv3"
   type: "Convolution"
-  bottom: "res4.4.dropout"
+  bottom: "res4.4.conv2"
   top: "res4.4.conv3"
   convolution_param {
     num_output: 1024
@@ -1134,18 +1036,9 @@ layer {
   top: "res4.5.conv2"
 }
 layer {
-  name: "res4.5.dropout"
-  type: "Dropout"
-  bottom: "res4.5.conv2"
-  top: "res4.5.dropout"
-  dropout_param {
-    dropout_ratio: 0.5
-  }
-}
-layer {
   name: "res4.5.conv3"
   type: "Convolution"
-  bottom: "res4.5.dropout"
+  bottom: "res4.5.conv2"
   top: "res4.5.conv3"
   convolution_param {
     num_output: 1024
@@ -1220,18 +1113,9 @@ layer {
   top: "res4.6.conv2"
 }
 layer {
-  name: "res4.6.dropout"
-  type: "Dropout"
-  bottom: "res4.6.conv2"
-  top: "res4.6.dropout"
-  dropout_param {
-    dropout_ratio: 0.5
-  }
-}
-layer {
   name: "res4.6.conv3"
   type: "Convolution"
-  bottom: "res4.6.dropout"
+  bottom: "res4.6.conv2"
   top: "res4.6.conv3"
   convolution_param {
     num_output: 1024
@@ -1310,18 +1194,9 @@ layer {
   top: "res5.1.conv2"
 }
 layer {
-  name: "res5.1.dropout"
-  type: "Dropout"
-  bottom: "res5.1.conv2"
-  top: "res5.1.dropout"
-  dropout_param {
-    dropout_ratio: 0.5
-  }
-}
-layer {
   name: "res5.1.conv3"
   type: "Convolution"
-  bottom: "res5.1.dropout"
+  bottom: "res5.1.conv2"
   top: "res5.1.conv3"
   convolution_param {
     num_output: 2048
@@ -1411,18 +1286,9 @@ layer {
   top: "res5.2.conv2"
 }
 layer {
-  name: "res5.2.dropout"
-  type: "Dropout"
-  bottom: "res5.2.conv2"
-  top: "res5.2.dropout"
-  dropout_param {
-    dropout_ratio: 0.5
-  }
-}
-layer {
   name: "res5.2.conv3"
   type: "Convolution"
-  bottom: "res5.2.dropout"
+  bottom: "res5.2.conv2"
   top: "res5.2.conv3"
   convolution_param {
     num_output: 2048
@@ -1497,18 +1363,9 @@ layer {
   top: "res5.3.conv2"
 }
 layer {
-  name: "res5.3.dropout"
-  type: "Dropout"
-  bottom: "res5.3.conv2"
-  top: "res5.3.dropout"
-  dropout_param {
-    dropout_ratio: 0.5
-  }
-}
-layer {
   name: "res5.3.conv3"
   type: "Convolution"
-  bottom: "res5.3.dropout"
+  bottom: "res5.3.conv2"
   top: "res5.3.conv3"
   convolution_param {
     num_output: 2048
