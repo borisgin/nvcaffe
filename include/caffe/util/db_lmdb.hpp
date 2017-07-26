@@ -43,8 +43,8 @@ class LMDBCursor : public Cursor {
     return string(static_cast<const char*>(mdb_value_.mv_data),
         mdb_value_.mv_size);
   }
-  bool parse(Datum& datum) const override {
-    return datum.ParseFromArray(mdb_value_.mv_data, mdb_value_.mv_size);
+  bool parse(Datum* datum) const override {
+    return datum->ParseFromArray(mdb_value_.mv_data, mdb_value_.mv_size);
   }
   const void* data() const override {
     return mdb_value_.mv_data;

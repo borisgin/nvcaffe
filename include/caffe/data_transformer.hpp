@@ -81,7 +81,7 @@ class DataTransformer {
    *    The destination Datum that will store transformed data of a fixed
    *    shape. Suitable for other transformations.
    */
-  shared_ptr<Datum> VariableSizedTransforms(const Datum& old_datum);
+  shared_ptr<Datum> VariableSizedTransforms(shared_ptr<Datum> old_datum);
 
   bool        var_sized_image_random_resize_enabled() const;
   vector<int> var_sized_image_random_resize_shape(const vector<int>& prev_shape) const;
@@ -238,7 +238,6 @@ class DataTransformer {
 #ifndef CPU_ONLY
   GPUMemory::Workspace mean_values_gpu_;
 #endif
-  shared_ptr<Datum> varsz_datum_;
   cv::Mat varsz_orig_img_;
   cv::Mat varsz_rand_resize_img_;
   cv::Mat varsz_rand_crop_img_;

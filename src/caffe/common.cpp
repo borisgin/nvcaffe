@@ -217,7 +217,7 @@ size_t Caffe::min_avail_device_memory() {
   return ret;
 }
 
-CudaStream::CudaStream(bool high_priority = false) {
+CudaStream::CudaStream(bool high_priority) {
   if (high_priority) {
     int leastPriority, greatestPriority;
     CUDA_CHECK(cudaDeviceGetStreamPriorityRange(&leastPriority, &greatestPriority));
