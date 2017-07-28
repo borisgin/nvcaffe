@@ -302,7 +302,7 @@ void DataReader::CursorManager::rewind() {
 }
 
 void DataReader::CursorManager::fetch(Datum* datum) {
-  if (!datum->ParseFromArray(cursor_->data(), (int) cursor_->size())) {
+  if (!cursor_->parse(datum)) {
     LOG(ERROR) << "Database cursor failed to parse Datum record";
   }
 }
