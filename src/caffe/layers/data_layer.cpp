@@ -224,11 +224,11 @@ void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, siz
 
   const size_t qid = sample_only ? 0UL : queue_id;
   DataReader* reader = sample_only ? sample_reader_.get() : reader_.get();
-  shared_ptr<Datum> datum = reader->full_peek(qid);
-  CHECK(datum);
+  shared_ptr<Datum> init_datum = reader->full_peek(qid);
+  CHECK(init_datum);
 
   // Calculate the variable sized transformed datum shape.
-  vector<int> datum_shape = this->data_transformers_[thread_id]->InferDatumShape(*datum);
+  vector<int> datum_shape = this->data_transformers_[thread_id]->InferDatumShape(*init_datum);
   if (this->data_transformers_[thread_id]->var_sized_transforms_enabled()) {
     datum_shape = this->data_transformers_[thread_id]->var_sized_transforms_shape(datum_shape);
   }
@@ -246,7 +246,7 @@ void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, siz
   }
 
   size_t out_sizeof_element = 0;
-  const bool copy_to_cpu = datum->encoded() || !use_gpu_transform;
+  const bool copy_to_cpu = init_datum->encoded() || !use_gpu_transform;
   Ftype* top_data = nullptr;
   if (copy_to_cpu) {
     top_data = batch->data_.mutable_cpu_data();
@@ -269,12 +269,12 @@ void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, siz
   size_t item_id;
   for (size_t entry = 0; entry < batch_size; ++entry) {
     shared_ptr<Datum> pop_datum = reader->full_pop(qid, "Waiting for datum");
-    datum = pop_datum;
+    shared_ptr<Datum> datum = pop_datum;
     // Apply variable-sized transforms.
     if (this->data_transformers_[thread_id]->var_sized_transforms_enabled()) {
-      datum = this->data_transformers_[thread_id]->VariableSizedTransforms(*datum);
+      datum = this->data_transformers_[thread_id]->VariableSizedTransforms(pop_datum);
     }
-    item_id = datum->record_id() % batch_size;
+    item_id = pop_datum->record_id() % batch_size;
     if (datum->channels() > 0) {
       CHECK_EQ(top_shape[1], datum->channels())
         << "Number of channels can't vary in the same batch";
@@ -290,7 +290,7 @@ void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, siz
       }
     }
     if (item_id == 0UL) {
-      current_batch_id = datum->record_id() / batch_size;
+      current_batch_id = pop_datum->record_id() / batch_size;
     }
     // Copy label.
     Ftype* label_ptr = NULL;

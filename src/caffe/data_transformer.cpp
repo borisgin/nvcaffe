@@ -37,7 +37,6 @@ DataTransformer<Dtype>::DataTransformer(const TransformationParameter& param, Ph
       mean_values_.push_back(param_.mean_value(c));
     }
   }
-  varsz_datum_ = make_shared<Datum>();
 }
 
 #ifdef USE_OPENCV
@@ -169,40 +168,34 @@ vector<int> DataTransformer<Dtype>::var_sized_transforms_shape(
 }
 
 template<typename Dtype>
-shared_ptr<Datum> DataTransformer<Dtype>::VariableSizedTransforms(const Datum& old_datum) {
-  if (old_datum.encoded()) {
+shared_ptr<Datum> DataTransformer<Dtype>::VariableSizedTransforms(shared_ptr<Datum> datum) {
+  if (datum->encoded()) {
     CHECK(!(param_.force_color() && param_.force_gray()))
         << "cannot set both force_color and force_gray";
     if (param_.force_color() || param_.force_gray()) {
       // If force_color then decode in color otherwise decode in gray.
-      DecodeDatumToCVMat(old_datum, param_.force_color(), varsz_orig_img_);
+      DecodeDatumToCVMat(*datum, param_.force_color(), varsz_orig_img_);
     } else {
-      DecodeDatumToCVMatNative(old_datum, varsz_orig_img_);
+      DecodeDatumToCVMatNative(*datum, varsz_orig_img_);
     }
   } else {
-    DatumToCVMat(old_datum, varsz_orig_img_);
+    DatumToCVMat(*datum, varsz_orig_img_);
   }
-  cv::Mat& img = varsz_orig_img_;
   if (var_sized_image_random_resize_enabled()) {
-    img = var_sized_image_random_resize(img);
+    varsz_orig_img_ = var_sized_image_random_resize(varsz_orig_img_);
   }
   if (var_sized_image_random_crop_enabled()) {
-    img = var_sized_image_random_crop(img);
+    varsz_orig_img_ = var_sized_image_random_crop(varsz_orig_img_);
   }
   if (var_sized_image_center_crop_enabled()) {
-    img = var_sized_image_center_crop(img);
+    varsz_orig_img_ = var_sized_image_center_crop(varsz_orig_img_);
   }
-  {
-    Datum* new_datum = varsz_datum_.get();
-    CVMatToDatum(img, new_datum);
-    if (old_datum.has_label()) {
-      new_datum->set_label(old_datum.label());
-    } else {
-      new_datum->clear_label();
-    }
-    new_datum->set_record_id(old_datum.record_id());
+  shared_ptr<Datum> new_datum = make_shared<Datum>();
+  CVMatToDatum(varsz_orig_img_, *new_datum);
+  if (datum->has_label()) {
+    new_datum->set_label(datum->label());
   }
-  return varsz_datum_;
+  return new_datum;
 }
 
 template<typename Dtype>
@@ -262,6 +255,7 @@ cv::Mat& DataTransformer<Dtype>::var_sized_image_random_resize(cv::Mat& img) {
   const int resize_width = static_cast<int>(std::round(scale * static_cast<double>(img_width)));
   if (resize_height < img_height || resize_width < img_width) {
     // Downsample with pixel area relation interpolation.
+    CHECK_LE(scale, 1.0);
     CHECK_LE(resize_height, img_height)
         << "cannot downsample width without downsampling height";
     CHECK_LE(resize_width, img_width)
@@ -274,6 +268,7 @@ cv::Mat& DataTransformer<Dtype>::var_sized_image_random_resize(cv::Mat& img) {
     return varsz_rand_resize_img_;
   } else if (resize_height > img_height || resize_width > img_width) {
     // Upsample with cubic interpolation.
+    CHECK_GE(scale, 1.0);
     CHECK_GE(resize_height, img_height)
         << "cannot upsample width without upsampling height";
     CHECK_GE(resize_width, img_width)
@@ -591,9 +586,6 @@ void DataTransformer<Dtype>::TransformPtrEntry(shared_ptr<Datum> datum,
     LOG(FATAL) << "Encoded datum requires OpenCV; compile with USE_OPENCV.";
 #endif  // USE_OPENCV
   } else {
-    if (param_.force_color() || param_.force_gray()) {
-      LOG(ERROR) << "force_color and force_gray only for encoded datum";
-    }
     TransformPtrInt(*datum, transformed_ptr, rand);
   }
 }
@@ -614,7 +606,8 @@ void DataTransformer<Dtype>::Transform(const Datum& datum,
       cv_img = DecodeDatumToCVMatNative(datum);
     }
     // Transform the cv::image into blob.
-    return Transform(cv_img, transformed_blob);
+    Transform(cv_img, transformed_blob);
+    return;
 #else
     LOG(FATAL) << "Encoded datum requires OpenCV; compile with USE_OPENCV.";
 #endif  // USE_OPENCV
