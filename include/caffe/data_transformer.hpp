@@ -55,6 +55,7 @@ class DataTransformer {
   void CopyPtrEntry(shared_ptr<Datum> datum, Dtype* transformed_ptr, size_t& out_sizeof_element,
       bool output_labels, Dtype* label);
 
+#ifdef USE_OPENCV
   /**
    * @brief Whether there are any "variable_sized" transformations defined
    * in the data layer's transform_param block.
@@ -92,6 +93,7 @@ class DataTransformer {
   bool        var_sized_image_center_crop_enabled() const;
   vector<int> var_sized_image_center_crop_shape(const vector<int>& prev_shape) const;
   cv::Mat&    var_sized_image_center_crop(const cv::Mat& img);
+#endif
 
   /**
    * @brief Applies the transformation defined in the data layer's
@@ -238,10 +240,12 @@ class DataTransformer {
 #ifndef CPU_ONLY
   GPUMemory::Workspace mean_values_gpu_;
 #endif
+#ifdef USE_OPENCV
   cv::Mat varsz_orig_img_;
   cv::Mat varsz_rand_resize_img_;
   cv::Mat varsz_rand_crop_img_;
   cv::Mat varsz_center_crop_img_;
+#endif
 };
 
 }  // namespace caffe

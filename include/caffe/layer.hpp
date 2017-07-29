@@ -384,9 +384,7 @@ class LayerBase {
    */
   virtual void ToProto(LayerParameter* param, bool write_diff = false) = 0;
 
-#ifndef CPU_ONLY
   std::string print_current_device() const;
-#endif
 
  protected:
   /** The vector that stores the learnable parameters as a set of blobs. */

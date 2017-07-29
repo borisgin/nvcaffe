@@ -262,23 +262,22 @@ float SGDSolver<Dtype>::local_decay(int param_id) const {
     const int blob_id  = this->net_->param_layer_indices(param_id).second;
     const string& layer_name = this->net_->layer_names()[layer_id];
     const string& layer_type = this->net_->layers()[layer_id]->type();
-    float factor = 1.;
-    if ( (layer_type == "Convolution") && (blob_id==0)  ) {
+    float factor = 1.F;
+    if (layer_type == "Convolution" && blob_id == 0) {
       shared_ptr<Blob> param = this->net_->learnable_params()[param_id];
       float w_norm = param->sumsq_data();
       if (w_norm > 0.) {
 //        factor = 1. - 1./(w_norm * w_norm);
         factor =  w_norm * w_norm - 1;
       }
-      if ( Caffe::root_solver() && this->param_.display() && (this->iter_ % this->param_.display() == 0)) {
-        //LOG(INFO) << "L2_unitary: " << layer_id <<"."<< blob_id << " " << layer_name << " " << factor;
+      if (Caffe::root_solver() && this->param_.display() &&
+          (this->iter_ % this->param_.display() == 0)) {
         LOG(INFO) << "L2_unitary: " << layer_name << " " << w_norm;
       }
     }
-    return (weight_decay * factor) ;
-  } else
-    return weight_decay;
-
+    return weight_decay * factor;
+  }
+  return weight_decay;
 }
 
 template<typename Dtype>
