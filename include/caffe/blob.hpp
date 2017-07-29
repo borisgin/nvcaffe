@@ -99,11 +99,11 @@ class Blob {
   }
 
   void allocate_data(bool on_gpu = true) {
-    data_tensor_->mutable_memory(data_tensor_->type(), on_gpu);
+    data_tensor_->current_memory(on_gpu);
   }
 
   void allocate_diff(bool on_gpu = true) {
-    diff_tensor_->mutable_memory(diff_tensor_->type(), on_gpu);
+    diff_tensor_->current_memory(on_gpu);
   }
 
   size_t cpu_memory_data_use() const;

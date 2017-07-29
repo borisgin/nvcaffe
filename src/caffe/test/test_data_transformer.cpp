@@ -16,7 +16,7 @@
 namespace caffe {
 
 void FillDatum(const int label, const int channels, const int height,
-  const int width, const bool unique_pixels, Datum * datum) {
+  const int width, const bool unique_pixels, Datum* datum) {
   datum->set_label(label);
   datum->set_channels(channels);
   datum->set_height(height);
@@ -24,8 +24,8 @@ void FillDatum(const int label, const int channels, const int height,
   int size = channels * height * width;
   std::string* data = datum->mutable_data();
   for (int j = 0; j < size; ++j) {
-    int datum = unique_pixels ? j : label;
-    data->push_back(static_cast<uint8_t>(datum));
+    int dt = unique_pixels ? j : label;
+    data->push_back(static_cast<uint8_t>(dt));
   }
 }
 
@@ -339,6 +339,61 @@ TYPED_TEST(DataTransformTest, TestMeanFile) {
   for (int j = 0; j < blob.count(); ++j) {
       EXPECT_EQ(static_cast<int>(blob.cpu_data()[j]), 0);
   }
+}
+
+template <typename Dtype>
+class VarSzTransformsTest : public ::testing::Test {
+ protected:
+  VarSzTransformsTest()
+    : seed_(1701) {}
+
+  void Run(
+      const TransformationParameter transform_param,
+      const int expected_height, const int expected_width) {
+    const bool unique_pixels = false;  // pixels are equal to label
+    const int label = 42;
+    const int channels = 3;
+    const int height = 4;
+    const int width = 5;
+
+    shared_ptr<Datum> datum = make_shared<Datum>();
+    FillDatum(label, channels, height, width, unique_pixels, datum.get());
+    DataTransformer<Dtype> transformer(transform_param, TEST);
+    Caffe::set_random_seed(seed_);
+    transformer.InitRand();
+    shared_ptr<Datum> transformed_datum = transformer.VariableSizedTransforms(datum);
+    EXPECT_EQ(transformed_datum->channels(), 3);
+    EXPECT_EQ(transformed_datum->height(), expected_height);
+    EXPECT_EQ(transformed_datum->width(), expected_width);
+    const int data_count = transformed_datum->data().size();
+    const char* data = &transformed_datum->data().at(0);
+    for (int j = 0; j < data_count; ++j) {
+      EXPECT_EQ(static_cast<int>(data[j]), label);
+    }
+  }
+
+  int seed_;
+};
+
+TYPED_TEST_CASE(VarSzTransformsTest, TestDtypesNoFP16);
+
+TYPED_TEST(VarSzTransformsTest, TestVarSzImgRandomResize) {
+  TransformationParameter transform_param;
+  transform_param.set_var_sz_img_rand_resize_lower(2);
+  transform_param.set_var_sz_img_rand_resize_upper(2);
+  this->Run(transform_param, 2, 3);
+}
+
+TYPED_TEST(VarSzTransformsTest, TestVarSzImgRandomCrop) {
+  TransformationParameter transform_param;
+  transform_param.set_var_sz_img_rand_crop(3);
+  this->Run(transform_param, 3, 3);
+}
+
+TYPED_TEST(VarSzTransformsTest, TestVarSzImgCenterCrop) {
+  TransformationParameter transform_param;
+  transform_param.set_var_sz_img_center_crop(3);
+  this->Run(transform_param, 3, 3);
 }
 
 #ifndef CPU_ONLY

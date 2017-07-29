@@ -217,7 +217,7 @@ size_t Caffe::min_avail_device_memory() {
   return ret;
 }
 
-CudaStream::CudaStream(bool high_priority = false) {
+CudaStream::CudaStream(bool high_priority) {
   if (high_priority) {
     int leastPriority, greatestPriority;
     CUDA_CHECK(cudaDeviceGetStreamPriorityRange(&leastPriority, &greatestPriority));
@@ -519,8 +519,7 @@ Caffe::Properties::Properties() :
         << device_prop.major << "." << device_prop.minor;
   }
 #ifdef USE_CUDNN
-  cudnn_version_ =
-      AS_STRING(CUDNN_MAJOR) "." AS_STRING(CUDNN_MINOR) "." AS_STRING(CUDNN_PATCHLEVEL);
+  cudnn_version_ = std::to_string(cudnnGetVersion());
 #else
   cudnn_version_ = "USE_CUDNN is not defined";
 #endif

@@ -127,8 +127,12 @@ class Solver {
     iteration_complete_signal();
   }
 
-  bool display() {
+  bool display() const {
     return param_.display() && iter_ % param_.display() == 0;
+  }
+
+  bool param_display() const {
+    return param_.display() > 0;
   }
 
   /**

@@ -29,13 +29,17 @@ layer {{
   top: "label"
   data_param {{
     source: "{train_file}"
+#    source: "/data/imagenet/train-lmdb-uncompressed-256x256"
     backend: LMDB
     batch_size: {train_batch}
+    cache:   true
+    shuffle: true
   }}
   transform_param {{
     crop_size: {crop_size}
     mean_file: "{mean_file}"
     mirror: true
+    scale: 0.00390625
   }}
   include: {{ phase: TRAIN }}
 }}
@@ -46,6 +50,7 @@ layer {{
   top: "label"
   data_param {{
     source: "{test_file}"
+#    source: "/data/imagenet/val-lmdb-uncompressed-256x256"
     backend: LMDB
     batch_size: {test_batch}
   }}
@@ -53,6 +58,7 @@ layer {{
     mean_file: "{mean_file}"
     crop_size: {crop_size}
     mirror: false
+    scale: 0.00390625
   }}
   include: {{ phase: TEST }}
 }}'''.format(train_batch=train_batch, test_batch=test_batch,
@@ -170,6 +176,23 @@ layer {{
 
 #------------------------------------------------------------------------------
 
+def addSELU(model, name, bottom):
+    layer = '''
+layer {{
+  name: "{name}"
+  type: "ELU"
+  bottom: "{bottom}"
+  top: "{top}"
+  elu_param {{
+    alpha:  1.6733
+    lambda: 1.0507
+  }}
+}}'''.format(name=name, top=bottom, bottom=bottom)
+    model += layer
+    return model, bottom
+
+#------------------------------------------------------------------------------
+
 def addConvRelu(model, name, bottom, num_output,
                 kernel_size=0, kernel_h=0, kernel_w=0,
                 pad=0, pad_h=0, pad_w=0,
@@ -235,6 +258,84 @@ def addBnRelu(model, name, bottom):
     return model, top
 
 #------------------------------------------------------------------------------
+
+def addConvElu(model, name, bottom, num_output,
+                kernel_size=0, kernel_h=0, kernel_w=0,
+                pad=0, pad_h=0, pad_w=0,
+                group=1, stride=1, dilation=1,
+                filler="msra",
+                weight_sharing=False, weight_name="", bias_name="",
+                residual=False, residual_init=False):
+    model, top = addConv(model=model, name=name, bottom=bottom, num_output=num_output,
+                         kernel_size=kernel_size, kernel_h=kernel_h, kernel_w=kernel_w,
+                         pad=pad, pad_h=pad_h, pad_w=pad_w,
+                         group=group, stride=stride, dilation=dilation,
+                         bias_term=True,filler=filler,
+                         weight_sharing=weight_sharing, weight_name=weight_name, bias_name=bias_name,
+                         residual=residual, residual_init=residual_init)
+    model, top = addActivation(model=model, name="{}/elu".format(name), bottom=top, type="ELU")
+    return model, top
+
+#------------------------------------------------------------------------------
+
+def addConvSELU(model, name, bottom, num_output,
+                kernel_size=0, kernel_h=0, kernel_w=0,
+                pad=0, pad_h=0, pad_w=0,
+                group=1, stride=1, dilation=1,
+                filler="msra",
+                weight_sharing=False, weight_name="", bias_name="",
+                residual=False, residual_init=False):
+    model, top = addConv(model=model, name=name, bottom=bottom, num_output=num_output,
+                         kernel_size=kernel_size, kernel_h=kernel_h, kernel_w=kernel_w,
+                         pad=pad, pad_h=pad_h, pad_w=pad_w,
+                         group=group, stride=stride, dilation=dilation,
+                         bias_term=True,filler=filler,
+                         weight_sharing=weight_sharing, weight_name=weight_name, bias_name=bias_name,
+                         residual=residual, residual_init=residual_init)
+    model, top = addSELU(model=model, name="{}/selu".format(name), bottom=top)
+    return model, top
+
+
+#---------------------------------------------------------------------------------
+def addConvBnElu(model, name, bottom, num_output,
+                       kernel_size=0, kernel_h=0, kernel_w=0,
+                       pad=0, pad_h=0, pad_w=0,
+                       group=1, stride=1, dilation=1,
+                       filler="msra", weight_sharing=False, weight_name="", bias_name="",
+                       residual=False, residual_init=False):
+
+    model, top = addConv(model=model, name=name, bottom=bottom, num_output=num_output,
+                       kernel_size=kernel_size, kernel_h=kernel_h, kernel_w=kernel_w,
+                       pad=pad, pad_h=pad_h, pad_w=pad_w,
+                       group=group, stride=stride, dilation=dilation,
+                       bias_term=False,filler=filler,
+                       weight_sharing=weight_sharing, weight_name=weight_name, bias_name=bias_name,
+                       residual=residual, residual_init=residual_init)
+    model, top = addBN(model, name="{}/bn".format(name), bottom=top)
+    model, top = addActivation(model=model, name="{}/elu".format(name), bottom=top, type="ELU")
+    return model, top
+
+#---------------------------------------------------------------------------------
+def addConvBnSELU(model, name, bottom, num_output,
+                       kernel_size=0, kernel_h=0, kernel_w=0,
+                       pad=0, pad_h=0, pad_w=0,
+                       group=1, stride=1, dilation=1,
+                       filler="msra", weight_sharing=False, weight_name="", bias_name="",
+                       residual=False, residual_init=False):
+
+    model, top = addConv(model=model, name=name, bottom=bottom, num_output=num_output,
+                       kernel_size=kernel_size, kernel_h=kernel_h, kernel_w=kernel_w,
+                       pad=pad, pad_h=pad_h, pad_w=pad_w,
+                       group=group, stride=stride, dilation=dilation,
+                       bias_term=False,filler=filler,
+                       weight_sharing=weight_sharing, weight_name=weight_name, bias_name=bias_name,
+                       residual=residual, residual_init=residual_init)
+    model, top = addBN(model, name="{}/bn".format(name), bottom=top)
+    model, top = addSELU(model=model, name="{}/selu".format(name), bottom=top)
+    return model, top
+
+
+#---------------------------------------------------------------------------------
 
 def addPool(model, name, bottom, kernel_size, stride, pool_type, pad=0):
 
@@ -405,7 +506,7 @@ def addReplicator(model, name, bottom, multiplier):
     return model, top
 #------------------------------------------------------------------------------
 
-def addDropout(train_val, name, bottom, ratio=0.5):
+def addDropout(model, name, bottom, ratio=0.5):
 
     layer_str = '''
 layer {{
@@ -418,8 +519,8 @@ layer {{
   }}
 }}'''.format(name=name, bottom=bottom, top=name, ratio=ratio)
 
-    train_val += layer_str
-    return train_val, name
+    model += layer_str
+    return model, name
 
 #------------------------------------------------------------------------------
 

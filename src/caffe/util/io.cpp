@@ -124,8 +124,9 @@ bool ReadImageToDatum(const string& filename, const int label,
   if (cv_img.data) {
     if (encoding.size()) {
       if ( (cv_img.channels() == 3) == is_color && !height && !width &&
-          matchExt(filename, encoding) )
+          matchExt(filename, encoding) ) {
         return ReadFileToDatum(filename, label, datum);
+      }
       std::vector<uchar> buf;
       cv::imencode("."+encoding, cv_img, buf);
       datum->set_data(std::string(reinterpret_cast<char*>(&buf[0]),
@@ -134,7 +135,7 @@ bool ReadImageToDatum(const string& filename, const int label,
       datum->set_encoded(true);
       return true;
     }
-    CVMatToDatum(cv_img, datum);
+    CVMatToDatum(cv_img, *datum);
     datum->set_label(label);
     return true;
   } else {
@@ -166,6 +167,11 @@ bool ReadFileToDatum(const string& filename, const int label,
 #ifdef USE_OPENCV
 cv::Mat DecodeDatumToCVMatNative(const Datum& datum) {
   cv::Mat cv_img;
+  DecodeDatumToCVMatNative(datum, cv_img);
+  return cv_img;
+}
+
+void DecodeDatumToCVMatNative(const Datum& datum, cv::Mat& cv_img) {
   CHECK(datum.encoded()) << "Datum not encoded";
   const string& data = datum.data();
   std::vector<char> vec_data(data.c_str(), data.c_str() + data.size());
@@ -173,10 +179,15 @@ cv::Mat DecodeDatumToCVMatNative(const Datum& datum) {
   if (!cv_img.data) {
     LOG(ERROR) << "Could not decode datum ";
   }
-  return cv_img;
 }
+
 cv::Mat DecodeDatumToCVMat(const Datum& datum, bool is_color) {
   cv::Mat cv_img;
+  DecodeDatumToCVMat(datum, is_color, cv_img);
+  return cv_img;
+}
+
+void DecodeDatumToCVMat(const Datum& datum, bool is_color, cv::Mat& cv_img) {
   CHECK(datum.encoded()) << "Datum not encoded";
   const string& data = datum.data();
   std::vector<char> vec_data(data.c_str(), data.c_str() + data.size());
@@ -186,7 +197,6 @@ cv::Mat DecodeDatumToCVMat(const Datum& datum, bool is_color) {
   if (!cv_img.data) {
     LOG(ERROR) << "Could not decode datum ";
   }
-  return cv_img;
 }
 
 // If Datum is encoded will decoded using DecodeDatumToCVMat and CVMatToDatum
@@ -194,7 +204,7 @@ cv::Mat DecodeDatumToCVMat(const Datum& datum, bool is_color) {
 bool DecodeDatumNative(Datum* datum) {
   if (datum->encoded()) {
     cv::Mat cv_img = DecodeDatumToCVMatNative((*datum));
-    CVMatToDatum(cv_img, datum);
+    CVMatToDatum(cv_img, *datum);
     return true;
   } else {
     return false;
@@ -203,37 +213,77 @@ bool DecodeDatumNative(Datum* datum) {
 bool DecodeDatum(Datum* datum, bool is_color) {
   if (datum->encoded()) {
     cv::Mat cv_img = DecodeDatumToCVMat((*datum), is_color);
-    CVMatToDatum(cv_img, datum);
+    CVMatToDatum(cv_img, *datum);
     return true;
   } else {
     return false;
   }
 }
 
-void CVMatToDatum(const cv::Mat& cv_img, Datum* datum) {
-  CHECK(cv_img.depth() == CV_8U) << "Image data type must be unsigned byte";
-  datum->set_channels(cv_img.channels());
-  datum->set_height(cv_img.rows);
-  datum->set_width(cv_img.cols);
-  datum->clear_data();
-  datum->clear_float_data();
-  datum->set_encoded(false);
-  int datum_channels = datum->channels();
-  int datum_height = datum->height();
-  int datum_width = datum->width();
-  int datum_size = datum_channels * datum_height * datum_width;
-  std::string buffer(datum_size, ' ');
+void DatumToCVMat(const Datum& datum, cv::Mat& img) {
+  if (datum.encoded()) {
+    LOG(FATAL) << "Datum encoded";
+  }
+  const int datum_channels = datum.channels();
+  const int datum_height = datum.height();
+  const int datum_width = datum.width();
+  const int datum_size = datum_channels * datum_height * datum_width;
+  CHECK_GT(datum_channels, 0);
+  CHECK_GT(datum_height, 0);
+  CHECK_GT(datum_width, 0);
+  img = cv::Mat::zeros(cv::Size(datum_width, datum_height), CV_8UC(datum_channels));
+  CHECK_EQ(img.channels(), datum_channels);
+  CHECK_EQ(img.rows, datum_height);
+  CHECK_EQ(img.cols, datum_width);
+  const std::string& datum_buf = datum.data();
+  CHECK_EQ(datum_buf.size(), datum_size);
+  const int datum_hw_stride = datum_height * datum_width;
   for (int h = 0; h < datum_height; ++h) {
-    const uchar* ptr = cv_img.ptr<uchar>(h);
-    int img_index = 0;
+    const int datum_h_offset = h * datum_width;
+    uchar* img_row_ptr = img.ptr<uchar>(h);
+    int img_row_index = 0;
     for (int w = 0; w < datum_width; ++w) {
-      for (int c = 0; c < datum_channels; ++c) {
-        int datum_index = (c * datum_height + h) * datum_width + w;
-        buffer[datum_index] = static_cast<char>(ptr[img_index++]);
+      int datum_index = datum_h_offset + w;
+      for (int c = 0; c < datum_channels; ++c, datum_index += datum_hw_stride) {
+        img_row_ptr[img_row_index++] = datum_buf[datum_index];
       }
     }
   }
-  datum->set_data(buffer);
+}
+
+void CVMatToDatum(const cv::Mat& cv_img, Datum& datum) {
+  CHECK(cv_img.depth() == CV_8U) << "Image data type must be unsigned byte";
+  const unsigned int img_channels = cv_img.channels();
+  const unsigned int img_height = cv_img.rows;
+  const unsigned int img_width = cv_img.cols;
+  const unsigned int img_size = img_channels * img_height * img_width;
+  CHECK_GT(img_channels, 0);
+  CHECK_GT(img_height, 0);
+  CHECK_GT(img_width, 0);
+  datum.set_channels(img_channels);
+  datum.set_height(img_height);
+  datum.set_width(img_width);
+  datum.set_encoded(false);
+  vector<char> img_buf(img_size);
+  const unsigned int datum_hw_stride = img_height * img_width;
+  for (unsigned int h = 0; h < img_height; ++h) {
+    const unsigned int datum_h_offset = h * img_width;
+    const uchar* row_ptr = cv_img.ptr<uchar>(h);
+    unsigned int row_index = 0;
+    for (unsigned int w = 0; w < img_width; ++w) {
+      unsigned int datum_index = datum_h_offset + w;
+      for (unsigned int c = 0; c < img_channels; ++c, datum_index += datum_hw_stride) {
+        CHECK_LT(datum_index, img_size);
+        img_buf[datum_index] = static_cast<char>(row_ptr[row_index++]);
+      }
+    }
+  }
+  string* prev_img_data = datum.release_data();
+  if (prev_img_data != NULL) {
+    delete prev_img_data;
+  }
+  string* next_img_data = new string(img_buf.data(), img_buf.size());
+  datum.set_allocated_data(next_img_data);
 }
 #endif  // USE_OPENCV
 }  // namespace caffe

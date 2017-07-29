@@ -233,7 +233,7 @@ TEST_F(IOTest, TestCVMatToDatum) {
   string filename = EXAMPLES_SOURCE_DIR "images/cat.jpg";
   cv::Mat cv_img = ReadImageToCVMat(filename);
   Datum datum;
-  CVMatToDatum(cv_img, &datum);
+  CVMatToDatum(cv_img, datum);
   EXPECT_EQ(datum.channels(), 3);
   EXPECT_EQ(datum.height(), 360);
   EXPECT_EQ(datum.width(), 480);
@@ -243,7 +243,7 @@ TEST_F(IOTest, TestCVMatToDatumContent) {
   string filename = EXAMPLES_SOURCE_DIR "images/cat.jpg";
   cv::Mat cv_img = ReadImageToCVMat(filename);
   Datum datum;
-  CVMatToDatum(cv_img, &datum);
+  CVMatToDatum(cv_img, datum);
   Datum datum_ref;
   ReadImageToDatum(filename, 0, &datum_ref);
   EXPECT_EQ(datum.channels(), datum_ref.channels());
@@ -262,7 +262,7 @@ TEST_F(IOTest, TestCVMatToDatumReference) {
   string filename = EXAMPLES_SOURCE_DIR "images/cat.jpg";
   cv::Mat cv_img = ReadImageToCVMat(filename);
   Datum datum;
-  CVMatToDatum(cv_img, &datum);
+  CVMatToDatum(cv_img, datum);
   Datum datum_ref;
   ReadImageToDatumReference(filename, 0, 0, 0, true, &datum_ref);
   EXPECT_EQ(datum.channels(), datum_ref.channels());

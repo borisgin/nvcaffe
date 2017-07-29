@@ -86,7 +86,7 @@ TYPED_TEST(DBTest, TestSeekToFirst) {
   EXPECT_TRUE(cursor->valid());
   string key = cursor->key();
   Datum datum;
-  datum.ParseFromString(cursor->value());
+  EXPECT_TRUE(cursor->parse(&datum));
   EXPECT_EQ(key, "cat.jpg");
   EXPECT_EQ(datum.channels(), 3);
   EXPECT_EQ(datum.height(), 360);
@@ -100,7 +100,7 @@ TYPED_TEST(DBTest, TestKeyValue) {
   EXPECT_TRUE(cursor->valid());
   string key = cursor->key();
   Datum datum;
-  datum.ParseFromString(cursor->value());
+  EXPECT_TRUE(cursor->parse(&datum));
   EXPECT_EQ(key, "cat.jpg");
   EXPECT_EQ(datum.channels(), 3);
   EXPECT_EQ(datum.height(), 360);
@@ -108,7 +108,7 @@ TYPED_TEST(DBTest, TestKeyValue) {
   cursor->Next();
   EXPECT_TRUE(cursor->valid());
   key = cursor->key();
-  datum.ParseFromString(cursor->value());
+  EXPECT_TRUE(cursor->parse(&datum));
   EXPECT_EQ(key, "fish-bike.jpg");
   EXPECT_EQ(datum.channels(), 3);
   EXPECT_EQ(datum.height(), 323);

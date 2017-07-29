@@ -302,7 +302,7 @@ void Solver::Step(int iters) {
 
     // average the loss across iterations for smoothed reporting
     UpdateSmoothedLoss(loss, start_iter, average_loss);
-    if (display || rel_iter <= 2 || iter_ + 1 >= stop_iter) {
+    if (this->param_display() && (display || rel_iter <= 2 || iter_ + 1 >= stop_iter)) {
       float lapse = iteration_timer_.Seconds();
       iteration_timer_.Start();
       if (rel_iter > 2) {  // we skip 0,1,2 for correct benchmarking

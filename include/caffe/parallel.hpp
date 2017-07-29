@@ -113,7 +113,7 @@ class P2PSync : public Solver::Callback, public InternalThread {
   ncclUniqueId nccl_id_;
 #endif
 #endif
-  void InternalThreadEntry();
+  void InternalThreadEntry() override;
   void init_streams();
 
   P2PManager* mgr_;

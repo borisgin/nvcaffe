@@ -102,6 +102,9 @@ Dtype caffe_nextafter(const Dtype b);
 template <typename Dtype>
 void caffe_rng_uniform(int n, float a, float b, Dtype* r);
 
+template <>
+void caffe_rng_uniform<int>(int n, float a, float b, int* r);
+
 template <typename Dtype>
 void caffe_rng_gaussian(int n, float mu, float sigma, Dtype* r);
 
