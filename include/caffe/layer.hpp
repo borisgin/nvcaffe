@@ -611,17 +611,6 @@ Layer<Ftype, Btype>::Backward(const vector<Blob*>& top, const vector<bool>& prop
   }
 }
 
-// Serialize LayerParameter to protocol buffer
-template<typename Ftype, typename Btype>
-void Layer<Ftype, Btype>::ToProto(LayerParameter* param, bool write_diff) {
-  param->Clear();
-  param->CopyFrom(layer_param_);
-  param->clear_blobs();
-  for (int i = 0; i < blobs_.size(); ++i) {
-    blobs_[i]->template ToProto<Btype>(param->add_blobs(), write_diff);
-  }
-}
-
 }  // namespace caffe
 
 #endif  // CAFFE_LAYER_H_

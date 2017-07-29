@@ -242,7 +242,7 @@ size_t CuDNNConvolutionLayer<Ftype, Btype>::ComputeFindExWorkspaceSize() {
   workspace_limit_bytes = workspace_limit_bytes > PAGE_SIZE ?
       workspace_limit_bytes - PAGE_SIZE : 0UL;
   if (workspace_bytes > workspace_limit_bytes) {
-    LOG(WARNING) << this->print_current_device()
+    LOG(WARNING) << " " << this->print_current_device()
         << " Current workspace (" << gb_round2(workspace_.size()) << "G)"
         << " Estimated requirement (" << gb_round2(workspace_bytes) << "G)";
     workspace_bytes = align_down<7>(workspace_limit_bytes);
