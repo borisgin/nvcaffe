@@ -55,9 +55,10 @@ void Layer<Ftype, Btype>::ToProto(LayerParameter* param, bool write_diff) {
   param->Clear();
   param->CopyFrom(layer_param_);
   param->clear_blobs();
+  const bool old_format = this->parent_solver() != nullptr &&
+      this->parent_solver()->param().store_blobs_in_old_format();
   for (int i = 0; i < blobs_.size(); ++i) {
-    blobs_[i]->template ToProto<Btype>(param->add_blobs(),
-        this->parent_solver()->param().store_blobs_in_old_format(), write_diff);
+    blobs_[i]->template ToProto<Btype>(param->add_blobs(), old_format, write_diff);
   }
 }
 
