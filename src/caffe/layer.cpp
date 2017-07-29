@@ -49,6 +49,18 @@ Layer<Ftype, Btype>::Layer(const LayerParameter& param) : LayerBase(param) {
   }
 }
 
+// Serialize LayerParameter to protocol buffer
+template<typename Ftype, typename Btype>
+void Layer<Ftype, Btype>::ToProto(LayerParameter* param, bool write_diff) {
+  param->Clear();
+  param->CopyFrom(layer_param_);
+  param->clear_blobs();
+  for (int i = 0; i < blobs_.size(); ++i) {
+    blobs_[i]->template ToProto<Btype>(param->add_blobs(),
+        this->parent_solver()->param().store_blobs_in_old_format(), write_diff);
+  }
+}
+
 void LayerBase::InitMutex() {
   forward_mutex_.reset(new std::mutex());
 }

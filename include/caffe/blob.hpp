@@ -443,9 +443,11 @@ class Blob {
    */
   void ShareDiff(const Blob& other);
 
-
   template<typename Dtype>
-  void ToProto(BlobProto* proto, bool write_diff = false) const;
+  void ToProto(BlobProto* proto, bool store_in_old_format, bool write_diff = false) const;
+  template<typename Dtype>
+  void ToProtoBVLC(BlobProto* proto, bool write_diff = false) const;
+
   void FromProto(const BlobProto& proto, bool reshape = true);
   bool ShapeEquals(const BlobProto& other);
   std::string to_string(int indent = 0) const;  // debug helper
