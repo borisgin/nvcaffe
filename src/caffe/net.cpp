@@ -158,7 +158,8 @@ void Net::Init(const NetParameter& in_param) {
     }
 
     // cuDNN math
-    if (param.has_default_cudnn_math_override() && !param.layer(layer_id).has_cudnn_math_override()) {
+    if (param.has_default_cudnn_math_override() &&
+        !param.layer(layer_id).has_cudnn_math_override()) {
       param.mutable_layer(layer_id)->set_cudnn_math_override(param.default_cudnn_math_override());
     }
 

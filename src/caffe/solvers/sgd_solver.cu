@@ -64,7 +64,7 @@ void sgd_reg_update_all_and_clear_gpu(int N,
   cudaStream_t stream;
   CUBLAS_CHECK(cublasGetStream(cublas_handle, &stream));
 
-  bool reg_L2 = (reg_type == "L2") || ( reg_type == "L2_unitary");
+  bool reg_L2 = (reg_type == "L2") || (reg_type == "L2_unitary");
 
   // NOLINT_NEXT_LINE(whitespace/operators)
   SGDRegUpdateAllAndClear<<<CAFFE_GET_BLOCKS(N), CAFFE_CUDA_NUM_THREADS, 0, stream>>> (N,

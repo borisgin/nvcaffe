@@ -214,6 +214,7 @@ void BasePrefetchingDataLayer<Ftype, Btype>::AllocatePrefetch() {
       }
     }
   }
+  LOG(INFO) << this->print_current_device() << " Prefetch allocated.";
 #else
   if (Caffe::mode() == Caffe::CPU) {
     for (int i = 0; i < prefetch_.size(); ++i) {
@@ -226,7 +227,6 @@ void BasePrefetchingDataLayer<Ftype, Btype>::AllocatePrefetch() {
     NO_GPU;
   }
 #endif
-  LOG(INFO) << this->print_current_device() << " Prefetch allocated.";
 }
 
 template<typename Ftype, typename Btype>
