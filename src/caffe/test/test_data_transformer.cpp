@@ -16,7 +16,7 @@
 namespace caffe {
 
 void FillDatum(const int label, const int channels, const int height,
-  const int width, const bool unique_pixels, Datum * datum) {
+  const int width, const bool unique_pixels, Datum* datum) {
   datum->set_label(label);
   datum->set_channels(channels);
   datum->set_height(height);
@@ -24,8 +24,8 @@ void FillDatum(const int label, const int channels, const int height,
   int size = channels * height * width;
   std::string* data = datum->mutable_data();
   for (int j = 0; j < size; ++j) {
-    int datum = unique_pixels ? j : label;
-    data->push_back(static_cast<uint8_t>(datum));
+    int dt = unique_pixels ? j : label;
+    data->push_back(static_cast<uint8_t>(dt));
   }
 }
 
@@ -356,8 +356,8 @@ class VarSzTransformsTest : public ::testing::Test {
     const int height = 4;
     const int width = 5;
 
-    Datum datum;
-    FillDatum(label, channels, height, width, unique_pixels, &datum);
+    shared_ptr<Datum> datum = make_shared<Datum>();
+    FillDatum(label, channels, height, width, unique_pixels, datum.get());
     DataTransformer<Dtype> transformer(transform_param, TEST);
     Caffe::set_random_seed(seed_);
     transformer.InitRand();
