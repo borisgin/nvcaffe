@@ -6,12 +6,9 @@ test_initialization: false
 
 display: 100
 
-max_iter: 2400000       # 60 epoch B=32
-base_lr:  0.001  	# B=32
-
 # DGX1 =================================
-# max_iter: 300000 	# 60 epoch B=256
-# base_lr:  0.2 	# B=256
+max_iter: 500000 	# 100 epoch B=256
+base_lr:  0.2 		# B=256
 # ======================================	
 
 lr_policy: "poly"
@@ -21,7 +18,7 @@ weight_decay: 1e-4
 
 snapshot: 2500000
 snapshot_prefix: "models/resnet50/snapshots/resnet50"
-snapshot_after_train: true
+snapshot_after_train: false
 
 solver_mode: GPU
 random_seed: 1

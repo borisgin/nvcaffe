@@ -1,14 +1,9 @@
 #include <algorithm>
 #include <map>
 #include <set>
-#include <string>
-#include <utility>
-#include <vector>
 #include <boost/thread.hpp>
 #include <caffe/util/signal_handler.h>
-
-#include "hdf5.h"
-#include <string.h>
+#include <hdf5.h>
 
 #include "caffe/common.hpp"
 #include "caffe/layer.hpp"
@@ -75,6 +70,7 @@ void Net::Init(const NetParameter& in_param) {
   LOG_IF(INFO, Caffe::root_solver())
       << "Initializing net from parameters: " << std::endl
       << filtered_param.DebugString();
+  infer_count_ = 0UL;
   // Create a copy of filtered_param with splits added where necessary.
   NetParameter param;
   InsertSplits(filtered_param, &param);
@@ -111,7 +107,6 @@ void Net::Init(const NetParameter& in_param) {
     default_bmath = in_param.default_backward_type();
     LOG(INFO) << "Using " << Type_Name(default_bmath) << " as default backward math type";
   }
-
 
   global_grad_scale_ = 1.F;
   if (in_param.has_global_grad_scale()) {
@@ -160,6 +155,12 @@ void Net::Init(const NetParameter& in_param) {
         !param.layer(layer_id).convolution_param().has_conv_algos_override()) {
       param.mutable_layer(layer_id)->mutable_convolution_param()->
           set_conv_algos_override(param.default_conv_algos_override());
+    }
+
+    // cuDNN math
+    if (param.has_default_cudnn_math_override() &&
+        !param.layer(layer_id).has_cudnn_math_override()) {
+      param.mutable_layer(layer_id)->set_cudnn_math_override(param.default_cudnn_math_override());
     }
 
     // Setup layer.
@@ -678,6 +679,7 @@ float Net::ForwardFromTo(int start, int end) {
     loss += layer_loss;
     if (debug_info_) { ForwardDebugInfo(i); }
   }
+  ++infer_count_;
   return loss;
 }
 
@@ -739,7 +741,7 @@ void Net::BackwardFromToAu(int start, int end, bool apply_update) {
       if (layers_[i]->skip_apply_update(j)) {
         continue;
       }
-      int param_id = layer_index_params_[make_pair(i, j)];
+      const int param_id = layer_index_params_[make_pair(i, j)];
       if (param_owners_[param_id] < 0) {
         reduction_queue_.push(learnable_param_ids_[param_id]);
       }  // leave it to the owner otherwise
@@ -813,7 +815,7 @@ void Net::ReduceAndUpdate() {
 #endif
       } else {
         if (global_grad_scale_ != 1.F) {
-          this->learnable_params()[param_id]->scale_diff(1.F/global_grad_scale_, handle, true);
+          this->learnable_params()[param_id]->scale_diff(1.F / global_grad_scale_, handle, true);
         }
         solver_->ApplyUpdate(param_id, handle, clear_grads);
         continue;
@@ -833,13 +835,13 @@ void Net::ReduceAndUpdate() {
         Type dtype = learnable_params_[id_from]->diff_type();
         size_t count = 0U;
         for (int i = id_from; i <= id_to; ++i) {
-          count += even(learnable_params_[i]->count());
+          count += align_up<6>(learnable_params_[i]->count());
         }
         ReduceBucket(count, dtype, learnable_params_ptrs_[id_from]);
 
         for (int i : au_ids) {
           if (global_grad_scale_ != 1.F) {
-            this->learnable_params()[i]->scale_diff(1.F/ global_grad_scale_, handle, true);
+            this->learnable_params()[i]->scale_diff(1.F / global_grad_scale_, handle, true);
           }
           solver_->ApplyUpdate(i, handle, clear_grads);
         }
@@ -847,7 +849,7 @@ void Net::ReduceAndUpdate() {
 
         if (param_id != END_OF_ITERATION) {
           id_from = id_to = param_id;
-          received_count = (size_t) even(learnable_params_[param_id]->count());
+          received_count = (size_t) align_up<6>(learnable_params_[param_id]->count());
           au_ids.emplace_back(param_id);
         }
       } else if (param_id != END_OF_ITERATION) {
@@ -857,7 +859,7 @@ void Net::ReduceAndUpdate() {
         if (id_to == -1 || param_id > id_to) {
           id_to = param_id;
         }
-        received_count += even(learnable_params_[param_id]->count());
+        received_count += align_up<6>(learnable_params_[param_id]->count());
         au_ids.emplace_back(param_id);
       }
     }
@@ -1323,39 +1325,29 @@ void Net::set_solver(Solver* s) {
   }
 }
 
-size_t Net::total_batch_size() const {
-  size_t ret = 0U;
-  for (size_t i = 0; i < net_param_.layer_size(); ++i) {
-    const LayerParameter& lparam = net_param_.layer(i);
-    if (lparam.has_data_param() && lparam.data_param().has_batch_size()) {
-      ret += lparam.data_param().batch_size();
-    }
-    if (lparam.has_hdf5_data_param() && lparam.hdf5_data_param().has_batch_size()) {
-      ret += lparam.hdf5_data_param().batch_size();
-    }
-    if (lparam.has_image_data_param() && lparam.image_data_param().has_batch_size()) {
-      ret += lparam.image_data_param().batch_size();
-    }
-    if (lparam.has_memory_data_param() && lparam.memory_data_param().has_batch_size()) {
-      ret += lparam.memory_data_param().batch_size();
-    }
-    if (lparam.has_window_data_param() && lparam.window_data_param().has_batch_size()) {
-      ret += lparam.window_data_param().batch_size();
-    }
-  }
-  return ret;
-}
-
 #ifndef CPU_ONLY
 void Net::InitializeLearnableDiffSpace() {
   learnable_space_count_ = 0;
   size_t workspace_size = 0UL;
+  size_t max_tsize = 0UL;
   learnable_params_ptrs_.resize(learnable_params_.size());
   for (int i = 0; i < learnable_params_.size(); ++i) {
-    learnable_params_[i]->lock_diff();
-    learnable_space_count_ += even(learnable_params_[i]->count());
-    workspace_size += even(learnable_params_[i]->count()) *
-        tsize(learnable_params_[i]->diff_type());
+    if (max_tsize < tsize(learnable_params_[i]->diff_type())) {
+      max_tsize = tsize(learnable_params_[i]->diff_type());
+    }
+  }
+  for (int i = 0; i < layers_.size(); ++i) {
+    for (int j = 0; j < layers_[i]->blobs().size(); ++j) {
+      if (layers_[i]->skip_apply_update(j)) {
+        continue;
+      }
+      const int lip = layer_index_params_[make_pair(i, j)];
+      if (param_owners_[lip] < 0) {
+        const int param_id = learnable_param_ids_[lip];
+        learnable_space_count_ += align_up<6>(learnable_params_[param_id]->count());
+        workspace_size += align_up<6>(learnable_params_[param_id]->count()) * max_tsize;
+      }
+    }
   }
   // Size have at least one byte, otherwise cudaMalloc fails if net has no
   // learnable parameters. Times two.
@@ -1365,10 +1357,20 @@ void Net::InitializeLearnableDiffSpace() {
   learnable_space_.reserve(workspace_size);
   unsigned char* ptr = reinterpret_cast<unsigned char*>(learnable_space_.data());
   caffe_gpu_memset(workspace_size, 0, ptr);
-  for (int i = 0; i < learnable_params_.size(); ++i) {
-    learnable_params_[i]->set_gpu_diff(static_cast<void*>(ptr));
-    learnable_params_ptrs_[i] = ptr;
-    ptr += even(learnable_params_[i]->count()) * tsize(learnable_params_[i]->diff_type());
+
+  for (int i = 0; i < layers_.size(); ++i) {
+    for (int j = 0; j < layers_[i]->blobs().size(); ++j) {
+      if (layers_[i]->skip_apply_update(j)) {
+        continue;
+      }
+      const int lip = layer_index_params_[make_pair(i, j)];
+      if (param_owners_[lip] < 0) {
+        const int param_id = learnable_param_ids_[lip];
+        learnable_params_[param_id]->set_gpu_diff(static_cast<void*>(ptr));
+        learnable_params_ptrs_[param_id] = ptr;
+        ptr += align_up<6>(learnable_params_[param_id]->count()) * max_tsize;
+      }
+    }
   }
 }
 #endif

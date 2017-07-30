@@ -454,7 +454,35 @@ void Blob::FromProto(const BlobProto& proto, bool reshape) {
 }
 
 template<typename Dtype>
-void Blob::ToProto(BlobProto* proto, bool write_diff) const {
+void Blob::ToProto(BlobProto* proto, bool store_in_old_format, bool write_diff) const {
+  if (store_in_old_format) {
+    if (tp<Dtype>() == tp<double>()) {
+      ToProtoBVLC<double>(proto, write_diff);
+    } else {
+      // Convert FP16 to 32
+      ToProtoBVLC<float>(proto, write_diff);
+    }
+    return;
+  }
+  CHECK(is_current_data_valid());
+  CHECK(is_current_diff_valid());
+  const Type dt = tp<Dtype>();
+  proto->clear_shape();
+  for (int i = 0; i < shape_.size(); ++i) {
+    proto->mutable_shape()->add_dim(shape_[i]);
+  }
+  const void* pdata = cpu_data<Dtype>();
+  proto->set_raw_data_type(dt);
+  proto->set_raw_data(pdata, count_ * tsize(dt));
+  if (write_diff) {
+    const void* pdiff = cpu_diff<Dtype>();
+    proto->set_raw_diff_type(dt);
+    proto->set_raw_diff(pdiff, count_ * tsize(dt));
+  }
+}
+
+template<typename Dtype>
+void Blob::ToProtoBVLC(BlobProto* proto, bool write_diff) const {
   CHECK(is_current_data_valid());
   CHECK(is_current_diff_valid());
   proto->clear_shape();
@@ -462,15 +490,41 @@ void Blob::ToProto(BlobProto* proto, bool write_diff) const {
     proto->mutable_shape()->add_dim(shape_[i]);
   }
   const void* pdata = cpu_data<Dtype>();
-  Type dt = data_type();
-  proto->set_raw_data_type(dt);
-  proto->set_raw_data(pdata, count_ * tsize(dt));
+  if (tp<Dtype>() == tp<float>()) {
+    proto->clear_data();
+    const float* data_vec = static_cast<const float*>(pdata);
+    for (int i = 0; i < count_; ++i) {
+      proto->add_data(data_vec[i]);
+    }
+  } else if (tp<Dtype>() == tp<double>()) {
+    proto->clear_double_data();
+    const double* data_vec = static_cast<const double*>(pdata);
+    for (int i = 0; i < count_; ++i) {
+      proto->add_double_data(data_vec[i]);
+    }
+  } else {
+    LOG(FATAL) << "BVLC format doesn't support data type " << Type_Name(tp<Dtype>());
+  }
 
-  if (write_diff) {
-    const void* pdiff = cpu_diff<Dtype>();
-    dt = diff_type();
-    proto->set_raw_diff_type(dt);
-    proto->set_raw_diff(pdiff, count_ * tsize(dt));
+  if (!write_diff) {
+    return;
+  }
+
+  const void* pdiff = cpu_diff<Dtype>();
+  if (tp<Dtype>() == tp<float>()) {
+    proto->clear_diff();
+    const float* diff_vec = static_cast<const float*>(pdiff);
+    for (int i = 0; i < count_; ++i) {
+      proto->add_diff(diff_vec[i]);
+    }
+  } else if (tp<Dtype>() == tp<double>()) {
+    proto->clear_double_diff();
+    const double* diff_vec = static_cast<const double*>(pdiff);
+    for (int i = 0; i < count_; ++i) {
+      proto->add_double_diff(diff_vec[i]);
+    }
+  } else {
+    LOG(FATAL) << "BVLC format doesn't support diff type " << Type_Name(tp<Dtype>());
   }
 }
 
@@ -495,10 +549,10 @@ std::string Blob::to_string(int indent) const {  // debug helper
   return os.str();
 }
 
-template void Blob::ToProto<float>(BlobProto*, bool) const;
-template void Blob::ToProto<double>(BlobProto*, bool) const;
+template void Blob::ToProto<float>(BlobProto*, bool, bool) const;
+template void Blob::ToProto<double>(BlobProto*, bool, bool) const;
 #ifndef CPU_ONLY
-template void Blob::ToProto<float16>(BlobProto*, bool) const;
+template void Blob::ToProto<float16>(BlobProto*, bool, bool) const;
 #endif
 
 INSTANTIATE_CLASS(TBlob);

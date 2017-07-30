@@ -52,7 +52,9 @@ class SoftmaxWithLossLayer : public LossLayer<Ftype, Btype> {
     *    present; otherwise the loss is simply summed over spatial locations.
     */
   explicit SoftmaxWithLossLayer(const LayerParameter& param)
-      : LossLayer<Ftype, Btype>(param) {}
+      : LossLayer<Ftype, Btype>(param) {
+     prob_ = Blob::create<Ftype>();
+  }
   virtual void LayerSetUp(const vector<Blob*>& bottom,
       const vector<Blob*>& top);
   virtual void Reshape(const vector<Blob*>& bottom,
@@ -110,7 +112,7 @@ class SoftmaxWithLossLayer : public LossLayer<Ftype, Btype> {
   /// The internal SoftmaxLayer used to map predictions to a distribution.
   shared_ptr<Layer<Ftype, Btype> > softmax_layer_;
   /// prob stores the output probability predictions from the SoftmaxLayer.
-  TBlob<Ftype> prob_;  // Conversion if Ftype!=Btype
+  shared_ptr<Blob> prob_;  // Conversion if Ftype!=Btype
   /// bottom vector holder used in call to the underlying SoftmaxLayer::Forward
   vector<Blob*> softmax_bottom_vec_;
   /// top vector holder used in call to the underlying SoftmaxLayer::Forward

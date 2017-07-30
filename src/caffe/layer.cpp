@@ -49,6 +49,19 @@ Layer<Ftype, Btype>::Layer(const LayerParameter& param) : LayerBase(param) {
   }
 }
 
+// Serialize LayerParameter to protocol buffer
+template<typename Ftype, typename Btype>
+void Layer<Ftype, Btype>::ToProto(LayerParameter* param, bool write_diff) {
+  param->Clear();
+  param->CopyFrom(layer_param_);
+  param->clear_blobs();
+  const bool old_format = this->parent_solver() != nullptr &&
+      this->parent_solver()->param().store_blobs_in_old_format();
+  for (int i = 0; i < blobs_.size(); ++i) {
+    blobs_[i]->template ToProto<Btype>(param->add_blobs(), old_format, write_diff);
+  }
+}
+
 void LayerBase::InitMutex() {
   forward_mutex_.reset(new std::mutex());
 }
@@ -78,6 +91,23 @@ int LayerBase::iter() const {
 int LayerBase::relative_iter() const {
   const Solver* psolver = parent_solver();
   return psolver == nullptr ? 0 : psolver->relative_iter();
+}
+
+int LayerBase::iterations_sized() const {
+  const Solver* psolver = parent_solver();
+  return psolver == nullptr ? 0 : psolver->iterations_sized();
+}
+
+std::string LayerBase::print_current_device() const {
+#ifndef CPU_ONLY
+  std::ostringstream os;
+  os << (phase_ == TRAIN ? "[" : "(")
+      << Caffe::current_device()
+      << (phase_ == TRAIN ? "]" : ")");
+  return os.str();
+#else
+  return std::string();
+#endif
 }
 
 INSTANTIATE_CLASS_FB(Layer);

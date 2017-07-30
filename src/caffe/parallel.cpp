@@ -18,6 +18,8 @@ unique_ptr<boost::barrier> P2PManager::dl_bar(new boost::barrier(1));
 unique_ptr<boost::barrier> P2PManager::bar;
 unique_ptr<boost::barrier> P2PManager::rbar;
 
+std::mutex P2PSync::mutex_;
+
 P2PManager::P2PManager(shared_ptr<Solver> root_solver,
     int nranks, const SolverParameter& solver_param) :
       nranks_(nranks),
@@ -112,6 +114,7 @@ P2PSync::P2PSync(P2PManager* mgr, shared_ptr<Solver> root_solver,
 
 void P2PSync::init_streams() {
 #ifndef CPU_ONLY
+  std::lock_guard<std::mutex> lock(mutex_);
   if (!comm_stream_) {
     comm_stream_ = CudaStream::create(true);
   }

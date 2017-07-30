@@ -119,6 +119,7 @@ class BasePrefetchingDataLayer : public BaseDataLayer<Ftype, Btype>, public Inte
   void InternalThreadEntry() override;
   void InternalThreadEntryN(size_t thread_id) override;
   void ResizeQueues();
+  void AllocatePrefetch();
 
   virtual void InitializePrefetch();
   virtual void load_batch(Batch<Ftype>* batch, int thread_id, size_t queue_id) = 0;

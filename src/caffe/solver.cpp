@@ -29,7 +29,7 @@ Solver::Solver(const SolverParameter& param, size_t rank, const Solver* root_sol
     : param_(param), data_type_(param_.solver_data_type()), iter_(0), id_(0), net_(),
       callback_(nullptr), root_solver_(root_solver), rank_(rank), requested_early_exit_(false),
       iteration_timer_(), test_timer_(), iterations_last_(0), iterations_restored_(0),
-      iter_size_complete_(false) {
+      iterations_sized_(0) {
   Init();
 }
 
@@ -196,6 +196,11 @@ void Solver::Step(int iters) {
 
   net_->set_solver(this);
 
+  if (iters <= 0) {
+    iter0_flag_.set();
+    init_flag_.set();
+  }
+
 #ifndef CPU_ONLY
   for (const shared_ptr<Blob>& param : net_->learnable_params()) {
     // To prevent allocations inside on_start call:
@@ -269,8 +274,11 @@ void Solver::Step(int iters) {
     float loss = 0.F;
     if (first_loop) {
       iterations_last_ = iter_;
-      iteration_timer_.Start();
       init_flag_.set();
+    }
+    const int rel_iter = relative_iter();
+    if (rel_iter == 0) {
+      iteration_timer_.Start();
     }
 
     iteration_start_signal();
@@ -282,8 +290,8 @@ void Solver::Step(int iters) {
           iter0_flag_.set();
           net_->wait_layers_init();
         }
-        iter_size_complete_ = true;
       }
+      ++iterations_sized_;
     }
     loss /= param_.iter_size();
     iteration_wait();
@@ -294,14 +302,15 @@ void Solver::Step(int iters) {
 
     // average the loss across iterations for smoothed reporting
     UpdateSmoothedLoss(loss, start_iter, average_loss);
-    if (this->param_display() && (display || iter_ <= 2 || iter_ + 1 >= stop_iter)) {
+    if (this->param_display() && (display || rel_iter <= 2 || iter_ + 1 >= stop_iter)) {
       float lapse = iteration_timer_.Seconds();
-      if (iter_ >= 2) {  // we skip 0th and 1st for correct benchmarking
+      iteration_timer_.Start();
+      if (rel_iter > 2) {  // we skip 0,1,2 for correct benchmarking
         total_lapse_ += lapse;
         float per_s = (iter_ - iterations_last_) / (lapse > 0.F ? lapse : 1.F);
         LOG_IF(INFO, Caffe::root_solver()) << "Iteration " << iter_
                                            << " (" << per_s << " iter/s, " << lapse << "s/"
-                                           << param_.display() << " iter), loss = "
+                                           << (iter_ - iterations_last_) << " iter), loss = "
                                            << smoothed_loss_;
       } else {
         LOG_IF(INFO, Caffe::root_solver()) << "Iteration " << iter_
@@ -328,7 +337,6 @@ void Solver::Step(int iters) {
       }
       PrintRate();
       iterations_last_ = iter_;
-      iteration_timer_.Start();
     }
     // Increment the internal iter_ counter -- its value should always indicate
     // the number of times the weights have been updated.
@@ -428,7 +436,7 @@ bool Solver::Solve(const char* resume_file) {
     LOG_IF(INFO, Caffe::root_solver()) << "Iteration "
         << iter_ << ", loss = " << smoothed_loss_;
   }
-  if (param_.test_interval() && iter_ % param_.test_interval() == 0) {
+  if (param_.test_interval() && iter_ > 0 && iter_ % param_.test_interval() == 0) {
     bool use_multi_gpu_testing = Caffe::solver_count() > 1;
     TestAll(0, use_multi_gpu_testing);
     callback_soft_barrier();
@@ -619,11 +627,12 @@ void Solver::UpdateSmoothedLoss(float loss, int start_iter,
 float Solver::perf_report(std::ostream& os, int device, int align) const {
   std::string al(align, ' ');
   float perf_ratio = total_lapse() > 0. ?
-      (iter() > 2 ? iter() - 2 - iterations_restored_ : 0) / total_lapse() : 0.F;
+      (relative_iter() > 2 ? relative_iter() - 2 : 0) / total_lapse() : 0.F;
   float perf = perf_ratio * net_->batch_per_solver();
   os << al << "Solver performance on device " << device << ": "
       << perf_ratio << " * " << net_->batch_per_solver()
-      << " = " << perf << " img/sec";
+      << " = " << perf << " img/sec (" << relative_iter()
+      << " itr in " << total_lapse() << " sec)";
   return perf;
 }
 

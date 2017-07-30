@@ -28,7 +28,6 @@ class InnerProductLayer : public Layer<Ftype, Btype> {
   virtual inline const char* type() const { return "InnerProduct"; }
   virtual inline int ExactNumBottomBlobs() const { return 1; }
   virtual inline int ExactNumTopBlobs() const { return 1; }
-  bool bias_term() const override  { return bias_term_; }
 
  protected:
   virtual void Forward_cpu(const vector<Blob*>& bottom,

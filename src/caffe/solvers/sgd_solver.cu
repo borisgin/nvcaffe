@@ -63,10 +63,13 @@ void sgd_reg_update_all_and_clear_gpu(int N,
       handle == nullptr ? Caffe::cublas_handle() : reinterpret_cast<cublasHandle_t>(handle);
   cudaStream_t stream;
   CUBLAS_CHECK(cublasGetStream(cublas_handle, &stream));
+
+  bool reg_L2 = (reg_type == "L2") || (reg_type == "L2_unitary");
+
   // NOLINT_NEXT_LINE(whitespace/operators)
   SGDRegUpdateAllAndClear<<<CAFFE_GET_BLOCKS(N), CAFFE_CUDA_NUM_THREADS, 0, stream>>> (N,
     g, w, h,
-    momentum, local_rate, local_decay, reg_type == "L2",  clear_grads);
+    momentum, local_rate, local_decay, reg_L2,  clear_grads);
   CUDA_POST_KERNEL_CHECK;
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }

@@ -58,7 +58,11 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
       : ConvolutionLayer<Ftype, Btype>(param), handles_setup_(false),
         use_algo_seeker_(true), use_modest_workspace_(true),
         forward_math_(tpmax<Ftype, float>()), backward_data_math_(tpmax<Btype, float>()),
-        backward_filter_math_(tpmax<Btype, float>()) {}
+        backward_filter_math_(tpmax<Btype, float>()) {
+#if CUDNN_VERSION_MIN(7, 0, 0)
+    cudnn_math_override_ = -1;
+#endif
+  }
 
   virtual void LayerSetUp(const vector<Blob*>& bottom, const vector<Blob*>& top);
   virtual void Reshape(const vector<Blob*>& bottom, const vector<Blob*>& top);
@@ -76,6 +80,11 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
   vector<cudnnConvolutionFwdAlgo_t> fwd_algo_;
   vector<cudnnConvolutionBwdFilterAlgo_t> bwd_filter_algo_;
   vector<cudnnConvolutionBwdDataAlgo_t> bwd_data_algo_;
+
+#if CUDNN_VERSION_MIN(7, 0, 0)
+  int cudnn_math_override_;
+  vector<cudnnMathType_t> fwd_cudnn_math_, bwd_filter_cudnn_math_, bwd_data_cudnn_math_;
+#endif
 
   vector<cudnnTensorDescriptor_t> fwd_bottom_descs_, fwd_top_descs_;
   vector<cudnnTensorDescriptor_t> bwd_bottom_descs_, bwd_top_descs_;

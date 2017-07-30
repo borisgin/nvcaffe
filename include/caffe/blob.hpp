@@ -94,24 +94,16 @@ class Blob {
     return diff_tensor_ ? diff_tensor_->type() : last_diff_type_;
   }
 
-  void lock_data() {
-    data_tensor_->lock_tensor();
-  }
-
-  void lock_diff() {
-    diff_tensor_->lock_tensor();
-  }
-
   bool diff_equals(const Blob& other) const {
     return diff_tensor_ == other.diff_tensor_;
   }
 
   void allocate_data(bool on_gpu = true) {
-    data_tensor_->mutable_memory(data_tensor_->type(), on_gpu);
+    data_tensor_->current_memory(on_gpu);
   }
 
   void allocate_diff(bool on_gpu = true) {
-    diff_tensor_->mutable_memory(diff_tensor_->type(), on_gpu);
+    diff_tensor_->current_memory(on_gpu);
   }
 
   size_t cpu_memory_data_use() const;
@@ -451,9 +443,11 @@ class Blob {
    */
   void ShareDiff(const Blob& other);
 
-
   template<typename Dtype>
-  void ToProto(BlobProto* proto, bool write_diff = false) const;
+  void ToProto(BlobProto* proto, bool store_in_old_format, bool write_diff = false) const;
+  template<typename Dtype>
+  void ToProtoBVLC(BlobProto* proto, bool write_diff = false) const;
+
   void FromProto(const BlobProto& proto, bool reshape = true);
   bool ShapeEquals(const BlobProto& other);
   std::string to_string(int indent = 0) const;  // debug helper

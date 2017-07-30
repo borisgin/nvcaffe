@@ -142,9 +142,12 @@ cv::Mat ReadImageToCVMat(const string& filename,
 cv::Mat ReadImageToCVMat(const string& filename);
 
 cv::Mat DecodeDatumToCVMatNative(const Datum& datum);
+void DecodeDatumToCVMatNative(const Datum& datum, cv::Mat& img);
 cv::Mat DecodeDatumToCVMat(const Datum& datum, bool is_color);
+void DecodeDatumToCVMat(const Datum& datum, bool is_color, cv::Mat& img);
 
-void CVMatToDatum(const cv::Mat& cv_img, Datum* datum);
+void DatumToCVMat(const Datum& datum, cv::Mat& img);
+void CVMatToDatum(const cv::Mat& cv_img, Datum& datum);
 #endif  // USE_OPENCV
 
 }  // namespace caffe

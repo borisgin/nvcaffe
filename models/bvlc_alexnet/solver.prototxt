@@ -1,6 +1,6 @@
 net: "models/bvlc_alexnet/train_val.prototxt"
 
-test_iter: 1562         # 50000/32
+test_iter: 196 	        #1562 = 50000/32
 test_interval: 5000      
 test_initialization: false
 

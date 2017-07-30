@@ -4,6 +4,7 @@ default_forward_type:  FLOAT16
 default_backward_type: FLOAT16
 default_forward_math:  FLOAT
 default_backward_math: FLOAT
+#global_grad_scale: 1.
 
 layer {
   name: "data"
@@ -17,9 +18,10 @@ layer {
 #    batch_size: 256  # DGX1
   }
   transform_param {
-    crop_size: 224
     mean_file: "data/ilsvrc12/imagenet_mean.binaryproto"
+    crop_size: 224
     mirror: true
+    scale: 0.00390625
   }
   include: { phase: TRAIN }
 }
@@ -37,6 +39,7 @@ layer {
     mean_file: "data/ilsvrc12/imagenet_mean.binaryproto"
     crop_size: 224
     mirror: false
+    scale: 0.00390625
   }
   include: { phase: TEST }
 }

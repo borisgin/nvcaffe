@@ -27,7 +27,6 @@ class BaseConvolutionLayer : public Layer<Ftype, Btype> {
   virtual inline int MinBottomBlobs() const { return 1; }
   virtual inline int MinTopBlobs() const { return 1; }
   virtual inline bool EqualNumBottomTopBlobs() const { return true; }
-  bool bias_term() const override  { return bias_term_; }
 
  protected:
   // Helper functions that abstract away the column buffer and gemm arguments.

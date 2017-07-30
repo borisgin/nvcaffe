@@ -7,9 +7,9 @@ namespace caffe {
 
 template <typename Dtype>
 __global__ void ELUForward(const int n, const Dtype* in, Dtype* out,
-    float alpha) {
+    float alpha, float lambda) {
   CUDA_KERNEL_LOOP(index, n) {
-    out[index] = in[index] > 0 ? in[index] :
+    out[index] = lambda * in[index] > 0 ? in[index] :
         Dtype(alpha * (exp(in[index]) - 1.));
   }
 }
@@ -21,18 +21,19 @@ void ELULayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom,
   Ftype* top_data = top[0]->mutable_gpu_data<Ftype>();
   const int count = bottom[0]->count();
   float alpha = this->layer_param_.elu_param().alpha();
+  float lambda = this->layer_param_.elu_param().lambda();
   // NOLINT_NEXT_LINE(whitespace/operators)
   ELUForward<<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS, 0, Caffe::thread_stream()>>>(
-      count, bottom_data, top_data, alpha);
+      count, bottom_data, top_data, alpha, lambda);
   CUDA_POST_KERNEL_CHECK;
 }
 
 template <typename Dtype>
 __global__ void ELUBackward(const int n, const Dtype* in_diff,
-    const Dtype* out_data, const Dtype* in_data,
-    Dtype* out_diff, float alpha) {
+    const Dtype* out_data, const Dtype* in_data, Dtype* out_diff,
+    float alpha, float lambda) {
   CUDA_KERNEL_LOOP(index, n) {
-    out_diff[index] = in_data[index] > 0 ? in_diff[index] :
+    out_diff[index] = lambda * in_data[index] > 0 ? in_diff[index] :
         Dtype(in_diff[index] * (out_data[index] + alpha));
   }
 }
@@ -48,9 +49,10 @@ void ELULayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
     Btype* bottom_diff = bottom[0]->mutable_gpu_diff<Btype>();
     const int count = bottom[0]->count();
     float alpha = this->layer_param_.elu_param().alpha();
+    float lambda = this->layer_param_.elu_param().lambda();
     // NOLINT_NEXT_LINE(whitespace/operators)
     ELUBackward<<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS, 0, Caffe::thread_stream()>>>(
-        count, top_diff, top_data, bottom_data, bottom_diff, alpha);
+        count, top_diff, top_data, bottom_data, bottom_diff, alpha, lambda);
     CUDA_POST_KERNEL_CHECK;
   }
 }

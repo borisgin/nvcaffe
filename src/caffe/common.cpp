@@ -196,7 +196,28 @@ Caffe::~Caffe() {
   });
 }
 
-CudaStream::CudaStream(bool high_priority = false) {
+size_t Caffe::min_avail_device_memory() {
+  size_t ret = 0UL;
+  const std::vector<int>& cur_gpus = gpus();
+  int cur_device;
+  size_t gpu_bytes, total_memory;
+  CUDA_CHECK(cudaGetDevice(&cur_device));
+  GPUMemory::GetInfo(&ret, &total_memory, true);
+
+  for (int gpu : cur_gpus) {
+    if (gpu != cur_device) {
+      CUDA_CHECK(cudaSetDevice(gpu));
+      GPUMemory::GetInfo(&gpu_bytes, &total_memory, true);
+      if (gpu_bytes < ret) {
+        ret = gpu_bytes;
+      }
+    }
+  }
+  CUDA_CHECK(cudaSetDevice(cur_device));
+  return ret;
+}
+
+CudaStream::CudaStream(bool high_priority) {
   if (high_priority) {
     int leastPriority, greatestPriority;
     CUDA_CHECK(cudaDeviceGetStreamPriorityRange(&leastPriority, &greatestPriority));
@@ -498,8 +519,7 @@ Caffe::Properties::Properties() :
         << device_prop.major << "." << device_prop.minor;
   }
 #ifdef USE_CUDNN
-  cudnn_version_ =
-      AS_STRING(CUDNN_MAJOR) "." AS_STRING(CUDNN_MINOR) "." AS_STRING(CUDNN_PATCHLEVEL);
+  cudnn_version_ = std::to_string(cudnnGetVersion());
 #else
   cudnn_version_ = "USE_CUDNN is not defined";
 #endif

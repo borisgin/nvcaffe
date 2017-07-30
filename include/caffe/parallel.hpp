@@ -113,7 +113,7 @@ class P2PSync : public Solver::Callback, public InternalThread {
   ncclUniqueId nccl_id_;
 #endif
 #endif
-  void InternalThreadEntry();
+  void InternalThreadEntry() override;
   void init_streams();
 
   P2PManager* mgr_;
@@ -129,6 +129,9 @@ class P2PSync : public Solver::Callback, public InternalThread {
 
   // memory shared between threads
   shared_ptr<SharedScores<float>> shared_;
+
+ private:
+  static std::mutex mutex_;
 };
 
 }  // namespace caffe
