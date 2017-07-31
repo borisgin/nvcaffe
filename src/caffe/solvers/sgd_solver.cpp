@@ -271,26 +271,31 @@ float SGDSolver<Dtype>::getLocalRate(int param_id) const {
     shared_ptr<Blob> param = this->net_->learnable_params()[param_id];
     float w_norm = std::sqrt(param->sumsq_data());
     float wgrad_norm = std::sqrt(param->sumsq_diff());
-    shared_ptr<TBlob<Dtype>> history = history_[param_id];
+    float rate = 1.F;
+    float gw_ratio=this->param_.local_gw_ratio();
+
+//    shared_ptr<TBlob<Dtype>> history = history_[param_id];
 //    float h_norm = std::sqrt(history->sumsq_data());
-    float maxiter = this->param_.max_iter();
-    float alpha = (maxiter - this->iter_ ) / maxiter;
-    float ratio = 1.;
+//    float maxiter = this->param_.max_iter();
+//    float alpha = (maxiter - this->iter_ ) / maxiter;
 //    if ((w_norm >0.) && (h_norm >  0.)) {
-//      ratio = 0.001 * w_norm / h_norm;
+//      rate = 0.001 * w_norm / h_norm;
 //    }
-    if ((w_norm > 0.) && (wgrad_norm >  0.) && (alpha > 0.)) {
-     ratio =  alpha * w_norm / wgrad_norm + (1. - alpha);
+//    if ((w_norm > 0.) && (wgrad_norm >  0.) && (alpha > 0.)) {
+//     rate =  alpha * w_norm / wgrad_norm + (1. - alpha);
+
+    if ((w_norm > 0.) && (wgrad_norm >  0.)) {
+     rate =  gw_ratio * w_norm / wgrad_norm;
     }
-//    LOG(INFO) << "ratio=" << ratio;
+    //    LOG(INFO) << "local_lr" << rate;
     if (local_lr > 0.) {
-      local_lr = ratio;
+      local_lr = rate;
     }
     if ( Caffe::root_solver() && this->param_.display() && (this->iter_ % this->param_.display() == 0)) {
         const string& layer_name = this->net_->layer_names()[layer_id];
 //        const string& layer_type = this->net_->layers()[layer_id]->type();
         const int blob_id  = this->net_->param_layer_indices(param_id).second;
-        DLOG(INFO) << layer_name <<"."<< blob_id << " lr=" << local_lr
+        LOG(INFO) << layer_name <<"."<< blob_id << " lr=" << local_lr
             << " " << "\t  w=" << w_norm << "\t dw=" << wgrad_norm;
     }
   }
