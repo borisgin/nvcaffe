@@ -232,9 +232,9 @@ SGDSolver<Dtype>::ComputeUpdateValue(int param_id, void* handle, float rate, boo
     const std::string& regularization_type = this->param_.regularization_type();
     float decay = local_decay(param_id);
 
-    // TODO: workaround local_lr_auto:
-    decay = decay * ( rate / local_rate );
-    // end of workaround
+    // TODO: workaround local_lr_auto ??
+    // decay = decay * ( rate / local_rate );
+    // end of workaround !!
 
     const Type gtype = param->diff_type();
     if (gtype == tp<float16>()) {
