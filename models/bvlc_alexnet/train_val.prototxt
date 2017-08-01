@@ -5,8 +5,8 @@ layer {
   top: "data"
   top: "label"
   transform_param {
-    mean_file: "data/ilsvrc12/imagenet_mean.binaryproto"
-#    mean_file: "/data/imagenet/imagenet_256x256_mean.binaryproto"
+#    mean_file: "data/ilsvrc12/imagenet_mean.binaryproto"
+    mean_file: "/data/imagenet/imagenet_256x256_mean.binaryproto"
     mirror: true
     crop_size: 227
   }

@@ -1,19 +1,21 @@
 net: "models/bvlc_alexnet/train_val.prototxt"
 
 test_iter: 1562            #196  #1562 = 50000/32
-test_interval:  625     
+test_interval:  625        #1250   
 test_initialization: false
 
-display:  10
+display:  100
 
-max_iter:  15625 	# 10 epochs 
+max_iter: 125000 
+max_iter:  31300 	# 100 epochs 
 
-#base_lr:  0.02          # B=1024
-base_lr:   0.2           # B=8192
+#base_lr:  2    #0.02    # B=1024
+base_lr:   10            # B=4096
 local_lr_auto: true
+local_gw_ratio: 0.001
 
-rampup_lr: 0.01
-rampup_interval: 1250
+rampup_lr: 1
+rampup_interval: 1250    # 2500
 
 lr_policy: "poly"
 power: 2.
