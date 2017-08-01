@@ -230,7 +230,12 @@ SGDSolver<Dtype>::ComputeUpdateValue(int param_id, void* handle, float rate, boo
   } else if (Caffe::mode() == Caffe::GPU) {
 #ifndef CPU_ONLY
     const std::string& regularization_type = this->param_.regularization_type();
-    const float decay = local_decay(param_id);
+    float decay = local_decay(param_id);
+
+    // TODO: workaround local_lr_auto:
+    decay = decay * ( rate / local_rate );
+    // end of workaround
+
     const Type gtype = param->diff_type();
     if (gtype == tp<float16>()) {
       sgd_reg_update_all_and_clear_gpu<float16, Dtype>(param->count(),
