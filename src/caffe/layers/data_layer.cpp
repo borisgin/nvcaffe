@@ -56,8 +56,7 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
     gpu_bytes = Caffe::min_avail_device_memory();
     size_t batches_fit = gpu_bytes / batch_bytes;
 #else
-    size_t total_batches_fit = current_queues_num_;
-    bool starving = false;
+    size_t batches_fit = this->queues_num_;
 #endif
     float ratio = 3.F;
     Net* pnet = this->parent_net();
@@ -167,10 +166,12 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
 
   // Calculate the variable sized transformed datum shape.
   vector<int> sample_datum_shape = this->data_transformers_[0]->InferDatumShape(*sample_datum);
+#ifdef USE_OPENCV
   if (this->data_transformers_[0]->var_sized_transforms_enabled()) {
     sample_datum_shape =
         this->data_transformers_[0]->var_sized_transforms_shape(sample_datum_shape);
   }
+#endif
 
   // Reshape top[0] and prefetch_data according to the batch_size.
   // Note: all these reshapings here in load_batch are needed only in case of
@@ -229,9 +230,11 @@ void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, siz
 
   // Calculate the variable sized transformed datum shape.
   vector<int> datum_shape = this->data_transformers_[thread_id]->InferDatumShape(*init_datum);
+#ifdef USE_OPENCV
   if (this->data_transformers_[thread_id]->var_sized_transforms_enabled()) {
     datum_shape = this->data_transformers_[thread_id]->var_sized_transforms_shape(datum_shape);
   }
+#endif
 
   // Use data_transformer to infer the expected blob shape from datum.
   vector<int> top_shape = this->data_transformers_[thread_id]->InferBlobShape(datum_shape,
@@ -270,10 +273,12 @@ void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, siz
   for (size_t entry = 0; entry < batch_size; ++entry) {
     shared_ptr<Datum> pop_datum = reader->full_pop(qid, "Waiting for datum");
     shared_ptr<Datum> datum = pop_datum;
+#ifdef USE_OPENCV
     // Apply variable-sized transforms.
     if (this->data_transformers_[thread_id]->var_sized_transforms_enabled()) {
       datum = this->data_transformers_[thread_id]->VariableSizedTransforms(pop_datum);
     }
+#endif
     item_id = pop_datum->record_id() % batch_size;
     if (datum->channels() > 0) {
       CHECK_EQ(top_shape[1], datum->channels())

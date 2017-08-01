@@ -302,6 +302,12 @@ message SolverParameter {
   optional SolverType solver_type = 30 [default = SGD];
   // Type used for storing weights and history
   optional Type solver_data_type = 44 [default = FLOAT];
+  // If true:
+  // * Stores blobs in old (less efficient) BVLC-compatible format.
+  // * FP16 blobs are converted to FP32 and stored in 'data' container.
+  // * FP32 blobs are stored in 'data' container.
+  // * FP64 blobs are stored in 'double_data' container.
+  optional bool store_blobs_in_old_format = 45 [default = false];
 }
 
 // A message that stores the solver snapshots

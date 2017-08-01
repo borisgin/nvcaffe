@@ -384,9 +384,7 @@ class LayerBase {
    */
   virtual void ToProto(LayerParameter* param, bool write_diff = false) = 0;
 
-#ifndef CPU_ONLY
   std::string print_current_device() const;
-#endif
 
  protected:
   /** The vector that stores the learnable parameters as a set of blobs. */
@@ -610,17 +608,6 @@ Layer<Ftype, Btype>::Backward(const vector<Blob*>& top, const vector<bool>& prop
       break;
     default:
       LOG(FATAL) << "Unknown caffe mode.";
-  }
-}
-
-// Serialize LayerParameter to protocol buffer
-template<typename Ftype, typename Btype>
-void Layer<Ftype, Btype>::ToProto(LayerParameter* param, bool write_diff) {
-  param->Clear();
-  param->CopyFrom(layer_param_);
-  param->clear_blobs();
-  for (int i = 0; i < blobs_.size(); ++i) {
-    blobs_[i]->template ToProto<Btype>(param->add_blobs(), write_diff);
   }
 }
 

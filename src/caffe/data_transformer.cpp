@@ -137,6 +137,7 @@ void DataTransformer<Dtype>::Fill3Randoms(unsigned int *rand) const {
   }
 }
 
+#ifdef USE_OPENCV
 template<typename Dtype>
 bool DataTransformer<Dtype>::var_sized_transforms_enabled() const {
   return var_sized_image_random_resize_enabled() ||
@@ -373,6 +374,7 @@ cv::Mat& DataTransformer<Dtype>::var_sized_image_center_crop(const cv::Mat& img)
   varsz_center_crop_img_ = img(crop_roi);
   return varsz_center_crop_img_;
 }
+#endif
 
 #ifndef CPU_ONLY
 

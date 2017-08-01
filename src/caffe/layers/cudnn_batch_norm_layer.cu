@@ -153,11 +153,11 @@ void CuDNNBatchNormLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
       epsilon, save_mean, save_inv_var));
   CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
 
-  if (is_type<Btype>(FLOAT16)) {
+  if (this->scale_bias_ && is_type<Btype>(FLOAT16)) {
     this->blobs_[3]->CopyDiffFrom(scale_diff_tmp_);
     this->blobs_[4]->CopyDiffFrom(bias_diff_tmp_);
   }
-  }
+}
 
 INSTANTIATE_LAYER_GPU_FUNCS_FB(CuDNNBatchNormLayer);
 
