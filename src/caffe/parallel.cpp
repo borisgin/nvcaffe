@@ -258,6 +258,7 @@ void P2PSync::aggregateTestResults(float* loss, vector<float>* scores) {
 
 void P2PSync::saveTestResults(float loss, const vector<float>& scores) {
   vector<float>& shared_scr = shared_->rank_scores(this->rank_);
+  CHECK_GE(shared_scr.size(), scores.size() + 1);
   shared_scr[0] = loss;
   for (size_t i = 0; i < scores.size(); ++i) {
     shared_scr[i+1] = scores[i];
