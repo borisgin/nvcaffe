@@ -7,6 +7,8 @@
 #include "caffe/layer.hpp"
 #include "caffe/proto/caffe.pb.h"
 
+//#define SILENCE_PERF 1
+
 namespace caffe {
 
 /**
@@ -18,12 +20,18 @@ class SilenceLayer : public Layer<Ftype, Btype> {
  public:
   explicit SilenceLayer(const LayerParameter& param)
       : Layer<Ftype, Btype>(param) {}
-  virtual void Reshape(const vector<Blob*>& bottom,
-      const vector<Blob*>& top) {}
+  void Reshape(const vector<Blob*>& bottom,
+      const vector<Blob*>& top) override;
 
   virtual inline const char* type() const { return "Silence"; }
   virtual inline int MinBottomBlobs() const { return 1; }
-  virtual inline int ExactNumTopBlobs() const { return 0; }
+  virtual inline int ExactNumTopBlobs() const {
+#ifdef SILENCE_PERF
+    return 1;
+#else
+    return 0;
+#endif
+  }
 
  protected:
   virtual void Forward_cpu(const vector<Blob*>& bottom,
