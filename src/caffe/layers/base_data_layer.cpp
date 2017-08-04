@@ -104,7 +104,6 @@ void BasePrefetchingDataLayer<Ftype, Btype>::InternalThreadEntryN(size_t thread_
   if (iter0 && this->net_inititialized_flag_ != nullptr) {
     this->net_inititialized_flag_->wait();
   } else {  // nothing to wait -> initialize and start pumping
-    std::lock_guard<std::mutex> lock(mutex_in_);
     InitializePrefetch();
     start_reading();
     iter0 = false;
@@ -138,7 +137,6 @@ void BasePrefetchingDataLayer<Ftype, Btype>::InternalThreadEntryN(size_t thread_
         if (this->net_iteration0_flag_ != nullptr) {
           this->net_iteration0_flag_->wait();
         }
-        std::lock_guard<std::mutex> lock(mutex_out_);
         if (this->net_inititialized_flag_ != nullptr) {
           this->net_inititialized_flag_ = nullptr;  // no wait on the second round
           InitializePrefetch();

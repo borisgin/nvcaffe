@@ -28,10 +28,10 @@ class BaseDataLayer : public Layer<Ftype, Btype> {
   // DataLayerSetUp to do special data layer setup for individual layer types.
   // This method may not be overridden except by the BasePrefetchingDataLayer.
   void LayerSetUp(const vector<Blob*>& bottom, const vector<Blob*>& top) override;
+  virtual void DataLayerSetUp(const vector<Blob*>& bottom, const vector<Blob*>& top) = 0;
 
   // Data layers should be shared by multiple solvers in parallel
   bool ShareInParallel() const override { return true; }
-  virtual void DataLayerSetUp(const vector<Blob*>& bottom, const vector<Blob*>& top) {}
 
   // Data layers have no bottoms, so reshaping is trivial.
   void Reshape(const vector<Blob*>& bottom, const vector<Blob*>& top) override {}
@@ -153,7 +153,6 @@ class BasePrefetchingDataLayer : public BaseDataLayer<Ftype, Btype>, public Inte
   std::vector<shared_ptr<BlockingQueue<shared_ptr<Batch<Ftype>>>>> prefetches_full_;
   std::vector<shared_ptr<BlockingQueue<shared_ptr<Batch<Ftype>>>>> prefetches_free_;
   size_t next_batch_queue_;
-  mutable std::mutex mutex_in_, mutex_out_;
   // These two are for delayed init only
   std::vector<Blob*> bottom_init_;
   std::vector<Blob*> top_init_;

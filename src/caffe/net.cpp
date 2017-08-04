@@ -287,7 +287,7 @@ void Net::Init(const NetParameter& in_param) {
   // loss.  We can skip backward computation for blobs that don't contribute
   // to the loss.
   // Also checks if all bottom blobs don't need backward computation (possible
-  // because the skip_propagate_down param) and so we can skip bacward
+  // because the skip_propagate_down param) and so we can skip backward
   // computation for the entire layer
   set<string> blobs_under_loss;
   set<string> blobs_skip_backp;

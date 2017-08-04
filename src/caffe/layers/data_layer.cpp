@@ -115,6 +115,7 @@ size_t DataLayer<Ftype, Btype>::queue_id(size_t thread_id) const {
 template<typename Ftype, typename Btype>
 void
 DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vector<Blob*>& top) {
+  std::lock_guard<std::mutex> lock(mutex_setup_);
   const LayerParameter& param = this->layer_param();
   const int batch_size = param.data_param().batch_size();
   const bool use_gpu_transform = this->is_gpu_transform();

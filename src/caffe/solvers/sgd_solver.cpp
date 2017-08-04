@@ -58,11 +58,7 @@ float SGDSolver<Dtype>::GetLearningRate() {
   } else if (lr_policy == "sigmoid") {
     rate = this->param_.base_lr() / (1.F +
         exp(-this->param_.gamma() * (double(this->iter_ - this->param_.stepsize()))));
-  }
-//  else if (lr_policy == "auto") {
-//    rate = 1.0;
-//  }
-    else {
+  } else {
     LOG(FATAL) << "Unknown learning rate policy: " << lr_policy;
   }
   return rate;
@@ -206,18 +202,13 @@ void sgd_reg_update_all_and_clear_gpu(int N,
 template<typename Dtype>
 void
 SGDSolver<Dtype>::ComputeUpdateValue(int param_id, void* handle, float rate, bool clear_grads) {
-  if (this->param_.debug_info() ) {
+  if (this->param_.debug_info()) {
     PrintParams(param_id);
   }
   shared_ptr<Blob> param = this->net_->learnable_params()[param_id];
   shared_ptr<TBlob<Dtype>> history = history_[param_id];
   float momentum = GetMomentum();
-
-//  const vector<float>& net_params_lr = this->net_->params_lr();
-//  float local_rate = rate * net_params_lr[param_id];
-  float local_rate = rate * getLocalRate(param_id);
-  //LOG(INFO) << "local_rate=" << local_rate;
-
+  float local_rate = rate * GetLocalRate(param_id);
   // Compute the update to history, then copy it to the parameter diff.
   if (Caffe::mode() == Caffe::CPU) {
     caffe_cpu_axpby<Dtype>(param->count(), local_rate, param->cpu_diff<Dtype>(), momentum,
@@ -231,11 +222,6 @@ SGDSolver<Dtype>::ComputeUpdateValue(int param_id, void* handle, float rate, boo
 #ifndef CPU_ONLY
     const std::string& regularization_type = this->param_.regularization_type();
     float decay = local_decay(param_id);
-
-    // TODO: workaround local_lr_auto ??
-    // decay = decay * ( rate / local_rate );
-    // end of workaround !!
-
     const Type gtype = param->diff_type();
     if (gtype == tp<float16>()) {
       sgd_reg_update_all_and_clear_gpu<float16, Dtype>(param->count(),
@@ -267,46 +253,36 @@ SGDSolver<Dtype>::ComputeUpdateValue(int param_id, void* handle, float rate, boo
 }
 
 template<typename Dtype>
-float SGDSolver<Dtype>::getLocalRate(int param_id) const {
+float SGDSolver<Dtype>::GetLocalRate(int param_id) const {
   const vector<float>& net_params_lr = this->net_->params_lr();
   float local_lr = net_params_lr[param_id];
 
   if (this->param_.local_lr_auto()) {
-    const int layer_id = this->net_->param_layer_indices(param_id).first;
     shared_ptr<Blob> param = this->net_->learnable_params()[param_id];
-    float w_norm = std::sqrt(param->sumsq_data());
-    float wgrad_norm = std::sqrt(param->sumsq_diff());
+    const float w_norm = std::sqrt(param->sumsq_data());
+    const float wgrad_norm = std::sqrt(param->sumsq_diff());
+    const float gw_ratio = this->param_.local_gw_ratio();
     float rate = 1.F;
-    float gw_ratio=this->param_.local_gw_ratio();
-
-//    shared_ptr<TBlob<Dtype>> history = history_[param_id];
-//    float h_norm = std::sqrt(history->sumsq_data());
-//    float maxiter = this->param_.max_iter();
-//    float alpha = (maxiter - this->iter_ ) / maxiter;
-//    if ((w_norm >0.) && (h_norm >  0.)) {
-//      rate = 0.001 * w_norm / h_norm;
-//    }
-//    if ((w_norm > 0.) && (wgrad_norm >  0.) && (alpha > 0.)) {
-//     rate =  alpha * w_norm / wgrad_norm + (1. - alpha);
 
     float weight_decay = this->param_.weight_decay();
-    if ((w_norm > 0.) && (wgrad_norm >  0.)) {
-//     rate =  gw_ratio * w_norm / wgrad_norm;
-     rate =  gw_ratio * w_norm / (wgrad_norm + weight_decay*w_norm);
+    if (w_norm > 0.F && wgrad_norm >  0.F) {
+      rate = gw_ratio * w_norm / (wgrad_norm + weight_decay * w_norm);
     }
-    //    LOG(INFO) << "local_lr" << rate;
     if (local_lr > 0.) {
       local_lr = rate;
     }
-    if ( Caffe::root_solver() && this->param_.display() && (this->iter_ % this->param_.display() == 0)) {
-        const string& layer_name = this->net_->layer_names()[layer_id];
-//        const string& layer_type = this->net_->layers()[layer_id]->type();
-        const int blob_id  = this->net_->param_layer_indices(param_id).second;
-        LOG(INFO) << layer_name <<"."<< blob_id << " lr=" << local_lr
-            << " " << "\t  w=" << w_norm << "\t dw=" << wgrad_norm;
+#ifdef DEBUG
+    if (Caffe::root_solver()
+        && this->param_.display()
+        && (this->iter_ % this->param_.display() == 0)) {
+      const int layer_id = this->net_->param_layer_indices(param_id).first;
+      const string& layer_name = this->net_->layer_names()[layer_id];
+      const int blob_id  = this->net_->param_layer_indices(param_id).second;
+      LOG(INFO) << layer_name <<"."<< blob_id << " lr=" << local_lr
+                << " " << "\t  w=" << w_norm << "\t dw=" << wgrad_norm;
     }
+#endif
   }
-
   return local_lr;
 }
 
@@ -319,7 +295,9 @@ float SGDSolver<Dtype>::local_decay(int param_id) const {
 
 template<typename Dtype>
 void SGDSolver<Dtype>::PrintParams(int param_id) {
-  if ( Caffe::root_solver() && this->param_.display() && (this->iter_ % this->param_.display() == 0)) {
+  if (Caffe::root_solver()
+      && this->param_.display()
+      && (this->iter_ % this->param_.display() == 0)) {
     const int layer_id = this->net_->param_layer_indices(param_id).first;
     const int blob_id  = this->net_->param_layer_indices(param_id).second;
     const string& layer_name = this->net_->layer_names()[layer_id];

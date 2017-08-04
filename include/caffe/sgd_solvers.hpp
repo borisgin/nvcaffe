@@ -28,8 +28,7 @@ class SGDSolver : public Solver {
   void PreSolve();
   float GetLearningRate();
   float GetMomentum();
-
-  float getLocalRate(int param_id) const;
+  float GetLocalRate(int param_id) const;
   float local_decay(int param_id) const;
 
   void ApplyUpdate(int param_id, void* handle, bool clear_grads) override;
