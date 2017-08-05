@@ -1,4 +1,4 @@
-net: "models/resnet50/train_val.prototxt"
+net: "models/resnet50_exp/resnet50_nobn.prototxt"
 
 test_iter: 1562         # 50000/32
 test_interval: 5000    
@@ -6,15 +6,13 @@ test_initialization: false
 
 display: 100
 
-# DGX1 =================================
 max_iter: 500000 	# 100 epoch B=256
-base_lr:  0.2 		# B=256
-# ======================================
-
+base_lr:  0.1        #  B=256
 local_lr_auto: true
 
 rampup_lr: 0.001
 rampup_interval: 10000
+
 
 lr_policy: "poly"
 power: 2.0
@@ -22,7 +20,7 @@ momentum: 0.9
 weight_decay: 1e-4
 
 snapshot: 2500000
-snapshot_prefix: "models/resnet50/snapshots/resnet50"
+snapshot_prefix: "models/resnet50_exp/snapshots/resnet50"
 snapshot_after_train: false
 
 solver_mode: GPU

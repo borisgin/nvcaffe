@@ -1,8 +1,10 @@
 #------------------------------------------
 # Alexnet wih BatchNorm instead of LRN
-# BN before conv layers
 #------------------------------------------
-name: "AlexNet_bn2"
+name: "AlexNet_bn"
+
+#default_conv_algos_override: "1,1,1"
+#default_cudnn_math_override: 0
 
 layer {
   name: "data"
@@ -57,7 +59,7 @@ layer {
     }
     bias_filler {
       type: "constant"
-      value: 0
+      value: 0.01
     }
   }
 }
@@ -106,7 +108,7 @@ layer {
     }
     bias_filler {
       type: "constant"
-      value: 0
+      value: 0.01
     }
   }
 }
@@ -154,7 +156,7 @@ layer {
     }
     bias_filler {
       type: "constant"
-      value: 0
+      value: 0.01
     }
   }
 }
@@ -191,7 +193,7 @@ layer {
     }
     bias_filler {
       type: "constant"
-      value: 0
+      value: 0.01
     }
   }
 }
@@ -230,7 +232,7 @@ layer {
     }
     bias_filler {
       type: "constant"
-      value: 0.1
+      value: 0.01
     }
   }
 }
@@ -328,7 +330,7 @@ layer {
     }
     bias_filler {
       type: "constant"
-      value: 0
+      value: 0.01
     }
   }
 }
