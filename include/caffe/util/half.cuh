@@ -51,6 +51,7 @@
 #ifndef INCLUDE_CAFFE_UTIL_HALF_CUH_
 #define INCLUDE_CAFFE_UTIL_HALF_CUH_
 
+#include <utility>
 #include <cuda.h>
 #include <cuda_fp16.h>
 #include <driver_types.h>
