@@ -704,6 +704,7 @@ $(DISTRIBUTE_DIR): all py | $(DISTRIBUTE_SUBDIRS)
 	cp -r src/caffe/proto $(DISTRIBUTE_DIR)/
 	# add include
 	cp -r include $(DISTRIBUTE_DIR)/
+	cp -r 3rdparty/half_float $(DISTRIBUTE_DIR)/include
 	mkdir -p $(DISTRIBUTE_DIR)/include/caffe/proto
 	cp $(PROTO_GEN_HEADER_SRCS) $(DISTRIBUTE_DIR)/include/caffe/proto
 	# add tool and example binaries
