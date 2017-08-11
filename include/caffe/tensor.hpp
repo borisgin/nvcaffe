@@ -53,7 +53,7 @@ class Tensor {
   void invalidate_others();
 
 #ifndef CPU_ONLY
-  void gpu_set(float value, bool sync, cudaStream_t stream);
+  void gpu_set(float value, cudaStream_t stream);
   void gpu_scale(float new_scale, cublasHandle_t cublas_handle, bool sync);
   float gpu_amax();
   size_t gpu_memory_use() const;

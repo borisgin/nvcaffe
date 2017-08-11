@@ -31,6 +31,7 @@ set_target_properties(caffe PROPERTIES
 
 # ---[ Install
 install(DIRECTORY ${Caffe_INCLUDE_DIR}/caffe DESTINATION include)
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/3rdparty/half_float DESTINATION include)
 install(FILES ${proto_hdrs} DESTINATION include/caffe/proto)
 install(TARGETS caffe proto EXPORT CaffeTargets DESTINATION lib)
 
