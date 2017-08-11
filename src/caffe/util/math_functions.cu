@@ -55,7 +55,7 @@ void caffe_gpu_gemm<float16>(const CBLAS_TRANSPOSE TransA,
   cublasOperation_t cuTransB =
       (TransB == CblasNoTrans) ? CUBLAS_OP_N : CUBLAS_OP_T;
 
-  if (Caffe::device_capability(Caffe::current_device()) >= 600) {
+  if (Caffe::device_capability(Caffe::current_device()) >= 503) {
 #if CUDA_VERSION >= 9000
     cublasMath_t math_mode;
     CUBLAS_CHECK(cublasGetMathMode(handle, &math_mode));
@@ -158,7 +158,7 @@ void axpy_kernel(const int N, const Mtype alpha, const Dtype* x, Dtype* y) {
 template<>
 __global__
 void axpy_kernel<half2, half2>(const int N, const half2 alpha, const half2* x, half2* y) {
-#if __CUDA_ARCH__ >= 530
+#if __CUDA_ARCH__ >= 503
   CUDA_KERNEL_LOOP(idx, N) {
     y[idx] = __hfma2(alpha, x[idx], y[idx]);
   }
@@ -178,7 +178,7 @@ void axpy_kernel<half2, half2>(const int N, const half2 alpha, const half2* x, h
 template<>
 __global__
 void axpy_kernel<half2, float>(const int N, const float alpha, const half2* x, half2* y) {
-#if __CUDA_ARCH__ >= 530
+#if __CUDA_ARCH__ >= 503
   half2 a = __float2half2_rn(alpha);
   CUDA_KERNEL_LOOP(idx, N) {
     y[idx] = __hfma2(a, x[idx], y[idx]);
