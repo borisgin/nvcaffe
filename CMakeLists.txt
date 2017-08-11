@@ -59,6 +59,11 @@ caffe_option(ALLOW_LMDB_NOLOCK "Allow MDB_NOLOCK when reading LMDB files (only i
 caffe_option(TEST_FP16 "Build Caffe Tests with 16 bit mode included" OFF)
 caffe_option(NO_NVML "Build Caffe Tests without NVML (i.e. no CPU affinity)" OFF)
 
+if (${CMAKE_SYSTEM_PROCESSOR} MATCHES "^aarch")
+  # Tegra
+  set(NO_NVML ON)
+endif()
+
 # ---[ Dependencies
 include(cmake/Dependencies.cmake)
 
