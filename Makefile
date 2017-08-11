@@ -167,6 +167,11 @@ NONEMPTY_WARN_REPORT := $(BUILD_DIR)/$(WARNS_EXT)
 ##############################
 # Derive include and lib directories
 ##############################
+ifeq ($(shell uname -m),aarch64)
+    TEGRA=1
+    NO_NVML=1
+endif
+
 CUDA_INCLUDE_DIR := $(CUDA_DIR)/include
 
 CUDA_LIB_DIR :=
@@ -187,7 +192,12 @@ ifneq ($(NO_NVML), 1)
 endif
 endif
 
-LIBRARIES += glog gflags protobuf boost_system boost_filesystem m hdf5_hl hdf5
+LIBRARIES += boost_system glog gflags protobuf boost_filesystem m
+ifeq ($(TEGRA), 1)
+    LIBRARIES += hdf5_serial_hl hdf5_serial
+else
+    LIBRARIES += hdf5_hl hdf5
+endif
 
 # handle IO dependencies
 USE_LEVELDB ?= 1
