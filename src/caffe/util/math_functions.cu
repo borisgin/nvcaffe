@@ -55,7 +55,7 @@ void caffe_gpu_gemm<float16>(const CBLAS_TRANSPOSE TransA,
   cublasOperation_t cuTransB =
       (TransB == CblasNoTrans) ? CUBLAS_OP_N : CUBLAS_OP_T;
 
-  if (Caffe::device_capability(Caffe::current_device()) >= 600) {
+  if (Caffe::device_capability(Caffe::current_device()) >= 503) {
 #if CUDA_VERSION >= 9000
     cublasMath_t math_mode;
     CUBLAS_CHECK(cublasGetMathMode(handle, &math_mode));
@@ -158,7 +158,7 @@ void axpy_kernel(const int N, const Mtype alpha, const Dtype* x, Dtype* y) {
 template<>
 __global__
 void axpy_kernel<half2, half2>(const int N, const half2 alpha, const half2* x, half2* y) {
-#if __CUDA_ARCH__ >= 530
+#if __CUDA_ARCH__ >= 503
   CUDA_KERNEL_LOOP(idx, N) {
     y[idx] = __hfma2(alpha, x[idx], y[idx]);
   }
@@ -178,7 +178,7 @@ void axpy_kernel<half2, half2>(const int N, const half2 alpha, const half2* x, h
 template<>
 __global__
 void axpy_kernel<half2, float>(const int N, const float alpha, const half2* x, half2* y) {
-#if __CUDA_ARCH__ >= 530
+#if __CUDA_ARCH__ >= 503
   half2 a = __float2half2_rn(alpha);
   CUDA_KERNEL_LOOP(idx, N) {
     y[idx] = __hfma2(a, x[idx], y[idx]);
@@ -496,7 +496,7 @@ __global__ void set_kernel(const size_t n, const Dtype alpha, Dtype* y) {
 }
 
 template<typename Dtype>
-void caffe_gpu_set(const size_t N, const Dtype alpha, Dtype* Y, bool sync, cudaStream_t stream) {
+void caffe_gpu_set(const size_t N, const Dtype alpha, Dtype* Y, cudaStream_t stream) {
   if (stream == nullptr) {
     stream = Caffe::thread_stream();
   }
@@ -507,19 +507,17 @@ void caffe_gpu_set(const size_t N, const Dtype alpha, Dtype* Y, bool sync, cudaS
     set_kernel <<<CAFFE_GET_BLOCKS(N), CAFFE_CUDA_NUM_THREADS, 0, stream>>> (N, alpha, Y);
     CUDA_POST_KERNEL_CHECK;
   }
-  if (sync) {
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-  }
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
 template void
-caffe_gpu_set<int>(const size_t N, const int alpha, int* Y, bool sync, cudaStream_t stream);
+caffe_gpu_set<int>(const size_t N, const int alpha, int* Y, cudaStream_t stream);
 template void
-caffe_gpu_set<float>(const size_t N, const float alpha, float* Y, bool sync, cudaStream_t stream);
-template void caffe_gpu_set<double>(const size_t N, const double alpha, double* Y, bool sync,
-    cudaStream_t stream);
-template void caffe_gpu_set<float16>(const size_t N, const float16 alpha, float16* Y, bool sync,
-    cudaStream_t stream);
+caffe_gpu_set<float>(const size_t N, const float alpha, float* Y, cudaStream_t stream);
+template void
+caffe_gpu_set<double>(const size_t N, const double alpha, double* Y, cudaStream_t stream);
+template void
+caffe_gpu_set<float16>(const size_t N, const float16 alpha, float16* Y, cudaStream_t stream);
 
 template<typename Dtype>
 __global__ void add_scalar_kernel(const int n, const Dtype alpha, Dtype* y) {

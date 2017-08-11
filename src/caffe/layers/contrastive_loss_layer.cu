@@ -81,6 +81,7 @@ __global__ void CLLBackward(const int count, const int channels,
 template <typename Ftype, typename Btype>
 void ContrastiveLossLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
     const vector<bool>& propagate_down, const vector<Blob*>& bottom) {
+  cudaStream_t stream = Caffe::thread_stream();
   for (int i = 0; i < 2; ++i) {
     if (propagate_down[i]) {
       const int count = bottom[0]->count();
@@ -92,14 +93,14 @@ void ContrastiveLossLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
       const float alpha = sign * top[0]->cpu_diff<Btype>()[0] /
           bottom[0]->num();
       // NOLINT_NEXT_LINE(whitespace/operators)
-      CLLBackward<Btype><<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS, 0,
-          Caffe::thread_stream()>>>(
+      CLLBackward<Btype><<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS, 0, stream>>>(
           count, channels, margin, legacy_version, alpha,
           bottom[2]->gpu_data<Btype>(),  // pair similarity 0 or 1
           diff_.template gpu_data<Btype>(),  // the cached eltwise difference between a and b
           dist_sq_.template gpu_data<Btype>(),  // the cached square distance between a and b
           bottom[i]->mutable_gpu_diff<Btype>());
       CUDA_POST_KERNEL_CHECK;
+      CUDA_CHECK(cudaStreamSynchronize(stream));
     }
   }
 }
