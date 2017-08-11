@@ -79,12 +79,6 @@ void caffe_gpu_square<float16>(const int N, const float16* a, float16* y) {
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
-
-
-
-
-
-
 template<typename Dtype>
 __global__ void div_kernel(const int n, const Dtype* a, const Dtype* b, Dtype* y) {
   CUDA_KERNEL_LOOP(index, n) {

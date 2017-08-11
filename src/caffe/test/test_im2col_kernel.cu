@@ -129,11 +129,12 @@ TYPED_TEST(Im2colKernelTest, Test2D) {
   int default_grid_dim = CAFFE_GET_BLOCKS(num_kernels);
 
   // Launch with different grid sizes
+  cudaStream_t stream = Caffe::thread_stream();
   for (int grid_div = 2; grid_div <= 8; grid_div++) {
     for (int n = 0; n < this->blob_bottom_->num(); ++n) {
       int grid_dim = default_grid_dim/grid_div;
       // NOLINT_NEXT_LINE(whitespace/operators)
-      im2col_gpu_kernel<TypeParam><<<grid_dim, CAFFE_CUDA_NUM_THREADS, 0, Caffe::thread_stream()>>>(
+      im2col_gpu_kernel<TypeParam><<<grid_dim, CAFFE_CUDA_NUM_THREADS, 0, stream>>>(
         num_kernels, bottom_data + this->blob_bottom_->offset(n),
         this->height_, this->width_, this->kernel_size_, this->kernel_size_,
         this->pad_, this->pad_, this->stride_, this->stride_,
@@ -153,6 +154,7 @@ TYPED_TEST(Im2colKernelTest, Test2D) {
       }
     }
   }
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
 TYPED_TEST(Im2colKernelTest, TestND) {
@@ -184,19 +186,20 @@ TYPED_TEST(Im2colKernelTest, TestND) {
   const TypeParam* bottom_data_gpu = this->blob_bottom_->gpu_data();
 
   // Launch with different grid sizes
+  cudaStream_t stream = Caffe::thread_stream();
   for (int grid_div = 2; grid_div <= 8; grid_div++) {
     for (int n = 0; n < this->blob_bottom_->num(); ++n) {
       const int grid_dim = default_grid_dim / grid_div;
       TypeParam* top_data_gpu = this->blob_top_->mutable_gpu_data();
       // NOLINT_NEXT_LINE(whitespace/operators)
-      im2col_nd_gpu_kernel<TypeParam, 2><<<grid_dim, CAFFE_CUDA_NUM_THREADS,
-          0, Caffe::thread_stream()>>>(
+      im2col_nd_gpu_kernel<TypeParam, 2><<<grid_dim, CAFFE_CUDA_NUM_THREADS, 0, stream>>>(
           num_kernels, bottom_data_gpu + this->blob_bottom_->offset(n),
           this->blob_bottom_->gpu_shape() + 1, this->blob_top_->gpu_shape() + 1,
           this->blob_kernel_shape_->gpu_data(), this->blob_pad_->gpu_data(),
           this->blob_stride_->gpu_data(), this->blob_dilation_->gpu_data(),
           top_data_gpu + this->blob_top_->offset(n));
       CUDA_POST_KERNEL_CHECK;
+      CUDA_CHECK(cudaStreamSynchronize(stream));
     }
 
     // Compare results against CPU version

@@ -1,8 +1,7 @@
-#include <cfloat>
 #include <vector>
+#include <driver_types.h>
 
 #include "caffe/layers/eltwise_layer.hpp"
-#include "caffe/util/math_functions.hpp"
 
 namespace caffe {
 
@@ -56,16 +55,19 @@ void EltwiseLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom,
     }
     break;
   case EltwiseParameter_EltwiseOp_MAX:
-    mask = max_idx_.mutable_gpu_data();
-    // NOLINT_NEXT_LINE(whitespace/operators)
-    MaxForward<<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS, 0, Caffe::thread_stream()>>>(
-        count, bottom[0]->gpu_data<Ftype>(), bottom[1]->gpu_data<Ftype>(), 0, top_data, mask);
-    for (int i = 2; i < bottom.size(); ++i) {
+    {
+      mask = max_idx_.mutable_gpu_data();
+      cudaStream_t stream = Caffe::thread_stream();
       // NOLINT_NEXT_LINE(whitespace/operators)
-      MaxForward<<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS, 0, Caffe::thread_stream()>>>(
-          count, top_data, bottom[i]->gpu_data<Ftype>(), i-1, top_data, mask);
+      MaxForward <<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS, 0, stream>>>(
+          count, bottom[0]->gpu_data<Ftype>(), bottom[1]->gpu_data<Ftype>(), 0, top_data, mask);
+      for (int i = 2; i < bottom.size(); ++i) {
+        // NOLINT_NEXT_LINE(whitespace/operators)
+        MaxForward <<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS, 0, stream>>>(
+            count, top_data, bottom[i]->gpu_data<Ftype>(), i - 1, top_data, mask);
+      }
+      CUDA_CHECK(cudaStreamSynchronize(stream));
     }
-    CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
     break;
   default:
     LOG(FATAL) << "Unknown elementwise operation.";

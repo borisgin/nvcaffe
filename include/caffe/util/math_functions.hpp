@@ -208,8 +208,7 @@ void caffe_gpu_axpby(const int N, const Dtype alpha, const Dtype* X,
 void caffe_gpu_memcpy(const size_t N, const void *X, void *Y);
 
 template <typename Dtype>
-void caffe_gpu_set(const size_t N, const Dtype alpha, Dtype *X,
-    bool sync = true, cudaStream_t stream = nullptr);
+void caffe_gpu_set(const size_t N, const Dtype alpha, Dtype *X, cudaStream_t stream = nullptr);
 
 inline void caffe_gpu_memset(const size_t N, const int alpha, void* X) {
   cudaStream_t stream = Caffe::thread_stream();
@@ -329,24 +328,24 @@ __global__ void name##_kernel(const int n, const Dtype* x, Dtype* y) { \
 } \
 template <> \
 void caffe_gpu_##name<float>(const int n, const float* x, float* y) { \
+  cudaStream_t stream = Caffe::thread_stream(); \
   /* NOLINT_NEXT_LINE(whitespace/operators) */ \
-  name##_kernel<float><<<CAFFE_GET_BLOCKS(n), CAFFE_CUDA_NUM_THREADS, 0, \
-    Caffe::thread_stream()>>>\
-      (n, x, y); \
+  name##_kernel<float><<<CAFFE_GET_BLOCKS(n), CAFFE_CUDA_NUM_THREADS, 0, stream>>>(n, x, y); \
+  CUDA_CHECK(cudaStreamSynchronize(stream)); \
 } \
 template <> \
 void caffe_gpu_##name<double>(const int n, const double* x, double* y) { \
+  cudaStream_t stream = Caffe::thread_stream(); \
   /* NOLINT_NEXT_LINE(whitespace/operators) */ \
-  name##_kernel<double><<<CAFFE_GET_BLOCKS(n), CAFFE_CUDA_NUM_THREADS, 0, \
-    Caffe::thread_stream()>>>\
-      (n, x, y); \
+  name##_kernel<double><<<CAFFE_GET_BLOCKS(n), CAFFE_CUDA_NUM_THREADS, 0, stream>>>(n, x, y); \
+  CUDA_CHECK(cudaStreamSynchronize(stream)); \
 } \
 template <> \
 void caffe_gpu_##name<float16>(const int n, const float16* x, float16* y) { \
+  cudaStream_t stream = Caffe::thread_stream(); \
   /* NOLINT_NEXT_LINE(whitespace/operators) */ \
-  name##_kernel<float16><<<CAFFE_GET_BLOCKS(n), CAFFE_CUDA_NUM_THREADS, 0, \
-    Caffe::thread_stream()>>>\
-      (n, x, y); \
+  name##_kernel<float16><<<CAFFE_GET_BLOCKS(n), CAFFE_CUDA_NUM_THREADS, 0, stream>>>(n, x, y); \
+  CUDA_CHECK(cudaStreamSynchronize(stream)); \
 }
 
 
@@ -364,8 +363,8 @@ void caffe_gpu_##name<float>(const int n, const float* x, float* y, void* handle
   cudaStream_t stream; \
   CUBLAS_CHECK(cublasGetStream(cublas_handle, &stream)); \
   /* NOLINT_NEXT_LINE(whitespace/operators) */ \
-  name##_kernel<float><<<CAFFE_GET_BLOCKS(n), CAFFE_CUDA_NUM_THREADS, 0, stream>>>( \
-      n, x, y); \
+  name##_kernel<float><<<CAFFE_GET_BLOCKS(n), CAFFE_CUDA_NUM_THREADS, 0, stream>>>(n, x, y); \
+  CUDA_CHECK(cudaStreamSynchronize(stream)); \
 } \
 template <> \
 void caffe_gpu_##name<double>(const int n, const double* x, double* y, void* handle) { \
@@ -374,8 +373,8 @@ void caffe_gpu_##name<double>(const int n, const double* x, double* y, void* han
   cudaStream_t stream; \
   CUBLAS_CHECK(cublasGetStream(cublas_handle, &stream)); \
   /* NOLINT_NEXT_LINE(whitespace/operators) */ \
-  name##_kernel<double><<<CAFFE_GET_BLOCKS(n), CAFFE_CUDA_NUM_THREADS, 0, stream>>>( \
-      n, x, y); \
+  name##_kernel<double><<<CAFFE_GET_BLOCKS(n), CAFFE_CUDA_NUM_THREADS, 0, stream>>>(n, x, y); \
+  CUDA_CHECK(cudaStreamSynchronize(stream)); \
 } \
 template <> \
 void caffe_gpu_##name<float16>(const int n, const float16* x, float16* y, void* handle) { \
@@ -384,8 +383,8 @@ void caffe_gpu_##name<float16>(const int n, const float16* x, float16* y, void* 
   cudaStream_t stream; \
   CUBLAS_CHECK(cublasGetStream(cublas_handle, &stream)); \
   /* NOLINT_NEXT_LINE(whitespace/operators) */ \
-  name##_kernel<float16><<<CAFFE_GET_BLOCKS(n), CAFFE_CUDA_NUM_THREADS, 0, stream>>>( \
-      n, x, y); \
+  name##_kernel<float16><<<CAFFE_GET_BLOCKS(n), CAFFE_CUDA_NUM_THREADS, 0, stream>>>(n, x, y); \
+  CUDA_CHECK(cudaStreamSynchronize(stream)); \
 }
 #endif  // !CPU_ONLY
 

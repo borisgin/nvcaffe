@@ -26,13 +26,14 @@ void BatchReindexLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom,
     return;
   }
   int threads = top[0]->count();
+  cudaStream_t stream = Caffe::thread_stream();
   // NOLINT_NEXT_LINE(whitespace/operators)
-  BRForward<Ftype><<<CAFFE_GET_BLOCKS(threads), CAFFE_CUDA_NUM_THREADS, 0,
-      Caffe::thread_stream()>>>(
+  BRForward<Ftype><<<CAFFE_GET_BLOCKS(threads), CAFFE_CUDA_NUM_THREADS, 0, stream>>>(
       top[0]->count(), bottom[0]->count() / bottom[0]->shape(0),
       bottom[0]->gpu_data<Ftype>(), bottom[1]->gpu_data<Ftype>(),
       top[0]->mutable_gpu_data<Ftype>());
   CUDA_POST_KERNEL_CHECK;
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
 template<typename Dtype>
@@ -95,13 +96,14 @@ void BatchReindexLayer<Ftype, Btype>::Backward_gpu(
   }
 
   int threads = bottom[0]->count();
+  cudaStream_t stream = Caffe::thread_stream();
   // NOLINT_NEXT_LINE(whitespace/operators)
-  BRBackward<Btype><<<CAFFE_GET_BLOCKS(threads), CAFFE_CUDA_NUM_THREADS, 0,
-      Caffe::thread_stream()>>>(
+  BRBackward<Btype><<<CAFFE_GET_BLOCKS(threads), CAFFE_CUDA_NUM_THREADS, 0, stream>>>(
       bottom[0]->count(), bottom[0]->count() / bottom[0]->shape(0),
       top[0]->gpu_diff<Btype>(), top_indexes.gpu_data(), begins.gpu_data(),
       counts.gpu_data(), bottom[0]->mutable_gpu_diff<Btype>());
   CUDA_POST_KERNEL_CHECK;
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
 INSTANTIATE_LAYER_GPU_FUNCS_FB(BatchReindexLayer);

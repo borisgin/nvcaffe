@@ -39,20 +39,21 @@ void ScaleLayer<Ftype, Btype>::Forward_gpu(
     caffe_copy<Ftype>(bottom[0]->count(), bottom[0]->gpu_data<Ftype>(),
                temp_.template mutable_gpu_data<Ftype>());
   }
+  cudaStream_t stream = Caffe::thread_stream();
   const Ftype* scale_data =
       (bottom.size() > 1 ? bottom[1] : this->blobs_[0].get())->template gpu_data<Ftype>();
   Ftype* top_data = top[0]->mutable_gpu_data<Ftype>();
   if (bias_layer_) {
     const Ftype* bias_data = this->blobs_[bias_param_id_]->template gpu_data<Ftype>();
     ScaleBiasForward  // NOLINT_NEXT_LINE(whitespace/operators)
-        <<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS, 0, Caffe::thread_stream()>>>(
-        count, bottom_data, scale_data, bias_data, scale_dim_, inner_dim_,
-        top_data);
+        <<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS, 0, stream>>>(
+        count, bottom_data, scale_data, bias_data, scale_dim_, inner_dim_, top_data);
   } else {
     ScaleForward  // NOLINT_NEXT_LINE(whitespace/operators)
-        <<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS, 0, Caffe::thread_stream()>>>(
+        <<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS, 0, stream>>>(
         count, bottom_data, scale_data, scale_dim_, inner_dim_, top_data);
   }
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
 template <typename Ftype, typename Btype>

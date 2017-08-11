@@ -25,9 +25,11 @@ void TileLayer<Ftype, Btype>::Forward_gpu(
   Ftype* top_data = top[0]->mutable_gpu_data<Ftype>();
   const int bottom_tile_axis = bottom[0]->shape(axis_);
   const int nthreads = top[0]->count();
+  cudaStream_t stream = Caffe::thread_stream();
   Tile  // NOLINT_NEXT_LINE(whitespace/operators)
-      <<<CAFFE_GET_BLOCKS(nthreads), CAFFE_CUDA_NUM_THREADS, 0, Caffe::thread_stream()>>>(
+      <<<CAFFE_GET_BLOCKS(nthreads), CAFFE_CUDA_NUM_THREADS, 0, stream>>>(
       nthreads, bottom_data, inner_dim_, tiles_, bottom_tile_axis, top_data);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
 template <typename Dtype>
@@ -56,9 +58,11 @@ void TileLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
   const int bottom_tile_axis = bottom[0]->shape(axis_);
   const int tile_size = inner_dim_ / bottom_tile_axis;
   const int nthreads = bottom[0]->count();
+  cudaStream_t stream = Caffe::thread_stream();
   TileBackward  // NOLINT_NEXT_LINE(whitespace/operators)
-      <<<CAFFE_GET_BLOCKS(nthreads), CAFFE_CUDA_NUM_THREADS, 0, Caffe::thread_stream()>>>(
+      <<<CAFFE_GET_BLOCKS(nthreads), CAFFE_CUDA_NUM_THREADS, 0, stream>>>(
       nthreads, top_diff, tile_size, tiles_, bottom_tile_axis, bottom_diff);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
 INSTANTIATE_LAYER_GPU_FUNCS_FB(TileLayer);

@@ -193,16 +193,16 @@ size_t Tensor::gpu_memory_use() const {
   return ret;
 }
 
-void Tensor::gpu_set(float value, bool synced, cudaStream_t stream) {
+void Tensor::gpu_set(float value, cudaStream_t stream) {
   shared_ptr<SyncedMemory>& mem = mutable_synced_mem();
   CHECK(Caffe::mode() == Caffe::GPU);
   void* data = mem->mutable_gpu_data();
   if (is_type<float>(type_)) {
-    caffe_gpu_set(count_, value, static_cast<float*>(data), synced, stream);
+    caffe_gpu_set(count_, value, static_cast<float*>(data), stream);
   } else if (is_type<float16>(type_)) {
-    caffe_gpu_set(count_, static_cast<float16>(value), static_cast<float16*>(data), synced, stream);
+    caffe_gpu_set(count_, static_cast<float16>(value), static_cast<float16*>(data), stream);
   } else if (is_type<double>(type_)) {
-    caffe_gpu_set(count_, static_cast<double>(value), static_cast<double*>(data), synced, stream);
+    caffe_gpu_set(count_, static_cast<double>(value), static_cast<double*>(data), stream);
   } else {
     LOG(FATAL) << "Unsupported data type: " << Type_Name(type_);
   }
@@ -213,7 +213,7 @@ void Tensor::gpu_set(float value, bool synced, cudaStream_t stream) {
 void Tensor::set(float value) {
   if (Caffe::mode() == Caffe::GPU) {
 #ifndef CPU_ONLY
-    this->gpu_set(value, true, nullptr);
+    this->gpu_set(value, nullptr);
 #else
     NO_GPU;
 #endif
