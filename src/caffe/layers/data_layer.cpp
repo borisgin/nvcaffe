@@ -41,6 +41,18 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
   if (layer_inititialized_flag_.is_set()) {
     return;
   }
+
+  Net* pnet = this->parent_net();
+  Solver* psolver = nullptr;
+  if (pnet != nullptr) {
+    psolver = pnet->parent_solver();
+    if (psolver == nullptr || !psolver->initialized()) {
+      return;
+    }
+  } else {
+    return;
+  }
+
   if (this->auto_mode_) {
     this->AllocatePrefetch();
     P2PManager::dl_bar_wait();
@@ -55,19 +67,12 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
     GPUMemory::GetInfo(&gpu_bytes, &total_memory, true);
     gpu_bytes = Caffe::min_avail_device_memory();
     size_t batches_fit = gpu_bytes / batch_bytes;
+    DLOG(INFO) << "MIN AVAIL " << gpu_bytes << " FITS " << batches_fit;
 #else
     size_t batches_fit = this->queues_num_;
 #endif
-    float ratio = 3.F;
-    Net* pnet = this->parent_net();
-    if (pnet != nullptr) {
-      Solver* psolver = pnet->parent_solver();
-      if (psolver != nullptr) {
-        if (pnet->layers().size() < 100) {
-          ratio = 2.F; // 1:2 for "i/o bound", 1:3 otherwise
-        }
-      }
-    }
+    // 1:2 for "i/o bound", 1:4 otherwise
+    const float ratio = pnet->layers().size() < 100 ? 2.F : 4.F;
     // TODO Respect the number of CPU cores
     const float fit = std::min(16.F, std::floor(batches_fit / ratio));  // 16+ -> "ideal" 4x4
     current_parsers_num = std::min(4UL, std::max(1UL,

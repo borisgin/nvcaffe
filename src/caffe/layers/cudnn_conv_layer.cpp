@@ -394,12 +394,11 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
       workspace_bytes = INITIAL_WORKSPACE_SIZE * groups();
     } else {
       // Make sure it's all allocated before we take the rest
-      if (this->phase_ == TRAIN) {
-        for (int i = 0; i < bottom.size(); ++i) {
-          top[i]->allocate_data();
-          bottom[i]->allocate_diff();
-        }
+      for (int i = 0; i < bottom.size(); ++i) {
+        top[i]->allocate_data();
+        bottom[i]->allocate_diff();
       }
+      this->blobs_[0]->allocate_data();
       workspace_bytes = ComputeFindExWorkspaceSize();
       // Avoid seeking for an algorithm in subsequent iterations
       use_algo_seeker_ = false;
