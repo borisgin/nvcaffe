@@ -18,6 +18,10 @@ namespace caffe {
 
 #ifdef USE_CUDNN
 
+#if CUDNN_VERSION_MIN(7, 0, 0)
+  #define CUDNN_GROUPING
+#endif
+
 /*
  * @brief cuDNN implementation of ConvolutionLayer.
  *        Fallback to ConvolutionLayer for CPU mode.
@@ -73,7 +77,6 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
   virtual void Backward_gpu(const vector<Blob*>& top, const vector<bool>& propagate_down,
       const vector<Blob*>& bottom);
 
-  bool data_algo_fallback(int i, int pad_h, int pad_w, int stride_h, int stride_w);
   bool handles_setup_;
 
   // algorithms for forward and backwards convolutions
@@ -92,7 +95,6 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
   cudnnFilterDescriptor_t fwd_filter_desc_, bwd_filter_desc_;
   vector<cudnnConvolutionDescriptor_t> fwd_conv_descs_;
   vector<cudnnConvolutionDescriptor_t> bwd_conv_data_descs_, bwd_conv_filter_descs_;
-  vector<bool> conv_descs_fall_back_;
 
   int bottom_offset_, top_offset_, bias_offset_;
 
@@ -128,6 +130,11 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
   static constexpr int REQUEST_ALGO_COUNT = 3;
   static constexpr int ATTEMPTS_TO_RESERVE_WS = 3;
 
+#ifdef CUDNN_GROUPING
+  int group_factor() {
+    return 1;
+  }
+#else
   // For performance reasons and better memory management we don't go beyond the limit
   int groups() {
     return std::min(this->group_, MAX_PARALLEL_GROUPS);
@@ -136,6 +143,11 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
   int idxg(int group) {
     return group % MAX_PARALLEL_GROUPS;
   }
+
+  int group_factor() {
+    return groups();
+  }
+#endif
 
   // This is current *demand*: it might be not yet allocated.
   void UpdateWorkspaceDemand(int size);
