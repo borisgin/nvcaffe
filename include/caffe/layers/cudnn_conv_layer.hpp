@@ -19,7 +19,8 @@ namespace caffe {
 #ifdef USE_CUDNN
 
 #if CUDNN_VERSION_MIN(7, 0, 0)
-  #define CUDNN_GROUPING
+  #define CUDNN_GROUPING_FWD
+  #define CUDNN_GROUPING_BWD
 #endif
 
 /*
@@ -135,25 +136,56 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
   static constexpr int MAX_PARALLEL_GROUPS = 2;
   static constexpr int REQUEST_ALGO_COUNT = 3;
   static constexpr int ATTEMPTS_TO_RESERVE_WS = 3;
+  static constexpr int MAX_CUDNN_GROUPING_RATIO = 1;  // max channels/groups currently supported
 
-#ifdef CUDNN_GROUPING
-  int group_factor() {
+  int group_factor() const {
+#ifdef CUDNN_GROUPING_FWD
     return 1;
-  }
 #else
+    return groups();
+#endif
+  }
+
+  bool use_fwd_grouping() const {
+#ifdef CUDNN_GROUPING_FWD
+    return this->channels_ / this->group_ <= MAX_CUDNN_GROUPING_RATIO;
+#else
+    return false;
+#endif
+  }
+
+  bool use_bwd_grouping() const {
+#ifdef CUDNN_GROUPING_BWD
+    return this->channels_ / this->group_ <= MAX_CUDNN_GROUPING_RATIO;
+#else
+    return false;
+#endif
+  }
+
+  int fwd_groups_div() const {
+#ifdef CUDNN_GROUPING_FWD
+    return 1;
+#else
+    return this->group_;
+#endif
+  }
+
+  int bwd_groups_div() const {
+#ifdef CUDNN_GROUPING_BWD
+    return 1;
+#else
+    return this->group_;
+#endif
+  }
+
   // For performance reasons and better memory management we don't go beyond the limit
-  int groups() {
+  int max_par_groups() const {
     return std::min(this->group_, MAX_PARALLEL_GROUPS);
   }
 
-  int idxg(int group) {
+  int idxg(int group) const {
     return group % MAX_PARALLEL_GROUPS;
   }
-
-  int group_factor() {
-    return groups();
-  }
-#endif
 
   // This is current *demand*: it might be not yet allocated.
   void UpdateWorkspaceDemand(int size);
