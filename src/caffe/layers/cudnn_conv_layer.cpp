@@ -91,6 +91,9 @@ void CuDNNConvolutionLayer<Ftype, Btype>::LayerSetUp(
   bwd_data_cudnn_math_.resize(bottom.size());
 #endif
 
+  workspace_.emplace(Caffe::current_device(), make_shared<GPUMemory::Workspace>());
+  tmp_weights_.emplace(Caffe::current_device(), make_shared<GPUMemory::Workspace>());
+
   // initialize size arrays
   workspace_fwd_sizes_.resize(bottom.size());
   workspace_bwd_filter_sizes_.resize(bottom.size());
@@ -243,8 +246,9 @@ void CuDNNConvolutionLayer<Ftype, Btype>::LayerSetUp(
 
 template <typename Ftype, typename Btype>
 size_t CuDNNConvolutionLayer<Ftype, Btype>::ComputeFindExWorkspaceSize() {
+  GPUMemory::Workspace& ws = workspace(Caffe::current_device());
   if (was_reduced_) {
-    return workspace_.size();
+    return ws.size();
   }
   size_t workspace_limit_bytes, total_memory, workspace_bytes = 0UL;
   GPUMemory::GetInfo(&workspace_limit_bytes, &total_memory, true);
@@ -255,26 +259,26 @@ size_t CuDNNConvolutionLayer<Ftype, Btype>::ComputeFindExWorkspaceSize() {
   workspace_bytes = align_down<7>(
       std::min(static_cast<size_t>(total_memory / 2UL),
           static_cast<size_t>(mem_size_estimated_) * this->group_)); // group_factor()));
-  if (workspace_bytes <= workspace_.size()) {
-    return workspace_.size();  // job is done by previous layer on this GPU
+  if (workspace_bytes <= ws.size()) {
+    return ws.size();  // job is done by previous layer on this GPU
   }
   workspace_limit_bytes = workspace_limit_bytes > PAGE_SIZE ?
       workspace_limit_bytes - PAGE_SIZE : 0UL;
   if (workspace_bytes > workspace_limit_bytes) {
     LOG(WARNING) << " " << this->print_current_device()
-        << " Current workspace (" << gb_round2(workspace_.size()) << "G)"
+        << " Current workspace (" << gb_round2(ws.size()) << "G)"
         << " Estimated requirement (" << gb_round2(workspace_bytes) << "G)";
     workspace_bytes = align_down<7>(workspace_limit_bytes);
   }
   int attempts = ATTEMPTS_TO_RESERVE_WS;
-  while (!workspace_.try_reserve(workspace_bytes) && attempts > 0) {
+  while (!ws.try_reserve(workspace_bytes) && attempts > 0) {
     workspace_bytes = workspace_bytes > PAGE_SIZE ? workspace_bytes - PAGE_SIZE : 0UL;
     workspace_bytes = align_down<7>(workspace_bytes);
     --attempts;
     LOG(INFO) << this->print_current_device() << " Retrying to allocate " << workspace_bytes
               << " bytes, attempts left: " << attempts;
   }
-  return workspace_.size();
+  return ws.size();
 }
 
 template <typename Ftype, typename Btype>
@@ -302,18 +306,19 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
     // do reshape which also initializes cached descriptors.
     use_reshape_ = true;
   }
+  GPUMemory::Workspace& ws = workspace(Caffe::current_device());
   if ((this->iterations_sized() == 3 || (this->iterations_sized() > 3 && use_reshape_))
       && mem_req_all_grps_ > 0UL
-      && workspace_.size() > PAGE_SIZE * 2UL
-      && workspace_.size() > mem_req_all_grps_ * 2UL) {
+      && ws.size() > PAGE_SIZE * 2UL
+      && ws.size() > mem_req_all_grps_ * 2UL) {
     // Winner needs less than half of initial estimate - saving the rest
     // Half because we want to reduce the number of allocs/deallocs
     LOG(INFO) << this->print_current_device()
               << " Layer '" << this->name() << "' reallocating workspace: "
-              << gb_round2(workspace_.size()) << "G -> "
+              << gb_round2(ws.size()) << "G -> "
               << gb_round2(mem_req_all_grps_ * 2UL) << "G";
-    workspace_.release();
-    workspace_.reserve(mem_req_all_grps_ * 2UL);
+    ws.release();
+    ws.reserve(mem_req_all_grps_ * 2UL);
     was_reduced_ = true;
   }
   if (!use_reshape_) {
@@ -448,7 +453,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
           CHECK_GE(2, this->iterations_sized());
           this->EstimateMaxWorkspaceSize(bottom, top);
         }
-        workspace_.safe_reserve(workspace_bytes);
+        ws.safe_reserve(workspace_bytes);
         this->FindExConvAlgo(bottom, top);
         break;
       default:
@@ -481,7 +486,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
   CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
 
   UpdateWorkspaceDemand(bottom.size());
-  workspace_.safe_reserve(mem_req_all_grps_);
+  ws.safe_reserve(mem_req_all_grps_);
 
   // Tensor descriptor for bias.
   if (this->bias_term_) {
@@ -738,13 +743,15 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
   }
 #endif
 
-  const size_t gsize = workspace_.size() / group_factor();
-  CHECK(is_even(gsize)) << workspace_.size() << " / " << group_factor() << " -> " << gsize;
+  GPUMemory::Workspace& ws = workspace(Caffe::current_device());
+  GPUMemory::Workspace& tmp_ws = tmp_weights(Caffe::current_device());
+  const size_t gsize = ws.size() / group_factor();
+  CHECK(is_even(gsize)) << ws.size() << " / " << group_factor() << " -> " << gsize;
 
   if (this->phase_ == TRAIN) {
     // Allocate temporary buffer for weights used for backward filter FindEx
     const size_t tmp_weights_size = even(this->weight_offset_) * sizeof(Btype);
-    tmp_weights_.safe_reserve(tmp_weights_size);
+    tmp_ws.safe_reserve(tmp_weights_size);
   }
 
   for (int i = 0; i < bottom.size(); ++i) {
@@ -786,7 +793,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
             REQUEST_ALGO_COUNT,
             &fwd_algo_count,
             fwd_results,
-            workspace_.data(),
+            ws.data(),
             gsize));
         CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
 
@@ -868,11 +875,11 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
               top[i]->gpu_diff<Btype>(),
               bwd_conv_filter_descs_[i],
               bwd_filter_desc_,
-              tmp_weights_.data(),  // overwritten
+              tmp_ws.data(),  // overwritten
               REQUEST_ALGO_COUNT,
               &filter_algo_count,
               bwd_filter_results,
-              workspace_.data(),
+              ws.data(),
               gsize));
           CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
 
@@ -955,7 +962,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
               REQUEST_ALGO_COUNT,
               &data_algo_count,
               bwd_data_results,
-              workspace_.data(),
+              ws.data(),
               gsize));
           CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
 
@@ -1008,8 +1015,8 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
     os << this->print_current_device()
         << (this->phase_ == TRAIN ? " Conv Algos (F,BD,BF): '" : " Conv Algo (F): '")
         << this->name() << "' with space "
-        << gb_round2(workspace_.size()) << "G/" << this->group_
-        << "/" << bottom[i]->channels() << "/" << top[i]->channels()
+        << gb_round2(ws.size()) << "G/" << this->group_
+        << "/" << this->channels_
 #ifdef DEBUG
         << " -> [" << workspace_fwd_sizes_[i]
         << " " << workspace_bwd_data_sizes_[i]
@@ -1148,8 +1155,8 @@ void CuDNNConvolutionLayer<Ftype, Btype>::UpdateWorkspaceDemand(int size) {
 
 template <typename Ftype, typename Btype>
 CuDNNConvolutionLayer<Ftype, Btype>::~CuDNNConvolutionLayer() {
-  workspace_.release();
-  tmp_weights_.release();
+  workspace(Caffe::current_device()).release();
+  tmp_weights(Caffe::current_device()).release();
   // Check that handles have been setup before destroying.
   if (!handles_setup_) { return; }
 

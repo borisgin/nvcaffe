@@ -52,8 +52,14 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
   // Workspace used by all Convolution layers one after another.
   // We carry it global to prevent unnecessary allocations/deallocations
   // because they hurt performance.
-  static thread_local GPUMemory::Workspace workspace_;
-  static thread_local GPUMemory::Workspace tmp_weights_;
+  static ThreadSafeMap<std::map<int, shared_ptr<GPUMemory::Workspace>>> workspace_;
+  static GPUMemory::Workspace& workspace(int device) {
+    return *workspace_[device];
+  }
+  static ThreadSafeMap<std::map<int, shared_ptr<GPUMemory::Workspace>>> tmp_weights_;
+  static GPUMemory::Workspace& tmp_weights(int device) {
+    return *tmp_weights_[device];
+  }
   // Stop alloc/dealloc
   static thread_local bool was_reduced_;
 
@@ -171,10 +177,12 @@ template<typename Ftype, typename Btype>
 constexpr int CuDNNConvolutionLayer<Ftype, Btype>::ATTEMPTS_TO_RESERVE_WS;
 
 template<typename Ftype, typename Btype>
-thread_local GPUMemory::Workspace CuDNNConvolutionLayer<Ftype, Btype>::workspace_;
+ThreadSafeMap<std::map<int, shared_ptr<GPUMemory::Workspace>>>
+    CuDNNConvolutionLayer<Ftype, Btype>::workspace_;
 
 template<typename Ftype, typename Btype>
-thread_local GPUMemory::Workspace CuDNNConvolutionLayer<Ftype, Btype>::tmp_weights_;
+ThreadSafeMap<std::map<int, shared_ptr<GPUMemory::Workspace>>>
+    CuDNNConvolutionLayer<Ftype, Btype>::tmp_weights_;
 
 template<typename Ftype, typename Btype>
 thread_local size_t CuDNNConvolutionLayer<Ftype, Btype>::mem_size_estimated_;
