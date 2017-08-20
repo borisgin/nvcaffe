@@ -103,8 +103,6 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
   vector<cudnnConvolutionDescriptor_t> fwd_conv_descs_;
   vector<cudnnConvolutionDescriptor_t> bwd_conv_data_descs_, bwd_conv_filter_descs_;
 
-//  int bottom_offset_, top_offset_, bias_offset_;
-
   vector<size_t> workspace_fwd_sizes_;
   vector<size_t> workspace_bwd_data_sizes_;
   vector<size_t> workspace_bwd_filter_sizes_;
@@ -163,20 +161,10 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
 
   int fwd_group_factor() {
     return fwd_use_grouping() ? 1 : this->group_;
-//#ifdef CUDNN_GROUPING_FWD
-//    return 1;
-//#else
-//    return this->group_;
-//#endif
   }
 
   int bwd_group_factor() {
     return bwd_use_grouping() ? 1 : this->group_;
-//#ifdef CUDNN_GROUPING_BWD
-//    return 1;
-//#else
-//    return this->group_;
-//#endif
   }
 
   // This is current *demand*: it might be not yet allocated.
@@ -190,9 +178,6 @@ constexpr size_t CuDNNConvolutionLayer<Ftype, Btype>::INITIAL_WORKSPACE_SIZE;
 
 template<typename Ftype, typename Btype>
 constexpr size_t CuDNNConvolutionLayer<Ftype, Btype>::PAGE_SIZE;
-
-//template<typename Ftype, typename Btype>
-//constexpr int CuDNNConvolutionLayer<Ftype, Btype>::MAX_PARALLEL_GROUPS;
 
 template<typename Ftype, typename Btype>
 constexpr int CuDNNConvolutionLayer<Ftype, Btype>::REQUEST_ALGO_COUNT;
