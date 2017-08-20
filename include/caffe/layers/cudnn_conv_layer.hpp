@@ -19,7 +19,8 @@ namespace caffe {
 #ifdef USE_CUDNN
 
 #if CUDNN_VERSION_MIN(7, 0, 0)
-  #define CUDNN_GROUPING
+  #define CUDNN_GROUPING_FWD
+//#define CUDNN_GROUPING_BWD
 #endif
 
 /*
@@ -136,24 +137,46 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
   static constexpr int ATTEMPTS_TO_RESERVE_WS = 3;
   static constexpr int MAX_CUDNN_GROUPING_RATIO = 1;  // max channels/groups currently supported
 
-  bool use_grouping() const {
-#ifdef CUDNN_GROUPING
+  bool fwd_use_grouping() const {
+#ifdef CUDNN_GROUPING_FWD
     return this->channels_ / this->group_ <= MAX_CUDNN_GROUPING_RATIO;
 #else
     return false;
 #endif
   }
 
-  int groups() const {
-    return use_grouping() ? this->group_ : 1;
+  bool bwd_use_grouping() const {
+#ifdef CUDNN_GROUPING_BWD
+    return this->channels_ / this->group_ <= MAX_CUDNN_GROUPING_RATIO;
+#else
+    return false;
+#endif
   }
 
-  int group_factor() {
-#ifdef CUDNN_GROUPING
-    return 1;
-#else
-    return this->group_;
-#endif
+  int fwd_groups() const {
+    return fwd_use_grouping() ? this->group_ : 1;
+  }
+
+  int bwd_groups() const {
+    return bwd_use_grouping() ? this->group_ : 1;
+  }
+
+  int fwd_group_factor() {
+    return fwd_use_grouping() ? 1 : this->group_;
+//#ifdef CUDNN_GROUPING_FWD
+//    return 1;
+//#else
+//    return this->group_;
+//#endif
+  }
+
+  int bwd_group_factor() {
+    return bwd_use_grouping() ? 1 : this->group_;
+//#ifdef CUDNN_GROUPING_BWD
+//    return 1;
+//#else
+//    return this->group_;
+//#endif
   }
 
   // This is current *demand*: it might be not yet allocated.
