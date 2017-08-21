@@ -20,7 +20,7 @@ namespace caffe {
 
 //#if CUDNN_VERSION_MIN(7, 0, 0)
 //
-//  #define CUDNN_GROUPING
+  #define CUDNN_GROUPING
 //
 //  #define CUDNN_GROUPING_FWD
 //  #define CUDNN_GROUPING_BWD
@@ -136,18 +136,18 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
 
   bool use_reshape_;
   bool initialized_cached_descs_;
-  static constexpr int MAX_PARALLEL_GROUPS = 1;//2;
+//  static constexpr int MAX_PARALLEL_GROUPS = 1;//2;
   static constexpr int REQUEST_ALGO_COUNT = 1;
   static constexpr int ATTEMPTS_TO_RESERVE_WS = 3;
   static constexpr int MAX_CUDNN_GROUPING_RATIO = 1;  // max channels/groups currently supported
 
   // For performance reasons and better memory management we don't go beyond the limit
   int groups() {
-    return std::min(this->group_, MAX_PARALLEL_GROUPS);
+    return this->group_;// std::min(this->group_, MAX_PARALLEL_GROUPS);
   }
 
   int idxg(int group) {
-    return group % MAX_PARALLEL_GROUPS;
+    return group;// % MAX_PARALLEL_GROUPS;
   }
 
 
@@ -197,10 +197,12 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
 //    return bwd_use_grouping() ? 1 : this->group_;
 //  }
 
-//  int group_count() const {
-////    return use_grouping() ? std::min(512, this->group_) : 1;
-//    return this->channels_ / this->group_ <= MAX_CUDNN_GROUPING_RATIO ? (this->group_ > 512 ? this->group_ / 512 : 1) : std::min(512, this->group_);
-//  }
+#ifdef CUDNN_GROUPING
+  int group_count() const {
+//    return this->channels_ / this->group_;// <= MAX_CUDNN_GROUPING_RATIO ? (this->group_ > 512 ? this->group_ / 512 : 1) : std::min(512, this->group_);
+    return this->group_;
+  }
+#endif
 
 //  int group_factor() {
 //    return use_grouping() ? 1 : this->group_;
@@ -235,8 +237,8 @@ constexpr size_t CuDNNConvolutionLayer<Ftype, Btype>::INITIAL_WORKSPACE_SIZE;
 template<typename Ftype, typename Btype>
 constexpr size_t CuDNNConvolutionLayer<Ftype, Btype>::PAGE_SIZE;
 
-template<typename Ftype, typename Btype>
-constexpr int CuDNNConvolutionLayer<Ftype, Btype>::MAX_PARALLEL_GROUPS;
+//template<typename Ftype, typename Btype>
+//constexpr int CuDNNConvolutionLayer<Ftype, Btype>::MAX_PARALLEL_GROUPS;
 
 template<typename Ftype, typename Btype>
 constexpr int CuDNNConvolutionLayer<Ftype, Btype>::REQUEST_ALGO_COUNT;

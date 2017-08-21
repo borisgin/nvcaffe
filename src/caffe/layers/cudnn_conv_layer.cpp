@@ -162,10 +162,20 @@ void CuDNNConvolutionLayer<Ftype, Btype>::LayerSetUp(
   const int kernel_h = kernel_shape_data[0];
   const int kernel_w = kernel_shape_data[1];
   createFilterDesc<Ftype>(&fwd_filter_desc_,
-      this->num_output_ / this->group_, this->channels_ / this->group_,
+#ifdef CUDNN_GROUPING
+      this->num_output_,
+#else
+      this->num_output_ / this->group_,
+#endif
+      this->channels_ / this->group_,
       kernel_h, kernel_w);
   createFilterDesc<Btype>(&bwd_filter_desc_,
-      this->num_output_ / this->group_, this->channels_ / this->group_,
+#ifdef CUDNN_GROUPING
+      this->num_output_,
+#else
+      this->num_output_ / this->group_,
+#endif
+      this->channels_ / this->group_,
       kernel_h, kernel_w);
 
   this->weight_offset_ = (this->num_output_ / this->group_) *
@@ -351,22 +361,42 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
   for (int i = 0; i < bottom.size(); i++) {
     cudnn::setTensor4dDesc<Ftype>(&fwd_bottom_descs_[i],
         this->num_,
-        this->channels_ / this->group_, height, width,
+#ifdef CUDNN_GROUPING
+        this->channels_,
+#else
+        this->channels_ / this->group_,
+#endif
+        height, width,
         this->channels_ * height * width,
         height * width, width, 1);
     cudnn::setTensor4dDesc<Btype>(&bwd_bottom_descs_[i],
         this->num_,
-        this->channels_ / this->group_, height, width,
+#ifdef CUDNN_GROUPING
+        this->channels_,
+#else
+        this->channels_ / this->group_,
+#endif
+        height, width,
         this->channels_ * height * width,
         height * width, width, 1);
     cudnn::setTensor4dDesc<Ftype>(&fwd_top_descs_[i],
         this->num_,
-        this->num_output_ / this->group_, height_out, width_out,
+#ifdef CUDNN_GROUPING
+        this->num_output_,
+#else
+        this->num_output_ / this->group_,
+#endif
+        height_out, width_out,
         this->num_output_ * this->out_spatial_dim_,
         this->out_spatial_dim_, width_out, 1);
     cudnn::setTensor4dDesc<Btype>(&bwd_top_descs_[i],
         this->num_,
-        this->num_output_ / this->group_, height_out, width_out,
+#ifdef CUDNN_GROUPING
+        this->num_output_,
+#else
+        this->num_output_ / this->group_,
+#endif
+        height_out, width_out,
         this->num_output_ * this->out_spatial_dim_,
         this->out_spatial_dim_, width_out, 1);
 
@@ -469,8 +499,13 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
 
   // Tensor descriptor for bias.
   if (this->bias_term_) {
+#ifdef CUDNN_GROUPING
+    cudnn::setTensor4dDesc<Ftype>(&fwd_bias_desc_, 1, this->num_output_, 1, 1);
+    cudnn::setTensor4dDesc<Btype>(&bwd_bias_desc_, 1, this->num_output_, 1, 1);
+#else
     cudnn::setTensor4dDesc<Ftype>(&fwd_bias_desc_, 1, this->num_output_ / this->group_, 1, 1);
     cudnn::setTensor4dDesc<Btype>(&bwd_bias_desc_, 1, this->num_output_ / this->group_, 1, 1);
+#endif
   }
 }
 
