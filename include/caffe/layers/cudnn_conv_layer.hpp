@@ -18,10 +18,13 @@ namespace caffe {
 
 #ifdef USE_CUDNN
 
-#if CUDNN_VERSION_MIN(7, 0, 0)
-  #define CUDNN_GROUPING_FWD
-//#define CUDNN_GROUPING_BWD
-#endif
+//#if CUDNN_VERSION_MIN(7, 0, 0)
+//
+//  #define CUDNN_GROUPING
+//
+//  #define CUDNN_GROUPING_FWD
+//  #define CUDNN_GROUPING_BWD
+//#endif
 
 /*
  * @brief cuDNN implementation of ConvolutionLayer.
@@ -103,6 +106,8 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
   vector<cudnnConvolutionDescriptor_t> fwd_conv_descs_;
   vector<cudnnConvolutionDescriptor_t> bwd_conv_data_descs_, bwd_conv_filter_descs_;
 
+  int bottom_offset_, top_offset_, bias_offset_;
+
   vector<size_t> workspace_fwd_sizes_;
   vector<size_t> workspace_bwd_data_sizes_;
   vector<size_t> workspace_bwd_filter_sizes_;
@@ -131,41 +136,92 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
 
   bool use_reshape_;
   bool initialized_cached_descs_;
-  static constexpr int REQUEST_ALGO_COUNT = 3;
+  static constexpr int MAX_PARALLEL_GROUPS = 1;//2;
+  static constexpr int REQUEST_ALGO_COUNT = 1;
   static constexpr int ATTEMPTS_TO_RESERVE_WS = 3;
   static constexpr int MAX_CUDNN_GROUPING_RATIO = 1;  // max channels/groups currently supported
 
-  bool fwd_use_grouping() const {
-#ifdef CUDNN_GROUPING_FWD
-    return this->channels_ / this->group_ <= MAX_CUDNN_GROUPING_RATIO;
-#else
-    return false;
-#endif
+  // For performance reasons and better memory management we don't go beyond the limit
+  int groups() {
+    return std::min(this->group_, MAX_PARALLEL_GROUPS);
   }
 
-  bool bwd_use_grouping() const {
-#ifdef CUDNN_GROUPING_BWD
-    return this->channels_ / this->group_ <= MAX_CUDNN_GROUPING_RATIO;
-#else
-    return false;
-#endif
+  int idxg(int group) {
+    return group % MAX_PARALLEL_GROUPS;
   }
 
-  int fwd_groups() const {
-    return fwd_use_grouping() ? this->group_ : 1;
-  }
 
-  int bwd_groups() const {
-    return bwd_use_grouping() ? this->group_ : 1;
-  }
+//  int grouping_ratio() const {
+////    return std::min(this->channels_ / this->group_, MAX_CUDNN_GROUPING_RATIO);
+//    return this->channels_ / this->group_;
+//  }
 
-  int fwd_group_factor() {
-    return fwd_use_grouping() ? 1 : this->group_;
-  }
+//  bool use_grouping() const {
+////    return grouping_ratio() <= MAX_CUDNN_GROUPING_RATIO;
+//#ifdef CUDNN_GROUPING
+//    return true;
+//#else
+//    return false;
+//#endif
+//  }
 
-  int bwd_group_factor() {
-    return bwd_use_grouping() ? 1 : this->group_;
-  }
+//  bool fwd_use_grouping() const {
+//#ifdef CUDNN_GROUPING_FWD
+//    return this->channels_ / this->group_ <= MAX_CUDNN_GROUPING_RATIO;
+//#else
+//    return false;
+//#endif
+//  }
+//
+//  bool bwd_use_grouping() const {
+//#ifdef CUDNN_GROUPING_BWD
+//    return this->channels_ / this->group_ <= MAX_CUDNN_GROUPING_RATIO;
+//#else
+//    return false;
+//#endif
+//  }
+
+//  int fwd_groups() const {
+//    return fwd_use_grouping() ? this->group_ : 1;
+//  }
+//
+//  int bwd_groups() const {
+//    return bwd_use_grouping() ? this->group_ : 1;
+//  }
+//
+//  int fwd_group_factor() {
+//    return fwd_use_grouping() ? 1 : this->group_;
+//  }
+//
+//  int bwd_group_factor() {
+//    return bwd_use_grouping() ? 1 : this->group_;
+//  }
+
+//  int group_count() const {
+////    return use_grouping() ? std::min(512, this->group_) : 1;
+//    return this->channels_ / this->group_ <= MAX_CUDNN_GROUPING_RATIO ? (this->group_ > 512 ? this->group_ / 512 : 1) : std::min(512, this->group_);
+//  }
+
+//  int group_factor() {
+//    return use_grouping() ? 1 : this->group_;
+//////    return this->group_ / groups();
+//  }
+
+//  int fwd_groups() const {
+//    return groups();//use_grouping() ? std::min(512, this->group_) : (this->group_ > 512 ? this->group_ / 512 : 1);
+//  }
+//
+//  int bwd_groups() const {
+//    return groups();//use_grouping() ? std::min(512, this->group_) : (this->group_ > 512 ? this->group_ / 512 : 1);
+//  }
+//
+//  int fwd_group_factor() {
+//    return group_factor();//use_grouping() ? (this->group_ > 512 ? this->group_ / 512 : 1) : std::min(512, this->group_);
+//  }
+//
+//  int bwd_group_factor() {
+//    return group_factor();//use_grouping() ? (this->group_ > 512 ? this->group_ / 512 : 1) : std::min(512, this->group_);
+//  }
 
   // This is current *demand*: it might be not yet allocated.
   void UpdateWorkspaceDemand(int size);
@@ -178,6 +234,9 @@ constexpr size_t CuDNNConvolutionLayer<Ftype, Btype>::INITIAL_WORKSPACE_SIZE;
 
 template<typename Ftype, typename Btype>
 constexpr size_t CuDNNConvolutionLayer<Ftype, Btype>::PAGE_SIZE;
+
+template<typename Ftype, typename Btype>
+constexpr int CuDNNConvolutionLayer<Ftype, Btype>::MAX_PARALLEL_GROUPS;
 
 template<typename Ftype, typename Btype>
 constexpr int CuDNNConvolutionLayer<Ftype, Btype>::REQUEST_ALGO_COUNT;

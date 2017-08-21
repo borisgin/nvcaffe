@@ -19,7 +19,7 @@
   do { \
     cudnnStatus_t status = condition; \
     CHECK_EQ(status, CUDNN_STATUS_SUCCESS) << " "\
-      << cudnnGetErrorString(status); \
+      << cudnnGetErrorString(status) << ", device " << Caffe::current_device(); \
   } while (0)
 
 const char* cudnnGetErrorString(cudnnStatus_t status);
