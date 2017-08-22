@@ -546,7 +546,7 @@ class Caffe {
 
   static Properties& props() {
     std::lock_guard<std::mutex> lock(props_mutex_);
-    static Properties props;
+    static Properties props; // FIXME
     return props;
   }
 };
