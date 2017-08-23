@@ -39,7 +39,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& botto
       const Ftype* bottom_data = bottom[i]->gpu_data<Ftype>();
       Ftype* top_data = top[i]->mutable_gpu_data<Ftype>();
       // Forward through cuDNN in parallel over groups.
-      const size_t gsize = ws.size() / ws_groups();
+      const size_t gsize = ws.size() / agr_groups();
       CHECK(is_even(gsize));
       for (int g = 0; g < agr_groups(); ++g) {
         unsigned char* pspace = static_cast<unsigned char*>(ws.data()) + gsize * idxg(g);
@@ -138,7 +138,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
     }  // end for i
   } else {
     // "old" path
-    const size_t gsize = ws.size() / ws_groups();
+    const size_t gsize = ws.size() / agr_groups();
     // compute dE/dB = sum_c(dE/dy)
     if (this->bias_term_ && this->param_propagate_down_[1]) {
       Btype* bias_diff = this->blobs_[1]->template mutable_gpu_diff<Btype>();

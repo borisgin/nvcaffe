@@ -672,7 +672,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::GetConvAlgo(const vector<Blob*>& botto
       CUDNN_CHECK(cudnnGetConvolutionBackwardDataAlgorithm(Caffe::cudnn_handle(),
           bwd_filter_desc_, bwd_top_descs_[i], bwd_conv_data_descs_[i], bwd_bottom_descs_[i],
           CUDNN_CONVOLUTION_BWD_DATA_SPECIFY_WORKSPACE_LIMIT,
-          align_down<7>(workspace_bytes) / ws_groups(), &bwd_data_algo_[i]));
+          align_down<7>(workspace_bytes / ws_groups()), &bwd_data_algo_[i]));
     }
     // Get forward algorithm (if not set by user)
     if (user_algos_override_[0] < 0) {
