@@ -76,10 +76,10 @@ half2 hge2(half2 a, half2 b) {
 }
 
 __device__ __inline__
-half2 hadd2(half2 a, half2 b) {
-#if __CUDA_ARCH__ >= 530
-  return __hadd2(a, b);
-#else
+half2 hadd2(const half2& a, const half2& b) {
+//#if __CUDA_ARCH__ >= 530
+//  return __hadd2(a, b);
+//#else
   float2 af = __half22float2(a);
   float2 bf = __half22float2(b);
 
@@ -87,7 +87,7 @@ half2 hadd2(half2 a, half2 b) {
   af.y += bf.y;
 
   return float22half2_clip(af);
-#endif
+//#endif
 }
 
 __device__ __inline__

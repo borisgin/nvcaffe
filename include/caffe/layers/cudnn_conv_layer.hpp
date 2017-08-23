@@ -138,7 +138,7 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
 
   bool use_v7grouping() const {
 #ifdef CUDNN_GROUPING
-    return this->channels_ == this->num_output_;
+    return this->channels_ == this->num_output_ && this->channels_ == this->group_;
 #else
     return false;
 #endif
