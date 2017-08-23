@@ -119,13 +119,6 @@ void CuDNNConvolutionLayer<Ftype, Btype>::LayerSetUp(
     CHECK_LT(user_algos_override_[2], CUDNN_CONVOLUTION_BWD_FILTER_ALGO_COUNT) << param_err;
   }
 
-  // FIXME
-//  if (this->group_ > 1 && this->channels_ == this->group_) {
-//    user_algos_override_[0] = 1;
-//    user_algos_override_[1] = 1;
-//    user_algos_override_[2] = 1;
-//  }
-
   // Initializing algorithms and workspaces
   // Do not rely on initialized algorithms (Reshape will set algorithms
   // with correct values in the first iteration).
@@ -163,46 +156,32 @@ void CuDNNConvolutionLayer<Ftype, Btype>::LayerSetUp(
   backward_data_math_ = backward_filter_math_ = this->layer_param().backward_math();
 
   // Set the indexing parameters.
-#ifndef CUDNN_GROUPING
-//  bias_offset_ = (this->num_output_ / agr_groups());
-  bias_offset_ = (this->num_output_ / groups());
-#endif
+  bias_offset_ = (this->num_output_ / agr_groups());
 
   // Create filter descriptor.
   const int* kernel_shape_data = this->kernel_shape_.cpu_data();
   const int kernel_h = kernel_shape_data[0];
   const int kernel_w = kernel_shape_data[1];
-  createFilterDesc<Ftype>(&fwd_filter_desc_,
-#ifdef CUDNN_GROUPING
-      this->num_output_,
-      this->channels_ / groups(),
-#else
-      this->num_output_ / agr_groups(),
-      this->channels_ / agr_groups(),
-#endif
-      kernel_h, kernel_w);
-  createFilterDesc<Btype>(&bwd_filter_desc_,
-#ifdef CUDNN_GROUPING
-      this->num_output_,
-      this->channels_ / groups(),
-#else
-      this->num_output_ / agr_groups(),
-      this->channels_ / agr_groups(),
-#endif
-      kernel_h, kernel_w);
 
-
-#ifdef CUDNN_GROUPING
-      this->weight_offset_ = (this->num_output_ / groups()) *
-      (this->channels_ / groups()) * kernel_h * kernel_w;
-#else
-  this->weight_offset_ = (this->num_output_ / agr_groups()) *
-                         (this->channels_ / agr_groups()) * kernel_h * kernel_w;
-//  this->weight_offset_ = (this->num_output_ / groups()) *
-//                         (this->channels_ / groups()) * kernel_h * kernel_w;
-#endif
-
-
+  if (use_v7grouping()) {
+    createFilterDesc<Ftype>(&fwd_filter_desc_,
+        this->num_output_, this->channels_ / groups(),
+        kernel_h, kernel_w);
+    createFilterDesc<Btype>(&bwd_filter_desc_,
+        this->num_output_, this->channels_ / groups(),
+        kernel_h, kernel_w);
+    this->weight_offset_ = (this->num_output_ / groups()) *
+                           (this->channels_ / groups()) * kernel_h * kernel_w;
+  } else {
+    createFilterDesc<Ftype>(&fwd_filter_desc_,
+        this->num_output_ / agr_groups(), this->channels_ / agr_groups(),
+        kernel_h, kernel_w);
+    createFilterDesc<Btype>(&bwd_filter_desc_,
+        this->num_output_ / agr_groups(), this->channels_ / agr_groups(),
+        kernel_h, kernel_w);
+    this->weight_offset_ = (this->num_output_ / agr_groups()) *
+                           (this->channels_ / agr_groups()) * kernel_h * kernel_w;
+  }
 
   // Create tensor descriptor(s) for data and corresponding convolution(s).
   for (int i = 0; i < bottom.size(); i++) {
@@ -221,15 +200,12 @@ void CuDNNConvolutionLayer<Ftype, Btype>::LayerSetUp(
     CUDNN_CHECK(cudnnCreateConvolutionDescriptor(&bwd_conv_data_desc));
     CUDNN_CHECK(cudnnCreateConvolutionDescriptor(&bwd_conv_filter_desc));
 #ifdef CUDNN_GROUPING
-    CUDNN_CHECK(cudnnSetConvolutionGroupCount(fwd_conv_desc, groups()));
-    CUDNN_CHECK(cudnnSetConvolutionGroupCount(bwd_conv_data_desc, groups()));
-    CUDNN_CHECK(cudnnSetConvolutionGroupCount(bwd_conv_filter_desc, groups()));
+    if (use_v7grouping()) {
+      CUDNN_CHECK(cudnnSetConvolutionGroupCount(fwd_conv_desc, groups()));
+      CUDNN_CHECK(cudnnSetConvolutionGroupCount(bwd_conv_data_desc, groups()));
+      CUDNN_CHECK(cudnnSetConvolutionGroupCount(bwd_conv_filter_desc, groups()));
+    }
 #endif
-
-//    CUDNN_CHECK(cudnnSetConvolutionGroupCount(fwd_conv_desc, agr_groups()));
-//    CUDNN_CHECK(cudnnSetConvolutionGroupCount(bwd_conv_data_desc, agr_groups()));
-//    CUDNN_CHECK(cudnnSetConvolutionGroupCount(bwd_conv_filter_desc, agr_groups()));
-
 
     fwd_conv_descs_.push_back(fwd_conv_desc);
     bwd_conv_data_descs_.push_back(bwd_conv_data_desc);
@@ -248,9 +224,11 @@ void CuDNNConvolutionLayer<Ftype, Btype>::LayerSetUp(
     CUDNN_CHECK(cudnnCreateConvolutionDescriptor(&bwd_cached_conv_data_desc));
     CUDNN_CHECK(cudnnCreateConvolutionDescriptor(&bwd_cached_conv_filter_desc));
 #ifdef CUDNN_GROUPING
-    CUDNN_CHECK(cudnnSetConvolutionGroupCount(fwd_cached_conv_desc, groups()));
-    CUDNN_CHECK(cudnnSetConvolutionGroupCount(bwd_cached_conv_data_desc, groups()));
-    CUDNN_CHECK(cudnnSetConvolutionGroupCount(bwd_cached_conv_filter_desc, groups()));
+    if (use_v7grouping()) {
+      CUDNN_CHECK(cudnnSetConvolutionGroupCount(fwd_cached_conv_desc, groups()));
+      CUDNN_CHECK(cudnnSetConvolutionGroupCount(bwd_cached_conv_data_desc, groups()));
+      CUDNN_CHECK(cudnnSetConvolutionGroupCount(bwd_cached_conv_filter_desc, groups()));
+    }
 #endif
     fwd_cached_conv_descs_.push_back(fwd_cached_conv_desc);
     bwd_cached_conv_data_descs_.push_back(bwd_cached_conv_data_desc);
@@ -343,12 +321,12 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
       && ws.size() > mem_req_all_grps_ * 2UL) {
     // Winner needs less than half of initial estimate - saving the rest
     // Half because we want to reduce the number of allocs/deallocs
-//    LOG(INFO) << this->print_current_device()
-//              << " Layer '" << this->name() << "' reallocating workspace: "
-//              << gb_round2(ws.size()) << "G -> "
-//              << gb_round2(mem_req_all_grps_ * 2UL) << "G";
-//    ws.release();
-//    ws.reserve(mem_req_all_grps_ * 2UL);
+    LOG(INFO) << this->print_current_device()
+              << " Layer '" << this->name() << "' reallocating workspace: "
+              << gb_round2(ws.size()) << "G -> "
+              << gb_round2(mem_req_all_grps_ * 2UL) << "G";
+    ws.release();
+    ws.reserve(mem_req_all_grps_ * 2UL);
     was_reduced_ = true;
   }
   if (!use_reshape_) {
@@ -361,11 +339,8 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
       << "(e.g., height and width). "
       << "Use 'engine: CAFFE' for general ND convolution.";
 
-#ifndef CUDNN_GROUPING
   bottom_offset_ = this->bottom_dim_ / agr_groups();
   top_offset_ = this->top_dim_ / agr_groups();
-#endif
-
 
   const int height = bottom[0]->shape(this->channel_axis_ + 1);
   const int width = bottom[0]->shape(this->channel_axis_ + 2);
@@ -378,45 +353,29 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
   const int stride_h = stride_data[0];
   const int stride_w = stride_data[1];
 
-  // Set cuDNN tensor and convolution descriptors
+    // Set cuDNN tensor and convolution descriptors
   for (int i = 0; i < bottom.size(); i++) {
     cudnn::setTensor4dDesc<Ftype>(&fwd_bottom_descs_[i],
         this->num_,
-#ifdef CUDNN_GROUPING
-        this->channels_,
-#else
-        this->channels_ / agr_groups(),
-#endif
+        use_v7grouping() ? this->channels_ : this->channels_ / agr_groups(),
         height, width,
         this->channels_ * height * width,
         height * width, width, 1);
     cudnn::setTensor4dDesc<Btype>(&bwd_bottom_descs_[i],
         this->num_,
-#ifdef CUDNN_GROUPING
-        this->channels_,
-#else
-        this->channels_ / agr_groups(),
-#endif
+        use_v7grouping() ? this->channels_ : this->channels_ / agr_groups(),
         height, width,
         this->channels_ * height * width,
         height * width, width, 1);
     cudnn::setTensor4dDesc<Ftype>(&fwd_top_descs_[i],
         this->num_,
-#ifdef CUDNN_GROUPING
-        this->num_output_,
-#else
-        this->num_output_ / agr_groups(),
-#endif
+        use_v7grouping() ? this->num_output_ : this->num_output_ / agr_groups(),
         height_out, width_out,
         this->num_output_ * this->out_spatial_dim_,
         this->out_spatial_dim_, width_out, 1);
     cudnn::setTensor4dDesc<Btype>(&bwd_top_descs_[i],
         this->num_,
-#ifdef CUDNN_GROUPING
-        this->num_output_,
-#else
-        this->num_output_ / agr_groups(),
-#endif
+        use_v7grouping() ? this->num_output_ : this->num_output_ / agr_groups(),
         height_out, width_out,
         this->num_output_ * this->out_spatial_dim_,
         this->out_spatial_dim_, width_out, 1);
@@ -435,32 +394,18 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
         pad_h, pad_w, stride_h, stride_w);
 
     // Set cached descriptors
-
-#ifdef CUDNN_GROUPING
     cudnn::setTensor4dDesc<Ftype>(&fwd_cached_bottom_descs_[i],
         this->num_,
-        this->channels_ / groups(), height, width,
+        use_v7grouping() ? this->channels_ / groups() : this->channels_ / agr_groups(),
+        height, width,
         this->channels_ * height * width,
         height * width, width, 1);
     cudnn::setTensor4dDesc<Btype>(&bwd_cached_bottom_descs_[i],
         this->num_,
-        this->channels_ / groups(), height, width,
+        use_v7grouping() ? this->channels_ / groups() : this->channels_ / agr_groups(),
+        height, width,
         this->channels_ * height * width,
         height * width, width, 1);
-#else
-    cudnn::setTensor4dDesc<Ftype>(&fwd_cached_bottom_descs_[i],
-        this->num_,
-        this->channels_ / agr_groups(), height, width,
-        this->channels_ * height * width,
-        height * width, width, 1);
-    cudnn::setTensor4dDesc<Btype>(&bwd_cached_bottom_descs_[i],
-        this->num_,
-        this->channels_ / agr_groups(), height, width,
-        this->channels_ * height * width,
-        height * width, width, 1);
-#endif
-
-
   }
   initialized_cached_descs_ = true;
 
@@ -476,7 +421,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
     if (use_modest_workspace_) {
       // In iteration 0, use a small amount of memory in order to leave
       // most of memory for allocating layer blobs.
-      workspace_bytes = INITIAL_WORKSPACE_SIZE;// * ws_groups();
+      workspace_bytes = INITIAL_WORKSPACE_SIZE * ws_groups();
     } else {
       // Make sure it's all allocated before we take the rest
       for (int i = 0; i < bottom.size(); ++i) {
@@ -536,13 +481,12 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
 
   // Tensor descriptor for bias.
   if (this->bias_term_) {
-#ifdef CUDNN_GROUPING
-    cudnn::setTensor4dDesc<Ftype>(&fwd_bias_desc_, 1, this->num_output_, 1, 1);
-    cudnn::setTensor4dDesc<Btype>(&bwd_bias_desc_, 1, this->num_output_, 1, 1);
-#else
-    cudnn::setTensor4dDesc<Ftype>(&fwd_bias_desc_, 1, this->num_output_ / agr_groups(), 1, 1);
-    cudnn::setTensor4dDesc<Btype>(&bwd_bias_desc_, 1, this->num_output_ / agr_groups(), 1, 1);
-#endif
+    cudnn::setTensor4dDesc<Ftype>(&fwd_bias_desc_, 1,
+        use_v7grouping() ? this->num_output_ : this->num_output_ / agr_groups(),
+        1, 1);
+    cudnn::setTensor4dDesc<Btype>(&bwd_bias_desc_, 1,
+        use_v7grouping() ? this->num_output_ : this->num_output_ / agr_groups(),
+        1, 1);
   }
 }
 
@@ -728,7 +672,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::GetConvAlgo(const vector<Blob*>& botto
       CUDNN_CHECK(cudnnGetConvolutionBackwardDataAlgorithm(Caffe::cudnn_handle(),
           bwd_filter_desc_, bwd_top_descs_[i], bwd_conv_data_descs_[i], bwd_bottom_descs_[i],
           CUDNN_CONVOLUTION_BWD_DATA_SPECIFY_WORKSPACE_LIMIT,
-          align_down<7>(workspace_bytes), &bwd_data_algo_[i]));
+          align_down<7>(workspace_bytes) / ws_groups(), &bwd_data_algo_[i]));
     }
     // Get forward algorithm (if not set by user)
     if (user_algos_override_[0] < 0) {
@@ -786,10 +730,8 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
   GPUMemory::Workspace& ws = workspace(Caffe::current_device());
   GPUMemory::Workspace& tmp_ws = tmp_weights(Caffe::current_device());
 
-//  const size_t ngroups = groups();
   const size_t gsize = ws.size() / ws_groups();
   CHECK(is_even(gsize)) << ws.size() << " / " << ws_groups() << " -> " << gsize;
-
 
   if (this->phase_ == TRAIN) {
     // Allocate temporary buffer for weights used for backward filter FindEx
@@ -843,7 +785,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
             &fwd_algo_count,
             fwd_results,
             ws.data(),
-            gsize));//ws.size()));
+            gsize));
         CUDA_CHECK(cudaStreamSynchronize(streamId));
 
         for (int k = 0; k < fwd_algo_count; ++k) {
@@ -929,7 +871,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
               &filter_algo_count,
               bwd_filter_results,
               ws.data(),
-              gsize));//ws.size()));
+              gsize));
           CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
 
           for (int k = 0; k < filter_algo_count; ++k) {
@@ -1013,7 +955,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
               &data_algo_count,
               bwd_data_results,
               ws.data(),
-              gsize));//ws.size()));
+              gsize));
           CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
 
           for (int k = 0; k < data_algo_count; ++k) {
@@ -1066,8 +1008,9 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
     os << this->print_current_device()
         << (this->phase_ == TRAIN ? " Conv Algos (F,BD,BF): '" : " Conv Algo (F): '")
         << this->name() << "' with space "
-        << gb_round2(ws.size()) << "G " << groups()
-        << " " << this->channels_ //<< "/" << agr_groups()
+        << gb_round2(ws.size()) << "G "
+        << this->channels_ << "/" << this->group_ << " " << groups()
+        << (use_v7grouping() ? "n" : "o")
 #ifdef DEBUG
         << " -> [" << workspace_fwd_sizes_[i]
         << " " << workspace_bwd_data_sizes_[i]
@@ -1120,13 +1063,7 @@ bool CuDNNConvolutionLayer<Ftype, Btype>::IsBottomDescChanged(
         &cached_stride_h, &cached_stride_w));
     const vector<int>& shape = bottom[i]->shape();
     n = shape[0];
-
-#ifdef CUDNN_GROUPING
-    c = shape[1] / groups();
-#else
-    c = shape[1] / agr_groups();
-#endif
-
+    c = shape[1] / (use_v7grouping() ? groups() : agr_groups());
     h = shape[2];
     w = shape[3];
 

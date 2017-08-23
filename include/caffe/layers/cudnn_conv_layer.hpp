@@ -102,9 +102,7 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
   vector<cudnnConvolutionDescriptor_t> fwd_conv_descs_;
   vector<cudnnConvolutionDescriptor_t> bwd_conv_data_descs_, bwd_conv_filter_descs_;
 
-#ifndef CUDNN_GROUPING
   int bottom_offset_, top_offset_, bias_offset_;
-#endif
 
   vector<size_t> workspace_fwd_sizes_;
   vector<size_t> workspace_bwd_data_sizes_;
@@ -134,114 +132,33 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
 
   bool use_reshape_;
   bool initialized_cached_descs_;
-  static constexpr int MAX_PARALLEL_GROUPS = 1;//2;
+  static constexpr int MAX_PARALLEL_GROUPS = 2;
   static constexpr int REQUEST_ALGO_COUNT = 1;
   static constexpr int ATTEMPTS_TO_RESERVE_WS = 3;
-  static constexpr int MAX_CUDNN_GROUPING_RATIO = 1;  // max channels/groups currently supported
 
+  bool use_v7grouping() const {
 #ifdef CUDNN_GROUPING
-  int groups() const {
-//    if (this->channels_ > this->group_) {
-      return this->group_;// == 1 ? 1 : std::min(8, this->group_);
-//    }
-//    if (this->channels_ >= 1024) {
-//      return 2;
-//    }
-//    return 1;//this->channels_ / this->group_;// :this->group_ : 512;//std::min(this->channels_ / this->group_, MAX_CUDNN_GROUPING_RATIO);// ? (this->group_ > 512 ? this->group_ / 512 : 1) : std::min(512, this->group_);
-//    return this->group_;
-  }
-
-  int ws_groups() {
-    return 1;
-  }
-
+    return this->channels_ == this->num_output_;
 #else
+    return false;
+#endif
+  }
+
   int groups() {
-    return std::min(this->group_, MAX_PARALLEL_GROUPS);
+    return use_v7grouping() ? this->group_ : std::min(this->group_, MAX_PARALLEL_GROUPS);
   }
 
   int ws_groups() {
-//    return std::min(this->group_, MAX_PARALLEL_GROUPS);
-    return groups();//this->group_;
+    return use_v7grouping() ? 1 : std::min(this->group_, MAX_PARALLEL_GROUPS);
   }
 
   int agr_groups() {
-//    return std::min(this->group_, MAX_PARALLEL_GROUPS);
-    return this->group_;//MAX_PARALLEL_GROUPS;
+    return this->group_;
   }
 
   int idxg(int group) {
     return group % MAX_PARALLEL_GROUPS;
   }
-#endif
-
-
-//  int grouping_ratio() const {
-////    return std::min(this->channels_ / this->group_, MAX_CUDNN_GROUPING_RATIO);
-//    return this->channels_ / this->group_;
-//  }
-
-//  bool use_grouping() const {
-////    return grouping_ratio() <= MAX_CUDNN_GROUPING_RATIO;
-//#ifdef CUDNN_GROUPING
-//    return true;
-//#else
-//    return false;
-//#endif
-//  }
-
-//  bool fwd_use_grouping() const {
-//#ifdef CUDNN_GROUPING_FWD
-//    return this->channels_ / this->group_ <= MAX_CUDNN_GROUPING_RATIO;
-//#else
-//    return false;
-//#endif
-//  }
-//
-//  bool bwd_use_grouping() const {
-//#ifdef CUDNN_GROUPING_BWD
-//    return this->channels_ / this->group_ <= MAX_CUDNN_GROUPING_RATIO;
-//#else
-//    return false;
-//#endif
-//  }
-
-//  int fwd_groups() const {
-//    return fwd_use_grouping() ? this->group_ : 1;
-//  }
-//
-//  int bwd_groups() const {
-//    return bwd_use_grouping() ? this->group_ : 1;
-//  }
-//
-//  int fwd_group_factor() {
-//    return fwd_use_grouping() ? 1 : this->group_;
-//  }
-//
-//  int bwd_group_factor() {
-//    return bwd_use_grouping() ? 1 : this->group_;
-//  }
-
-//  int group_factor() {
-//    return use_grouping() ? 1 : this->group_;
-//////    return this->group_ / groups();
-//  }
-
-//  int fwd_groups() const {
-//    return groups();//use_grouping() ? std::min(512, this->group_) : (this->group_ > 512 ? this->group_ / 512 : 1);
-//  }
-//
-//  int bwd_groups() const {
-//    return groups();//use_grouping() ? std::min(512, this->group_) : (this->group_ > 512 ? this->group_ / 512 : 1);
-//  }
-//
-//  int fwd_group_factor() {
-//    return group_factor();//use_grouping() ? (this->group_ > 512 ? this->group_ / 512 : 1) : std::min(512, this->group_);
-//  }
-//
-//  int bwd_group_factor() {
-//    return group_factor();//use_grouping() ? (this->group_ > 512 ? this->group_ / 512 : 1) : std::min(512, this->group_);
-//  }
 
   // This is current *demand*: it might be not yet allocated.
   void UpdateWorkspaceDemand(int size);
