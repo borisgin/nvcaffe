@@ -47,8 +47,15 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
   static constexpr size_t PAGE_SIZE = 16 * 1024 * 1024;
   // We update it on second Fwd/Bwd pass and we allocate it *once*
   // when we start third pass. We might recompute it later if demand grows
-  // and/or we suddenly need to get extra memory for other needs.
-  static thread_local size_t mem_size_estimated_, mem_req_all_grps_;
+  // and/or we suddenly have to get extra memory for other needs.
+  static ThreadSafeMap<std::map<int, size_t>> mem_size_estimated_;
+  static size_t& mem_size_estimated(int device) {
+    return mem_size_estimated_[device];
+  }
+  static ThreadSafeMap<std::map<int, size_t>> mem_req_all_grps_;
+  static size_t& mem_req_all_grps(int device) {
+    return mem_req_all_grps_[device];
+  }
   // Workspace used by all Convolution layers one after another.
   // We carry it global to prevent unnecessary allocations/deallocations
   // because they hurt performance.
@@ -61,7 +68,10 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
     return *tmp_weights_[device];
   }
   // Stop alloc/dealloc
-  static thread_local bool was_reduced_;
+  static ThreadSafeMap<std::map<int, bool>> was_reduced_;
+  static bool& was_reduced(int device) {
+    return was_reduced_[device];
+  }
 
  public:
   explicit CuDNNConvolutionLayer(const LayerParameter& param)
@@ -132,7 +142,7 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
 
   bool use_reshape_;
   bool initialized_cached_descs_;
-  static constexpr int MAX_PARALLEL_GROUPS = 2;
+  static constexpr int MAX_PARALLEL_GROUPS = 1;//2;
   static constexpr int REQUEST_ALGO_COUNT = 1;
   static constexpr int ATTEMPTS_TO_RESERVE_WS = 3;
 
@@ -149,7 +159,7 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
   }
 
   int ws_groups() {
-    return use_v7grouping() ? 1 : std::min(this->group_, MAX_PARALLEL_GROUPS);
+    return use_v7grouping() ? 1 : this->group_;//std::min(this->group_, MAX_PARALLEL_GROUPS);
   }
 
   int agr_groups() {
@@ -190,13 +200,16 @@ ThreadSafeMap<std::map<int, shared_ptr<GPUMemory::Workspace>>>
     CuDNNConvolutionLayer<Ftype, Btype>::tmp_weights_;
 
 template<typename Ftype, typename Btype>
-thread_local size_t CuDNNConvolutionLayer<Ftype, Btype>::mem_size_estimated_;
+ThreadSafeMap<std::map<int, size_t>>
+    CuDNNConvolutionLayer<Ftype, Btype>::mem_size_estimated_;
 
 template<typename Ftype, typename Btype>
-thread_local size_t CuDNNConvolutionLayer<Ftype, Btype>::mem_req_all_grps_;
+ThreadSafeMap<std::map<int, size_t>>
+    CuDNNConvolutionLayer<Ftype, Btype>::mem_req_all_grps_;
 
 template<typename Ftype, typename Btype>
-thread_local bool CuDNNConvolutionLayer<Ftype, Btype>::was_reduced_ = false;
+ThreadSafeMap<std::map<int, bool>>
+    CuDNNConvolutionLayer<Ftype, Btype>::was_reduced_;
 
 #endif
 
