@@ -39,7 +39,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& botto
       const Ftype* bottom_data = bottom[i]->gpu_data<Ftype>();
       Ftype* top_data = top[i]->mutable_gpu_data<Ftype>();
       // Forward through cuDNN in parallel over groups.
-      const size_t gsize = ws.size() / agr_groups();
+      const size_t gsize = ws.size() / ws_groups();
       CHECK(is_even(gsize));
       for (int g = 0; g < agr_groups(); ++g) {
         unsigned char* pspace = static_cast<unsigned char*>(ws.data()) + gsize * idxg(g);
@@ -51,7 +51,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& botto
             cudnn::dataType<Ftype>::zero, fwd_top_descs_[i], top_data + top_offset_ * g));
       }
       // NOLINT_NEXT_LINE(whitespace/operators)
-      for (int ig = 0; ig < groups(); ++ig) {
+      for (int ig = 0; ig < ws_groups(); ++ig) {
         CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream(ig)));
       }
 
@@ -66,7 +66,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& botto
         }
         // Synchronize the work across groups, each of which went into its own stream
         // NOLINT_NEXT_LINE(whitespace/operators)
-        for (int g = 0; g < groups(); ++g) {
+        for (int g = 0; g < ws_groups(); ++g) {
           CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream(g)));
         }
       }
@@ -138,7 +138,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
     }  // end for i
   } else {
     // "old" path
-    const size_t gsize = ws.size() / agr_groups();
+    const size_t gsize = ws.size() / ws_groups();
     // compute dE/dB = sum_c(dE/dy)
     if (this->bias_term_ && this->param_propagate_down_[1]) {
       Btype* bias_diff = this->blobs_[1]->template mutable_gpu_diff<Btype>();
@@ -152,7 +152,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
         }  // end of groups
         // Synchronize the work across groups, each of which went into its own stream
         // NOLINT_NEXT_LINE(whitespace/operators)
-        for (int g = 0; g < MAX_PARALLEL_GROUPS; ++g) {
+        for (int g = 0; g < ws_groups(); ++g) {
           CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream(g)));
         }
       }  // end of i
@@ -176,7 +176,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
         }  // end of groups
         // Synchronize the work across groups, each of which went into its own stream
         // NOLINT_NEXT_LINE(whitespace/operators)
-        for (int g = 0; g < MAX_PARALLEL_GROUPS; ++g) {
+        for (int g = 0; g < ws_groups(); ++g) {
           CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream(g)));
         }
       }  // end of i
@@ -200,7 +200,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
         }
         // Synchronize the work across groups.
         // NOLINT_NEXT_LINE(whitespace/operators)
-        for (int g = 0; g < MAX_PARALLEL_GROUPS; ++g) {
+        for (int g = 0; g < ws_groups(); ++g) {
           CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream(g)));
         }
       }  // end if propagate down

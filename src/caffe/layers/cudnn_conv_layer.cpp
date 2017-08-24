@@ -92,13 +92,6 @@ void CuDNNConvolutionLayer<Ftype, Btype>::LayerSetUp(
   bwd_data_cudnn_math_.resize(bottom.size());
 #endif
 
-  const int dev = Caffe::current_device();
-  workspace_.emplace(dev, make_shared<GPUMemory::Workspace>());
-  tmp_weights_.emplace(dev, make_shared<GPUMemory::Workspace>());
-  was_reduced_.emplace(dev, false);
-  mem_size_estimated_.emplace(dev, 0UL);
-  mem_req_all_grps_.emplace(dev, 0UL);
-
   // initialize size arrays
   workspace_fwd_sizes_.resize(bottom.size());
   workspace_bwd_filter_sizes_.resize(bottom.size());
@@ -260,18 +253,18 @@ template <typename Ftype, typename Btype>
 size_t CuDNNConvolutionLayer<Ftype, Btype>::ComputeFindExWorkspaceSize() {
   const int dev = Caffe::current_device();
   GPUMemory::Workspace& ws = workspace(dev);
-  if (was_reduced(dev)) {
+  if (was_reduced(dev, this->phase_)) {
     return ws.size();
   }
   size_t workspace_limit_bytes, total_memory, workspace_bytes = 0UL;
   GPUMemory::GetInfo(&workspace_limit_bytes, &total_memory, true);
-  if (mem_size_estimated(dev) == 0UL) {
-    mem_size_estimated(dev) = workspace_limit_bytes;
+  if (mem_size_estimated(dev, this->phase_) == 0UL) {
+    mem_size_estimated(dev, this->phase_) = workspace_limit_bytes;
   }
   // Try to use the amount estimated for all groups
   workspace_bytes = align_down<7>(
       std::min(static_cast<size_t>(total_memory / 2UL),
-          static_cast<size_t>(mem_size_estimated(dev)) * ws_groups()));
+          static_cast<size_t>(mem_size_estimated(dev, this->phase_)) * ws_groups()));
   if (workspace_bytes <= ws.size()) {
     return ws.size();  // job is done by previous layer on this GPU
   }
@@ -323,18 +316,18 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
   const int dev = Caffe::current_device();
   GPUMemory::Workspace& ws = workspace(dev);
   if ((this->iterations_sized() == 3 || (this->iterations_sized() > 3 && use_reshape_))
-      && mem_req_all_grps(dev) > 0UL
+      && mem_req_all_grps(dev, this->phase_) > 0UL
       && ws.size() > PAGE_SIZE * 2UL
-      && ws.size() > mem_req_all_grps(dev) * 2UL) {
+      && ws.size() > mem_req_all_grps(dev, this->phase_) * 2UL) {
     // Winner needs less than half of initial estimate - saving the rest
     // Half because we want to reduce the number of allocs/deallocs
     LOG(INFO) << this->print_current_device()
               << " Layer '" << this->name() << "' reallocating workspace: "
               << gb_round2(ws.size()) << "G -> "
-              << gb_round2(mem_req_all_grps(dev) * 2UL) << "G";
+              << gb_round2(mem_req_all_grps(dev, this->phase_) * 2UL) << "G";
     ws.release();
-    ws.reserve(mem_req_all_grps(dev));
-    was_reduced(dev) = true;
+    ws.reserve(mem_req_all_grps(dev, this->phase_));
+    was_reduced(dev, this->phase_) = true;
   }
   if (!use_reshape_) {
     return;
@@ -484,7 +477,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
   CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
 
   UpdateWorkspaceDemand(bottom.size());
-  ws.safe_reserve(mem_req_all_grps(dev));
+  ws.safe_reserve(mem_req_all_grps(dev, this->phase_));
 
   // Tensor descriptor for bias.
   if (this->bias_term_) {
@@ -547,8 +540,8 @@ void CuDNNConvolutionLayer<Ftype, Btype>::EstimateMaxWorkspaceSize(const vector<
         CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
         size *= ws_groups();
         if (status == CUDNN_STATUS_SUCCESS) {
-          if (mem_size_estimated(dev) < size && size < available_memory) {
-            mem_size_estimated(dev) = size;
+          if (mem_size_estimated(dev, this->phase_) < size && size < available_memory) {
+            mem_size_estimated(dev, this->phase_) = size;
           }
         }
         if (m == 1) {
@@ -595,8 +588,8 @@ void CuDNNConvolutionLayer<Ftype, Btype>::EstimateMaxWorkspaceSize(const vector<
         CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
         size *= ws_groups();
         if (status == CUDNN_STATUS_SUCCESS) {
-          if (mem_size_estimated(dev) < size && size < available_memory) {
-            mem_size_estimated(dev) = size;
+          if (mem_size_estimated(dev, this->phase_) < size && size < available_memory) {
+            mem_size_estimated(dev, this->phase_) = size;
           }
         }
         if (m == 1) {
@@ -643,8 +636,8 @@ void CuDNNConvolutionLayer<Ftype, Btype>::EstimateMaxWorkspaceSize(const vector<
         CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
         size *= ws_groups();
         if (status == CUDNN_STATUS_SUCCESS) {
-          if (mem_size_estimated(dev) < size && size < available_memory) {
-            mem_size_estimated(dev) = size;
+          if (mem_size_estimated(dev, this->phase_) < size && size < available_memory) {
+            mem_size_estimated(dev, this->phase_) = size;
           }
         }
         if (m == 1) {
@@ -829,7 +822,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
             }
 #endif
             workspace_fwd_sizes_[i] = fwd_results[k].memory;
-            mem_req_all_grps(dev) = std::max(mem_req_all_grps(dev),
+            mem_req_all_grps(dev, this->phase_) = std::max(mem_req_all_grps(dev, this->phase_),
                 align_up<7>(workspace_fwd_sizes_[i] * ws_groups()));
             fwd_pseudo = is_precise(forward_math_) && !is_precise(tp<Ftype>());
             break;
@@ -923,7 +916,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
               }
 #endif
               workspace_bwd_filter_sizes_[i] = bwd_filter_results[k].memory;
-              mem_req_all_grps(dev) = std::max(mem_req_all_grps(dev),
+              mem_req_all_grps(dev, this->phase_) = std::max(mem_req_all_grps(dev, this->phase_),
                   align_up<7>(workspace_bwd_filter_sizes_[i] * ws_groups()));
               bwd_filter_pseudo = is_precise(backward_filter_math_) && !is_precise(tp<Btype>());
               bftime = bwd_filter_results[k].time;
@@ -1015,7 +1008,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
               }
 #endif
               workspace_bwd_data_sizes_[i] = bwd_data_results[k].memory;
-              mem_req_all_grps(dev) = std::max(mem_req_all_grps(dev),
+              mem_req_all_grps(dev, this->phase_) = std::max(mem_req_all_grps(dev, this->phase_),
                   align_up<7>(workspace_bwd_data_sizes_[i] * ws_groups()));
               bwd_data_pseudo = is_precise(backward_data_math_) && !is_precise(tp<Btype>());
               bdtime = bwd_data_results[k].time;
@@ -1068,7 +1061,8 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
     }
 
     os << " (limit " << gb_round2(workspace_limit_bytes) << "G, req "
-       << gb_round2(mem_req_all_grps(dev)) << "G)\tTimes: " << ftime << " " << bdtime << " " << bftime;
+       << gb_round2(mem_req_all_grps(dev, this->phase_)) << "G)\tTimes: "
+       << ftime << " " << bdtime << " " << bftime;
 
     LOG(INFO) << os.str();
   }
@@ -1163,20 +1157,11 @@ template <typename Ftype, typename Btype>
 void CuDNNConvolutionLayer<Ftype, Btype>::UpdateWorkspaceDemand(int size) {
   const int dev = Caffe::current_device();
   // Updating maximum mem_size_required_
-  size_t req;
+  size_t& req = mem_req_all_grps(dev, this->phase_);
   for (int i = 0; i < size; ++i) {
-    req = align_up<7>(workspace_fwd_sizes_[i] * ws_groups());
-    if (mem_req_all_grps(dev) < req) {
-      mem_req_all_grps(dev) = req;
-    }
-    req = align_up<7>(workspace_bwd_data_sizes_[i] * ws_groups());
-    if (mem_req_all_grps(dev) < req) {
-      mem_req_all_grps(dev) = req;
-    }
-    req = align_up<7>(workspace_bwd_filter_sizes_[i] * ws_groups());
-    if (mem_req_all_grps(dev) < req) {
-      mem_req_all_grps(dev) = req;
-    }
+    req = std::max(req, align_up<7>(workspace_fwd_sizes_[i] * ws_groups()));
+    req = std::max(req, align_up<7>(workspace_bwd_data_sizes_[i] * ws_groups()));
+    req = std::max(req, align_up<7>(workspace_bwd_filter_sizes_[i] * ws_groups()));
   }
 }
 
