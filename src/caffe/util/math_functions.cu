@@ -158,11 +158,11 @@ void axpy_kernel(const int N, const Mtype alpha, const Dtype* x, Dtype* y) {
 template<>
 __global__
 void axpy_kernel<half2, half2>(const int N, const half2 alpha, const half2* x, half2* y) {
-//#if __CUDA_ARCH__ >= 530
-//  CUDA_KERNEL_LOOP(idx, N) {
-//    y[idx] = __hfma2(alpha, x[idx], y[idx]);
-//  }
-//#else
+#if __CUDA_ARCH__ >= 530
+  CUDA_KERNEL_LOOP(idx, N) {
+    y[idx] = __hfma2(alpha, x[idx], y[idx]);
+  }
+#else
   float2 a = __half22float2(alpha);
   float2 x2, y2;
   CUDA_KERNEL_LOOP(idx, N) {
@@ -172,18 +172,18 @@ void axpy_kernel<half2, half2>(const int N, const half2 alpha, const half2* x, h
     y2.y += a.y * x2.y;
     y[idx] = float22half2_clip(y2);
   }
-//#endif
+#endif
 }
 
 template<>
 __global__
 void axpy_kernel<half2, float>(const int N, const float alpha, const half2* x, half2* y) {
-//#if __CUDA_ARCH__ >= 530
-//  half2 a = __float2half2_rn(alpha);
-//  CUDA_KERNEL_LOOP(idx, N) {
-//    y[idx] = __hfma2(a, x[idx], y[idx]);
-//  }
-//#else
+#if __CUDA_ARCH__ >= 530
+  half2 a = __float2half2_rn(alpha);
+  CUDA_KERNEL_LOOP(idx, N) {
+    y[idx] = __hfma2(a, x[idx], y[idx]);
+  }
+#else
   float2 x2, y2;
   CUDA_KERNEL_LOOP(idx, N) {
     x2 = __half22float2(x[idx]);
@@ -192,7 +192,7 @@ void axpy_kernel<half2, float>(const int N, const float alpha, const half2* x, h
     y2.y += alpha * x2.y;
     y[idx] = float22half2_clip(y2);
   }
-//#endif
+#endif
 }
 
 template<>

@@ -315,23 +315,23 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
 
   const int dev = Caffe::current_device();
   GPUMemory::Workspace& ws = workspace(dev);
-//  size_t mem_req = std::max(mem_req_all_grps(dev, TRAIN), mem_req_all_grps(dev, TEST));
-//  if ((this->iterations_sized() == 3 || (this->iterations_sized() > 3 && use_reshape_))
-//      && this->phase_ == TRAIN
-//      && mem_req > 0UL
-//      && ws.size() > PAGE_SIZE * 2UL
-//      && ws.size() > mem_req * 2UL) {
-//    // Winner needs less than half of initial estimate - saving the rest
-//    // Half because we want to reduce the number of allocs/deallocs
-//    LOG(INFO) << this->print_current_device()
-//              << " Layer '" << this->name() << "' reallocating workspace: "
-//              << gb_round2(ws.size()) << "G -> "
-//              << gb_round2(mem_req) << "G";
-//    // TRAIN only
-//    ws.release();
-//    ws.reserve(mem_req);
-//    was_reduced(dev, this->phase_) = true;
-//  }
+  size_t mem_req = std::max(mem_req_all_grps(dev, TRAIN), mem_req_all_grps(dev, TEST));
+  if ((this->iterations_sized() == 3 || (this->iterations_sized() > 3 && use_reshape_))
+      && this->phase_ == TRAIN
+      && mem_req > 0UL
+      && ws.size() > PAGE_SIZE * 2UL
+      && ws.size() > mem_req * 2UL) {
+    // Winner needs less than half of initial estimate - saving the rest
+    // Half because we want to reduce the number of allocs/deallocs
+    LOG(INFO) << this->print_current_device()
+              << " Layer '" << this->name() << "' reallocating workspace: "
+              << gb_round2(ws.size()) << "G -> "
+              << gb_round2(mem_req * 2UL) << "G";
+    // TRAIN only
+    ws.release();
+    ws.reserve(mem_req * 2UL);
+    was_reduced(dev, this->phase_) = true;
+  }
   if (!use_reshape_) {
     return;
   }
