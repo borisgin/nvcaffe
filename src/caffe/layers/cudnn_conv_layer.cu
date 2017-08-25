@@ -169,10 +169,12 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
           unsigned char* pspace = static_cast<unsigned char*>(ws.data()) + gsize * idxg(g);
           // Gradient w.r.t. weights.
           CUDNN_CHECK(cudnnConvolutionBackwardFilter(Caffe::cudnn_handle(idxg(g)),
-              cudnn::dataType<Btype>::one, bwd_bottom_descs_[i], bottom_data + bottom_offset_ * g,
+              cudnn::dataType<Btype>::one,
+              bwd_bottom_descs_[i], bottom_data + bottom_offset_ * g,
               bwd_top_descs_[i], top_diff + top_offset_ * g,
               bwd_conv_filter_descs_[i], bwd_filter_algo_[i], pspace, gsize,
-              cudnn::dataType<Btype>::one, bwd_filter_desc_, weight_diff + this->weight_offset_ * g));
+              cudnn::dataType<Btype>::one,
+              bwd_filter_desc_, weight_diff + this->weight_offset_ * g));
         }  // end of groups
         // Synchronize the work across groups, each of which went into its own stream
         // NOLINT_NEXT_LINE(whitespace/operators)
@@ -192,11 +194,13 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
           Btype* bottom_diff = bottom[i]->mutable_gpu_diff<Btype>();
           unsigned char* pspace = static_cast<unsigned char*>(ws.data()) + gsize * idxg(g);
           CUDNN_CHECK(cudnnConvolutionBackwardData(Caffe::cudnn_handle(idxg(g)),
-              cudnn::dataType<Btype>::one, bwd_filter_desc_, weight + this->weight_offset_ * g,
+              cudnn::dataType<Btype>::one,
+              bwd_filter_desc_, weight + this->weight_offset_ * g,
               bwd_top_descs_[i], top_diff + top_offset_ * g,
               bwd_conv_data_descs_[i],
               bwd_data_algo_[i], pspace, gsize,
-              cudnn::dataType<Btype>::zero, bwd_bottom_descs_[i], bottom_diff + bottom_offset_ * g));
+              cudnn::dataType<Btype>::zero,
+              bwd_bottom_descs_[i], bottom_diff + bottom_offset_ * g));
         }
         // Synchronize the work across groups.
         // NOLINT_NEXT_LINE(whitespace/operators)

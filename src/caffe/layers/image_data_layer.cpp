@@ -40,10 +40,8 @@ void ImageDataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom,
   LOG(INFO) << "Opening file " << source;
   std::ifstream infile(source.c_str());
   string filename;
-  int label = 1;
-  while (infile) {
-    infile >> filename;
-    label++;
+  int label;
+  while (infile >> filename >> label) {
     lines_.push_back(std::make_pair(filename, label));
   }
 
@@ -99,9 +97,7 @@ void ImageDataLayer<Ftype, Btype>::ShuffleImages() {
 }
 
 template<typename Ftype, typename Btype>
-void
-ImageDataLayer<Ftype, Btype>::InitializePrefetch() {
-}
+void ImageDataLayer<Ftype, Btype>::InitializePrefetch() {}
 
 // This function is called on prefetch thread
 template <typename Ftype, typename Btype>
