@@ -41,7 +41,7 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
   if (layer_inititialized_flag_.is_set()) {
     return;
   }
-  if (this->auto_mode_) {
+  if (this->auto_mode()) {
     this->AllocatePrefetch();
     P2PManager::dl_bar_wait();
     // Here we try to optimize memory split between prefetching and convolution.
@@ -58,13 +58,13 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
 #else
     size_t batches_fit = this->queues_num_;
 #endif
-    float ratio = 3.F;
+    float ratio = 5.F;
     Net* pnet = this->parent_net();
     if (pnet != nullptr) {
       Solver* psolver = pnet->parent_solver();
       if (psolver != nullptr) {
         if (pnet->layers().size() < 100) {
-          ratio = 2.F; // 1:2 for "i/o bound", 1:3 otherwise
+          ratio = 2.F; // 1:2 for "i/o bound", 1:5 otherwise
         }
       }
     }

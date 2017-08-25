@@ -19,7 +19,9 @@ namespace caffe {
 
 template <typename Ftype, typename Btype>
 ImageDataLayer<Ftype, Btype>::~ImageDataLayer<Ftype, Btype>() {
-  this->StopInternalThread();
+  if (layer_inititialized_flag_.is_set()) {
+    this->StopInternalThread();
+  }
 }
 
 template <typename Ftype, typename Btype>
@@ -84,6 +86,7 @@ void ImageDataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom,
   for (int i = 0; i < this->prefetch_.size(); ++i) {
     this->prefetch_[i]->label_.Reshape(label_shape);
   }
+  layer_inititialized_flag_.set();
 }
 
 template <typename Ftype, typename Btype>
@@ -92,6 +95,9 @@ void ImageDataLayer<Ftype, Btype>::ShuffleImages() {
       static_cast<caffe::rng_t*>(prefetch_rng_->generator());
   shuffle(lines_.begin(), lines_.end(), prefetch_rng);
 }
+
+template<typename Ftype, typename Btype>
+void ImageDataLayer<Ftype, Btype>::InitializePrefetch() {}
 
 // This function is called on prefetch thread
 template <typename Ftype, typename Btype>
@@ -150,7 +156,7 @@ void ImageDataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id
     lines_id_++;
     if (lines_id_ >= lines_size) {
       // We have reached the end. Restart from the first.
-      DLOG(INFO) << "Restarting data prefetching from start.";
+      DLOG(INFO) << this->print_current_device() << "Restarting data prefetching from start.";
       lines_id_ = 0;
       if (this->layer_param_.image_data_param().shuffle()) {
         ShuffleImages();
@@ -158,9 +164,12 @@ void ImageDataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id
     }
   }
   batch_timer.Stop();
-  DLOG(INFO) << "Prefetch batch: " << batch_timer.MilliSeconds() << " ms.";
-  DLOG(INFO) << "     Read time: " << read_time / 1000 << " ms.";
-  DLOG(INFO) << "Transform time: " << trans_time / 1000 << " ms.";
+  DLOG(INFO) << this->print_current_device()
+             << "Prefetch batch: " << batch_timer.MilliSeconds() << " ms.";
+  DLOG(INFO) << this->print_current_device()
+             << "     Read time: " << read_time / 1000 << " ms.";
+  DLOG(INFO) << this->print_current_device()
+             << "Transform time: " << trans_time / 1000 << " ms.";
 
   batch->set_id(this->batch_id(thread_id));
 }

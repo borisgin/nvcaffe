@@ -135,6 +135,10 @@ class Solver {
     return param_.display() > 0;
   }
 
+  bool initialized() const {
+    return init_flag_.is_set();
+  }
+
   /**
    * @brief Returns the solver type.
    */
