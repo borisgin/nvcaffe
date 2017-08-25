@@ -38,6 +38,7 @@ DataLayer<Ftype, Btype>::~DataLayer() {
 template<typename Ftype, typename Btype>
 void
 DataLayer<Ftype, Btype>::InitializePrefetch() {
+  std::lock_guard<std::mutex> lock(mutex_prefetch_);
   if (layer_inititialized_flag_.is_set()) {
     return;
   }
@@ -145,8 +146,6 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
           true,
           cache,
           shuffle);
-    } else {
-      CHECK(false);
     }
   } else if (!reader_) {
     reader_ = make_shared<DataReader>(param,
