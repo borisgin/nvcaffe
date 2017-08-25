@@ -41,7 +41,7 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
   if (layer_inititialized_flag_.is_set()) {
     return;
   }
-  if (this->auto_mode_) {
+  if (this->auto_mode()) {
     this->AllocatePrefetch();
     P2PManager::dl_bar_wait();
     // Here we try to optimize memory split between prefetching and convolution.
@@ -55,7 +55,6 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
     GPUMemory::GetInfo(&gpu_bytes, &total_memory, true);
     gpu_bytes = Caffe::min_avail_device_memory();
     size_t batches_fit = gpu_bytes / batch_bytes;
-    DLOG(INFO) << "MIN AVAIL " << gpu_bytes << " FITS " << batches_fit;
 #else
     size_t batches_fit = this->queues_num_;
 #endif

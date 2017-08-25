@@ -175,6 +175,7 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
 
   bool use_v7grouping() const {
 #ifdef CUDNN_GROUPING
+    // Currently accelerated: 1 channel per group, forward only
     return this->channels_ == this->num_output_ && this->channels_ == this->group_;
 #else
     return false;
@@ -182,15 +183,11 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
   }
 
   int groups() {
-    return use_v7grouping() ? this->group_ : std::min(this->group_, MAX_PARALLEL_GROUPS);
+    return this->group_;
   }
 
   int ws_groups() {
     return use_v7grouping() ? 1 : std::min(this->group_, MAX_PARALLEL_GROUPS);
-  }
-
-  int agr_groups() {
-    return this->group_;
   }
 
   int idxg(int group) {
