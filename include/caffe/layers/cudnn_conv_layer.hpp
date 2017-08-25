@@ -18,6 +18,10 @@ namespace caffe {
 
 #ifdef USE_CUDNN
 
+#if CUDNN_VERSION_MIN(7, 0, 0)
+  #define CUDNN_GROUPING
+#endif
+
 /*
  * @brief cuDNN implementation of ConvolutionLayer.
  *        Fallback to ConvolutionLayer for CPU mode.
@@ -43,15 +47,57 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
   static constexpr size_t PAGE_SIZE = 16 * 1024 * 1024;
   // We update it on second Fwd/Bwd pass and we allocate it *once*
   // when we start third pass. We might recompute it later if demand grows
-  // and/or we suddenly need to get extra memory for other needs.
-  static thread_local size_t mem_size_estimated_, mem_req_all_grps_;
+  // and/or we suddenly have to get extra memory for other needs.
+  static std::unordered_map<int, size_t> train_mem_size_estimated_, test_mem_size_estimated_;
+  static size_t& mem_size_estimated(int device, Phase phase) {
+    std::lock_guard<std::mutex> lock(m_);
+    std::unordered_map<int, size_t>& mem_size_estimated =
+        phase == TRAIN ? train_mem_size_estimated_ : test_mem_size_estimated_;
+    if (mem_size_estimated.count(device) == 0) {
+      mem_size_estimated.emplace(device, 0UL);
+    }
+    return mem_size_estimated[device];
+  }
+  static std::unordered_map<int, size_t> train_mem_req_all_grps_, test_mem_req_all_grps_;
+  static size_t& mem_req_all_grps(int device, Phase phase) {
+    std::lock_guard<std::mutex> lock(m_);
+    std::unordered_map<int, size_t>& mem_req_all_grps =
+        phase == TRAIN ? train_mem_req_all_grps_ : test_mem_req_all_grps_;
+    if (mem_req_all_grps.count(device) == 0) {
+      mem_req_all_grps.emplace(device, 0UL);
+    }
+    return mem_req_all_grps[device];
+  }
   // Workspace used by all Convolution layers one after another.
   // We carry it global to prevent unnecessary allocations/deallocations
   // because they hurt performance.
-  static thread_local GPUMemory::Workspace workspace_;
-  static thread_local GPUMemory::Workspace tmp_weights_;
+  static std::unordered_map<int, shared_ptr<GPUMemory::Workspace>> workspace_;
+  static GPUMemory::Workspace& workspace(int device) {
+    std::lock_guard<std::mutex> lock(m_);
+    if (workspace_.count(device) == 0) {
+      workspace_.emplace(device, make_shared<GPUMemory::Workspace>());
+    }
+    return *workspace_[device];
+  }
+  static std::unordered_map<int, shared_ptr<GPUMemory::Workspace>> tmp_weights_;
+  static GPUMemory::Workspace& tmp_weights(int device) {
+    std::lock_guard<std::mutex> lock(m_);
+    if (tmp_weights_.count(device) == 0) {
+      tmp_weights_.emplace(device, make_shared<GPUMemory::Workspace>());
+    }
+    return *tmp_weights_[device];
+  }
   // Stop alloc/dealloc
-  static thread_local bool was_reduced_;
+  static std::unordered_map<int, bool> train_was_reduced_, test_was_reduced_;
+  static bool& was_reduced(int device, Phase phase) {
+    std::lock_guard<std::mutex> lock(m_);
+    std::unordered_map<int, bool>& was_reduced =
+        phase == TRAIN ? train_was_reduced_ : test_was_reduced_;
+    if (was_reduced.count(device) == 0) {
+      was_reduced.emplace(device, false);
+    }
+    return was_reduced[device];
+  }
 
  public:
   explicit CuDNNConvolutionLayer(const LayerParameter& param)
@@ -73,7 +119,6 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
   virtual void Backward_gpu(const vector<Blob*>& top, const vector<bool>& propagate_down,
       const vector<Blob*>& bottom);
 
-  bool data_algo_fallback(int i, int pad_h, int pad_w, int stride_h, int stride_w);
   bool handles_setup_;
 
   // algorithms for forward and backwards convolutions
@@ -92,7 +137,6 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
   cudnnFilterDescriptor_t fwd_filter_desc_, bwd_filter_desc_;
   vector<cudnnConvolutionDescriptor_t> fwd_conv_descs_;
   vector<cudnnConvolutionDescriptor_t> bwd_conv_data_descs_, bwd_conv_filter_descs_;
-  vector<bool> conv_descs_fall_back_;
 
   int bottom_offset_, top_offset_, bias_offset_;
 
@@ -125,16 +169,29 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
   bool use_reshape_;
   bool initialized_cached_descs_;
   static constexpr int MAX_PARALLEL_GROUPS = 2;
-  static constexpr int REQUEST_ALGO_COUNT = 3;
+  static constexpr int REQUEST_ALGO_COUNT = 1;
   static constexpr int ATTEMPTS_TO_RESERVE_WS = 3;
+  static std::mutex m_;
 
-  // For performance reasons and better memory management we don't go beyond the limit
+  bool use_v7grouping() const {
+#ifdef CUDNN_GROUPING
+    // Currently accelerated: 1 channel per group, forward only
+    return this->channels_ == this->num_output_ && this->channels_ == this->group_;
+#else
+    return false;
+#endif
+  }
+
   int groups() {
-    return std::min(this->group_, MAX_PARALLEL_GROUPS);
+    return this->group_;
+  }
+
+  int ws_groups() {
+    return use_v7grouping() ? 1 : std::min(this->group_, MAX_PARALLEL_GROUPS);
   }
 
   int idxg(int group) {
-    return group % MAX_PARALLEL_GROUPS;
+    return group % ws_groups();
   }
 
   // This is current *demand*: it might be not yet allocated.
@@ -159,19 +216,30 @@ template<typename Ftype, typename Btype>
 constexpr int CuDNNConvolutionLayer<Ftype, Btype>::ATTEMPTS_TO_RESERVE_WS;
 
 template<typename Ftype, typename Btype>
-thread_local GPUMemory::Workspace CuDNNConvolutionLayer<Ftype, Btype>::workspace_;
+std::unordered_map<int, shared_ptr<GPUMemory::Workspace>>
+    CuDNNConvolutionLayer<Ftype, Btype>::workspace_;
 
 template<typename Ftype, typename Btype>
-thread_local GPUMemory::Workspace CuDNNConvolutionLayer<Ftype, Btype>::tmp_weights_;
+std::unordered_map<int, shared_ptr<GPUMemory::Workspace>>
+    CuDNNConvolutionLayer<Ftype, Btype>::tmp_weights_;
 
 template<typename Ftype, typename Btype>
-thread_local size_t CuDNNConvolutionLayer<Ftype, Btype>::mem_size_estimated_;
+std::unordered_map<int, size_t> CuDNNConvolutionLayer<Ftype, Btype>::train_mem_size_estimated_;
+template<typename Ftype, typename Btype>
+std::unordered_map<int, size_t> CuDNNConvolutionLayer<Ftype, Btype>::test_mem_size_estimated_;
 
 template<typename Ftype, typename Btype>
-thread_local size_t CuDNNConvolutionLayer<Ftype, Btype>::mem_req_all_grps_;
+std::unordered_map<int, size_t> CuDNNConvolutionLayer<Ftype, Btype>::train_mem_req_all_grps_;
+template<typename Ftype, typename Btype>
+std::unordered_map<int, size_t> CuDNNConvolutionLayer<Ftype, Btype>::test_mem_req_all_grps_;
 
 template<typename Ftype, typename Btype>
-thread_local bool CuDNNConvolutionLayer<Ftype, Btype>::was_reduced_ = false;
+std::unordered_map<int, bool> CuDNNConvolutionLayer<Ftype, Btype>::train_was_reduced_;
+template<typename Ftype, typename Btype>
+std::unordered_map<int, bool> CuDNNConvolutionLayer<Ftype, Btype>::test_was_reduced_;
+
+template<typename Ftype, typename Btype>
+std::mutex CuDNNConvolutionLayer<Ftype, Btype>::m_;
 
 #endif
 

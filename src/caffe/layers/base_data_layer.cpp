@@ -142,7 +142,7 @@ void BasePrefetchingDataLayer<Ftype, Btype>::InternalThreadEntryN(size_t thread_
           InitializePrefetch();
           start_reading();
         }
-        if (this->auto_mode_) {
+        if (this->auto_mode()) {
           break;
         }  // manual otherwise, thus keep rolling
         iter0 = false;

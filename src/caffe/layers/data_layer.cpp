@@ -41,7 +41,7 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
   if (layer_inititialized_flag_.is_set()) {
     return;
   }
-  if (this->auto_mode_) {
+  if (this->auto_mode()) {
     this->AllocatePrefetch();
     P2PManager::dl_bar_wait();
     // Here we try to optimize memory split between prefetching and convolution.

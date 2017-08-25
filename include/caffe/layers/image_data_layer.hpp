@@ -36,10 +36,19 @@ class ImageDataLayer : public BasePrefetchingDataLayer<Ftype, Btype> {
   void ShuffleImages();
   void load_batch(Batch<Ftype>* batch, int thread_id, size_t queue_id = 0UL) override;
   void start_reading() override {}
+  void InitializePrefetch() override;
+  bool auto_mode() const override {
+    return false;
+  }
+
+  Flag* layer_inititialized_flag() override {
+    return this->phase_ == TRAIN ? &layer_inititialized_flag_ : nullptr;
+  }
 
   shared_ptr<Caffe::RNG> prefetch_rng_;
   vector<std::pair<std::string, int> > lines_;
   int lines_id_;
+  Flag layer_inititialized_flag_;
 };
 
 

@@ -634,6 +634,11 @@ class ThreadSafeMap {
     std::lock_guard<std::mutex> lock(m_);
     return map_->insert(entry);
   }
+  template<class... Args>
+  std::pair<iterator, bool> emplace(Args&&... args) {
+    std::lock_guard<std::mutex> lock(m_);
+    return map_->emplace(args...);
+  }
   mapped_type& operator[](const key_type& key) {
     std::lock_guard<std::mutex> lock(m_);
     return (*map_)[key];
