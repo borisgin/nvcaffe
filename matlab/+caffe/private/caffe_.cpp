@@ -188,11 +188,10 @@ static void get_solver(MEX_ARGS) {
       "Usage: caffe_('get_solver', solver_file)");
   char* solver_file = mxArrayToString(prhs[0]);
   mxCHECK_FILE_EXIST(solver_file);
-  SolverParameter solver_param;
-  ReadSolverParamsFromTextFileOrDie(solver_file, &solver_param);
+  SolverParameter solver_param = ReadSolverParamsFromTextFileOrDie(solver_file);
   shared_ptr<Solver> solver(SolverRegistry::CreateSolver(solver_param));
   solvers_.push_back(solver);
-  plhs[0] = ptr_to_handle<Solver<float> >(solver.get());
+  plhs[0] = ptr_to_handle<Solver >(solver.get());
   mxFree(solver_file);
 }
 
@@ -200,7 +199,7 @@ static void get_solver(MEX_ARGS) {
 static void solver_get_attr(MEX_ARGS) {
   mxCHECK(nrhs == 1 && mxIsStruct(prhs[0]),
       "Usage: caffe_('solver_get_attr', hSolver)");
-  Solver<float>* solver = handle_to_ptr<Solver<float> >(prhs[0]);
+  Solver* solver = handle_to_ptr<Solver >(prhs[0]);
   const int solver_attr_num = 2;
   const char* solver_attrs[solver_attr_num] = { "hNet_net", "hNet_test_nets" };
   mxArray* mx_solver_attr = mxCreateStructMatrix(1, 1, solver_attr_num,
@@ -216,7 +215,7 @@ static void solver_get_attr(MEX_ARGS) {
 static void solver_get_iter(MEX_ARGS) {
   mxCHECK(nrhs == 1 && mxIsStruct(prhs[0]),
       "Usage: caffe_('solver_get_iter', hSolver)");
-  Solver<float>* solver = handle_to_ptr<Solver<float> >(prhs[0]);
+  Solver* solver = handle_to_ptr<Solver>(prhs[0]);
   plhs[0] = mxCreateDoubleScalar(solver->iter());
 }
 
@@ -224,7 +223,7 @@ static void solver_get_iter(MEX_ARGS) {
 static void solver_restore(MEX_ARGS) {
   mxCHECK(nrhs == 2 && mxIsStruct(prhs[0]) && mxIsChar(prhs[1]),
       "Usage: caffe_('solver_restore', hSolver, snapshot_file)");
-  Solver<float>* solver = handle_to_ptr<Solver<float> >(prhs[0]);
+  Solver* solver = handle_to_ptr<Solver>(prhs[0]);
   char* snapshot_file = mxArrayToString(prhs[1]);
   mxCHECK_FILE_EXIST(snapshot_file);
   solver->Restore(snapshot_file);
@@ -235,7 +234,7 @@ static void solver_restore(MEX_ARGS) {
 static void solver_solve(MEX_ARGS) {
   mxCHECK(nrhs == 1 && mxIsStruct(prhs[0]),
       "Usage: caffe_('solver_solve', hSolver)");
-  Solver<float>* solver = handle_to_ptr<Solver<float> >(prhs[0]);
+  Solver* solver = handle_to_ptr<Solver>(prhs[0]);
   solver->Solve();
 }
 
@@ -243,7 +242,7 @@ static void solver_solve(MEX_ARGS) {
 static void solver_step(MEX_ARGS) {
   mxCHECK(nrhs == 2 && mxIsStruct(prhs[0]) && mxIsDouble(prhs[1]),
       "Usage: caffe_('solver_step', hSolver, iters)");
-  Solver<float>* solver = handle_to_ptr<Solver<float> >(prhs[0]);
+  Solver* solver = handle_to_ptr<Solver>(prhs[0]);
   int iters = mxGetScalar(prhs[1]);
   solver->Step(iters);
 }
@@ -281,9 +280,9 @@ static void net_get_attr(MEX_ARGS) {
   mxArray* mx_net_attr = mxCreateStructMatrix(1, 1, net_attr_num,
       net_attrs);
   mxSetField(mx_net_attr, 0, "hLayer_layers",
-      ptr_vec_to_handle_vec<Layer<float> >(net->layers()));
+      ptr_vec_to_handle_vec<LayerBase>(net->layers()));
   mxSetField(mx_net_attr, 0, "hBlob_blobs",
-      ptr_vec_to_handle_vec<TBlob<float> >(net->blobs()));
+      ptr_vec_to_handle_vec<Blob>(net->blobs()));
   mxSetField(mx_net_attr, 0, "input_blob_indices",
       int_vec_to_mx_vec(net->input_blob_indices()));
   mxSetField(mx_net_attr, 0, "output_blob_indices",
@@ -346,13 +345,13 @@ static void net_save(MEX_ARGS) {
 static void layer_get_attr(MEX_ARGS) {
   mxCHECK(nrhs == 1 && mxIsStruct(prhs[0]),
       "Usage: caffe_('layer_get_attr', hLayer)");
-  Layer<float>* layer = handle_to_ptr<Layer<float> >(prhs[0]);
+  Layer<float, float>* layer = handle_to_ptr<Layer<float, float> >(prhs[0]);
   const int layer_attr_num = 1;
   const char* layer_attrs[layer_attr_num] = { "hBlob_blobs" };
   mxArray* mx_layer_attr = mxCreateStructMatrix(1, 1, layer_attr_num,
       layer_attrs);
   mxSetField(mx_layer_attr, 0, "hBlob_blobs",
-      ptr_vec_to_handle_vec<TBlob<float> >(layer->blobs()));
+      ptr_vec_to_handle_vec<Blob>(layer->blobs()));
   plhs[0] = mx_layer_attr;
 }
 
@@ -360,7 +359,7 @@ static void layer_get_attr(MEX_ARGS) {
 static void layer_get_type(MEX_ARGS) {
   mxCHECK(nrhs == 1 && mxIsStruct(prhs[0]),
       "Usage: caffe_('layer_get_type', hLayer)");
-  Layer<float>* layer = handle_to_ptr<Layer<float> >(prhs[0]);
+  Layer<float, float>* layer = handle_to_ptr<Layer<float, float> >(prhs[0]);
   plhs[0] = mxCreateString(layer->type());
 }
 
@@ -498,7 +497,7 @@ static void write_mean(MEX_ARGS) {
   TBlob<float> data_mean(1, channels, height, width);
   mx_mat_to_blob(prhs[0], &data_mean, DATA);
   BlobProto blob_proto;
-  data_mean.ToProto(&blob_proto, false);
+  data_mean.ToProto<float>(&blob_proto, false, false);
   WriteProtoToBinaryFile(blob_proto, mean_proto_file);
   mxFree(mean_proto_file);
 }

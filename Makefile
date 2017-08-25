@@ -443,7 +443,7 @@ COMMON_FLAGS += $(foreach includedir,$(INCLUDE_DIRS),-I$(includedir))
 CXXFLAGS += -pthread -fPIC $(COMMON_FLAGS) $(WARNINGS)
 NVCCFLAGS += -ccbin=$(CXX) -Xcompiler -fPIC $(COMMON_FLAGS)
 # mex may invoke an older gcc that is too liberal with -Wuninitalized
-MATLAB_CXXFLAGS := $(CXXFLAGS) -Wno-uninitialized
+MATLAB_CXXFLAGS := $(CXXFLAGS) -Wno-uninitialized -std=c++11
 LINKFLAGS += -pthread -fPIC $(COMMON_FLAGS) $(WARNINGS)
 
 USE_PKG_CONFIG ?= 0
