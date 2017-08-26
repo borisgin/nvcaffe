@@ -261,16 +261,14 @@ size_t CuDNNConvolutionLayer<Ftype, Btype>::ComputeFindExWorkspaceSize() {
   if (was_reduced(dev, this->phase_)) {
     return ws.size();
   }
-  size_t workspace_limit_bytes, total_memory, workspace_bytes = 0UL;
+  size_t workspace_limit_bytes, total_memory;
   GPUMemory::GetInfo(&workspace_limit_bytes, &total_memory, true);
   size_t& mem_est = mem_size_estimated(dev, this->phase_);
   if (mem_est == 0UL) {
     mem_est = workspace_limit_bytes;
   }
   // Try to use the amount estimated for all groups
-  workspace_bytes = align_down<7>(
-      std::min(static_cast<size_t>(total_memory / 2UL),
-          static_cast<size_t>(mem_est) * ws_groups()));
+  size_t workspace_bytes = align_down<7>(std::min(total_memory, mem_est));
   if (workspace_bytes <= ws.size()) {
     return ws.size();  // job is done by previous layer on this GPU
   }
@@ -278,8 +276,8 @@ size_t CuDNNConvolutionLayer<Ftype, Btype>::ComputeFindExWorkspaceSize() {
       workspace_limit_bytes - PAGE_SIZE : 0UL;
   if (workspace_bytes > workspace_limit_bytes) {
     LOG(WARNING) << " " << this->print_current_device()
-        << " Current workspace (" << gb_round2(ws.size()) << "G)"
-        << " Estimated requirement (" << gb_round2(workspace_bytes) << "G)";
+        << " Current workspace " << gb_round2(ws.size()) << "G"
+        << " Estimated req " << gb_round2(workspace_bytes) << "G";
     workspace_bytes = align_down<7>(workspace_limit_bytes);
   }
   int attempts = ATTEMPTS_TO_RESERVE_WS;
@@ -511,8 +509,6 @@ void CuDNNConvolutionLayer<Ftype, Btype>::EstimateMaxWorkspaceSize(const vector<
   const bool top_device = Caffe::device_capability(dev) >= 700;
 #endif
   GPUMemory::GetInfo(&available_memory, &total_memory, true);
-  // As per our experiments, it's not healthy to take more than 50% of total
-  available_memory = std::min(available_memory, total_memory / 2);
   size_t& mem_est = mem_size_estimated(dev, this->phase_);
   std::list<int> algos_to_test;
   for (int i = 0; i < bottom.size(); ++i) {
@@ -550,7 +546,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::EstimateMaxWorkspaceSize(const vector<
         CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
         size *= ws_groups();
         if (status == CUDNN_STATUS_SUCCESS) {
-          if (mem_est < size && size < available_memory) {
+          if (mem_est < size && size < total_memory) {
             mem_est = size;
           }
         }
@@ -598,7 +594,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::EstimateMaxWorkspaceSize(const vector<
         CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
         size *= ws_groups();
         if (status == CUDNN_STATUS_SUCCESS) {
-          if (mem_est < size && size < available_memory) {
+          if (mem_est < size && size < total_memory) {
             mem_est = size;
           }
         }
@@ -646,7 +642,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::EstimateMaxWorkspaceSize(const vector<
         CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
         size *= ws_groups();
         if (status == CUDNN_STATUS_SUCCESS) {
-          if (mem_est < size && size < available_memory) {
+          if (mem_est < size && size < total_memory) {
             mem_est = size;
           }
         }
