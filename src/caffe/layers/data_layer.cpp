@@ -59,26 +59,29 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
 #else
     size_t batches_fit = this->queues_num_;
 #endif
+    size_t max_parsers_num = 2;
+    size_t max_transf_num = 3;
     float ratio = 5.F;
     Net* pnet = this->parent_net();
     if (pnet != nullptr) {
       Solver* psolver = pnet->parent_solver();
       if (psolver != nullptr) {
         if (pnet->layers().size() < 100) {
+          max_transf_num = 4;
           ratio = 2.F; // 1:2 for "i/o bound", 1:5 otherwise
         }
       }
     }
-    // TODO Respect the number of CPU cores
-    const float fit = std::min(16.F, std::floor(batches_fit / ratio));  // 16+ -> "ideal" 4x4
-    current_parsers_num = std::min(4UL, std::max(1UL,
+    const float fit = std::min(float(max_parsers_num * max_transf_num),
+        std::floor(batches_fit / ratio));
+    current_parsers_num = std::min(max_parsers_num, std::max(1UL,
         static_cast<size_t>(std::sqrt(fit))));
     if (cache_ && current_parsers_num > 1UL) {
       LOG(INFO) << this->print_current_device() << " Reduced parser threads count from "
                 << current_parsers_num << " to 1 because cache is used";
       current_parsers_num = 1UL;
     }
-    current_transf_num = std::min(4UL, std::max(current_transf_num,
+    current_transf_num = std::min(max_transf_num, std::max(current_transf_num,
         static_cast<size_t>(std::lround(fit / current_parsers_num))));
     this->RestartAllThreads(current_transf_num, true, false, Caffe::next_seed());
     this->transf_num_ = this->threads_num();

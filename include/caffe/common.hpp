@@ -609,15 +609,28 @@ class Flag {
   }
 };
 
+class MutexVec {
+  static constexpr size_t TOP_ORDINAL = 128;
+  vector<shared_ptr<mutex>> v_;
+
+ public:
+  MutexVec() : v_(TOP_ORDINAL, make_shared<mutex>()) {}
+  mutex& operator[] (size_t dev) {
+    while (v_.size() <= dev) {
+      v_.resize(v_.size(), make_shared<mutex>());
+    }
+    return *v_[dev];
+  }
+};
 
 template <typename M>
 class ThreadSafeMap {
  public:
-  ThreadSafeMap() {
+  explicit ThreadSafeMap(std::mutex& m) : m_(m) {
     std::lock_guard<std::mutex> lock(m_);
     map_.reset(new M());
   }
-  ~ThreadSafeMap() {}
+  ~ThreadSafeMap() = default;
 
   using iterator = typename M::iterator;
   using const_iterator = typename M::const_iterator;
@@ -710,11 +723,9 @@ class ThreadSafeMap {
 
  private:
   std::unique_ptr<M> map_;
-  static std::mutex m_;
+  std::mutex& m_;
 };
 
-template <typename M>
-std::mutex ThreadSafeMap<M>::m_;
 
 ///> the biggest number n which is not greater than val and divisible by 2^power
 template<int power, typename T>

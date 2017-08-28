@@ -73,15 +73,17 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& botto
     }  // end of for i
   }
 
-  const Solver* psolver = this->parent_solver();
-  if (psolver == nullptr || psolver->iterations_sized() > 0) {
-    // Possibly use faster algorithms by allowing larger workspace.
-    use_modest_workspace_ = false;
-  } else {
-    Net* pnet = this->parent_net();
-    if (pnet == nullptr || pnet->infer_count() > 0) {
-      // Same as above in test flow
+  if (use_modest_workspace_) {
+    const Solver *psolver = this->parent_solver();
+    if (psolver == nullptr || psolver->iterations_sized() > 0) {
+      // Possibly use faster algorithms by allowing larger workspace.
       use_modest_workspace_ = false;
+    } else {
+      Net *pnet = this->parent_net();
+      if (pnet == nullptr || pnet->infer_count() > 0) {
+        // Same as above in test flow
+        use_modest_workspace_ = false;
+      }
     }
   }
 }
