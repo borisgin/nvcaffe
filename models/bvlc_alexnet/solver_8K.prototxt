@@ -1,23 +1,24 @@
-net: "models/bvlc_alexnet/train_val.prototxt"
+net: "models/bvlc_alexnet/train_val_fp16.prototxt"
 
-test_iter: 196             #1562 = 50000/32
-test_interval:  1250   
+test_iter:      196        #1562 = 50000/32
+test_interval:  300        #1250   
 test_initialization: false
 
-display:  100
+display:   50
+ 
+max_iter:  15600 	# 100 epochs 
 
-max_iter: 125000 
+#base_lr:  2             # B=1024
+base_lr:   16            # B=8K
+
+local_lr_auto:  true
+local_gw_ratio: 0.001
+
+rampup_lr: 1
+rampup_interval: 600   
 
 lr_policy: "poly"
-power: 2
-
-base_lr:   2                # B=1024
-
-#rampup_lr: 0.1
-#rampup_interval:  2500
-
-local_lr_auto: true
-local_gw_ratio: 0.001
+power: 2.
 
 momentum: 0.9
 weight_decay: 0.0005
@@ -28,6 +29,7 @@ snapshot_after_train: false
 
 solver_mode: GPU
 random_seed: 1
+#solver_data_type: FLOAT16
 
 # Train dataset size = 1,281,167
 # Test dataset size  =    50,000
