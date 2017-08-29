@@ -5,18 +5,18 @@
 
 namespace caffe {
 
-size_t Blob::cpu_memory_data_use() const {
-  return data_tensor_->cpu_memory_use();
+size_t Blob::cpu_memory_data_use(bool own_only) const {
+  return data_tensor_->cpu_memory_use(own_only);
 }
-size_t Blob::cpu_memory_diff_use() const {
-  return diff_tensor_->cpu_memory_use();
+size_t Blob::cpu_memory_diff_use(bool own_only) const {
+  return diff_tensor_->cpu_memory_use(own_only);
 }
 #ifndef CPU_ONLY
-size_t Blob::gpu_memory_data_use() const {
-  return data_tensor_->gpu_memory_use();
+size_t Blob::gpu_memory_data_use(bool own_only) const {
+  return data_tensor_->gpu_memory_use(own_only);
 }
-size_t Blob::gpu_memory_diff_use() const {
-  return diff_tensor_->gpu_memory_use();
+size_t Blob::gpu_memory_diff_use(bool own_only) const {
+  return diff_tensor_->gpu_memory_use(own_only);
 }
 #endif
 

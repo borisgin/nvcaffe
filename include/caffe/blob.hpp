@@ -106,8 +106,8 @@ class Blob {
     diff_tensor_->current_memory(on_gpu);
   }
 
-  size_t cpu_memory_data_use() const;
-  size_t cpu_memory_diff_use() const;
+  size_t cpu_memory_data_use(bool own_only = false) const;
+  size_t cpu_memory_diff_use(bool own_only = false) const;
 
   /**
    * @brief Creates an instance of a Blob with given Dtype.
@@ -470,8 +470,8 @@ class Blob {
   }
 
 #ifndef CPU_ONLY
-  size_t gpu_memory_data_use() const;
-  size_t gpu_memory_diff_use() const;
+  size_t gpu_memory_data_use(bool own_only = false) const;
+  size_t gpu_memory_diff_use(bool own_only = false) const;
 
   void set_gpu_data(void* data) {
     CHECK_NOTNULL(data);

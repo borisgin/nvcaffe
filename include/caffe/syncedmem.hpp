@@ -39,8 +39,12 @@ class SyncedMemory {
   enum SyncedHead { UNINITIALIZED, HEAD_AT_CPU, HEAD_AT_GPU, SYNCED };
   SyncedHead head() const { return head_; }
   size_t size() const { return size_; }
-  size_t gpu_memory_use() const { return own_gpu_data_ ? size_ : 0ULL; }
-  size_t cpu_memory_use() const { return own_cpu_data_ ? size_ : 0ULL; }
+  size_t gpu_memory_use(bool own_only = false) const {
+    return own_only ? (own_gpu_data_ ? size_ : 0ULL) : size_;
+  }
+  size_t cpu_memory_use(bool own_only = false) const {
+    return own_only ? (own_cpu_data_ ? size_ : 0ULL) : size_;
+  }
 
   bool is_valid() const {
     return valid_;
