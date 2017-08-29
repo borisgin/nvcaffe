@@ -257,22 +257,26 @@ void CuDNNConvolutionLayer<Ftype, Btype>::AllocateFindExWorkspace() {
   if (req_bytes <= ws.size()) {
     return;  // job is done by previous layer on this GPU
   }
+  const size_t to_reserve = PAGE_SIZE + align_up<7>(this->weight_offset_) * sizeof(Btype);
+
   size_t bytes_available, bytes_total;
   GPUMemory::GetInfo(&bytes_available, &bytes_total, true);
-  const size_t bytes_possible =
-      align_down<7>(ws.size() +
-          (bytes_available > PAGE_SIZE ? bytes_available - PAGE_SIZE : 0UL));
+  size_t bytes_possible = ws.size() + bytes_available;
+  bytes_possible = align_down<7>(bytes_possible > to_reserve ? bytes_possible - to_reserve : 0UL);
+
   if (req_bytes > bytes_possible) {
     LOG(WARNING) << " " << this->print_current_device()
-        << " Currently avail " << gb_round2(bytes_available)
-        << "G + " << gb_round2(ws.size()) << "G"
-        << " Estimated req " << gb_round2(req_bytes) << "G";
+        << " Avail " << gb_round2(bytes_available) << "G"
+        << " + Curr " << gb_round2(ws.size()) << "G,"
+        << " Estimate " << gb_round2(req_bytes) << "G";
     req_bytes = bytes_possible;
+  }
+  if (req_bytes <= ws.size()) {
+    return;
   }
   int attempts = ATTEMPTS_TO_RESERVE_WS;
   while (!ws.try_reserve(req_bytes) && attempts > 0) {
-    req_bytes =
-        align_down<7>(req_bytes > PAGE_SIZE ? req_bytes - PAGE_SIZE : 0UL);
+    req_bytes = align_down<7>(req_bytes > PAGE_SIZE ? req_bytes - PAGE_SIZE : 0UL);
     --attempts;
     LOG(INFO) << this->print_current_device() << " Retrying to allocate " << req_bytes
               << " bytes, attempts left: " << attempts;
@@ -475,6 +479,13 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
       case ConvolutionParameter_CuDNNConvolutionAlgorithmSeeker_FINDEX:
         if (!use_modest_workspace_) {
           if (this->phase_ == TRAIN) {
+            // Make sure it's all allocated before we take the rest
+            for (int i = 0; i < bottom.size(); ++i) {
+              top[i]->allocate_data();
+              bottom[i]->allocate_diff();
+            }
+            this->blobs_[0]->allocate_data();
+
             EstimateMaxWorkspaceSize(bottom, top);
             AllocateFindExWorkspace();
           }
@@ -736,7 +747,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
 
   if (this->phase_ == TRAIN) {
     // Allocate temporary buffer for weights used for backward filter FindEx
-    const size_t tmp_weights_size = even(this->weight_offset_) * sizeof(Btype);
+    const size_t tmp_weights_size = align_up<7>(this->weight_offset_) * sizeof(Btype);
     tmp_ws.safe_reserve(tmp_weights_size);
   }
 
@@ -1021,8 +1032,6 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
       }
 #endif
     }
-
-    workspace(dev).safe_reserve(mem_req_all_grps(dev, this->phase_));
 
     CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
     size_t available_memory, total_memory;
