@@ -192,7 +192,7 @@ float Blob::gpu_sumsq(int count, Type dtype, const void* data) {
         static_cast<const float*>(data), &sumsq);
     return sumsq;
   } else if (is_type<float16>(dtype)) {
-    float16 sumsq;
+    float sumsq;
     caffe_gpu_dot(count, static_cast<const float16*>(data),
         static_cast<const float16*>(data), &sumsq);
     return sumsq;
