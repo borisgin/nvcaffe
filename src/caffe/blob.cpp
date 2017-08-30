@@ -84,6 +84,9 @@ const int* Blob::gpu_shape() const {
 #endif
 
 void Blob::ShareData(const Blob& other) {
+  if (data_tensor_.get() == other.data_tensor_.get()) {
+    return;
+  }
   CHECK_EQ(count(), other.count());
 #ifdef DEBUG
 #ifndef CPU_ONLY
@@ -104,6 +107,9 @@ void Blob::ShareData(const Blob& other) {
 }
 
 void Blob::ShareDiff(const Blob& other) {
+  if (diff_tensor_.get() == other.diff_tensor_.get()) {
+    return;
+  }
   CHECK_EQ(count(), other.count());
 #ifdef DEBUG
 #ifndef CPU_ONLY
