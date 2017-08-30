@@ -1066,7 +1066,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
           << (user_algos_override_[2] >= 0 ? "u " : (bwd_filter_pseudo ? "p " : " "));
     }
 
-    os << " (avail " << gb_round2(available_memory) << "G, req "
+    os << "\t(avail " << gb_round2(available_memory) << "G, req "
        << gb_round2(mem_req_all_grps(dev, this->phase_)) << "G)\tt: " << f_round2(ftime);
 
     if (this->phase_ == TRAIN) {
