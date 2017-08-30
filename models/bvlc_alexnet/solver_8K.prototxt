@@ -17,7 +17,7 @@ local_lr_auto:  true
 local_gw_ratio: 0.001
 
 rampup_lr: 1
-rampup_interval: 600   
+rampup_interval: 900   
 
 lr_policy: "poly"
 power: 2.
