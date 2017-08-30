@@ -1,7 +1,7 @@
 net: "models/bvlc_alexnet/train_val_fp16.prototxt"
 
 test_iter:      196        #1562 = 50000/32
-test_interval:  300        #1250   
+test_interval:  150        #1250   
 test_initialization: false
 
 display:   50
@@ -9,7 +9,9 @@ display:   50
 max_iter:  15600 	# 100 epochs 
 
 #base_lr:  2             # B=1024
-base_lr:   16            # B=8K
+base_lr:   10            # B=8K
+
+#min_lr:  0.005
 
 local_lr_auto:  true
 local_gw_ratio: 0.001
