@@ -39,12 +39,6 @@ void EltwiseLayer<Ftype, Btype>::Reshape(const vector<Blob*>& bottom,
       EltwiseParameter_EltwiseOp_MAX && top.size() == 1) {
     max_idx_.Reshape(bottom[0]->shape());
   }
-  if (this->layer_param_.eltwise_param().operation() ==
-      EltwiseParameter_EltwiseOp_SUM) {
-    if (coeffs_[0] == 1.F) {
-      bottom[0]->ShareDiff(*top[0]);
-    }
-  }
 }
 
 template <typename Ftype, typename Btype>

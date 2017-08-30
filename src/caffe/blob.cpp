@@ -37,7 +37,6 @@ void Blob::Reshape(const int n) {
 }
 
 void Blob::Reshape(const vector<int>& shape) {
-  std::lock_guard<std::mutex> lock(reshape_mutex_);
   CHECK_LE(shape.size(), kMaxBlobAxes);
   count_ = 1;
   shape_.resize(shape.size());
