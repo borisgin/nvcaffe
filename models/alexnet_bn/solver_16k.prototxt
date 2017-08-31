@@ -10,7 +10,7 @@ max_iter:  7800 	# 100 epochs
 iter_size: 2
 
 #base_lr:  2             # B=1024
-#base_lr:   10           # B=8K
+#base_lr:  10            # B=8K
 base_lr:   16            # B=16K
 
 #min_lr:  0.005
@@ -19,7 +19,7 @@ local_lr_auto:  true
 local_gw_ratio: 0.001
 
 rampup_lr: 1
-rampup_interval: 600   
+rampup_interval: 400      # 5 epochs
 
 lr_policy: "poly"
 power: 2.
