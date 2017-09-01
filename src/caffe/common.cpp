@@ -503,6 +503,8 @@ CuDNNHandle::~CuDNNHandle() {
 }
 #endif
 
+Caffe::Properties Caffe::props_;
+
 Caffe::Properties::Properties() :
       init_time_(std::time(nullptr)),
       main_thread_id_(std::this_thread::get_id()),

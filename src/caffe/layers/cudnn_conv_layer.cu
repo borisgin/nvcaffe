@@ -12,7 +12,7 @@ template<typename Ftype, typename Btype>
 void CuDNNConvolutionLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom,
     const vector<Blob*>& top) {
   const Ftype* weight = this->blobs_[0]->template gpu_data<Ftype>();
-  GPUMemory::Workspace& ws = workspace(Caffe::current_device());
+  GPUMemory::Workspace& ws = map_ptr(Caffe::current_device(), workspace_, mv_);
   if (use_v7grouping()) {
     for (int i = 0; i < bottom.size(); ++i) {
       const Ftype *bottom_data = bottom[i]->gpu_data<Ftype>();
@@ -78,7 +78,28 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& botto
 template <typename Ftype, typename Btype>
 void CuDNNConvolutionLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
     const vector<bool>& propagate_down, const vector<Blob*>& bottom) {
-  GPUMemory::Workspace& ws = workspace(Caffe::current_device());
+  const int dev = Caffe::current_device();
+  GPUMemory::Workspace& ws = map_ptr(dev, workspace_, mv_);
+
+  if (this->net_iteration0_flag_ && this->net_iteration0_flag_->is_set() && this->phase_ == TRAIN) {
+    if (!map_val(dev, was_reduced_, mv_) && map_val(dev, ws_allocated_, mv_) > 0UL) {
+      // Housekeeping: release excessive amount of device memory after FindEx calls
+      size_t mem_req = align_up<7>(std::max(map_val(dev, train_mem_req_all_grps_, mv_),
+          map_val(dev, test_mem_req_all_grps_, mv_)) + PAGE_SIZE);
+      if (mem_req > 0UL && ws.size() > mem_req) {
+        // Winner needs less - release the rest
+        LOG(INFO) << this->print_current_device()
+            << " Layer '" << this->name() << "' reallocating workspace "
+            << gb_round2(ws.size()) << "G to " << gb_round2(mem_req) << "G";
+        // TRAIN only
+        ws.release();
+        ws.reserve(mem_req);
+        map_val(dev, was_reduced_, mv_) = true;
+      }
+      GPUMemory::Workspace& tmp_ws = map_ptr(dev, tmp_weights_, mv_);
+      tmp_ws.release();
+    }
+  }
 
   if (use_v7grouping()) {
     // compute dE/dB = sum_c(dE/dy)

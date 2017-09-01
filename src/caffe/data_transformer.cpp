@@ -107,7 +107,7 @@ void DataTransformer<Dtype>::Copy(const Datum& datum, Dtype* data, size_t& out_s
   cudaStream_t stream = Caffe::th_stream_aux(Caffe::STREAM_ID_TRANSFORMER);
   CUDA_CHECK(cudaMemcpyAsync(data, src_ptr, N * out_sizeof_element,
       cudaMemcpyHostToDevice, stream));
-//  CUDA_CHECK(cudaStreamSynchronize(stream));
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 #else
   NO_GPU;
 #endif
@@ -140,9 +140,7 @@ void DataTransformer<Dtype>::Fill3Randoms(unsigned int *rand) const {
 #ifdef USE_OPENCV
 template<typename Dtype>
 bool DataTransformer<Dtype>::var_sized_transforms_enabled() const {
-  return var_sized_image_random_resize_enabled() ||
-      var_sized_image_random_crop_enabled() ||
-      var_sized_image_center_crop_enabled();
+  return param_.var_sz_img_enabled();
 }
 
 template<typename Dtype>
@@ -169,40 +167,36 @@ vector<int> DataTransformer<Dtype>::var_sized_transforms_shape(
 }
 
 template<typename Dtype>
-shared_ptr<Datum> DataTransformer<Dtype>::VariableSizedTransforms(shared_ptr<Datum> datum) {
+void DataTransformer<Dtype>::VariableSizedTransforms(Datum* datum) {
+  cv::Mat varsz_img;
   if (datum->encoded()) {
     CHECK(!(param_.force_color() && param_.force_gray()))
         << "cannot set both force_color and force_gray";
     if (param_.force_color() || param_.force_gray()) {
       // If force_color then decode in color otherwise decode in gray.
-      DecodeDatumToCVMat(*datum, param_.force_color(), varsz_orig_img_);
+      DecodeDatumToCVMat(*datum, param_.force_color(), varsz_img);
     } else {
-      DecodeDatumToCVMatNative(*datum, varsz_orig_img_);
+      DecodeDatumToCVMatNative(*datum, varsz_img);
     }
   } else {
-    DatumToCVMat(*datum, varsz_orig_img_);
+    DatumToCVMat(*datum, varsz_img);
   }
   if (var_sized_image_random_resize_enabled()) {
-    varsz_orig_img_ = var_sized_image_random_resize(varsz_orig_img_);
+    var_sized_image_random_resize(varsz_img);
   }
   if (var_sized_image_random_crop_enabled()) {
-    varsz_orig_img_ = var_sized_image_random_crop(varsz_orig_img_);
+    var_sized_image_random_crop(varsz_img);
   }
   if (var_sized_image_center_crop_enabled()) {
-    varsz_orig_img_ = var_sized_image_center_crop(varsz_orig_img_);
+    var_sized_image_center_crop(varsz_img);
   }
-  shared_ptr<Datum> new_datum = make_shared<Datum>();
-  CVMatToDatum(varsz_orig_img_, *new_datum);
-  if (datum->has_label()) {
-    new_datum->set_label(datum->label());
-  }
-  return new_datum;
+  return CVMatToDatum(varsz_img, *datum);
 }
 
 template<typename Dtype>
 bool DataTransformer<Dtype>::var_sized_image_random_resize_enabled() const {
-  const int resize_lower = param_.var_sz_img_rand_resize_lower();
-  const int resize_upper = param_.var_sz_img_rand_resize_upper();
+  const int resize_lower = param_.img_rand_resize_lower();
+  const int resize_upper = param_.img_rand_resize_upper();
   if (resize_lower == 0 && resize_upper == 0) {
     return false;
   } else if (resize_lower != 0 && resize_upper != 0) {
@@ -211,6 +205,7 @@ bool DataTransformer<Dtype>::var_sized_image_random_resize_enabled() const {
   LOG(FATAL)
       << "random resize 'lower' and 'upper' parameters must either "
       "both be zero or both be nonzero";
+  return false;
 }
 
 template<typename Dtype>
@@ -233,9 +228,9 @@ vector<int> DataTransformer<Dtype>::var_sized_image_random_resize_shape(
 }
 
 template<typename Dtype>
-cv::Mat& DataTransformer<Dtype>::var_sized_image_random_resize(cv::Mat& img) {
-  const int resize_lower = param_.var_sz_img_rand_resize_lower();
-  const int resize_upper = param_.var_sz_img_rand_resize_upper();
+void DataTransformer<Dtype>::var_sized_image_random_resize(cv::Mat& img) {
+  const int resize_lower = param_.img_rand_resize_lower();
+  const int resize_upper = param_.img_rand_resize_upper();
   CHECK_GT(resize_lower, 0)
       << "random resize lower bound parameter must be positive";
   CHECK_GT(resize_upper, 0)
@@ -262,11 +257,10 @@ cv::Mat& DataTransformer<Dtype>::var_sized_image_random_resize(cv::Mat& img) {
     CHECK_LE(resize_width, img_width)
         << "cannot downsample height without downsampling width";
     cv::resize(
-        img, varsz_rand_resize_img_,
+        img, img,
         cv::Size(resize_width, resize_height),
         0.0, 0.0,
         cv::INTER_AREA);
-    return varsz_rand_resize_img_;
   } else if (resize_height > img_height || resize_width > img_width) {
     // Upsample with cubic interpolation.
     CHECK_GE(scale, 1.0);
@@ -275,24 +269,22 @@ cv::Mat& DataTransformer<Dtype>::var_sized_image_random_resize(cv::Mat& img) {
     CHECK_GE(resize_width, img_width)
         << "cannot upsample height without upsampling width";
     cv::resize(
-        img, varsz_rand_resize_img_,
+        img, img,
         cv::Size(resize_width, resize_height),
         0.0, 0.0,
         cv::INTER_CUBIC);
-    return varsz_rand_resize_img_;
   } else if (resize_height == img_height && resize_width == img_width) {
-    return img;
+  } else {
+    LOG(FATAL)
+        << "unreachable random resize shape: ("
+        << img_width << ", " << img_height << ") => ("
+        << resize_width << ", " << resize_height << ")";
   }
-  LOG(FATAL)
-      << "unreachable random resize shape: ("
-      << img_width << ", " << img_height << ") => ("
-      << resize_width << ", " << resize_height << ")";
 }
 
 template<typename Dtype>
 bool DataTransformer<Dtype>::var_sized_image_random_crop_enabled() const {
-  const int crop_size = param_.var_sz_img_rand_crop();
-  return crop_size != 0;
+  return this->phase_ == TRAIN && param_.crop_size() > 0;
 }
 
 template<typename Dtype>
@@ -300,7 +292,7 @@ vector<int> DataTransformer<Dtype>::var_sized_image_random_crop_shape(
     const vector<int>& prev_shape) const {
   CHECK(var_sized_image_random_crop_enabled())
       << "var sized transform must be enabled";
-  const int crop_size = param_.var_sz_img_rand_crop();
+  const int crop_size = param_.crop_size();
   CHECK_EQ(prev_shape.size(), 4)
       << "input shape should always have 4 axes (NCHW)";
   vector<int> shape(4);
@@ -312,8 +304,8 @@ vector<int> DataTransformer<Dtype>::var_sized_image_random_crop_shape(
 }
 
 template<typename Dtype>
-cv::Mat& DataTransformer<Dtype>::var_sized_image_random_crop(const cv::Mat& img) {
-  const int crop_size = param_.var_sz_img_rand_crop();
+void DataTransformer<Dtype>::var_sized_image_random_crop(cv::Mat& img) {
+  const int crop_size = param_.crop_size();
   CHECK_GT(crop_size, 0)
       << "random crop size parameter must be positive";
   const int img_height = img.rows;
@@ -330,15 +322,13 @@ cv::Mat& DataTransformer<Dtype>::var_sized_image_random_crop(const cv::Mat& img)
       << "uniform random sampling inexplicably failed";
   CHECK_NE(crop_offset_w, -1)
       << "uniform random sampling inexplicably failed";
-  cv::Rect crop_roi(crop_offset_w, crop_offset_h, crop_size, crop_size);
-  varsz_rand_crop_img_ = img(crop_roi);
-  return varsz_rand_crop_img_;
+  cv::Mat ROI(img, cv::Rect(crop_offset_w, crop_offset_h, crop_size, crop_size));
+  ROI.copyTo(img);
 }
 
 template<typename Dtype>
 bool DataTransformer<Dtype>::var_sized_image_center_crop_enabled() const {
-  const int crop_size = param_.var_sz_img_center_crop();
-  return crop_size != 0;
+  return this->phase_ == TEST && param_.crop_size() > 0;
 }
 
 template<typename Dtype>
@@ -346,7 +336,7 @@ vector<int> DataTransformer<Dtype>::var_sized_image_center_crop_shape(
     const vector<int>& prev_shape) const {
   CHECK(var_sized_image_center_crop_enabled())
       << "var sized transform must be enabled";
-  const int crop_size = param_.var_sz_img_center_crop();
+  const int crop_size = param_.crop_size();
   CHECK_EQ(prev_shape.size(), 4)
       << "input shape should always have 4 axes (NCHW)";
   vector<int> shape(4);
@@ -358,8 +348,8 @@ vector<int> DataTransformer<Dtype>::var_sized_image_center_crop_shape(
 }
 
 template<typename Dtype>
-cv::Mat& DataTransformer<Dtype>::var_sized_image_center_crop(const cv::Mat& img) {
-  const int crop_size = param_.var_sz_img_center_crop();
+void DataTransformer<Dtype>::var_sized_image_center_crop(cv::Mat& img) {
+  const int crop_size = param_.crop_size();
   CHECK_GT(crop_size, 0)
       << "center crop size parameter must be positive";
   const int img_height = img.rows;
@@ -370,9 +360,8 @@ cv::Mat& DataTransformer<Dtype>::var_sized_image_center_crop(const cv::Mat& img)
       << "crop size parameter must be at least as large as the image width";
   const int crop_offset_h = (img_height - crop_size) / 2;
   const int crop_offset_w = (img_width - crop_size) / 2;
-  cv::Rect crop_roi(crop_offset_w, crop_offset_h, crop_size, crop_size);
-  varsz_center_crop_img_ = img(crop_roi);
-  return varsz_center_crop_img_;
+  cv::Mat ROI(img, cv::Rect(crop_offset_w, crop_offset_h, crop_size, crop_size));
+  ROI.copyTo(img);
 }
 #endif
 

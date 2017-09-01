@@ -17,6 +17,7 @@ namespace caffe {
 unique_ptr<boost::barrier> P2PManager::dl_bar(new boost::barrier(1));
 unique_ptr<boost::barrier> P2PManager::bar;
 unique_ptr<boost::barrier> P2PManager::rbar;
+unique_ptr<boost::barrier> P2PManager::fxbar(new boost::barrier(1));
 
 P2PManager::P2PManager(shared_ptr<Solver> root_solver,
     int nranks, const SolverParameter& solver_param) :
@@ -29,6 +30,7 @@ P2PManager::P2PManager(shared_ptr<Solver> root_solver,
   dl_bar.reset(new boost::barrier(nranks_));
   bar.reset(new boost::barrier(nranks_));
   rbar.reset(new boost::barrier(nranks_));
+  fxbar.reset(new boost::barrier(nranks_));
 }
 
 void P2PManager::Run(const vector<int>& gpus) {
