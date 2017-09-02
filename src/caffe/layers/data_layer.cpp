@@ -249,6 +249,7 @@ void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, siz
     top_shape = this->data_transformers_[thread_id]->InferBlobShape(datum_shape, false);
     top_shape[0] = batch_size;
     batch->gpu_transformed_data_->Reshape(top_shape);
+    batch->gpu_transformed_data_->allocate_data();
   }
 
   size_t out_sizeof_element = 0;
