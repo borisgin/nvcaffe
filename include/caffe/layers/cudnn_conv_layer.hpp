@@ -100,8 +100,8 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
  public:
   explicit CuDNNConvolutionLayer(const LayerParameter& param)
       : ConvolutionLayer<Ftype, Btype>(param), handles_setup_(false),
-        use_algo_seeker_(true), use_modest_workspace_(true),
-        use_reshape_(true), initialized_cached_descs_(false), bwd_count_(0UL),
+        use_algo_seeker_(true), use_reshape_(true), initialized_cached_descs_(false),
+        fwd_count_(0UL), bwd_count_(0UL),
         forward_math_(tpmax<Ftype, float>()), backward_data_math_(tpmax<Btype, float>()),
         backward_filter_math_(tpmax<Btype, float>()) {
 #if CUDNN_VERSION_MIN(7, 0, 0)
@@ -145,13 +145,20 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
 
  private:
   bool use_algo_seeker_;
-  bool use_modest_workspace_;
 
   bool use_reshape_;
   bool initialized_cached_descs_;
-  size_t bwd_count_;
+  size_t fwd_count_, bwd_count_;
 
   vector<int> user_algos_override_;
+
+  // When true, a small amount of workspace is allowed for algorithms
+  bool use_modest_workspace() const {
+    return fwd_count_ < 2UL;
+  }
+  bool ok_to_release() const {
+    return bwd_count_ == 3UL;
+  }
 
   void FindExConvAlgo(const vector<Blob*>& bottom, const vector<Blob*>& top);
   void GetConvAlgo(const vector<Blob*>& bottom, const vector<Blob*>& top,

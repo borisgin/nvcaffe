@@ -73,7 +73,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& botto
     }  // end of for i
   }
 
-  use_modest_workspace_ = false;
+  ++fwd_count_;
 }
 
 template <typename Ftype, typename Btype>
