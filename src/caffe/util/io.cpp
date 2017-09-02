@@ -279,6 +279,7 @@ void CVMatToDatum(const cv::Mat& cv_img, Datum& datum) {
   datum.set_channels(img_channels);
   datum.set_height(img_height);
   datum.set_width(img_width);
+  datum.set_encoded(false);
 }
 
 #endif  // USE_OPENCV

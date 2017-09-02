@@ -190,7 +190,7 @@ void DataTransformer<Dtype>::VariableSizedTransforms(Datum* datum) {
   if (var_sized_image_center_crop_enabled()) {
     var_sized_image_center_crop(varsz_img);
   }
-  return CVMatToDatum(varsz_img, *datum);
+  CVMatToDatum(varsz_img, *datum);
 }
 
 template<typename Dtype>

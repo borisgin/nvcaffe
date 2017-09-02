@@ -87,8 +87,8 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
   // We update it on second Fwd/Bwd pass and we allocate it *once*.
   static ValMap<size_t> ws_allocated_;
   static ValMap<size_t> train_mem_req_all_grps_, test_mem_req_all_grps_;
-  static ValMap<size_t> tmp_weights_mem_;
-  static ValMap<bool> was_reduced_;
+  static ValMap<size_t> train_tmp_weights_mem_, test_tmp_weights_mem_;
+  static ValMap<bool> ws_released_;
 
   // Workspace used by all Convolution layers one after another.
   // We carry it global to prevent unnecessary allocations/deallocations
@@ -101,6 +101,7 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
   explicit CuDNNConvolutionLayer(const LayerParameter& param)
       : ConvolutionLayer<Ftype, Btype>(param), handles_setup_(false),
         use_algo_seeker_(true), use_modest_workspace_(true),
+        use_reshape_(true), initialized_cached_descs_(false), bwd_count_(0UL),
         forward_math_(tpmax<Ftype, float>()), backward_data_math_(tpmax<Btype, float>()),
         backward_filter_math_(tpmax<Btype, float>()) {
 #if CUDNN_VERSION_MIN(7, 0, 0)
@@ -143,11 +144,12 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
   vector<size_t> workspace_bwd_filter_sizes_;
 
  private:
-  // while very 1st cycle: true/true
-  // while second cycle:   true/false
-  // while third+ cycle:   false/false
   bool use_algo_seeker_;
   bool use_modest_workspace_;
+
+  bool use_reshape_;
+  bool initialized_cached_descs_;
+  size_t bwd_count_;
 
   vector<int> user_algos_override_;
 
@@ -163,9 +165,6 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
       bwd_cached_conv_data_descs_, bwd_cached_conv_filter_descs_;
   bool IsBottomDescChanged(const vector<Blob*>& bottom, bool fwd_mode);
   bool IsConvDescChanged(const vector<Blob*>& bottom, bool fwd_mode);
-
-  bool use_reshape_;
-  bool initialized_cached_descs_;
 
   bool use_v7grouping() const {
 #ifdef CUDNN_GROUPING
@@ -212,9 +211,11 @@ ValMap<size_t> CuDNNConvolutionLayer<Ftype, Btype>::train_mem_req_all_grps_;
 template<typename Ftype, typename Btype>
 ValMap<size_t> CuDNNConvolutionLayer<Ftype, Btype>::test_mem_req_all_grps_;
 template<typename Ftype, typename Btype>
-ValMap<size_t> CuDNNConvolutionLayer<Ftype, Btype>::tmp_weights_mem_;
+ValMap<size_t> CuDNNConvolutionLayer<Ftype, Btype>::train_tmp_weights_mem_;
 template<typename Ftype, typename Btype>
-ValMap<bool> CuDNNConvolutionLayer<Ftype, Btype>::was_reduced_;
+ValMap<size_t> CuDNNConvolutionLayer<Ftype, Btype>::test_tmp_weights_mem_;
+template<typename Ftype, typename Btype>
+ValMap<bool> CuDNNConvolutionLayer<Ftype, Btype>::ws_released_;
 
 template<typename Ftype, typename Btype>
 MutexVec CuDNNConvolutionLayer<Ftype, Btype>::mv_;

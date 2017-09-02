@@ -167,8 +167,9 @@ void CuDNNConvolutionLayer<Ftype, Btype>::LayerSetUp(
                            (this->channels_ / groups()) * kernel_h * kernel_w;
   }
 
-  setmax_val(Caffe::current_device(), align_up<7>(this->weight_offset_) * sizeof(Btype),
-      tmp_weights_mem_, mv_);
+  setmax_val(Caffe::current_device(),
+      align_up<7>(this->weight_offset_ * tsize(tpmax<Btype, float>())),
+      this->phase_ == TRAIN ? train_tmp_weights_mem_ : test_tmp_weights_mem_, mv_);
 
   // Create tensor descriptor(s) for data and corresponding convolution(s).
   for (int i = 0; i < bottom.size(); i++) {
@@ -237,24 +238,27 @@ void CuDNNConvolutionLayer<Ftype, Btype>::LayerSetUp(
   use_reshape_ = true;
   // When true, cached bottom and conv descriptors need to be set.
   initialized_cached_descs_ = false;
+  // Release workspace after FindEx is done, i.e. when bwd_count_ == 2
+  bwd_count_ = 0UL;
 }
 
 template <typename Ftype, typename Btype>
 void CuDNNConvolutionLayer<Ftype, Btype>::AllocateFindExWorkspace() {
   const int dev = Caffe::current_device();
-  if (map_val(dev, was_reduced_, mv_)) {
+  if (map_val(dev, ws_released_, mv_)) {
     return;
-  }
-  GPUMemory::Workspace& tmp_ws = map_ptr(dev, tmp_weights_, mv_);
-  if (this->phase_ == TRAIN) {
-    const size_t tmp_weights_size = map_val(dev, tmp_weights_mem_, mv_);
-    tmp_ws.safe_reserve(tmp_weights_size);
   }
   GPUMemory::Workspace& ws = map_ptr(dev, workspace_, mv_);
   ws.release();
+
+  GPUMemory::Workspace& tmp_ws = map_ptr(dev, tmp_weights_, mv_);
+  const size_t tmp_weights_size = map_val(dev,
+      this->phase_ == TRAIN ? train_tmp_weights_mem_ : test_tmp_weights_mem_, mv_);
+  tmp_ws.safe_reserve(tmp_weights_size);
+
   size_t bytes_available, bytes_total;
   GPUMemory::GetInfo(&bytes_available, &bytes_total, true);
-  bytes_available = std::min(bytes_available, bytes_total * 9 / 10);
+  bytes_available = std::min(bytes_available, bytes_total * 4 / 5);
   size_t req_bytes = align_down<7>(bytes_available > PAGE_SIZE ? bytes_available - PAGE_SIZE : 0UL);
   int attempts = ATTEMPTS_TO_RESERVE_WS;
   while (!ws.try_reserve(req_bytes) && attempts > 0) {
@@ -319,7 +323,8 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
       // (for example, if we are at iteration 1).
       // If we want to set algos, we have to use reshape in
       // current implementation.
-      use_reshape_ = use_algo_seeker_;
+      // Also, after 2 runs we have to release some space if it's not needed.
+      use_reshape_ = use_algo_seeker_ || bwd_count_ == 2UL;
     }
   } else {
     // If cached descriptors are not initialized yet, need to
@@ -451,14 +456,30 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
           // Also used by Test Net but based on shared space taken by Train:
           FindExConvAlgo(bottom, top);
           use_algo_seeker_ = false;
-          if (this->phase_ == TRAIN) {
-            // Avoiding race condition with cleaning
-            P2PManager::fxbar_wait();
-          }
         }
         break;
       default:
         LOG(FATAL) << "Wrong value for cudnn_convolution_algo_seeker";
+    }
+  }
+
+  if (bwd_count_ == 2UL && this->phase_ == TRAIN) {
+    const int dev = Caffe::current_device();
+    GPUMemory::Workspace& ws = map_ptr(dev, workspace_, mv_);
+    if (!map_val(dev, ws_released_, mv_) && map_val(dev, ws_allocated_, mv_) > 0UL) {
+      // Housekeeping: release excessive amount of device memory after FindEx calls
+      size_t mem_req = align_up<7>(std::max(map_val(dev, train_mem_req_all_grps_, mv_),
+          map_val(dev, test_mem_req_all_grps_, mv_)) + PAGE_SIZE);
+      if (mem_req > 0UL && ws.size() > mem_req) {
+        // Winner needs less - release the rest
+        LOG(INFO) << this->print_current_device()
+                  << " Layer '" << this->name() << "' reallocating workspace "
+                  << gb_round2(ws.size()) << "G to " << gb_round2(mem_req) << "G";
+        // TRAIN only
+        ws.release();
+        ws.reserve(mem_req);
+        map_val(dev, ws_released_, mv_) = true;
+      }
     }
   }
 }
@@ -949,6 +970,7 @@ CuDNNConvolutionLayer<Ftype, Btype>::~CuDNNConvolutionLayer() {
   const int dev = Caffe::current_device();
   map_ptr(dev, workspace_, mv_).release();
   map_ptr(dev, tmp_weights_, mv_).release();
+  map_val(dev, ws_released_, mv_) = false;  // For next unit test
 
   // Check that handles have been setup before destroying.
   if (!handles_setup_) { return; }

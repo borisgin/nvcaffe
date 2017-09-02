@@ -63,11 +63,6 @@ class P2PManager {
     CHECK(rbar);
     rbar->wait();
   }
-  static void fxbar_wait() {
-    if (fxbar) {
-      fxbar->wait();
-    }
-  }
 
  protected:
   const size_t nranks_;
@@ -78,7 +73,6 @@ class P2PManager {
   static unique_ptr<boost::barrier> dl_bar;  // DataLayer sync helper
   static unique_ptr<boost::barrier> bar;
   static unique_ptr<boost::barrier> rbar;
-  static unique_ptr<boost::barrier> fxbar;
 
 #ifndef CPU_ONLY
 #ifdef USE_NCCL

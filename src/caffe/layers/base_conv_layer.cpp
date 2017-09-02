@@ -225,6 +225,7 @@ BaseConvolutionLayer<Ftype, Btype>::Reshape(const vector<Blob*>& bottom, const v
     }
   }
   col_buffer_.Reshape(col_buffer_shape_);
+  col_buffer_.allocate_data();
   bottom_dim_ = bottom[0]->count(channel_axis_);
   top_dim_ = top[0]->count(channel_axis_);
   num_kernels_im2col_ = conv_in_channels_ * conv_out_spatial_dim_;
