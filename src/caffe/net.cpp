@@ -514,7 +514,7 @@ void Net::AppendTop(const NetParameter& param, const int layer_id, const int top
     top_id_vecs_[layer_id].push_back((*blob_name_to_idx)[blob_name]);
 #ifndef CPU_ONLY
     gpu_shr_memory_data_use_ += top_vecs_[layer_id].back()->gpu_memory_data_use();
-    gpu_shr_memory_diff_use_ += top_vecs_[layer_id].back()->gpu_memory_data_use();
+    gpu_shr_memory_diff_use_ += top_vecs_[layer_id].back()->gpu_memory_diff_use();
 #endif
   } else if (blob_name_to_idx &&
              blob_name_to_idx->find(blob_name) != blob_name_to_idx->end()) {
@@ -569,7 +569,7 @@ int Net::AppendBottom(const NetParameter& param, const int layer_id,
   bottom_need_backward_[layer_id].push_back(need_backward);
 #ifndef CPU_ONLY
   gpu_btm_memory_data_use_ += bottom_vecs_[layer_id].back()->gpu_memory_data_use();
-  gpu_btm_memory_diff_use_ += bottom_vecs_[layer_id].back()->gpu_memory_data_use();
+  gpu_btm_memory_diff_use_ += bottom_vecs_[layer_id].back()->gpu_memory_diff_use();
 #endif
   return blob_id;
 }
@@ -1274,7 +1274,7 @@ void Net::ShareWeights() {
     if (param_owners_[i] < 0) {
 #ifndef CPU_ONLY
       gpu_prm_memory_data_use_ += params_[i]->gpu_memory_data_use();
-      gpu_prm_memory_diff_use_ += params_[i]->gpu_memory_data_use();
+      gpu_prm_memory_diff_use_ += params_[i]->gpu_memory_diff_use();
 #endif
       continue;
     }
@@ -1283,7 +1283,7 @@ void Net::ShareWeights() {
     params_[i]->ShareDiff(*params_[param_owners_[i]]);
 #ifndef CPU_ONLY
     gpu_shp_memory_data_use_ += params_[i]->gpu_memory_data_use();
-    gpu_shp_memory_diff_use_ += params_[i]->gpu_memory_data_use();
+    gpu_shp_memory_diff_use_ += params_[i]->gpu_memory_diff_use();
 #endif
   }
 }
@@ -1354,6 +1354,9 @@ void Net::InitializeLearnableDiffSpace() {
   if (workspace_size < 2) {
     workspace_size = 2;
   }
+
+  LOG(INFO) << print_current_device() << " Reserving "
+            << workspace_size << " bytes of shared learnable space";
   learnable_space_.reserve(workspace_size);
   unsigned char* ptr = reinterpret_cast<unsigned char*>(learnable_space_.data());
   caffe_gpu_memset(workspace_size, 0, ptr);

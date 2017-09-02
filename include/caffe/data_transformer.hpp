@@ -82,17 +82,17 @@ class DataTransformer {
    *    The destination Datum that will store transformed data of a fixed
    *    shape. Suitable for other transformations.
    */
-  shared_ptr<Datum> VariableSizedTransforms(shared_ptr<Datum> old_datum);
+  void VariableSizedTransforms(Datum* datum);
 
   bool        var_sized_image_random_resize_enabled() const;
   vector<int> var_sized_image_random_resize_shape(const vector<int>& prev_shape) const;
-  cv::Mat&    var_sized_image_random_resize(cv::Mat& img);
+  void        var_sized_image_random_resize(cv::Mat& img);
   bool        var_sized_image_random_crop_enabled() const;
   vector<int> var_sized_image_random_crop_shape(const vector<int>& prev_shape) const;
-  cv::Mat&    var_sized_image_random_crop(const cv::Mat& img);
+  void        var_sized_image_random_crop(cv::Mat& img);
   bool        var_sized_image_center_crop_enabled() const;
   vector<int> var_sized_image_center_crop_shape(const vector<int>& prev_shape) const;
-  cv::Mat&    var_sized_image_center_crop(const cv::Mat& img);
+  void        var_sized_image_center_crop(cv::Mat& img);
 #endif
 
   /**
@@ -239,12 +239,6 @@ class DataTransformer {
   vector<float> mean_values_;
 #ifndef CPU_ONLY
   GPUMemory::Workspace mean_values_gpu_;
-#endif
-#ifdef USE_OPENCV
-  cv::Mat varsz_orig_img_;
-  cv::Mat varsz_rand_resize_img_;
-  cv::Mat varsz_rand_crop_img_;
-  cv::Mat varsz_center_crop_img_;
 #endif
 };
 

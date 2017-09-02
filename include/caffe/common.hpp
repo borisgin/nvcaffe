@@ -544,10 +544,10 @@ class Caffe {
     DISABLE_COPY_MOVE_AND_ASSIGN(Properties);
   };
 
+  static Properties props_;
+
   static Properties& props() {
-    std::lock_guard<std::mutex> lock(props_mutex_);
-    static Properties props;
-    return props;
+    return props_;
   }
 };
 
@@ -888,6 +888,16 @@ void atomic_minimum(std::atomic<Dtype>& min_val, Dtype const& new_val) noexcept 
   Dtype prev_val = std::atomic_load(&min_val);
   while (prev_val > new_val &&
          !min_val.compare_exchange_weak(prev_val, new_val)) {}
+}
+
+template <typename Dtype>
+float gb_round2(Dtype val) {
+  return std::round(val * 1.e-7) * 0.01F;
+}
+
+template <typename Dtype>
+float f_round2(Dtype val) {
+  return std::round(val * 100.F) * 0.01F;
 }
 
 }  // namespace caffe

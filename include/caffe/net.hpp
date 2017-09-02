@@ -271,6 +271,18 @@ class Net {
     return infer_count_;
   }
 
+  std::string print_current_device() const {
+#ifndef CPU_ONLY
+    std::ostringstream os;
+    os << (phase_ == TRAIN ? "[" : "(")
+       << Caffe::current_device()
+       << (phase_ == TRAIN ? "]" : ")");
+    return os.str();
+#else
+    return std::string();
+#endif
+  }
+
  protected:
   // Helpers for Init.
   /// @brief Append a new top blob to the net.

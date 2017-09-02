@@ -260,11 +260,9 @@ void CVMatToDatum(const cv::Mat& cv_img, Datum& datum) {
   CHECK_GT(img_channels, 0);
   CHECK_GT(img_height, 0);
   CHECK_GT(img_width, 0);
-  datum.set_channels(img_channels);
-  datum.set_height(img_height);
-  datum.set_width(img_width);
-  datum.set_encoded(false);
-  vector<char> img_buf(img_size);
+  string* img_buf = datum.release_data();
+  delete img_buf;
+  img_buf = new string(img_size, 0);
   const unsigned int datum_hw_stride = img_height * img_width;
   for (unsigned int h = 0; h < img_height; ++h) {
     const unsigned int datum_h_offset = h * img_width;
@@ -273,17 +271,16 @@ void CVMatToDatum(const cv::Mat& cv_img, Datum& datum) {
     for (unsigned int w = 0; w < img_width; ++w) {
       unsigned int datum_index = datum_h_offset + w;
       for (unsigned int c = 0; c < img_channels; ++c, datum_index += datum_hw_stride) {
-        CHECK_LT(datum_index, img_size);
-        img_buf[datum_index] = static_cast<char>(row_ptr[row_index++]);
+        img_buf->at(datum_index) = static_cast<char>(row_ptr[row_index++]);
       }
     }
   }
-  string* prev_img_data = datum.release_data();
-  if (prev_img_data != NULL) {
-    delete prev_img_data;
-  }
-  string* next_img_data = new string(img_buf.data(), img_buf.size());
-  datum.set_allocated_data(next_img_data);
+  datum.set_allocated_data(img_buf);
+  datum.set_channels(img_channels);
+  datum.set_height(img_height);
+  datum.set_width(img_width);
+  datum.set_encoded(false);
 }
+
 #endif  // USE_OPENCV
 }  // namespace caffe

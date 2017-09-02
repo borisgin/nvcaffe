@@ -96,44 +96,38 @@ void EltwiseLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
   for (int i = 0; i < bottom.size(); ++i) {
     if (propagate_down[i]) {
       const Btype* bottom_data = bottom[i]->gpu_data<Btype>();
+      Btype* bottom_diff = bottom[i]->mutable_gpu_diff<Btype>();
       switch (op_) {
       case EltwiseParameter_EltwiseOp_PROD:
-        {
-          Btype* bottom_diff = bottom[i]->mutable_gpu_diff<Btype>();
-          if (stable_prod_grad_) {
-            bool initialized = false;
-            for (int j = 0; j < bottom.size(); ++j) {
-              if (i == j) { continue; }
-              if (!initialized) {
-                caffe_copy(count, bottom[j]->gpu_data<Btype>(), bottom_diff);
-                initialized = true;
-              } else {
-                caffe_gpu_mul(count, bottom[j]->gpu_data<Btype>(), bottom_diff, bottom_diff);
-              }
+        if (stable_prod_grad_) {
+          bool initialized = false;
+          for (int j = 0; j < bottom.size(); ++j) {
+            if (i == j) { continue; }
+            if (!initialized) {
+              caffe_copy(count, bottom[j]->gpu_data<Btype>(), bottom_diff);
+              initialized = true;
+            } else {
+              caffe_gpu_mul(count, bottom[j]->gpu_data<Btype>(), bottom_diff, bottom_diff);
             }
-          } else {
-            caffe_gpu_div(count, top_data, bottom_data, bottom_diff);
           }
-          caffe_gpu_mul(count, bottom_diff, top_diff, bottom_diff);
+        } else {
+          caffe_gpu_div(count, top_data, bottom_data, bottom_diff);
         }
+        caffe_gpu_mul(count, bottom_diff, top_diff, bottom_diff);
         break;
       case EltwiseParameter_EltwiseOp_SUM:
         if (coeffs_[i] == 1.F) {
           bottom[i]->ShareDiff(*top[0]);
         } else {
-          Btype* bottom_diff = bottom[i]->mutable_gpu_diff<Btype>();
           caffe_gpu_scale(count, Btype(coeffs_[i]), top_diff, bottom_diff);
         }
         break;
       case EltwiseParameter_EltwiseOp_MAX:
-        {
-          mask = max_idx_.gpu_data();
-          Btype* bottom_diff = bottom[i]->mutable_gpu_diff<Btype>();
-          MaxBackward<Btype>  // NOLINT_NEXT_LINE(whitespace/operators)
-              <<< CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS, 0, Caffe::thread_stream()>>> (
-              count, top_diff, i, mask, bottom_diff);
-          CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
-        }
+        mask = max_idx_.gpu_data();
+        MaxBackward<Btype>  // NOLINT_NEXT_LINE(whitespace/operators)
+            <<< CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS, 0, Caffe::thread_stream()>>> (
+            count, top_diff, i, mask, bottom_diff);
+        CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
         break;
       default:
         LOG(FATAL) << "Unknown elementwise operation.";
