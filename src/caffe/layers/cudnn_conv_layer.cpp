@@ -232,13 +232,12 @@ void CuDNNConvolutionLayer<Ftype, Btype>::LayerSetUp(
   handles_setup_ = true;
   // When true, Reshape asks cuDNN (either Get ot FindEx) for the best algorithm
   use_algo_seeker_ = true;
-  // When true, a small amount of workspace is allowed for algorithms
-  use_modest_workspace_ = true;
   // When true, Reshape sets descriptors, algorithms, workspaces.
   use_reshape_ = true;
   // When true, cached bottom and conv descriptors need to be set.
   initialized_cached_descs_ = false;
   // Release workspace after FindEx is done, i.e. when bwd_count_ == 2
+  fwd_count_ = 0UL;
   bwd_count_ = 0UL;
 }
 
@@ -258,7 +257,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::AllocateFindExWorkspace() {
 
   size_t bytes_available, bytes_total;
   GPUMemory::GetInfo(&bytes_available, &bytes_total, true);
-  bytes_available = std::min(bytes_available, bytes_total * 4 / 5);
+  bytes_available = std::min(bytes_available, bytes_total / 2UL);
   size_t req_bytes = align_down<7>(bytes_available > PAGE_SIZE ? bytes_available - PAGE_SIZE : 0UL);
   int attempts = ATTEMPTS_TO_RESERVE_WS;
   while (!ws.try_reserve(req_bytes) && attempts > 0) {
@@ -324,7 +323,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
       // If we want to set algos, we have to use reshape in
       // current implementation.
       // Also, after 2 runs we have to release some space if it's not needed.
-      use_reshape_ = use_algo_seeker_ || bwd_count_ == 2UL;
+      use_reshape_ = use_algo_seeker_ || ok_to_release();
     }
   } else {
     // If cached descriptors are not initialized yet, need to
@@ -430,7 +429,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
     // Get: workspace_bytes is only used as a workspace limit by Get.
     //      (no allocation happens before Get or by Get).
     size_t workspace_bytes = 0UL;
-    if (use_modest_workspace_) {
+    if (fwd_count_ == 0) {
       // In iteration 0, use a small amount of memory in order to leave
       // most of memory for allocating layer blobs.
       workspace_bytes = AllocateWorkspace(bottom.size());
@@ -441,7 +440,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
         AllocateWorkspace(bottom.size());
         break;
       case ConvolutionParameter_CuDNNConvolutionAlgorithmSeeker_FINDEX:
-        if (!use_modest_workspace_) {
+        if (!use_modest_workspace()) {
           if (this->phase_ == TRAIN) {
             // Make sure it's all allocated before we take the rest
             for (int i = 0; i < bottom.size(); ++i) {
@@ -463,15 +462,15 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
     }
   }
 
-  if (bwd_count_ == 2UL && this->phase_ == TRAIN) {
+  if (ok_to_release() && this->phase_ == TRAIN) {
     const int dev = Caffe::current_device();
     GPUMemory::Workspace& ws = map_ptr(dev, workspace_, mv_);
     if (!map_val(dev, ws_released_, mv_) && map_val(dev, ws_allocated_, mv_) > 0UL) {
       // Housekeeping: release excessive amount of device memory after FindEx calls
       size_t mem_req = align_up<7>(std::max(map_val(dev, train_mem_req_all_grps_, mv_),
-          map_val(dev, test_mem_req_all_grps_, mv_)) + PAGE_SIZE);
+          map_val(dev, test_mem_req_all_grps_, mv_)) * 2UL);
       if (mem_req > 0UL && ws.size() > mem_req) {
-        // Winner needs less - release the rest
+        // Winner needs half less - release the rest
         LOG(INFO) << this->print_current_device()
                   << " Layer '" << this->name() << "' reallocating workspace "
                   << gb_round2(ws.size()) << "G to " << gb_round2(mem_req) << "G";
@@ -536,7 +535,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
 #if CUDNN_VERSION_MIN(7, 0, 0)
   // does it support TENSOR_OP?
   const bool top_device = Caffe::device_capability(Caffe::current_device()) >= 700;
-  bool try_top = top_device && !use_modest_workspace_;
+  bool try_top = top_device;
   if (cudnn_math_override_ < 0 && (is_precise<Ftype>() || is_precise<Btype>())) {
     // 32/64 mode, user doesn't override => default math only
     try_top = false;
@@ -569,8 +568,6 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
             (this->is_fm_by_user() ||
              // also, we skip this in fp32/64 modes
              !is_type<Ftype>(FLOAT16) ||
-             // and we skip 1st cycle
-             use_modest_workspace_ ||
              // and sanity check for current descriptor type
              convolutionDescDataType(fwd_conv_descs_[i]) != CUDNN_DATA_HALF)) {
           break;
@@ -637,7 +634,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
       }
     }
 #if CUDNN_VERSION_MIN(7, 0, 0)
-    if (top_device && !use_modest_workspace_) {
+    if (top_device) {
       fwd_cudnn_math_[i] = fwd_cudnn_math_0;
       CUDNN_CHECK(cudnnSetConvolutionMathType(fwd_conv_descs_[i], fwd_cudnn_math_[i]));
     }
@@ -662,8 +659,6 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
               (this->is_bm_by_user() ||
                // also, we skip this in fp32/64 modes
                !is_type<Ftype>(FLOAT16) ||
-               // and we skip 1st cycle
-               use_modest_workspace_ ||
                // and sanity check for current descriptor type
                convolutionDescDataType(bwd_conv_filter_descs_[i])
                != CUDNN_DATA_HALF)) {
@@ -733,7 +728,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
         }
       }
 #if CUDNN_VERSION_MIN(7, 0, 0)
-      if (top_device && !use_modest_workspace_) {
+      if (top_device && !use_modest_workspace()) {
         bwd_filter_cudnn_math_[i] = bwd_filter_cudnn_math_0;
         CUDNN_CHECK(cudnnSetConvolutionMathType(bwd_conv_filter_descs_[i],
             bwd_filter_cudnn_math_[i]));
@@ -755,8 +750,6 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
               (this->is_bm_by_user() ||
                // also, we skip this in fp32/64 modes
                !is_type<Ftype>(FLOAT16) ||
-               // and we skip 1st cycle
-               use_modest_workspace_ ||
                // and sanity check for current descriptor type
                convolutionDescDataType(bwd_conv_data_descs_[i])
                != CUDNN_DATA_HALF)) {
@@ -826,7 +819,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
         }
       }
 #if CUDNN_VERSION_MIN(7, 0, 0)
-      if (top_device && !use_modest_workspace_) {
+      if (top_device) {
         bwd_data_cudnn_math_[i] = bwd_data_cudnn_math_0;
         CUDNN_CHECK(cudnnSetConvolutionMathType(bwd_conv_data_descs_[i],
             bwd_data_cudnn_math_[i]));
