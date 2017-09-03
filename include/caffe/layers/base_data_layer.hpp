@@ -127,6 +127,9 @@ class BasePrefetchingDataLayer : public BaseDataLayer<Ftype, Btype>, public Inte
   virtual size_t queue_id(size_t thread_id) const {
     return thread_id;
   }
+  virtual bool auto_mode() const {
+    return auto_mode_;
+  }
 
   size_t batch_id(int thread_id) {
     size_t id = batch_ids_[thread_id];

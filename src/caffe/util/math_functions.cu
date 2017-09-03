@@ -168,8 +168,8 @@ void axpy_kernel<half2, half2>(const int N, const half2 alpha, const half2* x, h
   CUDA_KERNEL_LOOP(idx, N) {
     x2 = __half22float2(x[idx]);
     y2 = __half22float2(y[idx]);
-    y2.x = a.x * x2.x + y2.x;
-    y2.y = a.y * x2.y + y2.y;
+    y2.x += a.x * x2.x;
+    y2.y += a.y * x2.y;
     y[idx] = float22half2_clip(y2);
   }
 #endif
@@ -188,8 +188,8 @@ void axpy_kernel<half2, float>(const int N, const float alpha, const half2* x, h
   CUDA_KERNEL_LOOP(idx, N) {
     x2 = __half22float2(x[idx]);
     y2 = __half22float2(y[idx]);
-    y2.x = alpha * x2.x + y2.x;
-    y2.y = alpha * x2.y + y2.y;
+    y2.x += alpha * x2.x;
+    y2.y += alpha * x2.y;
     y[idx] = float22half2_clip(y2);
   }
 #endif

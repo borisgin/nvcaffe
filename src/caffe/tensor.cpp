@@ -171,11 +171,11 @@ void Tensor::gpu_scale(float scale, cublasHandle_t cublas_handle, bool synced) {
 
 #endif
 
-size_t Tensor::cpu_memory_use() const {
+size_t Tensor::cpu_memory_use(bool own_only) const {
   size_t ret = 0ULL;
   for (size_t i = 0; i < synced_arrays_->size(); ++i) {
     if (synced_arrays_->at(i)) {
-      ret += synced_arrays_->at(i)->cpu_memory_use();
+      ret += synced_arrays_->at(i)->cpu_memory_use(own_only);
     }
   }
   return ret;
@@ -183,11 +183,11 @@ size_t Tensor::cpu_memory_use() const {
 
 #ifndef CPU_ONLY
 
-size_t Tensor::gpu_memory_use() const {
+size_t Tensor::gpu_memory_use(bool own_only) const {
   size_t ret = 0ULL;
   for (size_t i = 0; i < synced_arrays_->size(); ++i) {
     if (synced_arrays_->at(i)) {
-      ret += synced_arrays_->at(i)->gpu_memory_use();
+      ret += synced_arrays_->at(i)->gpu_memory_use(own_only);
     }
   }
   return ret;

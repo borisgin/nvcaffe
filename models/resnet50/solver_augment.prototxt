@@ -1,0 +1,41 @@
+net: "models/resnet50/train_val_augment.prototxt"
+
+test_iter: 1562         # 50000/32
+test_interval: 5000    
+test_initialization: false
+
+display: 100
+
+# DGX1 =================================
+max_iter: 500000 	# 100 epoch B=256
+base_lr:  0.2 		# B=256
+# ======================================
+
+local_lr_auto: true
+
+rampup_lr: 0.001
+rampup_interval: 10000
+
+lr_policy: "poly"
+power: 2.0
+momentum: 0.9
+weight_decay: 1e-4
+
+snapshot: 2500000
+snapshot_prefix: "models/resnet50/snapshots/resnet50_augment"
+snapshot_after_train: false
+
+solver_mode: GPU
+random_seed: 1
+
+# Train dataset size = 1,281,167
+# Test dataset size  =    50,000
+
+# batch 32  --> epoch = 40,000
+# batch 64  --> epoch = 20,000
+# batch 96  --> epoch = 15,000
+# batch 128 --> epoch = 10,000 
+# batch 256 --> epoch =  5,000
+# batch 512 --> epoch =  2,500
+
+

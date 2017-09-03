@@ -990,7 +990,8 @@ TYPED_TEST(CuDNNConvolutionLayerTest, TestSimpleConvolutionGroupCuDNN) {
   top_data = this->blob_top_->cpu_data();
   ref_top_data = this->ref_blob_top_->cpu_data();
   for (int i = 0; i < this->blob_top_->count(); ++i) {
-    EXPECT_NEAR(top_data[i], ref_top_data[i], tol<TypeParam>(1e-4, 1e-2));
+    EXPECT_NEAR(top_data[i], ref_top_data[i], tol<TypeParam>(1e-4, 1e-2))
+              << i << " of " << this->blob_top_->count();
   }
 }
 

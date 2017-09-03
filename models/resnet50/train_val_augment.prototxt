@@ -1,4 +1,4 @@
-name: "Resnet50"
+name: "Resnet50_augment"
 
 layer {
   name: "data"
@@ -7,15 +7,18 @@ layer {
   top: "label"
   data_param {
     source: "examples/imagenet/ilsvrc12_train_lmdb"
-#    source: "/data/imagenet/train-lmdb-uncompressed-256x256"
     backend: LMDB
-    batch_size: 256 #32
+    batch_size: 256
     cache:   true
     shuffle: true  
   }
   transform_param {
-    mean_file: "data/ilsvrc12/imagenet_mean.binaryproto"
-#    mean_file: "/data/imagenet/imagenet_256x256_mean.binaryproto"
+    var_sz_img_enabled: true
+    img_rand_resize_lower: 256
+    img_rand_resize_upper: 288
+    mean_value: 104
+    mean_value: 117
+    mean_value: 123
     crop_size: 224
     mirror: true
     scale: 0.00390625
@@ -29,13 +32,13 @@ layer {
   top: "label"
   data_param {
     source: "examples/imagenet/ilsvrc12_val_lmdb"
-#    source: "/data/imagenet/val-lmdb-uncompressed-256x256"
     backend: LMDB
     batch_size: 32
   }
   transform_param {
-    mean_file: "data/ilsvrc12/imagenet_mean.binaryproto"
-#    mean_file: "/data/imagenet/imagenet_256x256_mean.binaryproto"
+    mean_value: 104
+    mean_value: 117
+    mean_value: 123
     crop_size: 224
     mirror: false
     scale: 0.00390625
@@ -1909,7 +1912,7 @@ layer {
   bottom: "label"
   top: "accuracy/top-1"
   accuracy_param { top_k: 1 }
-#  include { phase: TEST }
+  include { phase: TEST }
 }
 layer {
   name: "accuracy/top-5"
@@ -1918,5 +1921,5 @@ layer {
   bottom: "label"
   top: "accuracy/top-5"
   accuracy_param { top_k: 5 }
-#  include { phase: TEST }
+  include { phase: TEST }
 }

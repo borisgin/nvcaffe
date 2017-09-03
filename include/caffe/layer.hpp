@@ -139,7 +139,6 @@ class LayerBase {
   // Iteration counter maintained by Solver
   int iter() const;
   int relative_iter() const;
-  int iterations_sized() const;
 
   void set_solver_rank(size_t solver_rank) {
     solver_rank_ = solver_rank;

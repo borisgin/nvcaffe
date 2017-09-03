@@ -38,10 +38,11 @@ DataLayer<Ftype, Btype>::~DataLayer() {
 template<typename Ftype, typename Btype>
 void
 DataLayer<Ftype, Btype>::InitializePrefetch() {
+  std::lock_guard<std::mutex> lock(mutex_prefetch_);
   if (layer_inititialized_flag_.is_set()) {
     return;
   }
-  if (this->auto_mode_) {
+  if (this->auto_mode()) {
     this->AllocatePrefetch();
     P2PManager::dl_bar_wait();
     // Here we try to optimize memory split between prefetching and convolution.
@@ -58,26 +59,29 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
 #else
     size_t batches_fit = this->queues_num_;
 #endif
-    float ratio = 3.F;
+    size_t max_parsers_num = 2;
+    size_t max_transf_num = 3;
+    float ratio = 5.F;
     Net* pnet = this->parent_net();
     if (pnet != nullptr) {
       Solver* psolver = pnet->parent_solver();
       if (psolver != nullptr) {
         if (pnet->layers().size() < 100) {
-          ratio = 2.F; // 1:2 for "i/o bound", 1:3 otherwise
+          max_transf_num = 4;
+          ratio = 2.F; // 1:2 for "i/o bound", 1:5 otherwise
         }
       }
     }
-    // TODO Respect the number of CPU cores
-    const float fit = std::min(16.F, std::floor(batches_fit / ratio));  // 16+ -> "ideal" 4x4
-    current_parsers_num = std::min(4UL, std::max(1UL,
+    const float fit = std::min(float(max_parsers_num * max_transf_num),
+        std::floor(batches_fit / ratio));
+    current_parsers_num = std::min(max_parsers_num, std::max(1UL,
         static_cast<size_t>(std::sqrt(fit))));
     if (cache_ && current_parsers_num > 1UL) {
       LOG(INFO) << this->print_current_device() << " Reduced parser threads count from "
                 << current_parsers_num << " to 1 because cache is used";
       current_parsers_num = 1UL;
     }
-    current_transf_num = std::min(4UL, std::max(current_transf_num,
+    current_transf_num = std::min(max_transf_num, std::max(current_transf_num,
         static_cast<size_t>(std::lround(fit / current_parsers_num))));
     this->RestartAllThreads(current_transf_num, true, false, Caffe::next_seed());
     this->transf_num_ = this->threads_num();
@@ -145,8 +149,6 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
           true,
           cache,
           shuffle);
-    } else {
-      CHECK(false);
     }
   } else if (!reader_) {
     reader_ = make_shared<DataReader>(param,
@@ -247,6 +249,7 @@ void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, siz
     top_shape = this->data_transformers_[thread_id]->InferBlobShape(datum_shape, false);
     top_shape[0] = batch_size;
     batch->gpu_transformed_data_->Reshape(top_shape);
+    batch->gpu_transformed_data_->allocate_data();
   }
 
   size_t out_sizeof_element = 0;
@@ -272,15 +275,14 @@ void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, siz
   size_t current_batch_id = 0UL;
   size_t item_id;
   for (size_t entry = 0; entry < batch_size; ++entry) {
-    shared_ptr<Datum> pop_datum = reader->full_pop(qid, "Waiting for datum");
-    shared_ptr<Datum> datum = pop_datum;
+    shared_ptr<Datum> datum = reader->full_pop(qid, "Waiting for datum");
 #ifdef USE_OPENCV
     // Apply variable-sized transforms.
     if (this->data_transformers_[thread_id]->var_sized_transforms_enabled()) {
-      datum = this->data_transformers_[thread_id]->VariableSizedTransforms(pop_datum);
+      this->data_transformers_[thread_id]->VariableSizedTransforms(datum.get());
     }
 #endif
-    item_id = pop_datum->record_id() % batch_size;
+    item_id = datum->record_id() % batch_size;
     if (datum->channels() > 0) {
       CHECK_EQ(top_shape[1], datum->channels())
         << "Number of channels can't vary in the same batch";
@@ -296,7 +298,7 @@ void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, siz
       }
     }
     if (item_id == 0UL) {
-      current_batch_id = pop_datum->record_id() / batch_size;
+      current_batch_id = datum->record_id() / batch_size;
     }
     // Copy label.
     Ftype* label_ptr = NULL;
@@ -318,10 +320,11 @@ void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, siz
       // drawn deterministically
       std::array<unsigned int, 3> rand;
       this->data_transformers_[thread_id]->Fill3Randoms(&rand.front());
-      this->data_transformers_[thread_id]->TransformPtrEntry(datum, ptr, rand, this->output_labels_,
+      this->data_transformers_[thread_id]->TransformPtrEntry(datum, ptr, rand,
+          this->output_labels_,
           label_ptr);
     }
-    reader->free_push(qid, pop_datum);
+    reader->free_push(qid, datum);
   }
 
   if (use_gpu_transform) {

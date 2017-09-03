@@ -5,18 +5,18 @@
 
 namespace caffe {
 
-size_t Blob::cpu_memory_data_use() const {
-  return data_tensor_->cpu_memory_use();
+size_t Blob::cpu_memory_data_use(bool own_only) const {
+  return data_tensor_->cpu_memory_use(own_only);
 }
-size_t Blob::cpu_memory_diff_use() const {
-  return diff_tensor_->cpu_memory_use();
+size_t Blob::cpu_memory_diff_use(bool own_only) const {
+  return diff_tensor_->cpu_memory_use(own_only);
 }
 #ifndef CPU_ONLY
-size_t Blob::gpu_memory_data_use() const {
-  return data_tensor_->gpu_memory_use();
+size_t Blob::gpu_memory_data_use(bool own_only) const {
+  return data_tensor_->gpu_memory_use(own_only);
 }
-size_t Blob::gpu_memory_diff_use() const {
-  return diff_tensor_->gpu_memory_use();
+size_t Blob::gpu_memory_diff_use(bool own_only) const {
+  return diff_tensor_->gpu_memory_use(own_only);
 }
 #endif
 
@@ -37,7 +37,6 @@ void Blob::Reshape(const int n) {
 }
 
 void Blob::Reshape(const vector<int>& shape) {
-  std::lock_guard<std::mutex> lock(reshape_mutex_);
   CHECK_LE(shape.size(), kMaxBlobAxes);
   count_ = 1;
   shape_.resize(shape.size());
@@ -84,6 +83,9 @@ const int* Blob::gpu_shape() const {
 #endif
 
 void Blob::ShareData(const Blob& other) {
+  if (data_tensor_.get() == other.data_tensor_.get()) {
+    return;
+  }
   CHECK_EQ(count(), other.count());
 #ifdef DEBUG
 #ifndef CPU_ONLY
@@ -104,6 +106,9 @@ void Blob::ShareData(const Blob& other) {
 }
 
 void Blob::ShareDiff(const Blob& other) {
+  if (diff_tensor_.get() == other.diff_tensor_.get()) {
+    return;
+  }
   CHECK_EQ(count(), other.count());
 #ifdef DEBUG
 #ifndef CPU_ONLY
@@ -192,7 +197,7 @@ float Blob::gpu_sumsq(int count, Type dtype, const void* data) {
         static_cast<const float*>(data), &sumsq);
     return sumsq;
   } else if (is_type<float16>(dtype)) {
-    float16 sumsq;
+    float sumsq;
     caffe_gpu_dot(count, static_cast<const float16*>(data),
         static_cast<const float16*>(data), &sumsq);
     return sumsq;
@@ -230,7 +235,7 @@ void Blob::gpu_axpy(int count, Type dtype, float alpha, const void* X, void* Y) 
     caffe_gpu_axpy(count, alpha, static_cast<const float*>(X),
         static_cast<float*>(Y));
   } else if (is_type<float16>(dtype)) {
-    caffe_gpu_axpy_extfp16(count, static_cast<float>(alpha),
+    caffe_gpu_axpy_extfp16(count, alpha,
         static_cast<const float16*>(X), static_cast<float16*>(Y));
   } else if (is_type<double>(dtype)) {
     caffe_gpu_axpy(count, static_cast<double>(alpha),

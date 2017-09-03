@@ -9,13 +9,13 @@ layer {
   top: "label"
   transform_param {
 #    mean_file: "data/ilsvrc12/imagenet_mean.binaryproto"
-#    crop_size: 227
+    crop_size: 227
     mean_value: 123.68
     mean_value: 116.78
     mean_value: 103.94
-    var_sz_img_rand_resize_lower: 250
-    var_sz_img_rand_resize_upper: 260
-    var_sz_img_rand_crop: 227 
+    img_rand_resize_lower: 250
+    img_rand_resize_upper: 260
+    var_sz_img_enabled: true
     mirror: true
   }
   data_param {
@@ -35,13 +35,13 @@ layer {
   top: "label"
   transform_param {
 #    mean_file: "data/ilsvrc12/imagenet_mean.binaryproto"
-#    crop_size: 227
+    crop_size: 227
     mean_value: 123.68
     mean_value: 116.78
     mean_value: 103.94
-    var_sz_img_rand_resize_lower: 256
-    var_sz_img_rand_resize_upper: 256
-    var_sz_img_center_crop: 227 
+    img_rand_resize_lower: 256
+    img_rand_resize_upper: 256
+    var_sz_img_enabled: true
     mirror: false
   }
   data_param {
