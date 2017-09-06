@@ -247,18 +247,20 @@ void CuDNNConvolutionLayer<Ftype, Btype>::AllocateFindExWorkspace() {
   if (map_val(dev, ws_released_, mv_)) {
     return;
   }
-  GPUMemory::Workspace& ws = map_ptr(dev, workspace_, mv_);
-  ws.release();
-
   GPUMemory::Workspace& tmp_ws = map_ptr(dev, tmp_weights_, mv_);
   const size_t tmp_weights_size = map_val(dev,
       this->phase_ == TRAIN ? train_tmp_weights_mem_ : test_tmp_weights_mem_, mv_);
   tmp_ws.safe_reserve(tmp_weights_size);
 
+  GPUMemory::Workspace& ws = map_ptr(dev, workspace_, mv_);
   size_t bytes_available, bytes_total;
   GPUMemory::GetInfo(&bytes_available, &bytes_total, true);
   bytes_available = std::min(bytes_available, bytes_total / 2UL);
+  // 2+ pages => reallocate
   size_t req_bytes = align_down<7>(bytes_available > PAGE_SIZE ? bytes_available - PAGE_SIZE : 0UL);
+  if (static_cast<float>(req_bytes) <= PAGE_SIZE) {
+    return;
+  }
   int attempts = ATTEMPTS_TO_RESERVE_WS;
   while (!ws.try_reserve(req_bytes) && attempts > 0) {
     req_bytes = align_down<7>(req_bytes > PAGE_SIZE ? req_bytes - PAGE_SIZE : 0UL);
@@ -468,7 +470,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
     if (!map_val(dev, ws_released_, mv_) && map_val(dev, ws_allocated_, mv_) > 0UL) {
       // Housekeeping: release excessive amount of device memory after FindEx calls
       size_t mem_req = align_up<7>(std::max(map_val(dev, train_mem_req_all_grps_, mv_),
-          map_val(dev, test_mem_req_all_grps_, mv_)) * 2UL);
+          map_val(dev, test_mem_req_all_grps_, mv_)) + PAGE_SIZE);
       if (mem_req > 0UL && ws.size() > mem_req) {
         // Winner needs half less - release the rest
         LOG(INFO) << this->print_current_device()
