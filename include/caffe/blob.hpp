@@ -536,7 +536,6 @@ class Blob {
   shared_ptr<SyncedMemory> shape_data_;
   vector<int> shape_;
   int count_;
-  std::mutex reshape_mutex_;
   Type last_data_type_, last_diff_type_; // in case of move
 
   bool is_current_data_valid() const {

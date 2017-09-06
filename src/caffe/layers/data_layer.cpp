@@ -249,6 +249,7 @@ void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, siz
     top_shape = this->data_transformers_[thread_id]->InferBlobShape(datum_shape, false);
     top_shape[0] = batch_size;
     batch->gpu_transformed_data_->Reshape(top_shape);
+    batch->gpu_transformed_data_->allocate_data();
   }
 
   size_t out_sizeof_element = 0;
@@ -274,15 +275,14 @@ void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, siz
   size_t current_batch_id = 0UL;
   size_t item_id;
   for (size_t entry = 0; entry < batch_size; ++entry) {
-    shared_ptr<Datum> pop_datum = reader->full_pop(qid, "Waiting for datum");
-    shared_ptr<Datum> datum = pop_datum;
+    shared_ptr<Datum> datum = reader->full_pop(qid, "Waiting for datum");
 #ifdef USE_OPENCV
     // Apply variable-sized transforms.
     if (this->data_transformers_[thread_id]->var_sized_transforms_enabled()) {
-      datum = this->data_transformers_[thread_id]->VariableSizedTransforms(pop_datum);
+      this->data_transformers_[thread_id]->VariableSizedTransforms(datum.get());
     }
 #endif
-    item_id = pop_datum->record_id() % batch_size;
+    item_id = datum->record_id() % batch_size;
     if (datum->channels() > 0) {
       CHECK_EQ(top_shape[1], datum->channels())
         << "Number of channels can't vary in the same batch";
@@ -298,7 +298,7 @@ void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, siz
       }
     }
     if (item_id == 0UL) {
-      current_batch_id = pop_datum->record_id() / batch_size;
+      current_batch_id = datum->record_id() / batch_size;
     }
     // Copy label.
     Ftype* label_ptr = NULL;
@@ -320,10 +320,11 @@ void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, siz
       // drawn deterministically
       std::array<unsigned int, 3> rand;
       this->data_transformers_[thread_id]->Fill3Randoms(&rand.front());
-      this->data_transformers_[thread_id]->TransformPtrEntry(datum, ptr, rand, this->output_labels_,
+      this->data_transformers_[thread_id]->TransformPtrEntry(datum, ptr, rand,
+          this->output_labels_,
           label_ptr);
     }
-    reader->free_push(qid, pop_datum);
+    reader->free_push(qid, datum);
   }
 
   if (use_gpu_transform) {

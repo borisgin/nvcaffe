@@ -519,16 +519,15 @@ message TransformationParameter {
   //    sides of the original image are resized by a scaling factor R/D to yield
   //    a new image with shape (R/D * oldW, R/D * oldH).
   //
-  // 2. Random crop. This takes one crop parameter. A square region is randomly
-  //    chosen from the image for cropping.
+  // 2. Random crop. This takes one 'crop_size' parameter. A square region is randomly
+  //    chosen from the image for cropping. Works in TRAIN phase only.
   //
-  // 3. Center crop. This takes one crop parameter. A square region is chosen
-  //    from the center of the image for cropping.
+  // 3. Center crop. This takes one 'crop_size' parameter. A square region is chosen
+  //    from the center of the image for cropping. Works in TEST phase only.
   //
-  optional uint32 var_sz_img_rand_resize_lower = 10 [default = 0];
-  optional uint32 var_sz_img_rand_resize_upper = 11 [default = 0];
-  optional uint32 var_sz_img_rand_crop = 12 [default = 0];
-  optional uint32 var_sz_img_center_crop = 13 [default = 0];
+  optional uint32 img_rand_resize_lower = 10 [default = 0];
+  optional uint32 img_rand_resize_upper = 11 [default = 0];
+  optional bool var_sz_img_enabled = 12 [default = false];
   // For data pre-processing, we can do simple scaling and subtracting the
   // data mean, if provided. Note that the mean subtraction is always carried
   // out before scaling.

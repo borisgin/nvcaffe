@@ -361,7 +361,8 @@ class VarSzTransformsTest : public ::testing::Test {
     DataTransformer<Dtype> transformer(transform_param, TEST);
     Caffe::set_random_seed(seed_);
     transformer.InitRand();
-    shared_ptr<Datum> transformed_datum = transformer.VariableSizedTransforms(datum);
+    shared_ptr<Datum> transformed_datum = make_shared<Datum>(*datum);
+    transformer.VariableSizedTransforms(transformed_datum.get());
     EXPECT_EQ(transformed_datum->channels(), 3);
     EXPECT_EQ(transformed_datum->height(), expected_height);
     EXPECT_EQ(transformed_datum->width(), expected_width);
@@ -379,20 +380,20 @@ TYPED_TEST_CASE(VarSzTransformsTest, TestDtypesNoFP16);
 
 TYPED_TEST(VarSzTransformsTest, TestVarSzImgRandomResize) {
   TransformationParameter transform_param;
-  transform_param.set_var_sz_img_rand_resize_lower(2);
-  transform_param.set_var_sz_img_rand_resize_upper(2);
+  transform_param.set_img_rand_resize_lower(2);
+  transform_param.set_img_rand_resize_upper(2);
   this->Run(transform_param, 2, 3);
 }
 
 TYPED_TEST(VarSzTransformsTest, TestVarSzImgRandomCrop) {
   TransformationParameter transform_param;
-  transform_param.set_var_sz_img_rand_crop(3);
+  transform_param.set_crop_size(3);
   this->Run(transform_param, 3, 3);
 }
 
 TYPED_TEST(VarSzTransformsTest, TestVarSzImgCenterCrop) {
   TransformationParameter transform_param;
-  transform_param.set_var_sz_img_center_crop(3);
+  transform_param.set_crop_size(3);
   this->Run(transform_param, 3, 3);
 }
 

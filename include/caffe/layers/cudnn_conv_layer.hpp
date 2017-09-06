@@ -18,9 +18,47 @@ namespace caffe {
 
 #ifdef USE_CUDNN
 
-#if CUDNN_VERSION_MIN(7, 0, 0)
+#if CUDNN_VERSION_MIN(7, 0, 2)
   #define CUDNN_GROUPING
 #endif
+
+template<class T>
+using ValMap = std::unordered_map<int, T>;
+template<class T>
+using PtrMap = std::unordered_map<int, shared_ptr<T>>;
+
+template<typename T>
+static T& map_ptr(int key, PtrMap<T>& m, MutexVec& mv) {
+  std::lock_guard<std::mutex> lock(mv[key]);
+  auto it = m.find(key);
+  if (it == m.end()) {
+    std::pair<typename PtrMap<T>::iterator, bool> p = m.emplace(key, make_shared<T>());
+    it = p.first;
+  }
+  return *(it->second);
+}
+
+template<typename T>
+static T& map_val(int key, ValMap<T>& m, MutexVec& mv) {
+  std::lock_guard<std::mutex> lock(mv[key]);
+  auto it = m.find(key);
+  if (it == m.end()) {
+    std::pair<typename ValMap<T>::iterator, bool> p = m.emplace(key, T());
+    it = p.first;
+  }
+  return it->second;
+}
+
+template<typename T>
+static void setmax_val(int key, const T& val, ValMap<T>& m, MutexVec& mv) {
+  std::lock_guard<std::mutex> lock(mv[key]);
+  auto it = m.find(key);
+  if (it == m.end()) {
+    m.emplace(key, val);
+  } else if (val > it->second) {
+    it->second = val;
+  }
+}
 
 /*
  * @brief cuDNN implementation of ConvolutionLayer.
@@ -46,96 +84,24 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
   static constexpr int ATTEMPTS_TO_RESERVE_WS = 3;
   static MutexVec mv_;
 
-  // We update it on second Fwd/Bwd pass and we allocate it *once*
-  // when we start third pass. We might recompute it later if demand grows
-  // and/or we suddenly have to get extra memory for other needs.
-  static std::unordered_map<int, size_t> mem_size_estimated_;
-  static size_t mem_size_estimated(int device) {
-    std::lock_guard<std::mutex> lock(mv_[device]);
-    auto it = mem_size_estimated_.find(device);
-    if (it == mem_size_estimated_.end()) {
-      mem_size_estimated_.emplace(device, 0UL);
-      return 0UL;
-    }
-    return it->second;
-  }
-  static void setmax_mem_size_estimated(size_t val, int device) {
-    std::lock_guard<std::mutex> lock(mv_[device]);
-    auto it = mem_size_estimated_.find(device);
-    if (it == mem_size_estimated_.end()) {
-      mem_size_estimated_.emplace(device, val);
-    } else if (val > it->second) {
-      it->second = val;
-    }
-  }
-
-  static std::unordered_map<int, size_t> train_mem_req_all_grps_, test_mem_req_all_grps_;
-  static size_t mem_req_all_grps(int device, Phase phase) {
-    std::lock_guard<std::mutex> lock(mv_[device]);
-    std::unordered_map<int, size_t>& devmap =
-        phase == TRAIN ? train_mem_req_all_grps_ : test_mem_req_all_grps_;
-    auto it = devmap.find(device);
-    if (it == devmap.end()) {
-      devmap.emplace(device, 0UL);
-      return 0UL;
-    }
-    return it->second;
-  }
-  static void setmax_mem_req_all_grps(size_t val, int device, Phase phase) {
-    std::lock_guard<std::mutex> lock(mv_[device]);
-    std::unordered_map<int, size_t>& devmap =
-        phase == TRAIN ? train_mem_req_all_grps_ : test_mem_req_all_grps_;
-    auto it = devmap.find(device);
-    if (it == devmap.end()) {
-      devmap.emplace(device, val);
-    } else if (val > it->second) {
-      it->second = val;
-    }
-  }
+  // We update it on second Fwd/Bwd pass and we allocate it *once*.
+  static ValMap<size_t> ws_allocated_;
+  static ValMap<size_t> train_mem_req_all_grps_, test_mem_req_all_grps_;
+  static ValMap<size_t> train_tmp_weights_mem_, test_tmp_weights_mem_;
+  static ValMap<bool> ws_released_;
 
   // Workspace used by all Convolution layers one after another.
   // We carry it global to prevent unnecessary allocations/deallocations
   // because they hurt performance. It's also shared between TRAIN and TESTS nets.
-  static std::unordered_map<int, shared_ptr<GPUMemory::Workspace>> workspace_;
-  static GPUMemory::Workspace& workspace(int device) {
-    std::lock_guard<std::mutex> lock(mv_[device]);
-    auto it = workspace_.find(device);
-    if (it == workspace_.end()) {
-      std::pair<std::unordered_map<int, shared_ptr<GPUMemory::Workspace>>::iterator, bool> p =
-          workspace_.emplace(device, make_shared<GPUMemory::Workspace>());
-      it = p.first;
-    }
-    return *(it->second);
-  }
+  static PtrMap<GPUMemory::Workspace> workspace_;
   // This one is for TRAIN only:
-  static std::unordered_map<int, shared_ptr<GPUMemory::Workspace>> tmp_weights_;
-  static GPUMemory::Workspace& tmp_weights(int device) {
-    std::lock_guard<std::mutex> lock(mv_[device]);
-    auto it = tmp_weights_.find(device);
-    if (it == tmp_weights_.end()) {
-      std::pair<std::unordered_map<int, shared_ptr<GPUMemory::Workspace>>::iterator, bool> p =
-          tmp_weights_.emplace(device, make_shared<GPUMemory::Workspace>());
-      it = p.first;
-    }
-    return *(it->second);
-  }
-  // Stop alloc/dealloc
-  static std::unordered_map<int, bool> was_reduced_;
-  static bool& was_reduced(int device) {
-    std::lock_guard<std::mutex> lock(mv_[device]);
-    auto it = was_reduced_.find(device);
-    if (it == was_reduced_.end()) {
-      std::pair<std::unordered_map<int, bool>::iterator, bool> p =
-          was_reduced_.emplace(device, false);
-      it = p.first;
-    }
-    return it->second;
-  }
+  static PtrMap<GPUMemory::Workspace> tmp_weights_;
 
  public:
   explicit CuDNNConvolutionLayer(const LayerParameter& param)
       : ConvolutionLayer<Ftype, Btype>(param), handles_setup_(false),
-        use_algo_seeker_(true), use_modest_workspace_(true),
+        use_algo_seeker_(true), use_reshape_(true), initialized_cached_descs_(false),
+        fwd_count_(0UL), bwd_count_(0UL),
         forward_math_(tpmax<Ftype, float>()), backward_data_math_(tpmax<Btype, float>()),
         backward_filter_math_(tpmax<Btype, float>()) {
 #if CUDNN_VERSION_MIN(7, 0, 0)
@@ -178,16 +144,23 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
   vector<size_t> workspace_bwd_filter_sizes_;
 
  private:
-  // while very 1st cycle: true/true
-  // while second cycle:   true/false
-  // while third+ cycle:   false/false
   bool use_algo_seeker_;
-  bool use_modest_workspace_;
+
+  bool use_reshape_;
+  bool initialized_cached_descs_;
+  size_t fwd_count_, bwd_count_;
 
   vector<int> user_algos_override_;
 
+  // When true, a small amount of workspace is allowed for algorithms
+  bool use_modest_workspace() const {
+    return fwd_count_ < 2UL;
+  }
+  bool ok_to_release() const {
+    return bwd_count_ == 3UL;
+  }
+
   void FindExConvAlgo(const vector<Blob*>& bottom, const vector<Blob*>& top);
-  void EstimateMaxWorkspaceSize(const vector<Blob*>& bottom, const vector<Blob*>& top);
   void GetConvAlgo(const vector<Blob*>& bottom, const vector<Blob*>& top,
       const size_t workspace_bytes, int pad_h, int pad_w, int stride_h, int stride_w);
 
@@ -199,9 +172,6 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
       bwd_cached_conv_data_descs_, bwd_cached_conv_filter_descs_;
   bool IsBottomDescChanged(const vector<Blob*>& bottom, bool fwd_mode);
   bool IsConvDescChanged(const vector<Blob*>& bottom, bool fwd_mode);
-
-  bool use_reshape_;
-  bool initialized_cached_descs_;
 
   bool use_v7grouping() const {
 #ifdef CUDNN_GROUPING
@@ -229,35 +199,30 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
 
 template<typename Ftype, typename Btype>
 constexpr size_t CuDNNConvolutionLayer<Ftype, Btype>::PAGE_SIZE;
-
 template<typename Ftype, typename Btype>
 constexpr int CuDNNConvolutionLayer<Ftype, Btype>::MAX_PARALLEL_GROUPS;
-
 template<typename Ftype, typename Btype>
 constexpr int CuDNNConvolutionLayer<Ftype, Btype>::REQUEST_ALGO_COUNT;
-
 template<typename Ftype, typename Btype>
 constexpr int CuDNNConvolutionLayer<Ftype, Btype>::ATTEMPTS_TO_RESERVE_WS;
 
 template<typename Ftype, typename Btype>
-std::unordered_map<int, shared_ptr<GPUMemory::Workspace>>
-    CuDNNConvolutionLayer<Ftype, Btype>::workspace_;
+PtrMap<GPUMemory::Workspace> CuDNNConvolutionLayer<Ftype, Btype>::workspace_;
+template<typename Ftype, typename Btype>
+PtrMap<GPUMemory::Workspace> CuDNNConvolutionLayer<Ftype, Btype>::tmp_weights_;
 
 template<typename Ftype, typename Btype>
-std::unordered_map<int, shared_ptr<GPUMemory::Workspace>>
-    CuDNNConvolutionLayer<Ftype, Btype>::tmp_weights_;
-
+ValMap<size_t> CuDNNConvolutionLayer<Ftype, Btype>::ws_allocated_;
 template<typename Ftype, typename Btype>
-std::unordered_map<int, size_t> CuDNNConvolutionLayer<Ftype, Btype>::mem_size_estimated_;
-
+ValMap<size_t> CuDNNConvolutionLayer<Ftype, Btype>::train_mem_req_all_grps_;
 template<typename Ftype, typename Btype>
-std::unordered_map<int, size_t> CuDNNConvolutionLayer<Ftype, Btype>::train_mem_req_all_grps_;
-
+ValMap<size_t> CuDNNConvolutionLayer<Ftype, Btype>::test_mem_req_all_grps_;
 template<typename Ftype, typename Btype>
-std::unordered_map<int, size_t> CuDNNConvolutionLayer<Ftype, Btype>::test_mem_req_all_grps_;
-
+ValMap<size_t> CuDNNConvolutionLayer<Ftype, Btype>::train_tmp_weights_mem_;
 template<typename Ftype, typename Btype>
-std::unordered_map<int, bool> CuDNNConvolutionLayer<Ftype, Btype>::was_reduced_;
+ValMap<size_t> CuDNNConvolutionLayer<Ftype, Btype>::test_tmp_weights_mem_;
+template<typename Ftype, typename Btype>
+ValMap<bool> CuDNNConvolutionLayer<Ftype, Btype>::ws_released_;
 
 template<typename Ftype, typename Btype>
 MutexVec CuDNNConvolutionLayer<Ftype, Btype>::mv_;

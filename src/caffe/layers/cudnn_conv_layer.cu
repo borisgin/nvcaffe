@@ -12,7 +12,7 @@ template<typename Ftype, typename Btype>
 void CuDNNConvolutionLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom,
     const vector<Blob*>& top) {
   const Ftype* weight = this->blobs_[0]->template gpu_data<Ftype>();
-  GPUMemory::Workspace& ws = workspace(Caffe::current_device());
+  GPUMemory::Workspace& ws = map_ptr(Caffe::current_device(), workspace_, mv_);
   if (use_v7grouping()) {
     for (int i = 0; i < bottom.size(); ++i) {
       const Ftype *bottom_data = bottom[i]->gpu_data<Ftype>();
@@ -72,14 +72,15 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& botto
       }
     }  // end of for i
   }
-  use_modest_workspace_ = false;
+
+  ++fwd_count_;
 }
 
 template <typename Ftype, typename Btype>
 void CuDNNConvolutionLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
     const vector<bool>& propagate_down, const vector<Blob*>& bottom) {
-  GPUMemory::Workspace& ws = workspace(Caffe::current_device());
-
+  const int dev = Caffe::current_device();
+  GPUMemory::Workspace& ws = map_ptr(dev, workspace_, mv_);
   if (use_v7grouping()) {
     // compute dE/dB = sum_c(dE/dy)
     if (this->bias_term_ && this->param_propagate_down_[1]) {
@@ -199,6 +200,8 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
       }  // end if propagate down
     }  // end for i
   }
+
+  ++bwd_count_;
 }
 
 INSTANTIATE_LAYER_GPU_FUNCS_FB(CuDNNConvolutionLayer);

@@ -1356,8 +1356,7 @@ void Net::InitializeLearnableDiffSpace() {
   }
 
   LOG(INFO) << print_current_device() << " Reserving "
-            << workspace_size << " bytes of shared learnable space" ;
-
+            << workspace_size << " bytes of shared learnable space";
   learnable_space_.reserve(workspace_size);
   unsigned char* ptr = reinterpret_cast<unsigned char*>(learnable_space_.data());
   caffe_gpu_memset(workspace_size, 0, ptr);

@@ -37,7 +37,6 @@ void Blob::Reshape(const int n) {
 }
 
 void Blob::Reshape(const vector<int>& shape) {
-  std::lock_guard<std::mutex> lock(reshape_mutex_);
   CHECK_LE(shape.size(), kMaxBlobAxes);
   count_ = 1;
   shape_.resize(shape.size());
@@ -84,6 +83,9 @@ const int* Blob::gpu_shape() const {
 #endif
 
 void Blob::ShareData(const Blob& other) {
+  if (data_tensor_.get() == other.data_tensor_.get()) {
+    return;
+  }
   CHECK_EQ(count(), other.count());
 #ifdef DEBUG
 #ifndef CPU_ONLY
@@ -104,6 +106,9 @@ void Blob::ShareData(const Blob& other) {
 }
 
 void Blob::ShareDiff(const Blob& other) {
+  if (diff_tensor_.get() == other.diff_tensor_.get()) {
+    return;
+  }
   CHECK_EQ(count(), other.count());
 #ifdef DEBUG
 #ifndef CPU_ONLY
@@ -230,7 +235,7 @@ void Blob::gpu_axpy(int count, Type dtype, float alpha, const void* X, void* Y) 
     caffe_gpu_axpy(count, alpha, static_cast<const float*>(X),
         static_cast<float*>(Y));
   } else if (is_type<float16>(dtype)) {
-    caffe_gpu_axpy_extfp16(count, static_cast<float>(alpha),
+    caffe_gpu_axpy_extfp16(count, alpha,
         static_cast<const float16*>(X), static_cast<float16*>(Y));
   } else if (is_type<double>(dtype)) {
     caffe_gpu_axpy(count, static_cast<double>(alpha),
