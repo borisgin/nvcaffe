@@ -11,7 +11,7 @@ iter_size: 4
 
 #base_lr:  2             # B=1024
 #base_lr:  10            # B=8K
-base_lr:   32            # B=32K
+base_lr:   32           # B=32K
 
 #min_lr:  0.005
 
