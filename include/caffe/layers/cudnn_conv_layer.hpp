@@ -78,7 +78,7 @@ template<typename Ftype, typename Btype>
 class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
   // Using all of memory may result in failure of workspace reserve.
   // NOLINT_NEXT_LINE(build/storage_class)
-  static constexpr size_t PAGE_SIZE = 16 * 1024 * 1024;
+  static constexpr size_t PAGE_SIZE = 32 * 1024 * 1024;
   static constexpr int MAX_PARALLEL_GROUPS = 2;
   static constexpr int REQUEST_ALGO_COUNT = 1;
   static constexpr int ATTEMPTS_TO_RESERVE_WS = 3;
