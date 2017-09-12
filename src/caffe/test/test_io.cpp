@@ -302,7 +302,7 @@ TEST_F(IOTest, TestDecodeDatum) {
   const string& data = datum.data();
   const string& data_ref = datum_ref.data();
   for (int i = 0; i < datum.data().size(); ++i) {
-    EXPECT_TRUE(data[i] == data_ref[i]);
+    EXPECT_TRUE(data[i] == data_ref[i]) << i;
   }
 }
 

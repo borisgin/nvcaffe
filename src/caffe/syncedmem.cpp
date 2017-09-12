@@ -4,7 +4,7 @@
 #include "caffe/util/gpu_memory.hpp"
 #include "caffe/util/math_functions.hpp"
 
-#define MAX_ELEM_TO_SHOW 200UL
+#define MAX_ELEM_TO_SHOW 20UL
 
 namespace caffe {
 

@@ -22,8 +22,6 @@
 #include "caffe/layers/image_data_layer.hpp"
 #include "caffe/layers/window_data_layer.hpp"
 
-//#include "caffe/proto/caffe.pb.h"
-
 #ifdef USE_CUDNN
 #include "caffe/layers/cudnn_batch_norm_layer.hpp"
 #include "caffe/layers/cudnn_conv_layer.hpp"

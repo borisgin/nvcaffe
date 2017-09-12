@@ -128,11 +128,11 @@ vector<int> DecodeJPEGToBuffer(const Datum& datum, int color_mode, std::vector<u
  * @param out
  */
 vector<int> DecodeDatumToCVMat(const Datum& datum, int color_mode, cv::Mat& cv_img,
-    bool shape_only) {
+    bool shape_only, bool accurate_jpeg) {
   CHECK(datum.encoded()) << "Datum not encoded";
   const std::string& content = datum.data();
   const size_t content_size = content.size();
-  const int ch = color_mode < 0 ? 1 : 3; //(color_mode > 0 ? 3UL : (size_t) datum.channels());
+  int ch = 0;
 
   if (content_size > 1
       && static_cast<unsigned char>(content[0]) == 255
@@ -143,20 +143,25 @@ vector<int> DecodeDatumToCVMat(const Datum& datum, int color_mode, cv::Mat& cv_i
     tjhandle jpeg_decoder = tjInitDecompress();
     tjDecompressHeader2(jpeg_decoder, content_data, content_size, &width, &height, &subsamp);
 
+    ch = color_mode < 0 ? 1 : (color_mode > 0 ? 3 : (subsamp == TJSAMP_GRAY ? 1 : 3));
     if (shape_only) {
       return vector<int>{1, ch, height, width};
     }
     cv_img.create(height, width, ch == 3 ? CV_8UC3 : CV_8UC1);
 
     CHECK_EQ(0, tjDecompress2(jpeg_decoder, content_data, content_size,
-        cv_img.ptr<uchar>(), width, 0, height, ch == 3 ? TJPF_RGB : TJPF_GRAY,
-        TJFLAG_FASTDCT | TJFLAG_NOREALLOC)) << tjGetErrorStr();
+        cv_img.ptr<unsigned char>(), width, 0, height, ch == 3 ? TJPF_BGR : TJPF_GRAY,
+        accurate_jpeg ? (TJFLAG_ACCURATEDCT | TJFLAG_NOREALLOC)
+                      : (TJFLAG_FASTDCT | TJFLAG_NOREALLOC))) << tjGetErrorStr();
 
     tjDestroy(jpeg_decoder);
   } else {
-    // Something other than JPEG, trying imdecode...
+    // probably not jpeg...
     std::vector<char> vec_data(content.c_str(), content.c_str() + content_size);
-    cv_img = cv::imdecode(vec_data, ch == 3UL ? CV_LOAD_IMAGE_COLOR : CV_LOAD_IMAGE_GRAYSCALE);
+    const int flag = color_mode < 0 ? CV_LOAD_IMAGE_GRAYSCALE :
+       (color_mode > 0 ? CV_LOAD_IMAGE_COLOR : CV_LOAD_IMAGE_ANYDEPTH);
+    cv_img = cv::imdecode(vec_data, flag);
+    ch = cv_img.channels();
   }
   if (!cv_img.data) {
     LOG(ERROR) << "Could not decode datum";
@@ -236,53 +241,6 @@ bool ReadImageToDatum(const string& filename, const int label,
   }
 }
 
-//void DecodeDatumToCVMatNative(const Datum& datum, cv::Mat& cv_img) {
-//  CHECK(datum.encoded()) << "Datum not encoded";
-//  const string& data = datum.data();
-//  std::vector<char> vec_data(data.c_str(), data.c_str() + data.size());
-//  cv_img = cv::imdecode(vec_data, -1);
-//  if (!cv_img.data) {
-//    LOG(ERROR) << "Could not decode datum ";
-//  }
-//}
-
-
-
-//void DecodeDatumToCVMatNative(const Datum& datum, cv::Mat& cv_img) {
-//  CHECK(datum.encoded()) << "Datum not encoded";
-//  const std::string& jpg = datum.data();
-//  auto* jpg_data = reinterpret_cast<unsigned char*>(const_cast<char*>(jpg.data()));
-//  size_t jpg_size = jpg.size();
-//
-//  tjhandle jpeg_decoder = tjInitDecompress();
-//
-//  int width, height, subsamp;
-//  tjDecompressHeader2(jpeg_decoder, jpg_data, jpg_size, &width, &height, &subsamp);
-//
-//  datum.channels();
-//
-//  cv_img.create(height, width, datum.channels() == 3 ? CV_8UC3 : CV_8UC1);
-//
-//
-//  CHECK_EQ(0, tjDecompress2(jpeg_decoder, jpg_data, jpg_size,
-//      cv_img.ptr<uchar>(), width, 0, height, datum.channels() == 3 ? TJPF_RGB :TJPF_GRAY,
-//      TJFLAG_FASTDCT | TJFLAG_NOREALLOC)) << tjGetErrorStr();
-//
-//  tjDestroy(jpeg_decoder);
-//
-////  std::vector<char> vec_data(data.c_str(), data.c_str() + data.size());
-////  cv_img = cv::imdecode(vec_data, -1);
-//  if (!cv_img.data) {
-//    LOG(ERROR) << "Could not decode datum ";
-//  }
-//}
-
-//long unsigned int _jpegSize; //!< _jpegSize from above
-//unsigned char* _compressedImage; //!< _compressedImage from above
-//
-//unsigned char buffer[width*height*COLOR_COMPONENTS]; //!< will contain the decompressed image
-
-
 // tests only, TODO: clean
 cv::Mat DecodeDatumToCVMatNative(const Datum& datum) {
   cv::Mat cv_img;
@@ -293,21 +251,9 @@ cv::Mat DecodeDatumToCVMatNative(const Datum& datum) {
 // tests only, TODO: clean
 cv::Mat DecodeDatumToCVMat(const Datum& datum, bool is_color) {
   cv::Mat cv_img;
-  DecodeDatumToCVMat(datum, is_color ? 1 : 0, cv_img, false);
+  DecodeDatumToCVMat(datum, is_color ? 1 : -1, cv_img, false);
   return cv_img;
 }
-
-//void DecodeDatumToCVMat(const Datum& datum, bool is_color, cv::Mat& cv_img) {
-//  CHECK(datum.encoded()) << "Datum not encoded";
-//  const string& data = datum.data();
-//  std::vector<char> vec_data(data.c_str(), data.c_str() + data.size());
-//  int cv_read_flag = (is_color ? CV_LOAD_IMAGE_COLOR :
-//    CV_LOAD_IMAGE_GRAYSCALE);
-//  cv_img = cv::imdecode(vec_data, cv_read_flag);
-//  if (!cv_img.data) {
-//    LOG(ERROR) << "Could not decode datum ";
-//  }
-//}
 
 // If Datum is encoded will decoded using DecodeDatumToCVMat and CVMatToDatum
 // If Datum is not encoded will do nothing
@@ -342,17 +288,18 @@ void CVMatToDatum(const cv::Mat& cv_img, Datum& datum) {
   CHECK_GT(img_height, 0);
   CHECK_GT(img_width, 0);
   string* buf = datum.release_data();
-  if (buf->size() != img_size) {
+  if (buf == nullptr || buf->size() != img_size) {
     delete buf;
     buf = new string(img_size, 0);
   }
+  unsigned char* buf_front = reinterpret_cast<unsigned char*>(&buf->front());
   // HWC -> CHW
   if (cv_img.depth() == CV_8U) {
-    hwc2chw(img_channels, img_width, img_height, cv_img.ptr<unsigned char>(0), &buf->front());
+    hwc2chw(img_channels, img_width, img_height, cv_img.ptr<unsigned char>(0), buf_front);
   } else if (cv_img.depth() == CV_32F) {
-    hwc2chw(img_channels, img_width, img_height, cv_img.ptr<float>(0), &buf->front());
+    hwc2chw(img_channels, img_width, img_height, cv_img.ptr<float>(0), buf_front);
   } else if (cv_img.depth() == CV_64F) {
-    hwc2chw(img_channels, img_width, img_height, cv_img.ptr<double>(0), &buf->front());
+    hwc2chw(img_channels, img_width, img_height, cv_img.ptr<double>(0), buf_front);
   }
   datum.set_allocated_data(buf);
   datum.set_channels(img_channels);

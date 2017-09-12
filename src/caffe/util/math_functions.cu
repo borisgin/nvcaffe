@@ -232,8 +232,7 @@ void caffe_gpu_memcpy(const size_t N, const void* X, void* Y) {
 }
 
 template<>
-void caffe_gpu_scal<float>(const int N, const float alpha, float* X,
-    cublasHandle_t cublas_handle) {
+void caffe_gpu_scal<float>(const int N, const float alpha, float* X, cublasHandle_t cublas_handle) {
   if (alpha == 1.F) { return; }
   cudaStream_t stream;
   CUBLAS_CHECK(cublasGetStream(cublas_handle, &stream));

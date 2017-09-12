@@ -195,7 +195,8 @@ void
 CVMatToDatum(const cv::Mat& cv_img, Datum& datum);
 
 vector<int>
-DecodeDatumToCVMat(const Datum& datum, int color_mode, cv::Mat& cv_img, bool shape_only);
+DecodeDatumToCVMat(const Datum& datum, int color_mode, cv::Mat& cv_img, bool shape_only,
+    bool accurate_jpeg = true);
 
 template<typename Dtype>
 void TBlobDataToCVMat(const TBlob<Dtype>& blob, cv::Mat& img) {
