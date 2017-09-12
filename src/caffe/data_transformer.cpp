@@ -109,27 +109,29 @@ vector<int> DataTransformer<Dtype>::Transform(const Datum* datum, size_t buf_len
 
 template<typename Dtype>
 void DataTransformer<Dtype>::Transform(const cv::Mat& src, size_t buf_len, Dtype* buf) {
-  cv::Mat tmp;
-  if (image_random_resize_enabled()) {
-    const int lower_sz = param_.img_rand_resize_lower();
-    const int upper_sz = param_.img_rand_resize_upper();
+  cv::Mat tmp, dst;
+  if (image_random_resize_enabled() || this->phase_ == TEST) {
+    int lower_sz = param_.img_rand_resize_lower();
+    int upper_sz = param_.img_rand_resize_upper();
+    if (lower_sz <= 0 || upper_sz <= 0) {
+      lower_sz = upper_sz = param_.crop_size();
+    }
     CHECK_GT(lower_sz, 0) << "random resize lower bound parameter must be positive";
     CHECK_GT(upper_sz, 0) << "random resize upper bound parameter must be positive";
     CHECK_GE(upper_sz, lower_sz) << "random resize upper bound can't be less than lower";
 
     const int new_size = lower_sz + Rand(upper_sz - lower_sz + 1);
-    cv::Mat rtmp;
-    image_random_resize(new_size, src, rtmp);
-    apply_mean_scale_mirror(rtmp, tmp);
+    image_random_resize(new_size, src, tmp);
   } else {
-    apply_mean_scale_mirror(src, tmp);
+    tmp = src;
   }
   if (image_random_crop_enabled()) {
     image_random_crop(param_.crop_size(), param_.crop_size(), tmp);  // TODO
   } else if (image_center_crop_enabled()) {
     image_center_crop(param_.crop_size(), param_.crop_size(), tmp);
   }
-  FloatCVMatToBuf<Dtype>(tmp, buf_len, buf);
+  apply_mean_scale_mirror(tmp, dst);
+  FloatCVMatToBuf<Dtype>(dst, buf_len, buf);
 }
 
 template<typename Dtype>
