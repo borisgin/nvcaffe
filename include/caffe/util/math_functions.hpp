@@ -223,14 +223,16 @@ template <typename Dtype>
 void caffe_gpu_scal(const int N, const Dtype alpha, Dtype* X);
 
 void caffe_gpu_scal_fp16(const int N, const float alpha, float16* X,
-    cublasHandle_t cublas_handle, bool sync);
+    cublasHandle_t cublas_handle);
 
 template <typename Dtype>
-void caffe_gpu_scal(const int N, const Dtype alpha, Dtype* X,
-    cublasHandle_t cublas_handle, bool sync);
+void caffe_gpu_scal(const int N, const Dtype alpha, Dtype* X, cublasHandle_t cublas_handle);
 
 template <typename Dtype>
 void caffe_gpu_add(const int N, const Dtype* a, const Dtype* b, Dtype* y);
+
+template <typename Dtype>
+void caffe_gpu_incr(const int N, const Dtype* a, Dtype* b);
 
 template <typename Dtype>
 void caffe_gpu_sub(const int N, const Dtype* a, const Dtype* b, Dtype* y);

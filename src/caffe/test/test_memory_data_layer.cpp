@@ -61,7 +61,7 @@ class MemoryDataLayerTest : public MultiDeviceTest<TypeParam> {
   vector<Blob*> blob_top_vec_;
 };
 
-TYPED_TEST_CASE(MemoryDataLayerTest, TestDtypesAndDevices);
+TYPED_TEST_CASE(MemoryDataLayerTest, TestDtypesAndDevicesNoFP16);
 
 TYPED_TEST(MemoryDataLayerTest, TestSetup) {
   typedef typename TypeParam::Dtype Dtype;

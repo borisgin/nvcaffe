@@ -21,6 +21,7 @@ class Cursor {
   virtual const void* data() const = 0;
   virtual size_t size() const = 0;
   virtual bool parse(Datum* datum) const = 0;
+  virtual bool parse(C2TensorProtos* c2p) const = 0;
   virtual bool valid() const = 0;
 
   DISABLE_COPY_MOVE_AND_ASSIGN(Cursor);

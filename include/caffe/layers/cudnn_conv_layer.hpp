@@ -195,6 +195,7 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
   }
 
   Type forward_math_, backward_data_math_, backward_filter_math_;
+  vector<bool> propagate_down_;
 };
 
 template<typename Ftype, typename Btype>

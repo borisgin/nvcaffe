@@ -30,7 +30,6 @@ class ImageDataLayer : public BasePrefetchingDataLayer<Ftype, Btype> {
   const char* type() const override { return "ImageData"; }
   int ExactNumBottomBlobs() const override { return 0; }
   int ExactNumTopBlobs() const override { return 2; }
-  bool is_gpu_transform() const override { return false; }
 
  protected:
   void ShuffleImages();

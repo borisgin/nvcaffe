@@ -1,3 +1,5 @@
+#if false
+
 #ifdef USE_OPENCV
 #include <opencv2/core/core.hpp>
 #endif  // USE_OPENCV
@@ -266,3 +268,5 @@ template void DataTransformer<float16>::TransformGPU(int, int, int, int,
     size_t, const float16*, float16*, const unsigned int*);
 
 }  // namespace caffe
+
+#endif

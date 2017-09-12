@@ -51,7 +51,7 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
     size_t current_parsers_num = this->parsers_num_;
     size_t current_transf_num = this->threads_num();
 #ifndef CPU_ONLY
-    const size_t batch_bytes = this->prefetch_[0]->bytes(this->is_gpu_transform());
+    const size_t batch_bytes = this->prefetch_[0]->bytes();
     size_t gpu_bytes, total_memory;
     GPUMemory::GetInfo(&gpu_bytes, &total_memory, true);
     gpu_bytes = Caffe::min_avail_device_memory();
@@ -122,7 +122,6 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
   std::lock_guard<std::mutex> lock(mutex_setup_);
   const LayerParameter& param = this->layer_param();
   const int batch_size = param.data_param().batch_size();
-  const bool use_gpu_transform = this->is_gpu_transform();
   const bool cache = cache_ && this->phase_ == TRAIN;
   const bool shuffle = cache && shuffle_ && this->phase_ == TRAIN;
 
@@ -167,19 +166,10 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
   shared_ptr<Datum> sample_datum = sample_only_ ? sample_reader_->sample() : reader_->sample();
   init_offsets();
 
-  // Calculate the variable sized transformed datum shape.
-  vector<int> sample_datum_shape = this->data_transformers_[0]->InferDatumShape(*sample_datum);
-#ifdef USE_OPENCV
-  if (this->data_transformers_[0]->var_sized_transforms_enabled()) {
-    sample_datum_shape =
-        this->data_transformers_[0]->var_sized_transforms_shape(sample_datum_shape);
-  }
-#endif
-
   // Reshape top[0] and prefetch_data according to the batch_size.
   // Note: all these reshapings here in load_batch are needed only in case of
   // different datum shapes coming from database.
-  vector<int> top_shape = this->data_transformers_[0]->InferBlobShape(sample_datum_shape);
+  vector<int> top_shape = this->dt(0)->Transform(sample_datum.get(), 0, nullptr);
   top_shape[0] = batch_size;
   top[0]->Reshape(top_shape);
 
@@ -191,13 +181,6 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
       << top_shape[3];
   for (int i = 0; i < this->prefetch_.size(); ++i) {
     this->prefetch_[i]->data_.Reshape(top_shape);
-    if (use_gpu_transform) {
-      this->prefetch_[i]->gpu_transformed_data_->Reshape(top_shape);
-      this->prefetch_[i]->random_vec_.Reshape(random_vec_shape);
-    }
-  }
-  if (use_gpu_transform) {
-    LOG(INFO) << this->print_current_device() << " Transform on GPU enabled";
   }
   // label
   vector<int> label_shape(1, batch_size);
@@ -218,10 +201,6 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
 template<typename Ftype, typename Btype>
 void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, size_t queue_id) {
   const bool sample_only = sample_only_.load();
-  if (!sample_only && !reader_) {
-    this->DataLayerSetUp(this->bottom_init_, this->top_init_);
-  }
-  const bool use_gpu_transform = this->is_gpu_transform();
   // Reshape according to the first datum of each batch
   // on single input batches allows for inputs of varying dimension.
   const int batch_size = this->layer_param_.data_param().batch_size();
@@ -231,121 +210,43 @@ void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, siz
   shared_ptr<Datum> init_datum = reader->full_peek(qid);
   CHECK(init_datum);
 
-  // Calculate the variable sized transformed datum shape.
-  vector<int> datum_shape = this->data_transformers_[thread_id]->InferDatumShape(*init_datum);
-#ifdef USE_OPENCV
-  if (this->data_transformers_[thread_id]->var_sized_transforms_enabled()) {
-    datum_shape = this->data_transformers_[thread_id]->var_sized_transforms_shape(datum_shape);
-  }
-#endif
-
   // Use data_transformer to infer the expected blob shape from datum.
-  vector<int> top_shape = this->data_transformers_[thread_id]->InferBlobShape(datum_shape,
-      use_gpu_transform);
+  vector<int> top_shape = this->dt(thread_id)->Transform(init_datum.get(), 0, nullptr);
   // Reshape batch according to the batch_size.
   top_shape[0] = batch_size;
   batch->data_.Reshape(top_shape);
-  if (use_gpu_transform) {
-    top_shape = this->data_transformers_[thread_id]->InferBlobShape(datum_shape, false);
-    top_shape[0] = batch_size;
-    batch->gpu_transformed_data_->Reshape(top_shape);
-    batch->gpu_transformed_data_->allocate_data();
-  }
-
-  size_t out_sizeof_element = 0;
-  const bool copy_to_cpu = init_datum->encoded() || !use_gpu_transform;
-  Ftype* top_data = nullptr;
-  if (copy_to_cpu) {
-    top_data = batch->data_.mutable_cpu_data();
-  } else {
-#ifndef CPU_ONLY
-    top_data = batch->data_.mutable_gpu_data();
-#else
-    NO_GPU;
-#endif
-  }
+  Ftype* top_data = batch->data_.mutable_cpu_data();
   Ftype* top_label = nullptr;
   if (this->output_labels_) {
-    vector<int> label_shape(1, batch_size);
-    batch->label_.Reshape(label_shape);
+    batch->label_.Reshape(vector<int>(1, batch_size));
     top_label = batch->label_.mutable_cpu_data();
   }
-  vector<int> random_vec_shape_(1, batch_size * 3);
-  batch->random_vec_.Reshape(random_vec_shape_);
   size_t current_batch_id = 0UL;
-  size_t item_id;
+  const size_t buf_len = batch->data_.offset(1);
   for (size_t entry = 0; entry < batch_size; ++entry) {
     shared_ptr<Datum> datum = reader->full_pop(qid, "Waiting for datum");
-#ifdef USE_OPENCV
-    // Apply variable-sized transforms.
-    if (this->data_transformers_[thread_id]->var_sized_transforms_enabled()) {
-      this->data_transformers_[thread_id]->VariableSizedTransforms(datum.get());
-    }
-#endif
-    item_id = datum->record_id() % batch_size;
-    if (datum->channels() > 0) {
-      CHECK_EQ(top_shape[1], datum->channels())
-        << "Number of channels can't vary in the same batch";
-    }
-    if (!this->data_transformers_[thread_id]->transform_param().has_crop_size()) {
-      if (datum->height() > 0) {
-        CHECK_EQ(top_shape[2], datum->height())
-          << "Image height can't vary in the same batch (crop might help here)";
-      }
-      if (datum->width() > 0) {
-        CHECK_EQ(top_shape[3], datum->width())
-          << "Image width can't vary in the same batch (crop might help here)";
-      }
-    }
+    size_t item_id = datum->record_id() % batch_size;
     if (item_id == 0UL) {
       current_batch_id = datum->record_id() / batch_size;
     }
     // Copy label.
-    Ftype* label_ptr = NULL;
-    if (this->output_labels_) {
-      label_ptr = &top_label[item_id];
+    if (top_label != nullptr) {
+      top_label[item_id] = datum->label();
     }
     // Get data offset for this datum to hand off to transform thread
     const size_t offset = batch->data_.offset(item_id);
     Ftype* ptr = top_data + offset;
 
-    if (use_gpu_transform) {
-      // store the generated random numbers and enqueue the copy
-      this->data_transformers_[thread_id]->Fill3Randoms(
-          &batch->random_vec_.mutable_cpu_data()[item_id * 3]);
-      this->data_transformers_[thread_id]->CopyPtrEntry(datum, ptr, out_sizeof_element,
-          this->output_labels_, label_ptr);
-    } else {
-      // Precalculate the necessary random draws so that they are
-      // drawn deterministically
-      std::array<unsigned int, 3> rand;
-      this->data_transformers_[thread_id]->Fill3Randoms(&rand.front());
-      this->data_transformers_[thread_id]->TransformPtrEntry(datum, ptr, rand,
-          this->output_labels_,
-          label_ptr);
-    }
+    vector<int> shape = this->dt(thread_id)->Transform(datum.get(), buf_len, ptr);
+    CHECK_EQ(top_shape[1], shape[1]) << "Number of channels can't vary in the same batch";
+    CHECK_EQ(top_shape[2], shape[2]) << "Image height can't vary in the same batch";
+    CHECK_EQ(top_shape[3], shape[3]) << "Image width can't vary in the same batch";
     reader->free_push(qid, datum);
-  }
-
-  if (use_gpu_transform) {
-#ifndef CPU_ONLY
-    cudaStream_t stream = Caffe::th_stream_aux(Caffe::STREAM_ID_TRANSFORMER);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    this->data_transformers_[thread_id]->TransformGPU(top_shape[0], top_shape[1],
-        batch->data_.shape(2),  // non-crop
-        batch->data_.shape(3),  // non-crop
-        out_sizeof_element, batch->data_.gpu_data(),
-        batch->gpu_transformed_data_->template mutable_gpu_data<Ftype>(),
-        batch->random_vec_.gpu_data());
-#else
-    NO_GPU;
-#endif
   }
   batch->set_id(current_batch_id);
   sample_only_.store(false);
 }
 
-INSTANTIATE_CLASS_FB(DataLayer);
-REGISTER_LAYER_CLASS(Data);
+INSTANTIATE_CLASS_CPU_FB(DataLayer);
 
 }  // namespace caffe

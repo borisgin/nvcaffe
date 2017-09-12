@@ -25,13 +25,83 @@ template<typename Dtype>
 class DataTransformer {
  public:
   DataTransformer(const TransformationParameter& param, Phase phase);
-  virtual ~DataTransformer() {}
+  ~DataTransformer() = default;
 
   /**
    * @brief Initialize the Random number generations if needed by the
    *    transformation.
    */
   void InitRand();
+
+  /**
+   * @brief Applies transformations defined in the data layer's
+   * transform_param block to the data.
+   *
+   * @param datum [in]
+   *    The source Datum containing data of arbitrary shape.
+   * @param buf_len [in]
+   *    Buffer length in Dtype elements
+   * @param buf [out]
+   *    The destination array that will store transformed data of a fixed
+   *    shape. If nullptr passed then only shape vector is computed.
+   * @return Output shape
+   */
+  vector<int> Transform(const Datum* datum, size_t buf_len, Dtype* buf);
+
+#ifdef USE_OPENCV
+  /**
+   * @brief Applies transformations defined in the image data layer's
+   * transform_param block to the data.
+   *
+   * @param datum [in]
+   *    The source cv::Mat containing data of arbitrary shape.
+   * @param buf_len [in]
+   *    Buffer length in Dtype elements
+   * @param buf [out]
+   *    The destination array that will store transformed data of a fixed
+   *    shape.
+   */
+  void Transform(const cv::Mat& src, size_t buf_len, Dtype* buf);
+
+  /**
+   * @brief Applies the transformation defined in the data layer's
+   * transform_param block to a vector of Mat.
+   *
+   * @param mat_vector
+   *    A vector of Mat containing the data to be transformed.
+   * @param transformed_blob
+   *    This is destination blob. It can be part of top blob's data if
+   *    set_cpu_data() is used. See memory_layer.cpp for an example.
+   */
+  void Transform(const vector<cv::Mat>& mat_vector, TBlob<Dtype>* transformed_blob);
+  void Transform(const cv::Mat& cv_img, TBlob<Dtype> *transformed_blob);
+
+  /**
+   * @brief Applies the transformation defined in the data layer's
+   * transform_param block to a vector of Datum.
+   *
+   * @param datum_vector
+   *    A vector of Datum containing the data to be transformed.
+   * @param transformed_blob
+   *    This is destination blob. It can be part of top blob's data if
+   *    set_cpu_data() is used. See memory_layer.cpp for an example.
+   */
+  void Transform(const vector<Datum>& datum_vector, TBlob<Dtype>* transformed_blob);
+
+  void Transform(Datum& datum, TBlob<Dtype>* transformed_blob);
+  void VariableSizedTransforms(Datum* datum);
+
+protected:
+  bool image_random_resize_enabled() const;
+  bool image_random_crop_enabled() const;
+  bool image_center_crop_enabled() const;
+
+  void apply_mean_scale_mirror(const cv::Mat& src, cv::Mat& dst);
+  void image_random_crop(int crop_w, int crop_h, cv::Mat& img);
+
+  static void image_random_resize(int new_size, const cv::Mat& src, cv::Mat& dst);
+  static void image_center_crop(int crop_w, int crop_h, cv::Mat& img);
+#endif
 
   /**
    * @brief Generates a random integer from Uniform({0, 1, ..., n-1}).
@@ -45,6 +115,10 @@ class DataTransformer {
     CHECK_GT(n, 0);
     return Rand() % n;
   }
+
+
+
+#if false
 
 #ifndef CPU_ONLY
   void TransformGPU(int N, int C, int H, int W, size_t sizeof_element, const Dtype* in, Dtype* out,
@@ -73,7 +147,7 @@ class DataTransformer {
   vector<int> var_sized_transforms_shape(const vector<int>& orig_shape) const;
 
   /**
-   * @brief Applies "variable_sized" transformations defined in the data layer's
+   * @brief Applies transformations defined in the data layer's
    * transform_param block to the data.
    *
    * @param old_datum
@@ -84,15 +158,15 @@ class DataTransformer {
    */
   void VariableSizedTransforms(Datum* datum);
 
-  bool        var_sized_image_random_resize_enabled() const;
-  vector<int> var_sized_image_random_resize_shape(const vector<int>& prev_shape) const;
-  void        var_sized_image_random_resize(cv::Mat& img);
-  bool        var_sized_image_random_crop_enabled() const;
-  vector<int> var_sized_image_random_crop_shape(const vector<int>& prev_shape) const;
-  void        var_sized_image_random_crop(cv::Mat& img);
-  bool        var_sized_image_center_crop_enabled() const;
-  vector<int> var_sized_image_center_crop_shape(const vector<int>& prev_shape) const;
-  void        var_sized_image_center_crop(cv::Mat& img);
+  bool        image_random_resize_enabled() const;
+  vector<int> image_random_resize_shape(const vector<int>& prev_shape) const;
+  void        image_random_resize(const cv::Mat& src, cv::Mat& dst);
+  bool        image_random_crop_enabled() const;
+  vector<int> image_random_crop_shape(const vector<int>& prev_shape) const;
+  void        image_random_crop(cv::Mat& img);
+  bool        image_center_crop_enabled() const;
+  vector<int> image_center_crop_shape(const vector<int>& prev_shape) const;
+  void        image_center_crop(cv::Mat& img);
 #endif
 
   /**
@@ -195,7 +269,7 @@ class DataTransformer {
    * @param bottom_shape
    *    The shape of the data to be transformed.
    */
-  vector<int> InferBlobShape(const vector<int>& bottom_shape, bool use_gpu = false);
+//  vector<int> InferBlobShape(const vector<int>& bottom_shape, bool use_gpu = false);
 
   /**
    * @brief Infers the shape of transformed_blob will have when
@@ -204,32 +278,31 @@ class DataTransformer {
    * @param datum
    *    Datum containing the data to be transformed.
    */
-  vector<int> InferBlobShape(const Datum& datum, bool use_gpu = false);
+//  vector<int> InferBlobShape(const Datum& datum, bool use_gpu = false);
 
-#ifdef USE_OPENCV
-  /**
-   * @brief Infers the shape of transformed_blob will have when
-   *    the transformation is applied to the data.
-   *
-   * @param cv_img
-   *    cv::Mat containing the data to be transformed.
-   */
-  vector<int> InferBlobShape(const cv::Mat& cv_img, bool use_gpu = false);
-#endif  // USE_OPENCV
+//#ifdef USE_OPENCV
+//  /**
+//   * @brief Infers the shape of transformed_blob will have when
+//   *    the transformation is applied to the data.
+//   *
+//   * @param cv_img
+//   *    cv::Mat containing the data to be transformed.
+//   */
+//  vector<int> InferBlobShape(const cv::Mat& cv_img, bool use_gpu = false);
+//#endif  // USE_OPENCV
 
   void Fill3Randoms(unsigned int* rand) const;
-  const TransformationParameter& transform_param() const {
-    return param_;
-  }
+
+#endif
 
  protected:
   unsigned int Rand() const;
-  void TransformGPU(const Datum& datum, Dtype* transformed_data,
-      const std::array<unsigned int, 3>& rand);
-  void Transform(const Datum& datum, Dtype* transformed_data,
-      const std::array<unsigned int, 3>& rand);
-  void TransformPtrInt(Datum& datum, Dtype* transformed_data,
-      const std::array<unsigned int, 3>& rand);
+//  void TransformGPU(const Datum& datum, Dtype* transformed_data,
+//      const std::array<unsigned int, 3>& rand);
+//  void Transform(const Datum& datum, Dtype* transformed_data,
+//      const std::array<unsigned int, 3>& rand);
+//  void TransformPtrInt(Datum& datum, Dtype* transformed_data,
+//      const std::array<unsigned int, 3>& rand);
 
   // Tranformation parameters
   TransformationParameter param_;
@@ -237,10 +310,23 @@ class DataTransformer {
   Phase phase_;
   TBlob<float> data_mean_;
   vector<float> mean_values_;
+
+#ifdef USE_OPENCV
+  cv::Mat mean_mat_orig_, mean_mat_;
+#endif
+
 #ifndef CPU_ONLY
   GPUMemory::Workspace mean_values_gpu_;
 #endif
+
 };
+
+//template<>
+//class DataTransformer<float16> {
+//  DataTransformer(const TransformationParameter& param, Phase phase) = delete;
+//  ~DataTransformer() = delete;
+//
+//};
 
 }  // namespace caffe
 

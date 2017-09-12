@@ -4,6 +4,8 @@
 #include "caffe/util/gpu_memory.hpp"
 #include "caffe/util/math_functions.hpp"
 
+#define MAX_ELEM_TO_SHOW 200UL
+
 namespace caffe {
 
 // If CUDA is available and in GPU mode, host memory will be allocated pinned,
@@ -316,7 +318,7 @@ std::string SyncedMemory::to_string(int indent, Type type) {  // debug helper
   const void* data = cpu_data();
   if (is_type<float>(type)) {
     const float* fdata = static_cast<const float*>(data);
-    size_t n = std::min(size_ / sizeof(float), 5UL);
+    size_t n = std::min(size_ / sizeof(float), MAX_ELEM_TO_SHOW);
     os << idt << "First " << n << " elements:";
     for (size_t i = 0; i < n; ++i) {
       os << " " << fdata[i];
@@ -324,7 +326,7 @@ std::string SyncedMemory::to_string(int indent, Type type) {  // debug helper
     os << std::endl;
     os << idt << "First corrupted elements (if any):";
     int j = 0;
-    for (size_t i = 0; i < size_ / sizeof(float) && j < 5; ++i) {
+    for (size_t i = 0; i < size_ / sizeof(float) && j < MAX_ELEM_TO_SHOW; ++i) {
       if (isinf(fdata[i]) || isnan(fdata[i])) {
         os << idt << i << "->" << fdata[i] << " ";
         ++j;
@@ -340,7 +342,7 @@ std::string SyncedMemory::to_string(int indent, Type type) {  // debug helper
 #ifndef CPU_ONLY
   else if (is_type<float16>(type)) {
     const float16* fdata = static_cast<const float16*>(data);
-    size_t n = std::min(size_ / sizeof(float16), 5UL);
+    size_t n = std::min(size_ / sizeof(float16), MAX_ELEM_TO_SHOW);
     os << idt << "First " << n << " elements:";
     for (size_t i = 0; i < n; ++i) {
       os << " " << float(fdata[i]);
@@ -348,7 +350,7 @@ std::string SyncedMemory::to_string(int indent, Type type) {  // debug helper
     os << std::endl;
     os << idt << "First corrupted elements (if any):";
     int j = 0;
-    for (size_t i = 0; i < size_ / sizeof(float16) && j < 5; ++i) {
+    for (size_t i = 0; i < size_ / sizeof(float16) && j < MAX_ELEM_TO_SHOW; ++i) {
       if (isinf(fdata[i]) || isnan(fdata[i])) {
         os << i << "->" << float(fdata[i]) << " ";
         ++j;
@@ -364,21 +366,21 @@ std::string SyncedMemory::to_string(int indent, Type type) {  // debug helper
 #endif
   else if (is_type<double>(type)) {
     const double* fdata = static_cast<const double*>(data);
-    size_t n = std::min(size_ / sizeof(double), 5UL);
+    size_t n = std::min(size_ / sizeof(double), MAX_ELEM_TO_SHOW);
     os << idt << "First " << n << " elements:";
     for (size_t i = 0; i < n; ++i) {
       os << " " << fdata[i];
     }
   } else if (is_type<unsigned int>(type)) {
     const unsigned int* fdata = static_cast<const unsigned int*>(data);
-    size_t n = std::min(size_ / sizeof(unsigned int), 5UL);
+    size_t n = std::min(size_ / sizeof(unsigned int), MAX_ELEM_TO_SHOW);
     os << idt << "First " << n << " elements:";
     for (size_t i = 0; i < n; ++i) {
       os << " " << fdata[i];
     }
   } else if (is_type<int>(type)) {
     const int* fdata = static_cast<const int*>(data);
-    size_t n = std::min(size_ / sizeof(int), 5UL);
+    size_t n = std::min(size_ / sizeof(int), MAX_ELEM_TO_SHOW);
     os << idt << "First " << n << " elements:";
     for (size_t i = 0; i < n; ++i) {
       os << " " << fdata[i];

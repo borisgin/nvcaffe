@@ -192,7 +192,7 @@ ifneq ($(NO_NVML), 1)
 endif
 endif
 
-LIBRARIES += boost_system glog gflags protobuf boost_filesystem m
+LIBRARIES += boost_system glog gflags protobuf boost_filesystem m turbojpeg
 ifeq ($(TEGRA), 1)
     LIBRARIES += hdf5_serial_hl hdf5_serial
 else
@@ -211,7 +211,7 @@ ifeq ($(USE_LMDB), 1)
 	LIBRARIES += lmdb
 endif
 ifeq ($(USE_OPENCV), 1)
-	LIBRARIES += opencv_core opencv_highgui opencv_imgproc 
+	LIBRARIES += opencv_core opencv_highgui opencv_imgproc
 
 	ifeq ($(OPENCV_VERSION), 3)
 		LIBRARIES += opencv_imgcodecs

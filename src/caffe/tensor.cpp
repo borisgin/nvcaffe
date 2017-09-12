@@ -143,12 +143,12 @@ void Tensor::copy_helper(bool use_gpu, int count, const void* p_src, Type src_ty
   }
 }
 
-void Tensor::scale(float scale, void* handle, bool synced) {
+void Tensor::scale(float scale, void* handle) {
   if (Caffe::mode() == Caffe::GPU) {
 #ifndef CPU_ONLY
     cublasHandle_t cublas_handle =
         handle == nullptr ? Caffe::cublas_handle() : reinterpret_cast<cublasHandle_t>(handle);
-    gpu_scale(scale, cublas_handle, synced);
+    gpu_scale(scale, cublas_handle);
 #else
     NO_GPU;
 #endif
@@ -164,9 +164,9 @@ void Tensor::cpu_scale(float scale) {
 
 #ifndef CPU_ONLY
 
-void Tensor::gpu_scale(float scale, cublasHandle_t cublas_handle, bool synced) {
+void Tensor::gpu_scale(float scale, cublasHandle_t cublas_handle) {
   shared_ptr<SyncedMemory>& mem = mutable_synced_mem();
-  gpu_scal(count_, type_, mem->mutable_gpu_data(), scale, cublas_handle, synced);
+  gpu_scal(count_, type_, mem->mutable_gpu_data(), scale, cublas_handle);
 }
 
 #endif
@@ -312,15 +312,13 @@ void Tensor::cpu_scal(int count, Type dtype, void* data, float scal) {
 
 #ifndef CPU_ONLY
 
-void Tensor::gpu_scal(int count, Type dtype, void* data, float scal, cublasHandle_t cublas_handle,
-    bool sync) {
+void Tensor::gpu_scal(int count, Type dtype, void* data, float scal, cublasHandle_t cublas_handle) {
   if (is_type<float>(dtype)) {
-    caffe_gpu_scal(count, scal, static_cast<float*>(data), cublas_handle, sync);
+    caffe_gpu_scal(count, scal, static_cast<float*>(data), cublas_handle);
   } else if (is_type<float16>(dtype)) {
-    caffe_gpu_scal_fp16(count, scal, static_cast<float16*>(data), cublas_handle, sync);
+    caffe_gpu_scal_fp16(count, scal, static_cast<float16*>(data), cublas_handle);
   } else if (is_type<double>(dtype)) {
-    caffe_gpu_scal(count, static_cast<double>(scal), static_cast<double*>(data), cublas_handle,
-        sync);
+    caffe_gpu_scal(count, static_cast<double>(scal), static_cast<double*>(data), cublas_handle);
   } else {
     LOG(FATAL) << "Unsupported data type: " << Type_Name(dtype);
   }
