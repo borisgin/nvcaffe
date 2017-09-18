@@ -18,7 +18,7 @@ void EltwiseLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bottom,
       "Eltwise layer only takes coefficients for summation.";
   op_ = this->layer_param_.eltwise_param().operation();
   // TBlob-wise coefficients for the elementwise operation.
-  coeffs_ = vector<float>(bottom.size(), 1);
+  coeffs_ = vector<float>(bottom.size(), 1.F);
   if (this->layer_param().eltwise_param().coeff_size()) {
     for (int i = 0; i < bottom.size(); ++i) {
       coeffs_[i] = this->layer_param().eltwise_param().coeff(i);
@@ -30,8 +30,10 @@ void EltwiseLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bottom,
 template <typename Ftype, typename Btype>
 void EltwiseLayer<Ftype, Btype>::Reshape(const vector<Blob*>& bottom,
       const vector<Blob*>& top) {
+  no_coeffs_ = true;
   for (int i = 1; i < bottom.size(); ++i) {
     CHECK(bottom[i]->shape() == bottom[0]->shape());
+    no_coeffs_ = no_coeffs_ && coeffs_[i] == 1.F;
   }
   top[0]->ReshapeLike(*bottom[0]);
   // If max operation, we will initialize the vector index part.
@@ -39,7 +41,9 @@ void EltwiseLayer<Ftype, Btype>::Reshape(const vector<Blob*>& bottom,
       EltwiseParameter_EltwiseOp_MAX && top.size() == 1) {
     max_idx_.Reshape(bottom[0]->shape());
   }
-  bottom[0]->ShareDiff(*top[0]);
+  if (op_ == EltwiseParameter_EltwiseOp_SUM && no_coeffs_) {
+    bottom[0]->ShareDiff(*top[0]);
+  }
 }
 
 template <typename Ftype, typename Btype>
@@ -129,7 +133,9 @@ void EltwiseLayer<Ftype, Btype>::Backward_cpu(const vector<Blob*>& top,
         break;
       case EltwiseParameter_EltwiseOp_SUM:
         if (coeffs_[i] == 1.F) {
-          caffe_copy(count, top_diff, bottom_diff);
+          if (i > 0) {
+            caffe_copy(count, top_diff, bottom_diff);
+          }
         } else {
           caffe_cpu_scale(count, Btype(coeffs_[i]), top_diff, bottom_diff);
         }
