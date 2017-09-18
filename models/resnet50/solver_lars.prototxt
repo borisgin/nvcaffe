@@ -4,26 +4,21 @@ test_iter:    1562         # 50000/32
 test_interval: 20000    
 test_initialization: false
 
-display: 2000
+display: 1000
 
 max_iter: 3000000 	# 150 epoch 
 base_lr:  0.05 		# B=64 
 
 local_lr_auto: true
+local_gw_ratio: 0.001
 
-rampup_lr: 0.001
-rampup_interval: 10000
+#rampup_lr: 0.001
+#rampup_interval: 10000
 
 lr_policy: "poly"
 power: 2.0
 momentum: 0.9
 weight_decay: 1e-4
-
-local_lr_auto:  true
-local_gw_ratio: 0.001
-
-#rampup_lr: 1
-#rampup_interval: 600   
 
 snapshot: 50000000
 snapshot_prefix: "models/resnet50/snapshots/resnet50"
