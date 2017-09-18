@@ -31,9 +31,11 @@ template <typename Ftype, typename Btype>
 void EltwiseLayer<Ftype, Btype>::Reshape(const vector<Blob*>& bottom,
       const vector<Blob*>& top) {
   no_coeffs_ = true;
+  for (int i = 0; i < bottom.size(); ++i) {
+    no_coeffs_ = no_coeffs_ && coeffs_[i] == 1.F;
+  }
   for (int i = 1; i < bottom.size(); ++i) {
     CHECK(bottom[i]->shape() == bottom[0]->shape());
-    no_coeffs_ = no_coeffs_ && coeffs_[i] == 1.F;
   }
   top[0]->ReshapeLike(*bottom[0]);
   // If max operation, we will initialize the vector index part.
@@ -132,7 +134,7 @@ void EltwiseLayer<Ftype, Btype>::Backward_cpu(const vector<Blob*>& top,
         caffe_mul(count, bottom_diff, top_diff, bottom_diff);
         break;
       case EltwiseParameter_EltwiseOp_SUM:
-        if (coeffs_[i] == 1.F) {
+        if (no_coeffs_) {
           if (i > 0) {
             caffe_copy(count, top_diff, bottom_diff);
           }

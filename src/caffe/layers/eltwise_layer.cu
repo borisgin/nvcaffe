@@ -119,7 +119,7 @@ void EltwiseLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
         }
         break;
       case EltwiseParameter_EltwiseOp_SUM:
-        if (coeffs_[i] == 1.F) {
+        if (no_coeffs_) {
           if (i > 0) {
             caffe_copy(count, top_diff, bottom[i]->mutable_gpu_diff<Btype>());
           }
