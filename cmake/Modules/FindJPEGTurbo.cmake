@@ -11,7 +11,7 @@
 find_path(JPEGTurbo_INCLUDE_DIR NAMES turbojpeg.h
                              PATHS /usr/include ${JPEGTurbo_ROOT_DIR} ${JPEGTurbo_ROOT_DIR}/include)
 
-find_library(JPEGTurbo_LIBRARIES SHARED NAMES turbojpeg
+find_library(JPEGTurbo_LIBRARIES SHARED NAMES libturbojpeg.so.0
                               PATHS  ${JPEGTurbo_ROOT_DIR} ${JPEGTurbo_ROOT_DIR}/lib)
 
 include(FindPackageHandleStandardArgs)

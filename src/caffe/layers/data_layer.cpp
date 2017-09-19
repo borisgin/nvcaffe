@@ -12,6 +12,7 @@ DataLayer<Ftype, Btype>::DataLayer(const LayerParameter& param)
     shuffle_(param.data_param().shuffle()) {
   sample_only_.store(this->auto_mode_ && this->phase_ == TRAIN);
   init_offsets();
+  train_data_encoded_ = false;
 }
 
 template<typename Ftype, typename Btype>
@@ -60,15 +61,15 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
     size_t batches_fit = this->queues_num_;
 #endif
     size_t max_parsers_num = 2;
-    size_t max_transf_num = 3;
-    float ratio = 5.F;
+    size_t max_transf_num = train_data_encoded_ ? 4 : 3;
+    float ratio = train_data_encoded_ ? 3.F : 5.F;
     Net* pnet = this->parent_net();
     if (pnet != nullptr) {
       Solver* psolver = pnet->parent_solver();
       if (psolver != nullptr) {
         if (pnet->layers().size() < 100) {
           max_transf_num = 4;
-          ratio = 2.F; // 1:2 for "i/o bound", 1:5 otherwise
+          ratio = 2.F; // 1:2 for "i/o bound", 1:5 or 1:3 otherwise
         }
       }
     }
@@ -164,6 +165,7 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
   }
   // Read a data point, and use it to initialize the top blob.
   shared_ptr<Datum> sample_datum = sample_only_ ? sample_reader_->sample() : reader_->sample();
+  train_data_encoded_ = sample_datum->encoded();
   init_offsets();
 
   // Reshape top[0] and prefetch_data according to the batch_size.
