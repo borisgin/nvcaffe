@@ -128,12 +128,8 @@ protected:
 
 #ifdef USE_OPENCV
   cv::Mat mean_mat_orig_, mean_mat_;
+  cv::Mat tmp_;
 #endif
-
-#ifndef CPU_ONLY
-  GPUMemory::Workspace mean_values_gpu_;
-#endif
-
 };
 
 }  // namespace caffe

@@ -109,7 +109,7 @@ vector<int> DataTransformer<Dtype>::Transform(const Datum* datum, size_t buf_len
 template<typename Dtype>
 void DataTransformer<Dtype>::Transform(const cv::Mat& src, size_t buf_len, Dtype* buf) {
   cv::Mat tmp, dst;
-  if (image_random_resize_enabled()) {//} || this->phase_ == TEST) {
+  if (image_random_resize_enabled()) {
     int lower_sz = param_.img_rand_resize_lower();
     int upper_sz = param_.img_rand_resize_upper();
     CHECK_GT(lower_sz, 0) << "random resize lower bound parameter must be positive";
@@ -243,6 +243,8 @@ void DataTransformer<Dtype>::apply_mean_scale_mirror(const cv::Mat& src, cv::Mat
     if (src.rows != mean_mat_.rows || src.cols != mean_mat_.cols) {
       mean_mat_ = mean_mat_orig_;
       image_center_crop(src.cols, src.rows, mean_mat_);
+      // scale & convert in place
+      mean_mat_.convertTo(mean_mat_, CVFC<Dtype>(ch), scale);
     }
   } else if (has_mean_values) {
     CHECK(mean_values_.size() == 1 || mean_values_.size() == ch)
@@ -251,26 +253,27 @@ void DataTransformer<Dtype>::apply_mean_scale_mirror(const cv::Mat& src, cv::Mat
       if (ch == 3) {
         const int i1 = mean_values_.size() == 1 ? 0 : 1;
         const int i2 = mean_values_.size() == 1 ? 0 : 2;
-        cv::Scalar_<Dtype> s(mean_values_[0], mean_values_[i1], mean_values_[i2]);
+        cv::Scalar_<Dtype> s(scale * mean_values_[0],
+            scale * mean_values_[i1], scale * mean_values_[i2]);
         mean_mat_ = cv::Mat(src.rows, src.cols, CVFC<Dtype>(3), s);
       } else {
-        cv::Scalar_<Dtype> s(mean_values_[0]);
+        cv::Scalar_<Dtype> s(scale * mean_values_[0]);
         mean_mat_ = cv::Mat(src.rows, src.cols, CVFC<Dtype>(1), s);
       }
     }
   }
+
+  const bool do_mirror = param_.mirror() && Rand(2) > 0;
+  src.convertTo(tmp_, CVFC<Dtype>(ch), scale);  // scale & convert
+  dst = tmp_;
   if (has_mean_file || has_mean_values) {
-    dst.create(src.rows, src.cols, CVFC<Dtype>(ch));
-    cv::subtract(src, mean_mat_, dst, cv::noArray(), CVFC<Dtype>(ch));  // src-mean -> dst
-  } else {
-    dst = src;
+    cv::subtract(tmp_, mean_mat_, dst, cv::noArray(), CVFC<Dtype>(ch));  // src-mean -> dst
+    if (do_mirror) {
+      tmp_ = dst;
+    }
   }
-  if (param_.mirror() && Rand(2) > 0) {
-    cv::Mat tmp = scale != 1.F ? dst * scale : dst;
-    const int flip_axis = Rand(2);  // 0 for x, 1 for y
-    cv::flip(tmp, dst, flip_axis);
-  } else if (scale != 1.F) {
-    dst *= scale;
+  if (do_mirror) {
+    cv::flip(tmp_, dst, 1);  // y axis flip
   }
 }
 
@@ -284,8 +287,7 @@ void DataTransformer<Dtype>::Transform(const vector<cv::Mat>& mat_vector, TBlob<
   size_t buf_len = transformed_blob->offset(1);
   for (size_t item_id = 0; item_id < mat_num; ++item_id) {
     size_t offset = transformed_blob->offset(item_id);
-    cv::Mat src = mat_vector[item_id];  // TODO
-    apply_mean_scale_mirror(src, dst);
+    apply_mean_scale_mirror(mat_vector[item_id], dst);
     FloatCVMatToBuf<Dtype>(dst, buf_len, transformed_blob->mutable_cpu_data() + offset);
   }
 }

@@ -138,7 +138,7 @@ vector<int> DecodeDatumToCVMat(const Datum& datum, int color_mode, cv::Mat& cv_i
       && static_cast<unsigned char>(content[0]) == 255
       && static_cast<unsigned char>(content[1]) == 216) {  // probably jpeg
     int width, height, subsamp;
-    auto *content_data = reinterpret_cast<unsigned char*>(const_cast<char *>(content.data()));
+    auto *content_data = reinterpret_cast<unsigned char*>(const_cast<char*>(content.data()));
 
     tjhandle jpeg_decoder = tjInitDecompress();
     tjDecompressHeader2(jpeg_decoder, content_data, content_size, &width, &height, &subsamp);
