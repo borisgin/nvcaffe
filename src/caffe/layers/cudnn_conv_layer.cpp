@@ -444,12 +444,6 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
       case ConvolutionParameter_CuDNNConvolutionAlgorithmSeeker_FINDEX:
         if (!use_modest_workspace()) {
           if (this->phase_ == TRAIN) {
-            // Make sure it's all allocated before we take the rest
-            for (int i = 0; i < bottom.size(); ++i) {
-              top[i]->allocate_data();
-              bottom[i]->allocate_diff();
-            }
-            this->blobs_[0]->allocate_data();
             // Now taking the rest for running FindEx calls
             // We'll release what's possible in BW pass
             AllocateFindExWorkspace();
@@ -734,6 +728,10 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
         bwd_filter_cudnn_math_[i] = bwd_filter_cudnn_math_0;
         CUDNN_CHECK(cudnnSetConvolutionMathType(bwd_conv_filter_descs_[i],
             bwd_filter_cudnn_math_[i]));
+      }
+
+      if (!propagate_down_[i]) {
+        continue;
       }
 
       cudnnMathType_t bwd_data_cudnn_math_0 = CUDNN_DEFAULT_MATH;

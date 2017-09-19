@@ -492,9 +492,7 @@ const int TypedConsts<int>::one = 1;
 
 #ifdef USE_CUDNN
 CuDNNHandle::CuDNNHandle(cudaStream_t stream) {
-  if (cudnnCreate(&handle_) != CUDNN_STATUS_SUCCESS) {
-    LOG(ERROR) << "Cannot create cuDNN handle. cuDNN won't be available.";
-  }
+  CUDNN_CHECK(cudnnCreate(&handle_));
   CUDNN_CHECK(cudnnSetStream(handle_, stream));
 }
 

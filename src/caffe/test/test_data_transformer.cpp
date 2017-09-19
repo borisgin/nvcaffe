@@ -37,7 +37,7 @@ class DataTransformTest : public ::testing::Test {
       num_iter_(10) {}
 
   int NumSequenceMatches(const TransformationParameter transform_param,
-      const Datum& datum, Phase phase) {
+      Datum& datum, Phase phase) {
     // Get crop sequence with Caffe seed 1701.
     DataTransformer<Dtype> transformer(transform_param, phase);
     const int crop_size = transform_param.crop_size();
@@ -275,7 +275,7 @@ TYPED_TEST(DataTransformTest, TestMeanValue) {
   transformer.InitRand();
   transformer.Transform(datum, &blob);
   for (int j = 0; j < blob.count(); ++j) {
-    EXPECT_EQ(static_cast<int>(blob.cpu_data()[j]), label - mean_value);
+    EXPECT_EQ(static_cast<int>(blob.cpu_data()[j]), label - mean_value) << j;
   }
 }
 
@@ -361,6 +361,7 @@ class VarSzTransformsTest : public ::testing::Test {
     DataTransformer<Dtype> transformer(transform_param, TEST);
     Caffe::set_random_seed(seed_);
     transformer.InitRand();
+
     shared_ptr<Datum> transformed_datum = make_shared<Datum>(*datum);
     transformer.VariableSizedTransforms(transformed_datum.get());
     EXPECT_EQ(transformed_datum->channels(), 3);
@@ -407,7 +408,7 @@ class GPUDataTransformTest : public GPUDeviceTest<Dtype> {
       num_iter_(10) {}
 
   int NumSequenceMatches(const TransformationParameter transform_param,
-      const Datum& datum, Phase phase) {
+      Datum& datum, Phase phase) {
     // Get crop sequence with Caffe seed 1701.
     DataTransformer<Dtype> transformer(transform_param, phase);
     const int crop_size = transform_param.crop_size();

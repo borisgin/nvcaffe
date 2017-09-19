@@ -54,6 +54,10 @@ if(USE_LEVELDB)
   list(APPEND Caffe_LINKER_LIBS ${Snappy_LIBRARIES})
 endif()
 
+find_package(JPEGTurbo REQUIRED)
+include_directories(SYSTEM ${JPEGTurbo_INCLUDE_DIR})
+list(APPEND Caffe_LINKER_LIBS ${JPEGTurbo_LIBRARIES})
+
 # ---[ CUDA
 include(cmake/Cuda.cmake)
 if(NOT HAVE_CUDA)

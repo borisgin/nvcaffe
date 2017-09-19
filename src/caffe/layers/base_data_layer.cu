@@ -10,7 +10,7 @@ void BasePrefetchingDataLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bo
   // Note: this function runs in one thread per object and one object per one Solver thread
   shared_ptr<Batch<Ftype>> batch =
       prefetches_full_[next_batch_queue_]->pop("Data layer prefetch queue empty");
-  Blob& transformed_blob = is_gpu_transform() ? *batch->gpu_transformed_data_ : batch->data_;
+  Blob& transformed_blob = batch->data_;
   if (this->relative_iter() > 1 && top[0]->data_type() == transformed_blob.data_type()
       && top[0]->shape() == transformed_blob.shape()) {
     top[0]->Swap(transformed_blob);

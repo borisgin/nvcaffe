@@ -41,11 +41,8 @@ class BaseDataLayer : public Layer<Ftype, Btype> {
   void Backward_gpu(const vector<Blob*>& top, const vector<bool>& propagate_down,
       const vector<Blob*>& bottom) override {}
 
-  virtual bool is_gpu_transform() const { return false; }
-
  protected:
   TransformationParameter transform_param_;
-  vector <shared_ptr<DataTransformer<Ftype>>> data_transformers_;
   bool output_labels_;
 };
 
@@ -53,11 +50,8 @@ template<typename Ftype>
 class Batch {
  public:
   TBlob<Ftype> data_, label_;
-  shared_ptr<Blob> gpu_transformed_data_;
-  // stored random numbers for this batch
-  TBlob<unsigned int> random_vec_;
 
-  Batch() : gpu_transformed_data_(Blob::create<Ftype>()), id_((size_t) -1) {}
+  Batch() : id_((size_t) -1) {}
   ~Batch() {}
 
   size_t id() const {
@@ -68,13 +62,8 @@ class Batch {
     id_ = id;
   }
 
-  size_t bytes(bool gpu_transform) const {
-    size_t ret = sizeof(Ftype) * (data_.count() + label_.count()) +
-        sizeof(unsigned int) * random_vec_.count();
-    if (gpu_transform) {
-      ret += sizeof(Ftype) * gpu_transformed_data_->count();
-    }
-    return ret;
+  size_t bytes() const {
+    return sizeof(Ftype) * (data_.count() + label_.count());
   }
 
  private:
@@ -99,6 +88,7 @@ inline bool operator>(const shared_ptr <Batch<Ftype>>& a, const shared_ptr <Batc
 template<typename Ftype, typename Btype>
 class BasePrefetchingDataLayer : public BaseDataLayer<Ftype, Btype>, public InternalThread {
  public:
+  using DT = DataTransformer<Ftype>;
   explicit BasePrefetchingDataLayer(const LayerParameter& param);
   virtual ~BasePrefetchingDataLayer();
   // LayerSetUp: implements common data layer setup functionality, and calls
@@ -108,11 +98,8 @@ class BasePrefetchingDataLayer : public BaseDataLayer<Ftype, Btype>, public Inte
   void Forward_cpu(const vector<Blob*>& bottom, const vector<Blob*>& top) override;
   void Forward_gpu(const vector<Blob*>& bottom, const vector<Blob*>& top) override;
 
-  bool is_gpu_transform() const override {
-    // If user omitted this setting we deduce it from Ftype
-    const bool use_gpu = this->transform_param_.has_use_gpu_transform() ?
-        this->transform_param_.use_gpu_transform() : is_type<Ftype>(FLOAT16);
-    return use_gpu && Caffe::mode() == Caffe::GPU;
+  DT* dt(int id) {
+    return data_transformers_.at(id).get();
   }
 
  protected:
@@ -159,6 +146,8 @@ class BasePrefetchingDataLayer : public BaseDataLayer<Ftype, Btype>, public Inte
   // These two are for delayed init only
   std::vector<Blob*> bottom_init_;
   std::vector<Blob*> top_init_;
+
+  vector<shared_ptr<DT>> data_transformers_;
 };
 
 }  // namespace caffe

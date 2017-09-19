@@ -387,24 +387,24 @@ class Blob {
   float sumsq_diff() const;
 
   /// @brief Scale the blob data by a constant factor.
-  void scale_data(float scale, void* handle = nullptr, bool synced = true) {
-    data_tensor_->scale(scale, handle, synced);
+  void scale_data(float scale, void* handle = nullptr) {
+    data_tensor_->scale(scale, handle);
   }
 
   /// @brief Scale the blob diff by a constant factor.
-  void scale_diff(float scale, void* handle = nullptr, bool synced = true) {
-    diff_tensor_->scale(scale, handle, synced);
+  void scale_diff(float scale, void* handle = nullptr) {
+    diff_tensor_->scale(scale, handle);
   }
 
 #ifndef CPU_ONLY
   /// @brief Scale the blob data by a constant factor. Uses GPU, may be asynchronous
-  void gpu_scale_data(float scale, cublasHandle_t cublas_handle, bool synced) {
-    data_tensor_->gpu_scale(scale, cublas_handle, synced);
+  void gpu_scale_data(float scale, cublasHandle_t cublas_handle) {
+    data_tensor_->gpu_scale(scale, cublas_handle);
   }
 
   /// @brief Scale the blob diff by a constant factor. Uses GPU, may be asynchronous
-  void gpu_scale_diff(float scale, cublasHandle_t cublas_handle, bool synced) {
-    diff_tensor_->gpu_scale(scale, cublas_handle, synced);
+  void gpu_scale_diff(float scale, cublasHandle_t cublas_handle) {
+    diff_tensor_->gpu_scale(scale, cublas_handle);
   }
 #endif
 

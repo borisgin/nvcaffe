@@ -31,7 +31,6 @@ class WindowDataLayer : public BasePrefetchingDataLayer<Ftype, Btype> {
   const char* type() const override { return "WindowData"; }
   int ExactNumBottomBlobs() const override { return 0; }
   int ExactNumTopBlobs() const override { return 2; }
-  bool is_gpu_transform() const override { return false; }
 
  protected:
   unsigned int PrefetchRand();

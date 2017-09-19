@@ -288,7 +288,7 @@ void WindowDataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch,
       if (this->cache_images_) {
         pair<std::string, Datum> image_cached =
           image_database_cache_[window[WindowDataLayer<Ftype, Btype>::IMAGE_INDEX]];
-        cv_img = DecodeDatumToCVMat(image_cached.second, true);
+        DecodeDatumToCVMat(image_cached.second, true, cv_img, false);
       } else {
         cv_img = cv::imread(image.first, CV_LOAD_IMAGE_COLOR);
         if (!cv_img.data) {
@@ -470,8 +470,7 @@ void WindowDataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch,
   batch->set_id(this->batch_id(thread_id));
 }
 
-INSTANTIATE_CLASS_FB(WindowDataLayer);
-REGISTER_LAYER_CLASS(WindowData);
+INSTANTIATE_CLASS_CPU_FB(WindowDataLayer);
 
 }  // namespace caffe
 #endif  // USE_OPENCV
