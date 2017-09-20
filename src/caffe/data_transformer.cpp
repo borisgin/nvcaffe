@@ -278,7 +278,8 @@ void DataTransformer<Dtype>::apply_mean_scale_mirror(const cv::Mat& src, cv::Mat
 }
 
 template<typename Dtype>
-void DataTransformer<Dtype>::Transform(const vector<cv::Mat>& mat_vector, TBlob<Dtype> *transformed_blob) {
+void DataTransformer<Dtype>::Transform(const vector<cv::Mat>& mat_vector,
+    TBlob<Dtype> *transformed_blob) {
   const size_t mat_num = mat_vector.size();
   const int num = transformed_blob->num();
   CHECK_GT(mat_num, 0) << "There is no MAT to add";
@@ -293,7 +294,8 @@ void DataTransformer<Dtype>::Transform(const vector<cv::Mat>& mat_vector, TBlob<
 }
 
 template<typename Dtype>
-void DataTransformer<Dtype>::Transform(const vector<Datum>& datum_vector, TBlob<Dtype> *transformed_blob) {
+void DataTransformer<Dtype>::Transform(const vector<Datum>& datum_vector,
+    TBlob<Dtype> *transformed_blob) {
   const size_t datum_num = datum_vector.size();
   const int num = transformed_blob->num();
   CHECK_GT(datum_num, 0) << "There is no datum to add";

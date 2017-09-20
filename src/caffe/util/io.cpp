@@ -99,7 +99,8 @@ bool ReadFileToDatum(const string& filename, const int label,
  * @param color_mode -1 enforce gray, 0 deduce from datum, +1 enforce color
  * @param out
  */
-vector<int> DecodeJPEGToBuffer(const Datum& datum, int color_mode, std::vector<unsigned char>& out) {
+vector<int> DecodeJPEGToBuffer(const Datum& datum, int color_mode,
+    std::vector<unsigned char>& out) {
   CHECK(datum.encoded()) << "Datum not encoded";
   const std::string& jpg = datum.data();
   CHECK(jpg[0] == 255 && jpg[1] == 216) << "Datum encoded not as JPEG, USE_OPENCV is required";
@@ -158,7 +159,8 @@ vector<int> DecodeDatumToCVMat(const Datum& datum, int color_mode, cv::Mat& cv_i
   } else {
     // probably not jpeg...
     std::vector<char> vec_data(content.c_str(), content.c_str() + content_size);
-    const int flag = color_mode < 0 ? CV_LOAD_IMAGE_GRAYSCALE : CV_LOAD_IMAGE_COLOR;
+    const int flag = color_mode < 0 ? CV_LOAD_IMAGE_GRAYSCALE :
+       (color_mode > 0 ? CV_LOAD_IMAGE_COLOR : CV_LOAD_IMAGE_ANYCOLOR);
     cv_img = cv::imdecode(vec_data, flag);
     ch = cv_img.channels();
   }

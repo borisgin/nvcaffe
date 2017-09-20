@@ -91,7 +91,7 @@ class DataTransformer {
   void Transform(Datum& datum, TBlob<Dtype>* transformed_blob);
   void VariableSizedTransforms(Datum* datum);
 
-protected:
+ protected:
   bool image_random_resize_enabled() const;
   bool image_random_crop_enabled() const;
   bool image_center_crop_enabled() const;
