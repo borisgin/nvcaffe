@@ -828,6 +828,9 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
     }
 
     CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
+
+    AllocateWorkspace(bottom.size());  // if user overrides
+
     size_t available_memory, total_memory;
     GPUMemory::GetInfo(&available_memory, &total_memory, true);
     std::ostringstream os;
