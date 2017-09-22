@@ -2,9 +2,10 @@ name: "Resnet50_fp16"
 
 default_forward_type:  FLOAT16
 default_backward_type: FLOAT16
-default_forward_math:  FLOAT
-default_backward_math: FLOAT
-#global_grad_scale: 1.
+#default_forward_math:  FLOAT
+#default_backward_math: FLOAT
+
+global_grad_scale: 1000.
 
 layer {
   name: "data"
@@ -12,13 +13,16 @@ layer {
   top: "data"
   top: "label"
   data_param {
-    source: "examples/imagenet/ilsvrc12_train_lmdb"
+#    source: "examples/imagenet/ilsvrc12_train_lmdb"
+    source: "/data/imagenet/train-lmdb-uncompressed-256x256"
     backend: LMDB
-    batch_size: 32
-#    batch_size: 256  # DGX1
+    batch_size: 512
+    cache:   true
+    shuffle: true  
   }
   transform_param {
-    mean_file: "data/ilsvrc12/imagenet_mean.binaryproto"
+#    mean_file: "data/ilsvrc12/imagenet_mean.binaryproto"
+    mean_file: "/data/imagenet/imagenet_256x256_mean.binaryproto"
     crop_size: 224
     mirror: true
     scale: 0.00390625
@@ -31,12 +35,14 @@ layer {
   top: "data"
   top: "label"
   data_param {
-    source: "examples/imagenet/ilsvrc12_val_lmdb"
+#    source: "examples/imagenet/ilsvrc12_val_lmdb"
+    source: "/data/imagenet/val-lmdb-uncompressed-256x256"
     backend: LMDB
     batch_size: 32
   }
   transform_param {
-    mean_file: "data/ilsvrc12/imagenet_mean.binaryproto"
+#    mean_file: "data/ilsvrc12/imagenet_mean.binaryproto"
+    mean_file: "/data/imagenet/imagenet_256x256_mean.binaryproto"
     crop_size: 224
     mirror: false
     scale: 0.00390625
