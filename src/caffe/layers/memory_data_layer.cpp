@@ -1,7 +1,4 @@
-#ifdef USE_OPENCV
 #include <opencv2/core/core.hpp>
-#endif  // USE_OPENCV
-
 #include <vector>
 
 #include "caffe/layers/memory_data_layer.hpp"
@@ -41,7 +38,7 @@ void MemoryDataLayer<Ftype, Btype>::AddDatumVector(const vector<Datum>& datum_ve
   added_data_.Reshape(num, channels_, height_, width_);
   added_label_.Reshape(num, 1, 1, 1);
   // Apply data transformations (mirror, scale, crop...)
-  this->data_transformers_[0]->Transform(datum_vector, &added_data_);
+  dt_->Transform(datum_vector, &added_data_);
   // Copy Labels
   Ftype* top_label = added_label_.mutable_cpu_data();
   for (int item_id = 0; item_id < num; ++item_id) {
@@ -53,7 +50,6 @@ void MemoryDataLayer<Ftype, Btype>::AddDatumVector(const vector<Datum>& datum_ve
   has_new_data_ = true;
 }
 
-#ifdef USE_OPENCV
 template <typename Ftype, typename Btype>
 void MemoryDataLayer<Ftype, Btype>::AddMatVector(const vector<cv::Mat>& mat_vector,
     const vector<int>& labels) {
@@ -66,7 +62,7 @@ void MemoryDataLayer<Ftype, Btype>::AddMatVector(const vector<cv::Mat>& mat_vect
   added_data_.Reshape(num, channels_, height_, width_);
   added_label_.Reshape(num, 1, 1, 1);
   // Apply data transformations (mirror, scale, crop...)
-  this->data_transformers_[0]->Transform(mat_vector, &added_data_);
+  dt_->Transform(mat_vector, &added_data_);
   // Copy Labels
   Ftype* top_label = added_label_.mutable_cpu_data();
   for (int item_id = 0; item_id < num; ++item_id) {
@@ -77,7 +73,6 @@ void MemoryDataLayer<Ftype, Btype>::AddMatVector(const vector<cv::Mat>& mat_vect
   Reset(top_data, top_label, num);
   has_new_data_ = true;
 }
-#endif  // USE_OPENCV
 
 template <typename Ftype, typename Btype>
 void MemoryDataLayer<Ftype, Btype>::Reset(Ftype* data, Ftype* labels, int n) {
@@ -117,7 +112,6 @@ void MemoryDataLayer<Ftype, Btype>::Forward_cpu(const vector<Blob*>& bottom,
     has_new_data_ = false;
 }
 
-INSTANTIATE_CLASS_FB(MemoryDataLayer);
-REGISTER_LAYER_CLASS(MemoryData);
+INSTANTIATE_CLASS_CPU_FB(MemoryDataLayer);
 
 }  // namespace caffe

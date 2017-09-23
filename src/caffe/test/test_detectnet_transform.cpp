@@ -1,5 +1,3 @@
-#ifdef USE_OPENCV
-
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -407,5 +405,3 @@ TYPED_TEST(DetectNetTransformationLayerTest, TestCrop) {
 }
 
 }  // namespace caffe
-
-#endif  // USE_OPENCV

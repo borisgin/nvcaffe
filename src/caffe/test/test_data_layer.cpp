@@ -1,5 +1,3 @@
-#ifdef USE_OPENCV
-
 #include <memory>
 #include <string>
 #include <vector>
@@ -506,4 +504,3 @@ TYPED_TEST(DataLayerTest, TestReadCropTestLMDBGPUTransform) {
 
 #endif  // USE_LMDB
 }  // namespace caffe
-#endif  // USE_OPENCV

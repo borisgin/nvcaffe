@@ -1,4 +1,3 @@
-#ifdef USE_OPENCV
 #include <opencv2/core/core.hpp>
 
 #include <fstream>  // NOLINT(readability/streams)
@@ -66,25 +65,23 @@ void ImageDataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom,
   cv::Mat cv_img = ReadImageToCVMat(root_folder + lines_[lines_id_].first,
       new_height, new_width, is_color);
   CHECK(cv_img.data) << "Could not load " << lines_[lines_id_].first;
-  // Use data_transformer to infer the expected blob shape from a cv_image.
-  vector<int> top_shape = this->data_transformers_[0]->InferBlobShape(cv_img);
   // Reshape prefetch_data and top[0] according to the batch_size.
   const int batch_size = this->layer_param_.image_data_param().batch_size();
   CHECK_GT(batch_size, 0) << "Positive batch size required";
-  top_shape[0] = batch_size;
+  vector<int> top_shape { batch_size, cv_img.channels(), cv_img.rows, cv_img.cols };
   for (int i = 0; i < this->prefetch_.size(); ++i) {
-    this->prefetch_[i]->data_.Reshape(top_shape);
+    this->prefetch_[i]->data_->Reshape(top_shape);
   }
   top[0]->Reshape(top_shape);
 
   LOG(INFO) << "output data size: " << top[0]->num() << ", "
-      << top[0]->channels() << "," << top[0]->height() << ", "
+      << top[0]->channels() << ", " << top[0]->height() << ", "
       << top[0]->width();
   // label
   vector<int> label_shape(1, batch_size);
   top[1]->Reshape(label_shape);
   for (int i = 0; i < this->prefetch_.size(); ++i) {
-    this->prefetch_[i]->label_.Reshape(label_shape);
+    this->prefetch_[i]->label_->Reshape(label_shape);
   }
   layer_inititialized_flag_.set();
 }
@@ -107,8 +104,7 @@ void ImageDataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id
   double read_time = 0;
   double trans_time = 0;
   CPUTimer timer;
-  CHECK(batch->data_.count());
-  TBlob<Ftype> transformed_datum;
+  CHECK(batch->data_->count());
   ImageDataParameter image_data_param = this->layer_param_.image_data_param();
   const int batch_size = image_data_param.batch_size();
   const int new_height = image_data_param.new_height();
@@ -121,20 +117,18 @@ void ImageDataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id
   cv::Mat cv_img = ReadImageToCVMat(root_folder + lines_[lines_id_].first,
       new_height, new_width, is_color);
   CHECK(cv_img.data) << "Could not load " << lines_[lines_id_].first;
-  // Use data_transformer to infer the expected blob shape from a cv_img.
-  vector<int> top_shape = this->data_transformers_[0]->InferBlobShape(cv_img);
-  transformed_datum.Reshape(top_shape);
-  // Reshape batch according to the batch_size.
-  top_shape[0] = batch_size;
-  batch->data_.Reshape(top_shape);
+  // Infer the expected blob shape from a cv_img.
+  vector<int> top_shape { batch_size, cv_img.channels(), cv_img.rows, cv_img.cols };
+  batch->data_->Reshape(top_shape);
   vector<int> label_shape(1, batch_size);
-  batch->label_.Reshape(label_shape);
+  batch->label_->Reshape(label_shape);
 
-  Ftype* prefetch_data = batch->data_.mutable_cpu_data();
-  Ftype* prefetch_label = batch->label_.mutable_cpu_data();
+  Ftype* prefetch_data = batch->data_->mutable_cpu_data();
+  Ftype* prefetch_label = batch->label_->mutable_cpu_data();
 
   // datum scales
   const int lines_size = lines_.size();
+  const size_t buf_len = batch->data_->offset(1);
   for (int item_id = 0; item_id < batch_size; ++item_id) {
     // get a blob
     timer.Start();
@@ -145,10 +139,8 @@ void ImageDataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id
     read_time += timer.MicroSeconds();
     timer.Start();
     // Apply transformations (mirror, crop...) to the image
-    int offset = batch->data_.offset(item_id);
-    transformed_datum.set_cpu_data(prefetch_data + offset);
-
-    this->data_transformers_[0]->Transform(cv_img, &transformed_datum);
+    int offset = batch->data_->offset(item_id);
+    this->dt(0)->Transform(cv_img, prefetch_data + offset, buf_len);
     trans_time += timer.MicroSeconds();
 
     prefetch_label[item_id] = lines_[lines_id_].second;
@@ -174,8 +166,6 @@ void ImageDataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id
   batch->set_id(this->batch_id(thread_id));
 }
 
-INSTANTIATE_CLASS_FB(ImageDataLayer);
-REGISTER_LAYER_CLASS(ImageData);
+INSTANTIATE_CLASS_CPU_FB(ImageDataLayer);
 
 }  // namespace caffe
-#endif  // USE_OPENCV

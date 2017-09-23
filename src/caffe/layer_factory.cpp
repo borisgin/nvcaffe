@@ -18,7 +18,9 @@
 #include "caffe/layers/dropout_layer.hpp"
 #include "caffe/layers/detectnet_transform_layer.hpp"
 #include "caffe/layers/data_layer.hpp"
-#include "caffe/proto/caffe.pb.h"
+#include "caffe/layers/memory_data_layer.hpp"
+#include "caffe/layers/image_data_layer.hpp"
+#include "caffe/layers/window_data_layer.hpp"
 
 #ifdef USE_CUDNN
 #include "caffe/layers/cudnn_batch_norm_layer.hpp"
@@ -270,7 +272,6 @@ shared_ptr<LayerBase> GetTanHLayer(const LayerParameter& param,
     LOG(FATAL) << "Layer " << param.name() << " has unknown engine.";
   }
 }
-
 REGISTER_LAYER_CREATOR(TanH, GetTanHLayer);
 
 // Get dropout layer according to engine
@@ -297,10 +298,60 @@ shared_ptr<LayerBase> GetDropoutLayer(const LayerParameter& param,
     LOG(FATAL) << "Layer " << param.name() << " has unknown engine.";
   }
 }
-
 REGISTER_LAYER_CREATOR(Dropout, GetDropoutLayer);
 
-#ifdef USE_OPENCV
+shared_ptr<LayerBase> GetDataLayer(const LayerParameter& param, Type ftype, Type btype) {
+  LayerParameter lparam(param);
+  check_precision_support(ftype, btype, lparam);
+  shared_ptr<LayerBase> ret;
+  if (is_type<double>(ftype)) {
+    ret.reset(new DataLayer<double, double>(lparam));
+  } else {
+    ret.reset(new DataLayer<float, float>(lparam));
+  }
+  return ret;
+}
+REGISTER_LAYER_CREATOR(Data, GetDataLayer);
+
+shared_ptr<LayerBase> GetMemoryDataLayer(const LayerParameter& param, Type ftype, Type btype) {
+  LayerParameter lparam(param);
+  check_precision_support(ftype, btype, lparam);
+  shared_ptr<LayerBase> ret;
+  if (is_type<double>(ftype)) {
+    ret.reset(new MemoryDataLayer<double, double>(lparam));
+  } else {
+    ret.reset(new MemoryDataLayer<float, float>(lparam));
+  }
+  return ret;
+}
+REGISTER_LAYER_CREATOR(MemoryData, GetMemoryDataLayer);
+
+shared_ptr<LayerBase> GetImageDataLayer(const LayerParameter& param, Type ftype, Type btype) {
+  LayerParameter lparam(param);
+  check_precision_support(ftype, btype, lparam);
+  shared_ptr<LayerBase> ret;
+  if (is_type<double>(ftype)) {
+    ret.reset(new ImageDataLayer<double, double>(lparam));
+  } else {
+    ret.reset(new ImageDataLayer<float, float>(lparam));
+  }
+  return ret;
+}
+REGISTER_LAYER_CREATOR(ImageData, GetImageDataLayer);
+
+shared_ptr<LayerBase> GetWindowDataLayer(const LayerParameter& param, Type ftype, Type btype) {
+  LayerParameter lparam(param);
+  check_precision_support(ftype, btype, lparam);
+  shared_ptr<LayerBase> ret;
+  if (is_type<double>(ftype)) {
+    ret.reset(new WindowDataLayer<double, double>(lparam));
+  } else {
+    ret.reset(new WindowDataLayer<float, float>(lparam));
+  }
+  return ret;
+}
+REGISTER_LAYER_CREATOR(WindowData, GetWindowDataLayer);
+
 shared_ptr<LayerBase> GetDetectNetTransformationLayer(const LayerParameter& param,
     Type ftype, Type btype) {
   LayerParameter lparam(param);
@@ -314,7 +365,6 @@ shared_ptr<LayerBase> GetDetectNetTransformationLayer(const LayerParameter& para
   return ret;
 }
 REGISTER_LAYER_CREATOR(DetectNetTransformation, GetDetectNetTransformationLayer);
-#endif
 
 #ifdef WITH_PYTHON_LAYER
 shared_ptr<LayerBase> GetPythonLayer(const LayerParameter& param, Type, Type) {

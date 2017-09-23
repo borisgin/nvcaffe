@@ -1,4 +1,3 @@
-#ifdef USE_OPENCV
 #include <string>
 #include <vector>
 
@@ -37,7 +36,7 @@ class DataTransformTest : public ::testing::Test {
       num_iter_(10) {}
 
   int NumSequenceMatches(const TransformationParameter transform_param,
-      const Datum& datum, Phase phase) {
+      Datum& datum, Phase phase) {
     // Get crop sequence with Caffe seed 1701.
     DataTransformer<Dtype> transformer(transform_param, phase);
     const int crop_size = transform_param.crop_size();
@@ -275,7 +274,7 @@ TYPED_TEST(DataTransformTest, TestMeanValue) {
   transformer.InitRand();
   transformer.Transform(datum, &blob);
   for (int j = 0; j < blob.count(); ++j) {
-    EXPECT_EQ(static_cast<int>(blob.cpu_data()[j]), label - mean_value);
+    EXPECT_EQ(static_cast<int>(blob.cpu_data()[j]), label - mean_value) << j;
   }
 }
 
@@ -407,7 +406,7 @@ class GPUDataTransformTest : public GPUDeviceTest<Dtype> {
       num_iter_(10) {}
 
   int NumSequenceMatches(const TransformationParameter transform_param,
-      const Datum& datum, Phase phase) {
+      Datum& datum, Phase phase) {
     // Get crop sequence with Caffe seed 1701.
     DataTransformer<Dtype> transformer(transform_param, phase);
     const int crop_size = transform_param.crop_size();
@@ -675,4 +674,3 @@ TYPED_TEST(GPUDataTransformTest, TestMeanFile) {
 #endif
 
 }  // namespace caffe
-#endif  // USE_OPENCV

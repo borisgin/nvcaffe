@@ -534,6 +534,10 @@ void Net::AppendTop(const NetParameter& param, const int layer_id, const int top
         param.default_backward_type();
     shared_ptr<Blob> blob_pointer = Blob::create(ftype, btype);
 
+#ifdef NAMED_BLOBS
+    blob_pointer->set_name(Phase_Name(this->phase_) + "-" +blob_name);
+#endif
+
     const int blob_id = blobs_.size();
     blobs_.push_back(blob_pointer);
     blob_names_.push_back(blob_name);
@@ -815,7 +819,7 @@ void Net::ReduceAndUpdate() {
 #endif
       } else {
         if (global_grad_scale_ != 1.F) {
-          this->learnable_params()[param_id]->scale_diff(1.F / global_grad_scale_, handle, true);
+          this->learnable_params()[param_id]->scale_diff(1.F / global_grad_scale_, handle);
         }
         solver_->ApplyUpdate(param_id, handle, clear_grads);
         continue;
@@ -840,8 +844,9 @@ void Net::ReduceAndUpdate() {
         ReduceBucket(count, dtype, learnable_params_ptrs_[id_from]);
 
         for (int i : au_ids) {
+          // TODO fuse this with ComputeUpdateValue
           if (global_grad_scale_ != 1.F) {
-            this->learnable_params()[i]->scale_diff(1.F / global_grad_scale_, handle, true);
+            this->learnable_params()[i]->scale_diff(1.F / global_grad_scale_, handle);
           }
           solver_->ApplyUpdate(i, handle, clear_grads);
         }
@@ -891,7 +896,7 @@ void Net::Reduce(int param_id) {
     solver_->callback()->reduce_barrier();
   }
   this->learnable_params()[param_id]->gpu_scale_diff(1.F / Caffe::solver_count(),
-      solver_->callback()->cublas_handle(), true);
+      solver_->callback()->cublas_handle());
   // Also need to barrier to make sure lock isn't undone
   // until all have completed, but the current nature of
   // NCCL makes this unnecessary.
@@ -910,7 +915,7 @@ void Net::ReduceBucket(size_t count, Type bucket_type, void* bucket) {
     solver_->callback()->reduce_barrier();
   }
   Tensor::gpu_scal(count, bucket_type, bucket, 1.F / Caffe::solver_count(),
-      solver_->callback()->cublas_handle(), true);
+      solver_->callback()->cublas_handle());
 }
 #endif
 

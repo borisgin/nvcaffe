@@ -19,6 +19,8 @@
 
 const int kMaxBlobAxes = 32;
 
+//#define NAMED_BLOBS 1
+
 namespace caffe {
 
 template<typename Dtype>
@@ -44,13 +46,22 @@ class Blob {
     std::swap(count_, other.count_);
     std::swap(last_data_type_, other.last_data_type_);
     std::swap(last_diff_type_, other.last_diff_type_);
+#ifdef NAMED_BLOBS
+    std::swap(blob_name_, other.blob_name_);
+#endif
   }
 
  protected:
   Blob(Type data_type, Type diff_type)
       : data_tensor_(make_shared<Tensor>(data_type)),
         diff_tensor_(make_shared<Tensor>(diff_type)),
-        count_(0), last_data_type_(data_type), last_diff_type_(diff_type) {}
+        count_(0), last_data_type_(data_type), last_diff_type_(diff_type) {
+#ifdef NAMED_BLOBS
+    blob_name_[0] = '\0';
+    data_shared_by_ = nullptr;
+    diff_shared_by_ = nullptr;
+#endif
+  }
   explicit Blob(Type dtype)
       : Blob(dtype, dtype) {}
 
@@ -309,6 +320,10 @@ class Blob {
 
   template<typename Dtype>
   void set_cpu_data(Dtype* data) {
+#ifdef NAMED_BLOBS
+    LOG_IF(WARNING, data_shared_by_ != nullptr)
+        << name() << " data shared by " << data_shared_by_->name();
+#endif
     CHECK_NOTNULL(data);
     convert_data(tp<Dtype>());
     CHECK(is_type<Dtype>(data_type()));
@@ -317,6 +332,10 @@ class Blob {
 
   template<typename Dtype>
   void set_cpu_diff(Dtype* diff) {
+#ifdef NAMED_BLOBS
+    LOG_IF(WARNING, diff_shared_by_ != nullptr)
+        << name() << " diff shared by " << diff_shared_by_->name();
+#endif
     CHECK_NOTNULL(diff);
     convert_diff(tp<Dtype>());
     CHECK(is_type<Dtype>(diff_type()));
@@ -337,12 +356,20 @@ class Blob {
 
   template<typename Dtype>
   Dtype* mutable_cpu_data() {
+#ifdef NAMED_BLOBS
+    LOG_IF(WARNING, data_shared_by_ != nullptr)
+        << name() << " data shared by " << data_shared_by_->name();
+#endif
     convert_data(tp<Dtype>());
     return static_cast<Dtype*>(data_tensor_->mutable_synced_mem()->mutable_cpu_data());
   }
 
   template<typename Dtype>
   Dtype* mutable_cpu_diff() {
+#ifdef NAMED_BLOBS
+    LOG_IF(WARNING, diff_shared_by_ != nullptr)
+        << name() << " diff shared by " << diff_shared_by_->name();
+#endif
     convert_diff(tp<Dtype>());
     return static_cast<Dtype*>(diff_tensor_->mutable_synced_mem()->mutable_cpu_data());
   }
@@ -387,24 +414,24 @@ class Blob {
   float sumsq_diff() const;
 
   /// @brief Scale the blob data by a constant factor.
-  void scale_data(float scale, void* handle = nullptr, bool synced = true) {
-    data_tensor_->scale(scale, handle, synced);
+  void scale_data(float scale, void* handle = nullptr) {
+    data_tensor_->scale(scale, handle);
   }
 
   /// @brief Scale the blob diff by a constant factor.
-  void scale_diff(float scale, void* handle = nullptr, bool synced = true) {
-    diff_tensor_->scale(scale, handle, synced);
+  void scale_diff(float scale, void* handle = nullptr) {
+    diff_tensor_->scale(scale, handle);
   }
 
 #ifndef CPU_ONLY
   /// @brief Scale the blob data by a constant factor. Uses GPU, may be asynchronous
-  void gpu_scale_data(float scale, cublasHandle_t cublas_handle, bool synced) {
-    data_tensor_->gpu_scale(scale, cublas_handle, synced);
+  void gpu_scale_data(float scale, cublasHandle_t cublas_handle) {
+    data_tensor_->gpu_scale(scale, cublas_handle);
   }
 
   /// @brief Scale the blob diff by a constant factor. Uses GPU, may be asynchronous
-  void gpu_scale_diff(float scale, cublasHandle_t cublas_handle, bool synced) {
-    diff_tensor_->gpu_scale(scale, cublas_handle, synced);
+  void gpu_scale_diff(float scale, cublasHandle_t cublas_handle) {
+    diff_tensor_->gpu_scale(scale, cublas_handle);
   }
 #endif
 
@@ -469,6 +496,17 @@ class Blob {
     return diff_tensor_->current_memory(is_gpu);
   }
 
+#ifdef NAMED_BLOBS
+  void set_name(const std::string& blob_name) {
+    strncpy(blob_name_, blob_name.c_str(), sizeof(blob_name_));
+  }
+  const char* name() const {
+    return blob_name_;
+  }
+  mutable Blob* data_shared_by_;
+  mutable Blob* diff_shared_by_;
+#endif
+
 #ifndef CPU_ONLY
   size_t gpu_memory_data_use(bool own_only = false) const;
   size_t gpu_memory_diff_use(bool own_only = false) const;
@@ -485,6 +523,10 @@ class Blob {
 
   template<typename Dtype>
   void set_gpu_data(Dtype* data) {
+#ifdef NAMED_BLOBS
+    LOG_IF(WARNING, data_shared_by_ != nullptr)
+        << name() << " data shared by " << data_shared_by_->name();
+#endif
     CHECK_NOTNULL(data);
     convert_data(tp<Dtype>());
     CHECK(is_type<Dtype>(data_type()));
@@ -493,6 +535,10 @@ class Blob {
 
   template<typename Dtype>
   void set_gpu_diff(Dtype* diff) {
+#ifdef NAMED_BLOBS
+    LOG_IF(WARNING, diff_shared_by_ != nullptr)
+        << name() << " diff shared by " << diff_shared_by_->name();
+#endif
     CHECK_NOTNULL(diff);
     convert_diff(tp<Dtype>());
     CHECK(is_type<Dtype>(diff_type()));
@@ -513,12 +559,30 @@ class Blob {
 
   template<typename Dtype>
   Dtype* mutable_gpu_data() {
+#ifdef NAMED_BLOBS
+    if (data_shared_by_ != nullptr
+        && strlen(blob_name_) > 0
+        && !strcmp(blob_name_, data_shared_by_->blob_name_)) {
+      LOG_IF(WARNING, !strcmp(blob_name_, data_shared_by_->blob_name_))
+          << name() << " data ###";
+    }
+    LOG_IF(WARNING, data_shared_by_ != nullptr && strlen(blob_name_) > 0)
+        << name() << " data shared by " << data_shared_by_->name();
+#endif
     convert_data(tp<Dtype>());
     return static_cast<Dtype*>(data_tensor_->mutable_synced_mem()->mutable_gpu_data());
   }
 
   template<typename Dtype>
   Dtype* mutable_gpu_diff() {
+#ifdef NAMED_BLOBS
+    if (diff_shared_by_ != nullptr) {
+      LOG_IF(WARNING, !strcmp(blob_name_, diff_shared_by_->blob_name_))
+          << name() << " diff ###";
+    }
+    LOG_IF(WARNING, diff_shared_by_ != nullptr && strlen(blob_name_) > 0)
+        << name() << " diff shared by " << diff_shared_by_->name();
+#endif
     convert_diff(tp<Dtype>());
     return static_cast<Dtype*>(diff_tensor_->mutable_synced_mem()->mutable_gpu_data());
   }
@@ -530,6 +594,8 @@ class Blob {
   const int* gpu_shape() const;
 #endif
 
+  DISABLE_COPY_MOVE_AND_ASSIGN(Blob);
+
  protected:
   mutable shared_ptr<Tensor> data_tensor_;
   mutable shared_ptr<Tensor> diff_tensor_;
@@ -537,6 +603,10 @@ class Blob {
   vector<int> shape_;
   int count_;
   Type last_data_type_, last_diff_type_; // in case of move
+
+#ifdef NAMED_BLOBS
+  char blob_name_[128];
+#endif
 
   bool is_current_data_valid() const {
     return data_tensor_->is_current_valid();
@@ -547,10 +617,22 @@ class Blob {
   }
 
   void convert_data(Type new_data_type) const {
+#ifdef NAMED_BLOBS
+    if (new_data_type != data_tensor_->type_) {
+      LOG(INFO) << "### CONVERTING data " << name() << " from " << Type_Name(data_tensor_->type_)
+          << " to " << Type_Name(new_data_type);
+    }
+#endif
     data_tensor_->convert(new_data_type);
   }
 
   void convert_diff(Type new_diff_type) const {
+#ifdef NAMED_BLOBS
+    if (new_diff_type != diff_tensor_->type_) {
+      LOG(INFO) << "### CONVERTING diff " << name() << " from " << Type_Name(diff_tensor_->type_)
+          << " to " << Type_Name(new_diff_type);
+    }
+#endif
     diff_tensor_->convert(new_diff_type);
   }
 
@@ -591,8 +673,6 @@ class Blob {
       LOG(FATAL) << "Unknown data or diff: " << Type_Name(dtype);
     }
   }
-
-  DISABLE_COPY_MOVE_AND_ASSIGN(Blob);
 };  // class Blob
 
 
