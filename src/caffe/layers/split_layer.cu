@@ -15,14 +15,9 @@ void SplitLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
   if (!propagate_down[0]) {
     return;
   }
-  if (top.size() == 2) {
-    caffe_gpu_incr(count_, top[1]->gpu_diff<Btype>(), bottom[0]->mutable_gpu_diff<Btype>());
-  } else {
-    // Add remaining top blob diffs.
-    for (int i = 1; i < top.size(); ++i) {
-      caffe_gpu_axpy(count_, Btype(1.), top[i]->gpu_diff<Btype>(),
-          bottom[0]->mutable_gpu_diff<Btype>());
-    }
+  // Add remaining top blob diffs.
+  for (int i = 1; i < top.size(); ++i) {
+    caffe_gpu_incr(count_, top[i]->gpu_diff<Btype>(), bottom[0]->mutable_gpu_diff<Btype>());
   }
 }
 

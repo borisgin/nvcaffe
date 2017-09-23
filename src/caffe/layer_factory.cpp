@@ -352,8 +352,6 @@ shared_ptr<LayerBase> GetWindowDataLayer(const LayerParameter& param, Type ftype
 }
 REGISTER_LAYER_CREATOR(WindowData, GetWindowDataLayer);
 
-
-#ifdef USE_OPENCV
 shared_ptr<LayerBase> GetDetectNetTransformationLayer(const LayerParameter& param,
     Type ftype, Type btype) {
   LayerParameter lparam(param);
@@ -367,7 +365,6 @@ shared_ptr<LayerBase> GetDetectNetTransformationLayer(const LayerParameter& para
   return ret;
 }
 REGISTER_LAYER_CREATOR(DetectNetTransformation, GetDetectNetTransformationLayer);
-#endif
 
 #ifdef WITH_PYTHON_LAYER
 shared_ptr<LayerBase> GetPythonLayer(const LayerParameter& param, Type, Type) {

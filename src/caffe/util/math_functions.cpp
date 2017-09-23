@@ -660,7 +660,7 @@ void caffe_cpu_scale<double>(const int n, const double alpha, const double *x,
 
 #ifndef CPU_ONLY
 template <>
-void caffe_cpu_scale<float16>(const int n, const float16 alpha,  //FIXME
+void caffe_cpu_scale<float16>(const int n, const float16 alpha,  // TODO
     const float16 *x, float16 *y) {
   for (int i = 0; i < n; i++) {
     y[i] = alpha * x[i];

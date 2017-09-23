@@ -49,10 +49,16 @@ class BaseDataLayer : public Layer<Ftype, Btype> {
 template<typename Ftype>
 class Batch {
  public:
-  TBlob<Ftype> data_, label_;
+  shared_ptr<TBlob<Ftype>> data_;
+  shared_ptr<TBlob<Ftype>> label_;
 
-  Batch() : id_((size_t) -1) {}
-  ~Batch() {}
+  Batch() : data_(make_shared<TBlob<Ftype>>()),
+            label_(make_shared<TBlob<Ftype>>()),
+            id_((size_t) -1) {}
+
+  ~Batch() {
+    DLOG(INFO) << data_->count() << " " << label_->count();
+  }
 
   size_t id() const {
     return id_;
@@ -63,8 +69,10 @@ class Batch {
   }
 
   size_t bytes() const {
-    return sizeof(Ftype) * (data_.count() + label_.count());
+    return sizeof(Ftype) * (data_->count() + label_->count());
   }
+
+  DISABLE_COPY_MOVE_AND_ASSIGN(Batch);
 
  private:
   size_t id_;
@@ -88,7 +96,6 @@ inline bool operator>(const shared_ptr <Batch<Ftype>>& a, const shared_ptr <Batc
 template<typename Ftype, typename Btype>
 class BasePrefetchingDataLayer : public BaseDataLayer<Ftype, Btype>, public InternalThread {
  public:
-  using DT = DataTransformer<Ftype>;
   explicit BasePrefetchingDataLayer(const LayerParameter& param);
   virtual ~BasePrefetchingDataLayer();
   // LayerSetUp: implements common data layer setup functionality, and calls
@@ -98,7 +105,7 @@ class BasePrefetchingDataLayer : public BaseDataLayer<Ftype, Btype>, public Inte
   void Forward_cpu(const vector<Blob*>& bottom, const vector<Blob*>& top) override;
   void Forward_gpu(const vector<Blob*>& bottom, const vector<Blob*>& top) override;
 
-  DT* dt(int id) {
+  DataTransformer<Ftype>* dt(int id) {
     return data_transformers_.at(id).get();
   }
 
@@ -147,7 +154,7 @@ class BasePrefetchingDataLayer : public BaseDataLayer<Ftype, Btype>, public Inte
   std::vector<Blob*> bottom_init_;
   std::vector<Blob*> top_init_;
 
-  vector<shared_ptr<DT>> data_transformers_;
+  vector<shared_ptr<DataTransformer<Ftype>>> data_transformers_;
 };
 
 }  // namespace caffe

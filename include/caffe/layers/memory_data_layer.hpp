@@ -31,10 +31,8 @@ class MemoryDataLayer : public BaseDataLayer<Ftype, Btype> {
   virtual inline int ExactNumTopBlobs() const { return 2; }
 
   virtual void AddDatumVector(const vector<Datum>& datum_vector);
-#ifdef USE_OPENCV
   virtual void AddMatVector(const vector<cv::Mat>& mat_vector,
       const vector<int>& labels);
-#endif  // USE_OPENCV
 
   // Reset should accept const pointers, but can't, because the memory
   //  will be given to TBlob, which is mutable

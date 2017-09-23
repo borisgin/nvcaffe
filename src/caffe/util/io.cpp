@@ -2,23 +2,13 @@
 #include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/io/zero_copy_stream_impl.h>
 #include <google/protobuf/text_format.h>
-#ifdef USE_OPENCV
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
-#include <opencv2/highgui/highgui_c.h>
 #include <opencv2/imgproc/imgproc.hpp>
-#endif  // USE_OPENCV
-#include <stdint.h>
-
-#include <algorithm>
 #include <fstream>  // NOLINT(readability/streams)
-#include <string>
-#include <vector>
 #include <turbojpeg.h>
 
 #include "caffe/blob.hpp"
-#include "caffe/common.hpp"
-#include "caffe/proto/caffe.pb.h"
 #include "caffe/util/io.hpp"
 
 const int kProtoReadBytesLimit = INT_MAX;  // Max size of 2 GB minus 1 byte.
@@ -92,35 +82,6 @@ bool ReadFileToDatum(const string& filename, const int label,
     return false;
   }
 }
-
-/**
- * Decode Datum with JPEG to buffer
- * @param datum
- * @param color_mode -1 enforce gray, 0 deduce from datum, +1 enforce color
- * @param out
- */
-vector<int> DecodeJPEGToBuffer(const Datum& datum, int color_mode,
-    std::vector<unsigned char>& out) {
-  CHECK(datum.encoded()) << "Datum not encoded";
-  const std::string& jpg = datum.data();
-  CHECK(jpg[0] == 255 && jpg[1] == 216) << "Datum encoded not as JPEG, USE_OPENCV is required";
-  auto* jpg_data = reinterpret_cast<unsigned char*>(const_cast<char*>(jpg.data()));
-  size_t jpg_size = jpg.size();
-  int width, height, subsamp;
-
-  tjhandle jpeg_decoder = tjInitDecompress();
-  tjDecompressHeader2(jpeg_decoder, jpg_data, jpg_size, &width, &height, &subsamp);
-
-  const int ch = color_mode < 0 ? 1 : (color_mode > 0 ? 3 : datum.channels());
-  out.resize(ch * height * width);
-  CHECK_EQ(0, tjDecompress2(jpeg_decoder, jpg_data, jpg_size,
-      &out.front(), width, 0, height, ch == 3 ? TJPF_RGB :TJPF_GRAY,
-      TJFLAG_FASTDCT | TJFLAG_NOREALLOC)) << tjGetErrorStr();
-  tjDestroy(jpeg_decoder);
-  return vector<int>{1, ch, height, width};
-}
-
-#ifdef USE_OPENCV
 
 /**
  * Decode Datum to cv::Mat
@@ -309,5 +270,4 @@ void CVMatToDatum(const cv::Mat& cv_img, Datum& datum) {
   datum.set_encoded(false);
 }
 
-#endif  // USE_OPENCV
 }  // namespace caffe

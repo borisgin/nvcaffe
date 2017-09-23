@@ -534,6 +534,10 @@ void Net::AppendTop(const NetParameter& param, const int layer_id, const int top
         param.default_backward_type();
     shared_ptr<Blob> blob_pointer = Blob::create(ftype, btype);
 
+#ifdef NAMED_BLOBS
+    blob_pointer->set_name(Phase_Name(this->phase_) + "-" +blob_name);
+#endif
+
     const int blob_id = blobs_.size();
     blobs_.push_back(blob_pointer);
     blob_names_.push_back(blob_name);

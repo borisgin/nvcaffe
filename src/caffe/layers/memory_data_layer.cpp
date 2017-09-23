@@ -1,7 +1,4 @@
-#ifdef USE_OPENCV
 #include <opencv2/core/core.hpp>
-#endif  // USE_OPENCV
-
 #include <vector>
 
 #include "caffe/layers/memory_data_layer.hpp"
@@ -53,7 +50,6 @@ void MemoryDataLayer<Ftype, Btype>::AddDatumVector(const vector<Datum>& datum_ve
   has_new_data_ = true;
 }
 
-#ifdef USE_OPENCV
 template <typename Ftype, typename Btype>
 void MemoryDataLayer<Ftype, Btype>::AddMatVector(const vector<cv::Mat>& mat_vector,
     const vector<int>& labels) {
@@ -77,7 +73,6 @@ void MemoryDataLayer<Ftype, Btype>::AddMatVector(const vector<cv::Mat>& mat_vect
   Reset(top_data, top_label, num);
   has_new_data_ = true;
 }
-#endif  // USE_OPENCV
 
 template <typename Ftype, typename Btype>
 void MemoryDataLayer<Ftype, Btype>::Reset(Ftype* data, Ftype* labels, int n) {

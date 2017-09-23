@@ -167,9 +167,11 @@ void CuDNNConvolutionLayer<Ftype, Btype>::LayerSetUp(
                            (this->channels_ / groups()) * kernel_h * kernel_w;
   }
 
-  setmax_val(Caffe::current_device(),
-      align_up<7>(this->weight_offset_ * tsize(tpmax<Btype, float>())),
-      this->phase_ == TRAIN ? train_tmp_weights_mem_ : test_tmp_weights_mem_, mv_);
+  if (this->phase_ == TRAIN) {
+    setmax_val(Caffe::current_device(),
+        align_up<7>(this->weight_offset_ * tsize(tpmax<Btype, float>())),
+        train_tmp_weights_mem_, mv_);
+  }
 
   // Create tensor descriptor(s) for data and corresponding convolution(s).
   for (int i = 0; i < bottom.size(); i++) {
@@ -247,12 +249,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::AllocateFindExWorkspace() {
   if (map_val(dev, ws_released_, mv_)) {
     return;
   }
-  GPUMemory::Workspace& tmp_ws = map_ptr(dev, tmp_weights_, mv_);
-  const size_t tmp_weights_size = map_val(dev,
-      this->phase_ == TRAIN ? train_tmp_weights_mem_ : test_tmp_weights_mem_, mv_);
-  tmp_ws.safe_reserve(tmp_weights_size);
-
-  GPUMemory::Workspace& ws = map_ptr(dev, workspace_, mv_);
+  GPUMemory::Workspace& ws = map_ptr(dev, GPUMemory::workspace_, mv_);
   size_t bytes_available, bytes_total;
   GPUMemory::GetInfo(&bytes_available, &bytes_total, true);
   bytes_available = std::min(bytes_available, bytes_total / 2UL);
@@ -323,7 +320,7 @@ size_t CuDNNConvolutionLayer<Ftype, Btype>::AllocateWorkspace(size_t bottom_size
     }
   }
 
-  GPUMemory::Workspace& ws = map_ptr(dev, workspace_, mv_);
+  GPUMemory::Workspace& ws = map_ptr(dev, GPUMemory::workspace_, mv_);
   ws.safe_reserve(map_val(dev,
       this->phase_ == TRAIN ? train_mem_req_all_grps_ : test_mem_req_all_grps_, mv_));
   return ws.size();
@@ -480,7 +477,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
 
   if (ok_to_release() && this->phase_ == TRAIN) {
     const int dev = Caffe::current_device();
-    GPUMemory::Workspace& ws = map_ptr(dev, workspace_, mv_);
+    GPUMemory::Workspace& ws = map_ptr(dev, GPUMemory::workspace_, mv_);
     if (!map_val(dev, ws_released_, mv_) && map_val(dev, ws_allocated_, mv_) > 0UL) {
       // Housekeeping: release excessive amount of device memory after FindEx calls
       size_t mem_req = align_up<7>(std::max(map_val(dev, train_mem_req_all_grps_, mv_),
@@ -494,6 +491,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
         ws.release();
         ws.reserve(mem_req);
         map_val(dev, ws_released_, mv_) = true;
+        map_ptr(dev, GPUMemory::weights_workspace_, mv_).release();
       }
     }
   }
@@ -561,8 +559,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
   cudaStream_t stream = Caffe::thread_stream();
 
   const int dev = Caffe::current_device();
-  GPUMemory::Workspace& ws = map_ptr(dev, workspace_, mv_);
-  GPUMemory::Workspace& tmp_ws = map_ptr(dev, tmp_weights_, mv_);
+  GPUMemory::Workspace& ws = map_ptr(dev, GPUMemory::workspace_, mv_);
   const size_t gsize = ws.size() / ws_groups();
   CHECK(is_even(gsize)) << ws.size() << " / " << ws_groups() << " -> " << gsize;
 
@@ -668,6 +665,9 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
       }
 #endif
       if (user_algos_override_[2] < 0) {
+        const size_t tmp_weights_size = map_val(dev, train_tmp_weights_mem_, mv_);
+        GPUMemory::Workspace& tmp_ws = map_ptr(dev, GPUMemory::weights_workspace_, mv_);
+        tmp_ws.safe_reserve(tmp_weights_size);
         float algo_time = 0.F;
         for (int m = 0; m < 2; ++m) {
           if (m > 0 &&
@@ -749,7 +749,6 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
         CUDNN_CHECK(cudnnSetConvolutionMathType(bwd_conv_filter_descs_[i],
             bwd_filter_cudnn_math_[i]));
       }
-
       if (!propagate_down_[i]) {
         continue;
       }
@@ -846,9 +845,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
       }
 #endif
     }
-
     CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
-
     AllocateWorkspace(bottom.size());  // if user overrides
 
     size_t available_memory, total_memory;
@@ -983,11 +980,9 @@ bool CuDNNConvolutionLayer<Ftype, Btype>::IsConvDescChanged(
 
 template <typename Ftype, typename Btype>
 CuDNNConvolutionLayer<Ftype, Btype>::~CuDNNConvolutionLayer() {
+  GPUMemory::Finalize();  // clean workspaces before everything dies
   const int dev = Caffe::current_device();
-  map_ptr(dev, workspace_, mv_).release();
-  map_ptr(dev, tmp_weights_, mv_).release();
   map_val(dev, ws_released_, mv_) = false;  // For next unit test
-
   // Check that handles have been setup before destroying.
   if (!handles_setup_) { return; }
 

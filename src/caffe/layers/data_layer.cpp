@@ -171,7 +171,7 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
   // Reshape top[0] and prefetch_data according to the batch_size.
   // Note: all these reshapings here in load_batch are needed only in case of
   // different datum shapes coming from database.
-  vector<int> top_shape = this->dt(0)->Transform(sample_datum.get(), 0, nullptr);
+  vector<int> top_shape = this->dt(0)->Transform(sample_datum.get(), nullptr, 0);
   top_shape[0] = batch_size;
   top[0]->Reshape(top_shape);
 
@@ -182,7 +182,7 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
       << top_shape[2] << ", "
       << top_shape[3];
   for (int i = 0; i < this->prefetch_.size(); ++i) {
-    this->prefetch_[i]->data_.Reshape(top_shape);
+    this->prefetch_[i]->data_->Reshape(top_shape);
   }
   // label
   vector<int> label_shape(1, batch_size);
@@ -190,7 +190,7 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
     vector<int> label_shape(1, batch_size);
     top[1]->Reshape(label_shape);
     for (int i = 0; i < this->prefetch_.size(); ++i) {
-      this->prefetch_[i]->label_.Reshape(label_shape);
+      this->prefetch_[i]->label_->Reshape(label_shape);
     }
   }
   LOG(INFO) << this->print_current_device() << " Output data size: "
@@ -213,18 +213,18 @@ void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, siz
   CHECK(init_datum);
 
   // Use data_transformer to infer the expected blob shape from datum.
-  vector<int> top_shape = this->dt(thread_id)->Transform(init_datum.get(), 0, nullptr);
+  vector<int> top_shape = this->dt(thread_id)->Transform(init_datum.get(), nullptr, 0);
   // Reshape batch according to the batch_size.
   top_shape[0] = batch_size;
-  batch->data_.Reshape(top_shape);
-  Ftype* top_data = batch->data_.mutable_cpu_data();
+  batch->data_->Reshape(top_shape);
+  Ftype* top_data = batch->data_->mutable_cpu_data();
   Ftype* top_label = nullptr;
   if (this->output_labels_) {
-    batch->label_.Reshape(vector<int>(1, batch_size));
-    top_label = batch->label_.mutable_cpu_data();
+    batch->label_->Reshape(vector<int>(1, batch_size));
+    top_label = batch->label_->mutable_cpu_data();
   }
   size_t current_batch_id = 0UL;
-  const size_t buf_len = batch->data_.offset(1);
+  const size_t buf_len = batch->data_->offset(1);
   for (size_t entry = 0; entry < batch_size; ++entry) {
     shared_ptr<Datum> datum = reader->full_pop(qid, "Waiting for datum");
     size_t item_id = datum->record_id() % batch_size;
@@ -236,10 +236,10 @@ void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, siz
       top_label[item_id] = datum->label();
     }
     // Get data offset for this datum to hand off to transform thread
-    const size_t offset = batch->data_.offset(item_id);
+    const size_t offset = batch->data_->offset(item_id);
     Ftype* ptr = top_data + offset;
 
-    vector<int> shape = this->dt(thread_id)->Transform(datum.get(), buf_len, ptr);
+    vector<int> shape = this->dt(thread_id)->Transform(datum.get(), ptr, buf_len);
     CHECK_EQ(top_shape[1], shape[1]) << "Number of channels can't vary in the same batch";
     CHECK_EQ(top_shape[2], shape[2]) << "Image height can't vary in the same batch";
     CHECK_EQ(top_shape[3], shape[3]) << "Image width can't vary in the same batch";

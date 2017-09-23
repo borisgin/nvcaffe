@@ -173,6 +173,9 @@ void DataReader::DataCache::just_cached() {
 }
 
 bool DataReader::DataCache::check_memory() {
+#ifdef __APPLE__
+  return true;
+#else
   if (cache_buffer_.size() == 0UL || cache_buffer_.size() % 1000UL != 0UL) {
     return true;
   }
@@ -223,6 +226,7 @@ bool DataReader::DataCache::check_memory() {
     shuffle_ = false;
   }
   return mem_ok;
+#endif
 }
 
 DataReader::CursorManager::CursorManager(shared_ptr<db::DB> db, DataReader* reader,

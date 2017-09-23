@@ -17,8 +17,27 @@ const unsigned int GPUMemory::Manager::MAX_BIN = 22;
 const size_t GPUMemory::Manager::MAX_CACHED_BYTES = (size_t) -1;
 const size_t GPUMemory::Manager::MAX_CACHED_SIZE = (1 << GPUMemory::Manager::MAX_BIN);  // 4M
 const size_t GPUMemory::Manager::INITIAL_PINNED_BYTES = 64;
+shared_mutex GPUMemory::mutex_;
+mutex GPUMemory::ws_mutex_;
 
 GPUMemory::Manager GPUMemory::mgr_;
+
+PtrMap<GPUMemory::Workspace> GPUMemory::workspace_;
+PtrMap<GPUMemory::Workspace> GPUMemory::weights_workspace_;
+
+void GPUMemory::Finalize() {
+  std::lock_guard<std::mutex> lock(ws_mutex_);
+  for_each(workspace_.begin(), workspace_.end(),
+      [&](std::pair<const int, boost::shared_ptr<caffe::GPUMemory::Workspace>> it) {
+    it.second->release();
+  });
+  workspace_.clear();
+  for_each(weights_workspace_.begin(), weights_workspace_.end(),
+      [&](std::pair<const int, boost::shared_ptr<caffe::GPUMemory::Workspace> > it) {
+    it.second->release();
+  });
+  weights_workspace_.clear();
+}
 
 // If there is a room to grow it tries
 // It keeps what it has otherwise

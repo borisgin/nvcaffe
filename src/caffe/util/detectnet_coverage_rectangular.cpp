@@ -1,5 +1,3 @@
-#ifdef USE_OPENCV
-
 #include <opencv2/core/core.hpp>
 #include <opencv2/opencv.hpp>
 
@@ -369,5 +367,3 @@ INSTANTIATE_CLASS_CPU(RectangularCoverageGenerator);
 
 #undef TRANSFORMED_LABEL_AT
 #undef foreach_
-
-#endif  // USE_OPENCV

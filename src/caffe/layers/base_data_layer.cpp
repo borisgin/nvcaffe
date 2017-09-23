@@ -114,9 +114,9 @@ void BasePrefetchingDataLayer<Ftype, Btype>::InternalThreadEntryN(size_t thread_
       CHECK_EQ((size_t) -1, batch->id());
       load_batch(batch.get(), thread_id, qid);
       if (Caffe::mode() == Caffe::GPU) {
-        batch->data_.async_gpu_push();
+        batch->data_->async_gpu_push();
         if (this->output_labels_) {
-          batch->label_.async_gpu_push();
+          batch->label_->async_gpu_push();
         }
         CUDA_CHECK(cudaStreamSynchronize(Caffe::th_stream_aux(Caffe::STREAM_ID_ASYNC_PUSH)));
       }
@@ -193,9 +193,9 @@ void BasePrefetchingDataLayer<Ftype, Btype>::AllocatePrefetch() {
 #ifndef CPU_ONLY
   if (Caffe::mode() == Caffe::GPU) {
     for (int i = 0; i < prefetch_.size(); ++i) {
-      prefetch_[i]->data_.allocate_data();
+      prefetch_[i]->data_->allocate_data();
       if (this->output_labels_) {
-        prefetch_[i]->label_.allocate_data();
+        prefetch_[i]->label_->allocate_data();
       }
     }
   }
@@ -203,9 +203,9 @@ void BasePrefetchingDataLayer<Ftype, Btype>::AllocatePrefetch() {
 #else
   if (Caffe::mode() == Caffe::CPU) {
     for (int i = 0; i < prefetch_.size(); ++i) {
-      prefetch_[i]->data_.allocate_data(false);
+      prefetch_[i]->data_->allocate_data(false);
       if (this->output_labels_) {
-        prefetch_[i]->label_.allocate_data(false);
+        prefetch_[i]->label_->allocate_data(false);
       }
     }
   } else {
@@ -220,18 +220,18 @@ void BasePrefetchingDataLayer<Ftype, Btype>::Forward_cpu(const vector<Blob*>& bo
   // Note: this function runs in one thread per object and one object per one Solver thread
   shared_ptr<Batch<Ftype>> batch = prefetches_full_[next_batch_queue_]->pop(
       "Data layer prefetch queue empty");
-  if (this->relative_iter() > 1 && top[0]->data_type() == batch->data_.data_type()
-      && top[0]->shape() == batch->data_.shape()) {
-    top[0]->Swap(batch->data_);
+  if (top[0]->data_type() == batch->data_->data_type()
+      && top[0]->shape() == batch->data_->shape()) {
+    top[0]->Swap(*batch->data_);
   } else {
-    top[0]->CopyDataFrom(batch->data_, true);
+    top[0]->CopyDataFrom(*batch->data_, true);
   }
   if (this->output_labels_) {
-    if (this->relative_iter() > 1 && top[1]->data_type() == batch->label_.data_type()
-        && top[1]->shape() == batch->label_.shape()) {
-      top[1]->Swap(batch->label_);
+    if (top[1]->data_type() == batch->label_->data_type()
+        && top[1]->shape() == batch->label_->shape()) {
+      top[1]->Swap(*batch->label_);
     } else {
-      top[1]->CopyDataFrom(batch->label_, true);
+      top[1]->CopyDataFrom(*batch->label_, true);
     }
   }
   batch->set_id((size_t) -1);

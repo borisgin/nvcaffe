@@ -1,8 +1,6 @@
 #ifndef DETECTNET_TRANSFORMATION_HPP
 #define DETECTNET_TRANSFORMATION_HPP
 
-#ifdef USE_OPENCV
-
 #include <boost/array.hpp>
 
 #include <opencv2/core/core.hpp>
@@ -154,5 +152,3 @@ class DetectNetTransformationLayer : public Layer<Dtype, Dtype> {
 }  // namespace caffe
 
 #endif /* DETECTNET_TRANSFORMATION_HPP */
-#endif /* USE_OPENCV */
-

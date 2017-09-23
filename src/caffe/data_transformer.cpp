@@ -1,11 +1,6 @@
-#ifdef USE_OPENCV
-
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
-
-#endif  // USE_OPENCV
-
 #include <string>
 #include <vector>
 
@@ -29,9 +24,7 @@ DataTransformer<Dtype>::DataTransformer(const TransformationParameter& param, Ph
     BlobProto blob_proto;
     ReadProtoFromBinaryFileOrDie(mean_file.c_str(), &blob_proto);
     data_mean_.FromProto(blob_proto);
-#ifdef USE_OPENCV
     TBlobDataToCVMat(data_mean_, mean_mat_orig_);
-#endif
   }
   // check if we want to use mean_value
   if (param_.mean_value_size() > 0) {
@@ -44,70 +37,179 @@ DataTransformer<Dtype>::DataTransformer(const TransformationParameter& param, Ph
 }
 
 template<typename Dtype>
-vector<int> DataTransformer<Dtype>::Transform(const Datum* datum, size_t buf_len, Dtype* buf) {
+vector<int> DataTransformer<Dtype>::Transform(const Datum* datum, Dtype* buf, size_t buf_len) {
   vector<int> shape;
   const bool shape_only = buf == nullptr;
   CHECK(!(param_.force_color() && param_.force_gray()))
       << "cannot set both force_color and force_gray";
   const int color_mode = param_.force_color() ? 1 : (param_.force_gray() ? -1 : 0);
-#ifdef USE_OPENCV
   cv::Mat img;
+  bool v1_path = false;
   if (datum->encoded()) {
     shape = DecodeDatumToCVMat(*datum, color_mode, img, shape_only, false);
   } else {
-    shape = DatumToCVMat<Dtype>(*datum, img, shape_only);
+    if (image_random_resize_enabled() || buf == nullptr || buf_len == 0UL) {
+      shape = DatumToCVMat<Dtype>(*datum, img, shape_only);
+    } else {
+      // here we can use fast V1 path
+      TransformV1(*datum, buf, buf_len);
+      shape = vector<int>{1, datum->channels(), datum->height(), datum->width()};
+      v1_path = true;
+    }
   }
   if (param_.crop_size() > 0) {
     shape[2] = param_.crop_size();
     shape[3] = param_.crop_size();
   }
-  if (shape_only) {
-    return shape;
+  if (!shape_only && !v1_path) {
+    CHECK_NOTNULL(img.data);
+    Transform(img, buf, buf_len);
   }
-  CHECK_NOTNULL(img.data);
-
-  Transform(img, buf_len, buf);
-
   return shape;
+}
 
-#else
+template<typename Dtype>
+void DataTransformer<Dtype>::TransformV1(const Datum& datum, Dtype* buf, size_t buf_len) {
+  const string& data = datum.data();
+  const int datum_channels = datum.channels();
+  const int datum_height = datum.height();
+  const int datum_width = datum.width();
 
-  LOG_FIRST_N(WARNING, 1) << "No transformations available when USE_OPENCV is OFF";
-  if (buf != nullptr) {
-    if (datum->encoded()) {
-      std::vector<unsigned char> out;
-      vector<int> shape = DecodeJPEGToBuffer(*datum, color_mode, out);
-      CHECK_LE(out.size(), buf_len);
-      for (size_t i = 0; i < out.size(); ++i) {
-        buf[i] = out[i];  // FIXME CHW
-      }
-      return shape;
-    } else {
-      const string &data = datum->data();
-      if (!data.empty()) {
-        CHECK_LE(data.size(), buf_len);
-        for (size_t i = 0; i < data.size(); ++i) {
-          buf[i] = data[i];
-        }
-      } else if (datum->float_data_size() > 0) {
-        CHECK_LE(datum->float_data_size(), buf_len);
-        for (int i = 0; i < datum->float_data_size(); ++i) {
-          buf[i] = datum->float_data(i);
-        }
-      } else {
-        LOG(ERROR) << "Empty datum";
+  const int crop_size = param_.crop_size();
+  const float scale = param_.scale();
+  const bool do_mirror = param_.mirror() && (Rand() % 2);
+  const bool has_mean_file = param_.has_mean_file();
+  const bool has_uint8 = data.size() > 0;
+  const bool has_mean_values = mean_values_.size() > 0;
+
+  CHECK_GT(datum_channels, 0);
+  CHECK_GE(datum_height, crop_size);
+  CHECK_GE(datum_width, crop_size);
+
+  const float* mean = NULL;
+  if (has_mean_file) {
+    CHECK_EQ(datum_channels, data_mean_.channels());
+    CHECK_EQ(datum_height, data_mean_.height());
+    CHECK_EQ(datum_width, data_mean_.width());
+    mean = data_mean_.cpu_data();
+  }
+  if (has_mean_values) {
+    CHECK(mean_values_.size() == 1 || mean_values_.size() == datum_channels)
+        << "Specify either 1 mean_value or as many as channels: " << datum_channels;
+    if (datum_channels > 1 && mean_values_.size() == 1) {
+      // Replicate the mean_value for simplicity
+      for (int c = 1; c < datum_channels; ++c) {
+        mean_values_.push_back(mean_values_[0]);
       }
     }
   }
-  return vector<int>{1, datum->channels(), datum->height(), datum->width()};
-#endif
+
+  int height = datum_height;
+  int width = datum_width;
+
+  int h_off = 0;
+  int w_off = 0;
+  if (crop_size) {
+    height = crop_size;
+    width = crop_size;
+    // We only do random crop when we do training.
+    if (phase_ == TRAIN) {
+      h_off = Rand() % (datum_height - crop_size + 1);
+      w_off = Rand() % (datum_width - crop_size + 1);
+    } else {
+      h_off = (datum_height - crop_size) / 2;
+      w_off = (datum_width - crop_size) / 2;
+    }
+  }
+
+  int top_index, data_index, ch, cdho;
+  const int m = do_mirror ? -1 : 1;
+
+  if (has_uint8) {
+    Dtype datum_element, mnv;
+
+    if (scale == 1.F) {
+      for (int c = 0; c < datum_channels; ++c) {
+        cdho = c * datum_height + h_off;
+        ch = c * height;
+        mnv = has_mean_values && !has_mean_file ? mean_values_[c] : 0.F;
+        for (int h = 0; h < height; ++h) {
+          top_index = do_mirror ? (ch + h + 1) * width - 1 : (ch + h) * width;
+          data_index = (cdho + h) * datum_width + w_off;
+          for (int w = 0; w < width; ++w) {
+            datum_element = static_cast<unsigned char>(data[data_index]);
+            CHECK_LT(top_index, buf_len);
+            if (has_mean_file) {
+              buf[top_index] = datum_element - mean[data_index];
+            } else {
+              if (has_mean_values) {
+                buf[top_index] = datum_element - mnv;
+              } else {
+                buf[top_index] = datum_element;
+              }
+            }
+            ++data_index;
+            top_index += m;
+          }
+        }
+      }
+    } else {
+      for (int c = 0; c < datum_channels; ++c) {
+        cdho = c * datum_height + h_off;
+        ch = c * height;
+        mnv = has_mean_values && !has_mean_file ? mean_values_[c] : 0.F;
+        for (int h = 0; h < height; ++h) {
+          top_index = do_mirror ? (ch + h + 1) * width - 1 : (ch + h) * width;
+          data_index = (cdho + h) * datum_width + w_off;
+          for (int w = 0; w < width; ++w) {
+            datum_element = static_cast<unsigned char>(data[data_index]);
+            CHECK_LT(top_index, buf_len);
+            if (has_mean_file) {
+              buf[top_index] = (datum_element - mean[data_index]) * scale;
+            } else {
+              if (has_mean_values) {
+                buf[top_index] = (datum_element - mnv) * scale;
+              } else {
+                buf[top_index] = datum_element * scale;
+              }
+            }
+            ++data_index;
+            top_index += m;
+          }
+        }
+      }
+    }
+  } else {
+    Dtype datum_element;
+    for (int c = 0; c < datum_channels; ++c) {
+      cdho = c * datum_height + h_off;
+      ch = c * height;
+      for (int h = 0; h < height; ++h) {
+        top_index = do_mirror ? (ch + h + 1) * width - 1 : (ch + h) * width;
+        data_index = (cdho + h) * datum_width + w_off;
+        for (int w = 0; w < width; ++w) {
+          datum_element = datum.float_data(data_index);
+          CHECK_LT(top_index, buf_len);
+          if (has_mean_file) {
+            buf[top_index] = (datum_element - mean[data_index]) * scale;
+          } else {
+            if (has_mean_values) {
+              buf[top_index] = (datum_element - mean_values_[c]) * scale;
+            } else {
+              buf[top_index] = datum_element * scale;
+            }
+          }
+          ++data_index;
+          top_index += m;
+        }
+      }
+    }
+  }
 }
 
 
-#ifdef USE_OPENCV
-
 template<typename Dtype>
-void DataTransformer<Dtype>::Transform(const cv::Mat& src, size_t buf_len, Dtype* buf) {
+void DataTransformer<Dtype>::Transform(const cv::Mat& src, Dtype* buf, size_t buf_len) {
   cv::Mat tmp, dst;
   if (image_random_resize_enabled()) {
     int lower_sz = param_.img_rand_resize_lower();
@@ -332,7 +434,7 @@ void DataTransformer<Dtype>::Transform(const cv::Mat& img, TBlob<Dtype> *transfo
     CHECK_EQ(crop_size, height);
     CHECK_EQ(crop_size, width);
   }
-  Transform(img, transformed_blob->count(), transformed_blob->mutable_cpu_data());
+  Transform(img, transformed_blob->mutable_cpu_data(), transformed_blob->count());
 }
 
 // tests only, TODO: clean
@@ -369,10 +471,6 @@ void DataTransformer<Dtype>::VariableSizedTransforms(Datum* datum) {
   }
   CVMatToDatum(img2, *datum);
 }
-
-
-#endif
-
 
 template<typename Dtype>
 void DataTransformer<Dtype>::InitRand() {

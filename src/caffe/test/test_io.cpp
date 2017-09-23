@@ -1,12 +1,7 @@
-#ifdef USE_OPENCV
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
-#include <opencv2/highgui/highgui_c.h>
 #include <opencv2/imgproc/imgproc.hpp>
-
-#include <string>
-
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
 
 #include "caffe/common.hpp"
 #include "caffe/util/io.hpp"
@@ -421,4 +416,3 @@ TEST_F(IOTest, TestDecodeDatumToCVMatContentNative) {
 }
 
 }  // namespace caffe
-#endif  // USE_OPENCV

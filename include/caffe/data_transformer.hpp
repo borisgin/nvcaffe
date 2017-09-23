@@ -1,12 +1,7 @@
 #ifndef CAFFE_DATA_TRANSFORMER_HPP
 #define CAFFE_DATA_TRANSFORMER_HPP
 
-#ifdef USE_OPENCV
-
 #include <opencv2/core/core.hpp>
-
-#endif  // USE_OPENCV
-
 #include <string>
 #include <vector>
 
@@ -46,9 +41,8 @@ class DataTransformer {
    *    shape. If nullptr passed then only shape vector is computed.
    * @return Output shape
    */
-  vector<int> Transform(const Datum* datum, size_t buf_len, Dtype* buf);
+  vector<int> Transform(const Datum* datum, Dtype* buf, size_t buf_len);
 
-#ifdef USE_OPENCV
   /**
    * @brief Applies transformations defined in the image data layer's
    * transform_param block to the data.
@@ -61,7 +55,7 @@ class DataTransformer {
    *    The destination array that will store transformed data of a fixed
    *    shape.
    */
-  void Transform(const cv::Mat& src, size_t buf_len, Dtype* buf);
+  void Transform(const cv::Mat& src, Dtype* buf, size_t buf_len);
 
   /**
    * @brief Applies the transformation defined in the data layer's
@@ -98,10 +92,10 @@ class DataTransformer {
 
   void apply_mean_scale_mirror(const cv::Mat& src, cv::Mat& dst);
   void image_random_crop(int crop_w, int crop_h, cv::Mat& img);
+  void TransformV1(const Datum& datum, Dtype* buf, size_t buf_len);
 
   static void image_random_resize(int new_size, const cv::Mat& src, cv::Mat& dst);
   static void image_center_crop(int crop_w, int crop_h, cv::Mat& img);
-#endif
 
   /**
    * @brief Generates a random integer from Uniform({0, 1, ..., n-1}).
@@ -126,10 +120,8 @@ class DataTransformer {
   TBlob<float> data_mean_;
   vector<float> mean_values_;
 
-#ifdef USE_OPENCV
   cv::Mat mean_mat_orig_, mean_mat_;
   cv::Mat tmp_;
-#endif
 };
 
 }  // namespace caffe

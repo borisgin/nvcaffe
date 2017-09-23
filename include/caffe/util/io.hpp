@@ -1,9 +1,7 @@
 #ifndef CAFFE_UTIL_IO_H_
 #define CAFFE_UTIL_IO_H_
 
-#ifdef USE_OPENCV
 #include <opencv2/core/core.hpp>
-#endif  // USE_OPENCV
 
 #include <boost/filesystem.hpp>
 #include <iomanip>
@@ -23,7 +21,6 @@
 
 namespace caffe {
 
-#ifdef USE_OPENCV
 template<typename Dtype>
 inline int CVFC(int ch);
 
@@ -36,7 +33,6 @@ template<>
 inline int CVFC<double>(int ch) {
   return CV_64FC(ch);
 }
-#endif
 
 using ::google::protobuf::Message;
 using ::boost::filesystem::path;
@@ -172,9 +168,6 @@ inline bool ReadImageToDatum(const string& filename, const int label,
   return ReadImageToDatum(filename, label, 0, 0, true, encoding, datum);
 }
 
-vector<int> DecodeJPEGToBuffer(const Datum& datum, int color_mode, std::vector<unsigned char>& out);
-
-#ifdef USE_OPENCV
 cv::Mat ReadImageToCVMat(const string& filename,
     const int height, const int width, const bool is_color);
 
@@ -265,8 +258,6 @@ void FloatCVMatToBuf(const cv::Mat& cv_img, size_t buf_len, Dtype* buf) {
     hwc2chw(img_channels, img_width, img_height, cv_img.ptr<double>(0), buf);
   }
 }
-
-#endif  // USE_OPENCV
 
 }  // namespace caffe
 

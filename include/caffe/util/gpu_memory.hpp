@@ -49,7 +49,7 @@ struct GPUMemory {
   }
 
   static shared_mutex& read_write_mutex() {
-    return mgr_.read_write_mutex();
+    return mutex_;
   }
 
   // Scope initializes global Memory Manager for a given scope.
@@ -130,7 +130,6 @@ struct GPUMemory {
     void reset();
     void* pinned_buffer(size_t size, int device, int group);
     std::string report_dev_info(int device);
-    shared_mutex& read_write_mutex() { return mutex_; }
 
     bool debug_;
 
@@ -154,7 +153,6 @@ struct GPUMemory {
     vector<vector<void*>> pinned_device_buffers_;
     vector<vector<size_t>> pinned_buffer_sizes_;
     vector<size_t> update_thresholds_;
-    shared_mutex mutex_;
 
     static const unsigned int BIN_GROWTH;  ///< Geometric growth factor
     static const unsigned int MIN_BIN;  ///< Minimum bin
@@ -164,8 +162,20 @@ struct GPUMemory {
     static const size_t INITIAL_PINNED_BYTES;
   };
 
+  static shared_mutex mutex_;
+  static mutex ws_mutex_;
   static Manager mgr_;
   static const int INVALID_DEVICE;  ///< Default is invalid: CUB takes care
+
+ public:
+  // Workspace used by all Convolution layers one after another.
+  // We carry it global to prevent unnecessary allocations/deallocations
+  // because they hurt performance. It's also shared between TRAIN and TESTS nets.
+  static PtrMap<Workspace> workspace_;
+  // This one is for TRAIN only:
+  static PtrMap<Workspace> weights_workspace_;
+
+  static void Finalize();
 };
 
 }  // namespace caffe
