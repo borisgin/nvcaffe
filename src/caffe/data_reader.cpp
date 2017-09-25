@@ -173,6 +173,9 @@ void DataReader::DataCache::just_cached() {
 }
 
 bool DataReader::DataCache::check_memory() {
+#ifdef __APPLE__
+  return true;
+#else
   if (cache_buffer_.size() == 0UL || cache_buffer_.size() % 1000UL != 0UL) {
     return true;
   }
@@ -223,6 +226,7 @@ bool DataReader::DataCache::check_memory() {
     shuffle_ = false;
   }
   return mem_ok;
+#endif
 }
 
 DataReader::CursorManager::CursorManager(shared_ptr<db::DB> db, DataReader* reader,
@@ -326,7 +330,32 @@ void DataReader::CursorManager::rewind() {
 }
 
 void DataReader::CursorManager::fetch(Datum* datum) {
-  if (!cursor_->parse(datum)) {
+  C2TensorProtos protos;
+  if (cursor_->parse(&protos) && protos.protos_size() >= 2) {
+    C2TensorProto* image_proto = protos.mutable_protos(0);
+    C2TensorProto* label_proto = protos.mutable_protos(1);
+    if (image_proto->data_type() == C2TensorProto::STRING) {
+      // encoded image string.
+      DCHECK_EQ(image_proto->string_data_size(), 1);
+      datum->mutable_data()->assign(image_proto->string_data(0));
+      datum->set_encoded(true);
+    } else if (image_proto->data_type() == C2TensorProto::BYTE) {
+      // raw image content.
+      datum->set_allocated_data(image_proto->release_byte_data());
+      datum->set_encoded(false);
+      datum->set_channels(image_proto->dims_size() == 3 ? image_proto->dims(2) : 1);
+      datum->set_height(image_proto->dims_size() > 1 ? image_proto->dims(0) : 0);
+      datum->set_width(image_proto->dims_size() > 1 ? image_proto->dims(1) : 0);
+    } else {
+      LOG(FATAL) << "Unknown C2 image data type.";
+    }
+    if (label_proto->data_type() == C2TensorProto::INT32) {
+      DCHECK_EQ(label_proto->int32_data_size(), 1);
+      datum->set_label(label_proto->int32_data(0));
+    } else {
+      LOG(FATAL) << "Unsupported C2 label data type.";
+    }
+  } else if (!cursor_->parse(datum)) {
     LOG(ERROR) << "Database cursor failed to parse Datum record";
   }
 }

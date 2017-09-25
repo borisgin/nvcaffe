@@ -36,7 +36,7 @@ LIB_BUILD_DIR := $(BUILD_DIR)/lib
 STATIC_NAME := $(LIB_BUILD_DIR)/lib$(LIBRARY_NAME).a
 DYNAMIC_VERSION_MAJOR 		:= 0
 DYNAMIC_VERSION_MINOR 		:= 16
-DYNAMIC_VERSION_REVISION 	:= 3
+DYNAMIC_VERSION_REVISION 	:= 4
 DYNAMIC_NAME_SHORT := lib$(LIBRARY_NAME).so
 DYNAMIC_SONAME_SHORT := $(DYNAMIC_NAME_SHORT).$(DYNAMIC_VERSION_MAJOR).$(DYNAMIC_VERSION_MINOR)
 DYNAMIC_VERSIONED_NAME_SHORT := $(DYNAMIC_SONAME_SHORT).$(DYNAMIC_VERSION_REVISION)
@@ -192,7 +192,7 @@ ifneq ($(NO_NVML), 1)
 endif
 endif
 
-LIBRARIES += boost_system glog gflags protobuf boost_filesystem m
+LIBRARIES += boost_system glog gflags protobuf boost_filesystem m turbojpeg
 ifeq ($(TEGRA), 1)
     LIBRARIES += hdf5_serial_hl hdf5_serial
 else
@@ -211,7 +211,7 @@ ifeq ($(USE_LMDB), 1)
 	LIBRARIES += lmdb
 endif
 ifeq ($(USE_OPENCV), 1)
-	LIBRARIES += opencv_core opencv_highgui opencv_imgproc 
+	LIBRARIES += opencv_core opencv_highgui opencv_imgproc
 
 	ifeq ($(OPENCV_VERSION), 3)
 		LIBRARIES += opencv_imgcodecs

@@ -23,7 +23,6 @@ if $WITH_PYTHON3 ; then
 fi
 
 if ! $WITH_IO ; then
-  LINE "USE_OPENCV := 0"
   LINE "USE_LEVELDB := 0"
   LINE "USE_LMDB := 0"
 fi

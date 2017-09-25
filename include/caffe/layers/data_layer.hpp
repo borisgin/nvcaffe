@@ -60,6 +60,7 @@ class DataLayer : public BasePrefetchingDataLayer<Ftype, Btype> {
   std::atomic_bool sample_only_;
   mutable std::mutex mutex_setup_, mutex_prefetch_;
   const bool cache_, shuffle_;
+  bool train_data_encoded_;
 };
 
 }  // namespace caffe

@@ -2916,11 +2916,6 @@ TEST_F(NetUpgradeTest, TestUpgradeV1LayerType) {
       continue;
       #endif  // USE_LEVELDB
     }
-    #ifndef USE_OPENCV
-    if (v2_layer_type == "ImageData" || v2_layer_type == "WindowData") {
-     continue;
-    }
-    #endif  // !USE_OPENCV
     layer = LayerRegistry::CreateLayer(layer_param);
     EXPECT_EQ(v2_layer_type, layer->type());
   }

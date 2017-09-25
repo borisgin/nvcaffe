@@ -42,6 +42,11 @@ BatchNormLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bottom, const vect
     this->blobs_[1]->set_data(0.);
     this->blobs_[2] = Blob::create<Ftype>(1);  // variance correction
     this->blobs_[2]->set_data(0.);
+#ifdef NAMED_BLOBS
+    this->blobs_[0]->set_name(Phase_Name(this->phase_) + "-" + this->layer_param_.name() + ":lp:" + std::to_string(0));
+    this->blobs_[1]->set_name(Phase_Name(this->phase_) + "-" + this->layer_param_.name() + ":lp:" + std::to_string(1));
+    this->blobs_[2]->set_name(Phase_Name(this->phase_) + "-" + this->layer_param_.name() + ":lp:" + std::to_string(2));
+#endif
     if (scale_bias_) {
       this->blobs_[3] = Blob::create<Ftype>(channels_);  // scale
       this->blobs_[4] = Blob::create<Ftype>(channels_);  // bias

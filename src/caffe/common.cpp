@@ -21,7 +21,7 @@ int Caffe::thread_count_ = 0;
 int Caffe::restored_iter_ = -1;
 std::atomic<uint64_t> Caffe::root_seed_(Caffe::SEED_NOT_SET);
 
-std::mutex Caffe::props_mutex_;
+std::mutex Caffe::dev_mutex_;
 std::mutex Caffe::caffe_mutex_;
 std::mutex Caffe::pstream_mutex_;
 std::mutex Caffe::cublas_mutex_;
@@ -492,9 +492,7 @@ const int TypedConsts<int>::one = 1;
 
 #ifdef USE_CUDNN
 CuDNNHandle::CuDNNHandle(cudaStream_t stream) {
-  if (cudnnCreate(&handle_) != CUDNN_STATUS_SUCCESS) {
-    LOG(ERROR) << "Cannot create cuDNN handle. cuDNN won't be available.";
-  }
+  CUDNN_CHECK(cudnnCreate(&handle_));
   CUDNN_CHECK(cudnnSetStream(handle_, stream));
 }
 

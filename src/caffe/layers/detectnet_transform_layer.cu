@@ -1,5 +1,3 @@
-#ifdef USE_OPENCV
-
 #include <math.h>
 #include <math_constants.h>
 #include <opencv2/core/core.hpp>
@@ -432,5 +430,3 @@ INSTANTIATE_LAYER_GPU_FORWARD(DetectNetTransformationLayer);
 
 
 }  // namespace caffe
-
-#endif

@@ -1,4 +1,4 @@
-#if defined(USE_LEVELDB) && defined(USE_LMDB) && defined(USE_OPENCV)
+#if defined(USE_LEVELDB) && defined(USE_LMDB)
 #include <memory>
 #include <string>
 
@@ -133,4 +133,4 @@ TYPED_TEST(DBTest, TestWrite) {
 }
 
 }  // namespace caffe
-#endif  // USE_LEVELDB, USE_LMDB and USE_OPENCV
+#endif  // USE_LEVELDB, USE_LMDB

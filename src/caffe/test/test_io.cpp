@@ -1,12 +1,7 @@
-#ifdef USE_OPENCV
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
-#include <opencv2/highgui/highgui_c.h>
 #include <opencv2/imgproc/imgproc.hpp>
-
-#include <string>
-
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
 
 #include "caffe/common.hpp"
 #include "caffe/util/io.hpp"
@@ -302,7 +297,7 @@ TEST_F(IOTest, TestDecodeDatum) {
   const string& data = datum.data();
   const string& data_ref = datum_ref.data();
   for (int i = 0; i < datum.data().size(); ++i) {
-    EXPECT_TRUE(data[i] == data_ref[i]);
+    EXPECT_TRUE(data[i] == data_ref[i]) << i;
   }
 }
 
@@ -421,4 +416,3 @@ TEST_F(IOTest, TestDecodeDatumToCVMatContentNative) {
 }
 
 }  // namespace caffe
-#endif  // USE_OPENCV

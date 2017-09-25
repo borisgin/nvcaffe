@@ -151,6 +151,10 @@ void BaseConvolutionLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bottom,
     // Initialize and fill the weights:
     // output channels x input channels per-group x kernel height x kernel width
     this->blobs_[0] = Blob::create<Ftype, Btype>(weight_shape);
+#ifdef NAMED_BLOBS
+    this->blobs_[0]->set_name(Phase_Name(this->phase_) + "-" + this->layer_param_.name() + ":lp:"
+                              + std::to_string(0));
+#endif
     shared_ptr<Filler<Ftype>> weight_filler(
         GetFiller<Ftype>(this->layer_param_.convolution_param().weight_filler()));
     weight_filler->Fill(this->blobs_[0].get());
@@ -158,6 +162,9 @@ void BaseConvolutionLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bottom,
     // If necessary, initialize and fill the biases.
     if (bias_term_) {
       this->blobs_[1] = Blob::create<Ftype, Btype>(bias_shape);
+#ifdef NAMED_BLOBS
+      this->blobs_[1]->set_name(Phase_Name(this->phase_) + "-" + this->layer_param_.name() + ":lp:" + std::to_string(1));
+#endif
       shared_ptr<Filler<Ftype>> bias_filler(
           GetFiller<Ftype>(this->layer_param_.convolution_param().bias_filler()));
       bias_filler->Fill(this->blobs_[1].get());
