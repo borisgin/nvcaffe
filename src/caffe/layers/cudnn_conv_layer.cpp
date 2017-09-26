@@ -265,7 +265,12 @@ void CuDNNConvolutionLayer<Ftype, Btype>::AllocateFindExWorkspace() {
     LOG(INFO) << this->print_current_device() << " Retrying to allocate " << req_bytes
               << " bytes, attempts left: " << attempts;
   }
-  map_val(dev, ws_allocated_, mv_) = ws.size();
+//  map_val(dev, ws_allocated_, mv_) = ws.size();
+
+  ws_allocated_[dev] = ws.size();
+
+
+
 }
 
 template <typename Ftype, typename Btype>
@@ -477,8 +482,8 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
 
   if (ok_to_release() && this->phase_ == TRAIN) {
     const int dev = Caffe::current_device();
-    GPUMemory::Workspace& ws = map_ptr(dev, GPUMemory::workspace_, mv_);
-    if (!map_val(dev, ws_released_, mv_) && map_val(dev, ws_allocated_, mv_) > 0UL) {
+    GPUMemory::Workspace& ws = GPUMemory::workspace_[dev];
+    if (!ws_released_[dev] && ws_allocated_[dev] > 0UL) {
       // Housekeeping: release excessive amount of device memory after FindEx calls
       size_t mem_req = align_up<7>(std::max(map_val(dev, train_mem_req_all_grps_, mv_),
           map_val(dev, test_mem_req_all_grps_, mv_)) + PAGE_SIZE);
