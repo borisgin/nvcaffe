@@ -192,7 +192,7 @@ ifneq ($(NO_NVML), 1)
 endif
 endif
 
-LIBRARIES += boost_system glog gflags protobuf boost_filesystem m turbojpeg
+LIBRARIES += boost_system glog gflags protobuf boost_filesystem m
 ifeq ($(TEGRA), 1)
     LIBRARIES += hdf5_serial_hl hdf5_serial
 else
@@ -453,7 +453,7 @@ else
 	PKG_CONFIG :=
 endif
 LDFLAGS += $(foreach librarydir,$(LIBRARY_DIRS),-L$(librarydir)) $(PKG_CONFIG) \
-		$(foreach library,$(LIBRARIES),-l$(library))
+		$(foreach library,$(LIBRARIES),-l$(library)) /usr/lib/x86_64-linux-gnu/libturbojpeg.so.0
 PYTHON_LDFLAGS := $(LDFLAGS) $(foreach library,$(PYTHON_LIBRARIES),-l$(library))
 
 # 'superclean' target recursively* deletes all files ending with an extension
