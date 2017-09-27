@@ -69,11 +69,12 @@ else
   popd
 fi
 
+apt-get install -y --no-install-recommends libopencv-dev
+
 if $WITH_IO ; then
   apt-get install -y --no-install-recommends \
     libleveldb-dev \
     liblmdb-dev \
-    libopencv-dev \
     libsnappy-dev
 fi
 
