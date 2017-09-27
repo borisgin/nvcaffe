@@ -34,9 +34,12 @@ DISABLE_COPY_MOVE_AND_ASSIGN(PyGILRelease);
 
 namespace caffe {
 
-void PyErrFatal();
+inline void PyErrFatal() {
+  PyErr_Print();
+  std::cerr << std::endl;
+  LOG(FATAL) << "Python error";
+}
 void PyErrReportAndForward();
-
 
 #define PYTHON_CALL_BEGIN  \
 {                          \

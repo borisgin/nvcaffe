@@ -533,11 +533,6 @@ void Net::AppendTop(const NetParameter& param, const int layer_id, const int top
     Type btype = layer_param.has_backward_type() ? layer_param.backward_type() :
         param.default_backward_type();
     shared_ptr<Blob> blob_pointer = Blob::create(ftype, btype);
-
-#ifdef NAMED_BLOBS
-    blob_pointer->set_name(Phase_Name(this->phase_) + "-" +blob_name);
-#endif
-
     const int blob_id = blobs_.size();
     blobs_.push_back(blob_pointer);
     blob_names_.push_back(blob_name);
@@ -818,7 +813,7 @@ void Net::ReduceAndUpdate() {
         NO_GPU;
 #endif
       } else {
-        if (global_grad_scale_ != 1.F) {
+        if (global_grad_scale_ != 1.F) {  // FIXME fuse this
           this->learnable_params()[param_id]->scale_diff(1.F / global_grad_scale_, handle);
         }
         solver_->ApplyUpdate(param_id, handle, clear_grads);
