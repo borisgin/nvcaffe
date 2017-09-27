@@ -66,7 +66,7 @@ class P2PManager {
 
  protected:
   const size_t nranks_;
-  vector<shared_ptr<P2PSync>> syncs_;
+  vector<unique_ptr<P2PSync>> syncs_;
   shared_ptr<SharedScores<float>> shared_;
   shared_ptr<Solver> root_solver_;
 
