@@ -133,4 +133,5 @@ TYPED_TEST(DBTest, TestWrite) {
 }
 
 }  // namespace caffe
+
 #endif  // USE_LEVELDB, USE_LMDB

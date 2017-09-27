@@ -610,68 +610,6 @@ class Flag {
   }
 };
 
-//class MutexVec {
-//  static constexpr size_t TOP_ORDINAL = 32;
-//  vector<shared_ptr<mutex>> v_;
-//
-// public:
-//  MutexVec() {
-//    operator[](TOP_ORDINAL);
-//  }
-//  mutex& operator[] (size_t dev) {
-//    while (v_.size() <= dev) {
-//      v_.emplace_back(make_shared<mutex>());
-//    }
-//    return *v_[dev];
-//  }
-//};
-//
-//
-//template<class T>
-//using ValMap = std::unordered_map<int, T>;
-//template<class T>
-//using PtrMap = std::unordered_map<int, shared_ptr<T>>;
-//
-//template<typename T>
-//inline static T& map_ptr(int key, PtrMap<T>& m, MutexVec& mv) {
-//  std::lock_guard<std::mutex> lock(mv[key]);
-//  auto it = m.find(key);
-//  if (it == m.end()) {
-//    std::pair<typename PtrMap<T>::iterator, bool> p = m.emplace(key, make_shared<T>());
-//    it = p.first;
-//  }
-//  return *(it->second);
-//}
-//
-//template<typename T>
-//inline static void erase_map_ptr(int key, PtrMap<T>& m, MutexVec& mv) {
-//  std::lock_guard<std::mutex> lock(mv[key]);
-//  m.erase(key);
-//}
-//
-//template<typename T>
-//inline static T& map_val(int key, ValMap<T>& m, MutexVec& mv) {
-//  std::lock_guard<std::mutex> lock(mv[key]);
-//  auto it = m.find(key);
-//  if (it == m.end()) {
-//    std::pair<typename ValMap<T>::iterator, bool> p = m.emplace(key, T());
-//    it = p.first;
-//  }
-//  return it->second;
-//}
-//
-//template<typename T>
-//inline static void setmax_val(int key, const T& val, ValMap<T>& m, MutexVec& mv) {
-//  std::lock_guard<std::mutex> lock(mv[key]);
-//  auto it = m.find(key);
-//  if (it == m.end()) {
-//    m.emplace(key, val);
-//  } else if (val > it->second) {
-//    it->second = val;
-//  }
-//}
-
-
 template <typename M>
 class ThreadSafeMap {
  public:

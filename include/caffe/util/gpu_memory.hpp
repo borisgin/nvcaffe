@@ -163,7 +163,7 @@ struct GPUMemory {
   };
 
   static shared_mutex mutex_;
-  static mutex ws_mutex_;
+  static mutex ws_mutex_init_;
   static Manager mgr_;
   static const int INVALID_DEVICE;  ///< Default is invalid: CUB takes care
 
@@ -171,13 +171,11 @@ struct GPUMemory {
   // Workspace used by all Convolution layers one after another.
   // We carry it global to prevent unnecessary allocations/deallocations
   // because they hurt performance. It's also shared between TRAIN and TESTS nets.
-//  static PtrMap<Workspace> workspace_;
-  static ThreadSafeMap<std::unordered_map<int, shared_ptr<Workspace>>> workspace_;
-
+  static std::unordered_map<int, shared_ptr<Workspace>> workspace_;
   // This one is for TRAIN only:
-//  static PtrMap<Workspace> weights_workspace_;
-  static ThreadSafeMap<std::unordered_map<int, shared_ptr<Workspace>>> weights_workspace_;
+  static std::unordered_map<int, shared_ptr<Workspace>> weights_workspace_;
 
+  static void Init();
   static void Finalize();
 };
 

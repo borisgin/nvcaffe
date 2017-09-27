@@ -18,15 +18,27 @@ const size_t GPUMemory::Manager::MAX_CACHED_BYTES = (size_t) -1;
 const size_t GPUMemory::Manager::MAX_CACHED_SIZE = (1 << GPUMemory::Manager::MAX_BIN);  // 4M
 const size_t GPUMemory::Manager::INITIAL_PINNED_BYTES = 64;
 shared_mutex GPUMemory::mutex_;
-mutex GPUMemory::ws_mutex_;
+mutex GPUMemory::ws_mutex_init_;
 
 GPUMemory::Manager GPUMemory::mgr_;
 
-PtrMap<GPUMemory::Workspace> GPUMemory::workspace_;
-PtrMap<GPUMemory::Workspace> GPUMemory::weights_workspace_;
+std::unordered_map<int, shared_ptr<GPUMemory::Workspace>> GPUMemory::workspace_;
+std::unordered_map<int, shared_ptr<GPUMemory::Workspace>> GPUMemory::weights_workspace_;
+
+// To be called for every device
+void GPUMemory::Init() {
+  std::lock_guard<std::mutex> lock(ws_mutex_init_);
+  const int dev = Caffe::current_device();
+  if (GPUMemory::workspace_.find(dev) == GPUMemory::workspace_.end()) {
+    workspace_.emplace(dev, make_shared<Workspace>());
+  }
+  if (GPUMemory::weights_workspace_.find(dev) == GPUMemory::weights_workspace_.end()) {
+    weights_workspace_.emplace(dev, make_shared<Workspace>());
+  }
+}
 
 void GPUMemory::Finalize() {
-  std::lock_guard<std::mutex> lock(ws_mutex_);
+  std::lock_guard<std::mutex> lock(ws_mutex_init_);
   for_each(workspace_.begin(), workspace_.end(),
       [&](std::pair<const int, boost::shared_ptr<caffe::GPUMemory::Workspace>> it) {
     it.second->release();
