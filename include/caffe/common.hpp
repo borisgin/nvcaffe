@@ -433,7 +433,6 @@ class Caffe {
 
   static int current_device() {
 #ifndef CPU_ONLY
-    std::lock_guard<std::mutex> lock(dev_mutex_);
     int device;
     CUDA_CHECK(cudaGetDevice(&device));
     return device;
@@ -487,7 +486,7 @@ class Caffe {
   static int thread_count_;
   static int restored_iter_;
   static std::atomic<uint64_t> root_seed_;
-  static std::mutex dev_mutex_, caffe_mutex_, pstream_mutex_, cublas_mutex_, seed_mutex_;
+  static std::mutex caffe_mutex_, pstream_mutex_, cublas_mutex_, seed_mutex_;
 
  private:
   // The private constructor to avoid duplicate instantiation.
