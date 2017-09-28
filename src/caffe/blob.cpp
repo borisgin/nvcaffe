@@ -104,10 +104,6 @@ void Blob::ShareData(const Blob& other) {
   data_tensor_ = other.data_tensor_;
   CHECK(data_type() == other.data_type());
   CHECK(is_current_data_valid());
-
-#ifdef NAMED_BLOBS
-  other.data_shared_by_ = this;
-#endif
 }
 
 void Blob::ShareDiff(const Blob& other) {
@@ -132,10 +128,6 @@ void Blob::ShareDiff(const Blob& other) {
   diff_tensor_ = other.diff_tensor_;
   CHECK(diff_type() == other.diff_type());
   CHECK(is_current_diff_valid());
-
-#ifdef NAMED_BLOBS
-  other.diff_shared_by_ = this;
-#endif
 }
 
 // The "update" method is used for parameter blobs in a Net, which are stored

@@ -45,10 +45,6 @@ Layer<Ftype, Btype>::Layer(const LayerParameter& param) : LayerBase(param) {
     for (int i = 0; i < layer_param_.blobs_size(); ++i) {
       blobs_[i] = Blob::create<Ftype>();
       blobs_[i]->FromProto(layer_param_.blobs(i));
-#ifdef NAMED_BLOBS
-      blobs_[i]->set_name(Phase_Name(this->phase_) + "-" +
-          layer_param_.name() + ":lp:" + std::to_string(i));
-#endif
     }
   }
 }

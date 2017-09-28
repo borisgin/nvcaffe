@@ -47,13 +47,13 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
   static constexpr int MAX_PARALLEL_GROUPS = 2;
   static constexpr int REQUEST_ALGO_COUNT = 1;
   static constexpr int ATTEMPTS_TO_RESERVE_WS = 3;
-  static MutexVec mv_;
+  static std::mutex m_;
 
-  // We update it on second Fwd/Bwd pass and we allocate it *once*.
-  static ValMap<size_t> ws_allocated_;
-  static ValMap<size_t> train_mem_req_all_grps_, test_mem_req_all_grps_;
-  static ValMap<size_t> train_tmp_weights_mem_;
-  static ValMap<bool> ws_released_;
+  static ThreadSafeMap<std::unordered_map<int, size_t>> ws_allocated_;
+  static ThreadSafeMap<std::unordered_map<int, size_t>> train_mem_req_all_grps_;
+  static ThreadSafeMap<std::unordered_map<int, size_t>> test_mem_req_all_grps_;
+  static ThreadSafeMap<std::unordered_map<int, size_t>> train_tmp_weights_mem_;
+  static ThreadSafeMap<std::unordered_map<int, bool>> ws_released_;
 
  public:
   explicit CuDNNConvolutionLayer(const LayerParameter& param)
@@ -172,18 +172,27 @@ template<typename Ftype, typename Btype>
 constexpr int CuDNNConvolutionLayer<Ftype, Btype>::ATTEMPTS_TO_RESERVE_WS;
 
 template<typename Ftype, typename Btype>
-ValMap<size_t> CuDNNConvolutionLayer<Ftype, Btype>::ws_allocated_;
+std::mutex CuDNNConvolutionLayer<Ftype, Btype>::m_;
 template<typename Ftype, typename Btype>
-ValMap<size_t> CuDNNConvolutionLayer<Ftype, Btype>::train_mem_req_all_grps_;
+ThreadSafeMap<std::unordered_map<int, size_t>>
+CuDNNConvolutionLayer<Ftype, Btype>::ws_allocated_(
+    CuDNNConvolutionLayer<Ftype, Btype>::m_);
 template<typename Ftype, typename Btype>
-ValMap<size_t> CuDNNConvolutionLayer<Ftype, Btype>::test_mem_req_all_grps_;
+ThreadSafeMap<std::unordered_map<int, bool>>
+CuDNNConvolutionLayer<Ftype, Btype>::ws_released_(
+    CuDNNConvolutionLayer<Ftype, Btype>::m_);
 template<typename Ftype, typename Btype>
-ValMap<size_t> CuDNNConvolutionLayer<Ftype, Btype>::train_tmp_weights_mem_;
+ThreadSafeMap<std::unordered_map<int, size_t>>
+CuDNNConvolutionLayer<Ftype, Btype>::train_mem_req_all_grps_(
+    CuDNNConvolutionLayer<Ftype, Btype>::m_);
 template<typename Ftype, typename Btype>
-ValMap<bool> CuDNNConvolutionLayer<Ftype, Btype>::ws_released_;
-
+ThreadSafeMap<std::unordered_map<int, size_t>>
+CuDNNConvolutionLayer<Ftype, Btype>::test_mem_req_all_grps_(
+    CuDNNConvolutionLayer<Ftype, Btype>::m_);
 template<typename Ftype, typename Btype>
-MutexVec CuDNNConvolutionLayer<Ftype, Btype>::mv_;
+ThreadSafeMap<std::unordered_map<int, size_t>>
+CuDNNConvolutionLayer<Ftype, Btype>::train_tmp_weights_mem_(
+    CuDNNConvolutionLayer<Ftype, Btype>::m_);
 
 #endif
 

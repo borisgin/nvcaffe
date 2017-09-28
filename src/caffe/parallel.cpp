@@ -45,7 +45,7 @@ void P2PManager::Run(const vector<int>& gpus) {
   this->shared_ = make_shared<SharedScores<float>>(nranks_);
   for (int i = 0; i < gpus.size(); ++i) {
     param.set_device_id(gpus[i]);
-    syncs_[i] = make_shared<P2PSync>(this, root_solver_, i, gpus.size(), param);
+    syncs_[i].reset(new P2PSync(this, root_solver_, i, gpus.size(), param));
 #ifndef CPU_ONLY
 #ifdef USE_NCCL
     syncs_[i]->aux_ = &nccl_id_;

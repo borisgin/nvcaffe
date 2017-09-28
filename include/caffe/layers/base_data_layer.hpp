@@ -57,7 +57,6 @@ class Batch {
             id_((size_t) -1) {}
 
   ~Batch() {
-    DLOG(INFO) << data_->count() << " " << label_->count();
   }
 
   size_t id() const {
