@@ -13,16 +13,19 @@ layer {
   top: "data"
   top: "label"
   data_param {
-    source: "examples/imagenet/ilsvrc12_train_lmdb"
+#    source: "examples/imagenet/ilsvrc12_train_lmdb"
 #    source: "/data/imagenet/train-lmdb-uncompressed-256x256"
+    source: "/data/imagenet/train-c2lmdb-480"
     backend: LMDB
-    batch_size: 512
+    batch_size: 1024
     cache:   true
     shuffle: true  
   }
   transform_param {
-    mean_file: "data/ilsvrc12/imagenet_mean.binaryproto"
-#    mean_file: "/data/imagenet/imagenet_256x256_mean.binaryproto"
+#    mean_file: "data/ilsvrc12/imagenet_mean.binaryproto"
+    mean_file: "/data/imagenet/imagenet_256x256_mean.binaryproto"
+    img_rand_resize_lower: 224
+    img_rand_resize_upper: 256
     crop_size: 224
     mirror: true
     scale: 0.00390625
@@ -35,14 +38,15 @@ layer {
   top: "data"
   top: "label"
   data_param {
-    source: "examples/imagenet/ilsvrc12_val_lmdb"
+#    source: "examples/imagenet/ilsvrc12_val_lmdb"
 #    source: "/data/imagenet/val-lmdb-uncompressed-256x256"
+    source: "/data/imagenet/val-c2lmdb-256"
     backend: LMDB
     batch_size: 32
   }
   transform_param {
-    mean_file: "data/ilsvrc12/imagenet_mean.binaryproto"
-#    mean_file: "/data/imagenet/imagenet_256x256_mean.binaryproto"
+#    mean_file: "data/ilsvrc12/imagenet_mean.binaryproto"
+    mean_file: "/data/imagenet/imagenet_256x256_mean.binaryproto"
     crop_size: 224
     mirror: false
     scale: 0.00390625
