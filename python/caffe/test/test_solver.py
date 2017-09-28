@@ -33,6 +33,9 @@ class TestSolver(unittest.TestCase):
         os.remove(f.name)
         os.remove(net_f)
 
+    def tearDown(self):
+        del self.solver
+
     def test_solve(self):
         self.assertEqual(self.solver.iter, 0)
         self.solver.solve()
@@ -43,7 +46,6 @@ class TestSolver(unittest.TestCase):
 
         nets = [self.solver.net] + list(self.solver.test_nets)
         self.assertEqual(len(nets), 2)
-        del self.solver
 
         total = 0
         for net in nets:

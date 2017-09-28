@@ -45,12 +45,14 @@ class TestNet(unittest.TestCase):
                     size=self.net.blobs['label'].data.shape)
         os.remove(net_file)
 
+    def tearDown(self):
+        del self.net
+
     def test_memory(self):
         """Check that holding onto blob data beyond the life of a Net is OK"""
 
         params = sum(map(list, six.itervalues(self.net.params)), [])
         blobs = self.net.blobs.values()
-        del self.net
 
         # now sum everything (forcing all memory to be read)
         total = 0
