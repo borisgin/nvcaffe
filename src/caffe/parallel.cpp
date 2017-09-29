@@ -87,6 +87,7 @@ void P2PManager::EarlyCancel(P2PSync* killed) {
       syncs_[i]->StopInternalThread();
     }
   }
+  GPUMemory::Finalize();
 }
 
 P2PSync::P2PSync(P2PManager* mgr, shared_ptr<Solver> root_solver,

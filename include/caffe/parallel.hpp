@@ -47,6 +47,7 @@ class P2PSync;
 class P2PManager {
  public:
   P2PManager(shared_ptr<Solver> root_solver, int nranks, const SolverParameter& param);
+  ~P2PManager() {}
 
   void Run(const vector<int>& gpus);
   void EarlyCancel(P2PSync* killed);

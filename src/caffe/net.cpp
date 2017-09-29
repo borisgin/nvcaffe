@@ -54,6 +54,7 @@ Net::Net(const string& param_file,
 }
 
 Net::~Net() {
+  learnable_space_.release();
 }
 
 void Net::Init(const NetParameter& in_param) {
