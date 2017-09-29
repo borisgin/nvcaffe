@@ -54,7 +54,9 @@ Net::Net(const string& param_file,
 }
 
 Net::~Net() {
+#ifndef CPU_ONLY
   learnable_space_.release();
+#endif
 }
 
 void Net::Init(const NetParameter& in_param) {

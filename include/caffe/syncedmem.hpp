@@ -63,7 +63,7 @@ class SyncedMemory {
   int gpu_device() const {
     return gpu_device_;
   }
-
+  // TODO clean up
   void async_gpu_push();
   float gpu_asum(int count, Type type);
   float gpu_amax(int count, Type type);
@@ -88,6 +88,7 @@ class SyncedMemory {
   bool own_gpu_data_;
   int gpu_device_;
   bool valid_;
+  shared_ptr<CudaStream> pstream_;
 
   DISABLE_COPY_MOVE_AND_ASSIGN(SyncedMemory);
 };  // class SyncedMemory

@@ -90,7 +90,7 @@ void SyncedMemory::to_gpu() {
   switch (head_) {
     case UNINITIALIZED:
       CUDA_CHECK(cudaGetDevice(&gpu_device_));
-      GPUMemory::allocate(&gpu_ptr_, size_, gpu_device_);
+      GPUMemory::allocate(&gpu_ptr_, pstream_, size_, gpu_device_);
       caffe_gpu_memset(size_, 0, gpu_ptr_);
       head_ = HEAD_AT_GPU;
       own_gpu_data_ = true;
@@ -98,7 +98,7 @@ void SyncedMemory::to_gpu() {
     case HEAD_AT_CPU:
       if (gpu_ptr_ == NULL) {
         CUDA_CHECK(cudaGetDevice(&gpu_device_));
-        GPUMemory::allocate(&gpu_ptr_, size_, gpu_device_);
+        GPUMemory::allocate(&gpu_ptr_, pstream_, size_, gpu_device_);
         own_gpu_data_ = true;
       }
       caffe_gpu_memcpy(size_, cpu_ptr_, gpu_ptr_);
@@ -174,7 +174,7 @@ void* SyncedMemory::mutable_gpu_data() {
 void SyncedMemory::async_gpu_push() {
   if (gpu_ptr_ == NULL) {
     CUDA_CHECK(cudaGetDevice(&gpu_device_));
-    GPUMemory::allocate(&gpu_ptr_, size_, gpu_device_, 0);
+    GPUMemory::allocate(&gpu_ptr_, pstream_, size_, gpu_device_, 0);
     own_gpu_data_ = true;
   }
   CHECK_EQ(Caffe::current_device(), gpu_device_);

@@ -74,7 +74,7 @@ bool GPUMemory::Workspace::try_reserve(size_t size, int device) {
     if (device != INVALID_DEVICE) {
       device_ = device;  // switch from default to specific one
     }
-    status = mgr_.try_allocate(&ptr_, size, device_);
+    status = mgr_.try_allocate(&ptr_, pstream_, size, device_);
     if (status) {
       CHECK_NOTNULL(ptr_);
       size_ = size;
@@ -213,7 +213,8 @@ void GPUMemory::Manager::lazy_init(int device) {
   static Scope gpu_memory_scope(gpus);
 }
 
-bool GPUMemory::Manager::try_allocate(void** ptr, size_t size, int device, int group) {
+bool GPUMemory::Manager::try_allocate(void** ptr, shared_ptr<CudaStream>& pstream,
+    size_t size, int device, int group) {
   if (!initialized_) {
     lazy_init(device);
   }
@@ -223,7 +224,7 @@ bool GPUMemory::Manager::try_allocate(void** ptr, size_t size, int device, int g
   {
     // wait for "writers" like NCCL and potentially others
     shared_lock<shared_mutex> lock(GPUMemory::read_write_mutex());
-    shared_ptr<CudaStream> pstream = Caffe::thread_pstream(group);
+    pstream = Caffe::thread_pstream(group);
     size_t size_allocated = 0;
     // Clean Cache & Retry logic is inside now
     status = cub_allocator_->DeviceAllocate(device, ptr, size, pstream->get(), size_allocated);
