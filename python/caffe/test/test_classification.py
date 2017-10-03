@@ -9,7 +9,7 @@ import time
 
 from glob import glob
 from google.protobuf import text_format
-import Image
+from PIL import Image
 import scipy.misc
 
 # os.environ['GLOG_minloglevel'] = '2' # Suppress most caffe output

@@ -5,12 +5,6 @@
 
 namespace caffe {
 
-size_t Blob::cpu_memory_data_use(bool own_only) const {
-  return data_tensor_->cpu_memory_use(own_only);
-}
-size_t Blob::cpu_memory_diff_use(bool own_only) const {
-  return diff_tensor_->cpu_memory_use(own_only);
-}
 #ifndef CPU_ONLY
 size_t Blob::gpu_memory_data_use(bool own_only) const {
   return data_tensor_->gpu_memory_use(own_only);
@@ -276,34 +270,6 @@ float Blob::sumsq_diff() const {
 #endif
   }
   return cpu_sumsq(count_, diff_type(), diff_mem->cpu_data());
-}
-
-float Blob::amax_data() const {
-  if (!data_tensor_ || count_ <= 0) {
-    return 0.F;
-  }
-  if (Caffe::mode() == Caffe::GPU) {
-#ifndef CPU_ONLY
-    return data_tensor_->gpu_amax();
-#else
-    NO_GPU;
-#endif
-  }
-  return data_tensor_->cpu_amax();
-}
-
-float Blob::amax_diff() const {
-  if (!diff_tensor_ || count_ <= 0) {
-    return 0.F;
-  }
-  if (Caffe::mode() == Caffe::GPU) {
-#ifndef CPU_ONLY
-    return diff_tensor_->gpu_amax();
-#else
-    NO_GPU;
-#endif
-  }
-  return diff_tensor_->cpu_amax();
 }
 
 bool Blob::ShapeEquals(const BlobProto& other) {

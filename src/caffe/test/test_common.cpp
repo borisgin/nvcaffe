@@ -22,6 +22,11 @@ TEST_F(CommonTest, TestCublasHandlerGPU) {
   EXPECT_TRUE(Caffe::cublas_handle());
 }
 
+TEST_F(CommonTest, TestDeviceQuery) {
+  std::string dq = Caffe::DeviceQuery();
+  EXPECT_TRUE(dq.find("No") == 0UL || dq.find("Dev") == 0UL);
+}
+
 #endif
 
 TEST_F(CommonTest, TestBrewMode) {

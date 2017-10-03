@@ -46,7 +46,6 @@ class Tensor {
   void set(float value);
   void scale(float new_scale, void* handle = nullptr);
   void cpu_scale(float new_scale);
-  float cpu_amax();
   float cpu_asum();
   float asum() const;
   float sumsq() const;
@@ -55,10 +54,8 @@ class Tensor {
 #ifndef CPU_ONLY
   void gpu_set(float value, cudaStream_t stream);
   void gpu_scale(float new_scale, cublasHandle_t cublas_handle);
-  float gpu_amax();
   size_t gpu_memory_use(bool own_only = false) const;
 #endif
-  size_t cpu_memory_use(bool own_only = false) const;
   const shared_ptr<SyncedMemory>& synced_mem() const;
   shared_ptr<SyncedMemory>& mutable_synced_mem(bool flush = true);
   void convert(Type new_type);

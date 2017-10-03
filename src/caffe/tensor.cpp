@@ -169,20 +169,6 @@ void Tensor::gpu_scale(float scale, cublasHandle_t cublas_handle) {
   gpu_scal(count_, type_, mem->mutable_gpu_data(), scale, cublas_handle);
 }
 
-#endif
-
-size_t Tensor::cpu_memory_use(bool own_only) const {
-  size_t ret = 0ULL;
-  for (size_t i = 0; i < synced_arrays_->size(); ++i) {
-    if (synced_arrays_->at(i)) {
-      ret += synced_arrays_->at(i)->cpu_memory_use(own_only);
-    }
-  }
-  return ret;
-}
-
-#ifndef CPU_ONLY
-
 size_t Tensor::gpu_memory_use(bool own_only) const {
   size_t ret = 0ULL;
   for (size_t i = 0; i < synced_arrays_->size(); ++i) {
@@ -234,14 +220,6 @@ void Tensor::set(float value) {
   }
 }
 
-#ifndef CPU_ONLY
-
-float Tensor::gpu_amax() {
-  return synced_mem()->gpu_amax(count_, type_);
-}
-
-#endif
-
 float Tensor::asum() const {
   const shared_ptr<SyncedMemory>& mem = synced_mem();
   if (!mem || count_ <= 0) {
@@ -270,18 +248,6 @@ float Tensor::sumsq() const {
 #endif
   }
   return mem->cpu_sumsq(count_, type_);
-}
-
-float Tensor::cpu_amax() {
-  const shared_ptr<SyncedMemory>& mem = synced_mem();
-  if (is_type<float>(type_)) {
-    return caffe_cpu_amax(count_, static_cast<const float*>(mem->cpu_data()));
-  } else if (is_type<double>(type_)) {
-    return caffe_cpu_amax(count_, static_cast<const double*>(mem->cpu_data()));
-  } else {
-    LOG(FATAL) << "Unknown data type: " << Type_Name(type_);
-  }
-  return 0.F;
 }
 
 float Tensor::cpu_asum() {

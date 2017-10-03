@@ -332,4 +332,51 @@ TYPED_TEST(BlobMathTest, TestScaleData) {
       this->epsilon_ * expected_diff_asum);
 }
 
+template <typename Dtype>
+class BlobSerializationTest : public ::testing::Test {
+ protected:
+  BlobSerializationTest()
+      : blob_(2, 3, 4, 5) {
+    Dtype* pdata = blob_.mutable_cpu_data();
+    Dtype* pdiff = blob_.mutable_cpu_diff();
+    for (int i = 0; i < blob_.count(); ++i) {
+      pdata[i] = Dtype(i+1);
+      pdiff[i] = Dtype(-i-1);
+    }
+  }
+  TBlob<Dtype> blob_;
+};
+
+TYPED_TEST_CASE(BlobSerializationTest, TestDtypesNoFP16);
+
+TYPED_TEST(BlobSerializationTest, TestSerialization) {
+  BlobProto proto;
+  TBlob<TypeParam> blob;
+
+  bool store_in_old_format = false;
+  this->blob_.template ToProto<TypeParam>(&proto, store_in_old_format, true);
+  blob.FromProto(proto, true);
+  EXPECT_TRUE(this->blob_.shape() == blob.shape());
+  const TypeParam* psrc_data = this->blob_.cpu_data();
+  const TypeParam* pdst_data = blob.cpu_data();
+  const TypeParam* psrc_diff = this->blob_.cpu_diff();
+  const TypeParam* pdst_diff = blob.cpu_diff();
+  for (int i = 0; i < this->blob_.count(); ++i) {
+    EXPECT_FLOAT_EQ(float(psrc_data[i]), float(pdst_data[i]));
+    EXPECT_FLOAT_EQ(float(psrc_diff[i]), float(pdst_diff[i]));
+  }
+
+  store_in_old_format = true;
+  this->blob_.template ToProto<TypeParam>(&proto, store_in_old_format, true);
+  blob.FromProto(proto, true);
+  EXPECT_TRUE(this->blob_.shape() == blob.shape());
+  for (int i = 0; i < this->blob_.count(); ++i) {
+    EXPECT_FLOAT_EQ(float(psrc_data[i]), float(pdst_data[i]));
+    EXPECT_FLOAT_EQ(float(psrc_diff[i]), float(pdst_diff[i]));
+  }
+
+  std::string str = blob.to_string();
+  EXPECT_GT(str.find("ASUM: 7260"), 0UL);
+}
+
 }  // namespace caffe

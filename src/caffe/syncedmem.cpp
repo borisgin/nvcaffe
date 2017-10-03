@@ -186,21 +186,6 @@ void SyncedMemory::async_gpu_push() {
   head_ = SYNCED;
 }
 
-float SyncedMemory::gpu_amax(int count, Type type) {
-  CHECK(valid_);
-  float amax = 0.F;
-  if (is_type<float>(type)) {
-    caffe_gpu_amax(count, static_cast<const float*>(gpu_data()), &amax);
-  } else if (is_type<float16>(type)) {
-    caffe_gpu_amax(count, static_cast<const float16*>(gpu_data()), &amax);
-  } else if (is_type<double>(type)) {
-    caffe_gpu_amax(count, static_cast<const double*>(gpu_data()), &amax);
-  } else {
-    LOG(FATAL) << "Unknown data type: " << Type_Name(type);
-  }
-  return amax;
-}
-
 #endif
 
 float SyncedMemory::cpu_asum(int count, Type type) {

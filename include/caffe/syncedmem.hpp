@@ -42,9 +42,6 @@ class SyncedMemory {
   size_t gpu_memory_use(bool own_only = false) const {
     return own_only ? (own_gpu_data_ ? size_ : 0ULL) : size_;
   }
-  size_t cpu_memory_use(bool own_only = false) const {
-    return own_only ? (own_cpu_data_ ? size_ : 0ULL) : size_;
-  }
   bool is_valid() const {
     return valid_;
   }
@@ -64,7 +61,6 @@ class SyncedMemory {
   }
   void async_gpu_push();
   float gpu_asum(int count, Type type);
-  float gpu_amax(int count, Type type);
   float gpu_sumsq(int count, Type dtype);
 #endif
 

@@ -112,7 +112,7 @@ int device_query() {
   get_gpus(&gpus);
   for (int i = 0; i < gpus.size(); ++i) {
     caffe::Caffe::SetDevice(gpus[i]);
-    caffe::Caffe::DeviceQuery();
+    std::cout << caffe::Caffe::DeviceQuery();
   }
   return 0;
 }

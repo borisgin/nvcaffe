@@ -107,9 +107,6 @@ class Blob {
     diff_tensor_->current_memory(on_gpu);
   }
 
-  size_t cpu_memory_data_use(bool own_only = false) const;
-  size_t cpu_memory_diff_use(bool own_only = false) const;
-
   /**
    * @brief Creates an instance of a Blob with given Dtype.
    */
@@ -418,11 +415,6 @@ class Blob {
   void set_diff(float value) {
     diff_tensor_->set(value);
   }
-
-  // these are "pure algorithmic" aggregates, i.e. they depend on data array only.
-  // so, "math amax" = "pure array-based amax" * "scale_"
-  float amax_data() const;
-  float amax_diff() const;
 
   /**
    * @brief Set the data_ shared_ptr to point to the SyncedMemory holding the

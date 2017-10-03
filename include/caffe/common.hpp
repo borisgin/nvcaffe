@@ -382,7 +382,7 @@ class Caffe {
     return root_device_;
   }
   // Prints the current GPU status.
-  static void DeviceQuery();
+  static std::string DeviceQuery();
   // Check if specified device is available
   static bool CheckDevice(const int device_id);
   // Search from start_id to the highest possible device ordinal,
