@@ -33,8 +33,9 @@ struct GPUMemory {
   static void* thread_pinned_buffer(size_t size, int group = 0);
 
   template <class Any>
-  static void allocate(Any** ptr, size_t size, int device = current_device(), int group = 0) {
-    if (!try_allocate(reinterpret_cast<void**>(ptr), size, device, group)) {
+  static void allocate(Any** ptr, shared_ptr<CudaStream>& pstream,
+      size_t size, int device = current_device(), int group = 0) {
+    if (!try_allocate(reinterpret_cast<void**>(ptr), pstream, size, device, group)) {
       LOG(FATAL) << "Failed to allocate " << size << " bytes on device " << device
           << ". " << mgr_.report_dev_info(device);
     }
@@ -44,8 +45,9 @@ struct GPUMemory {
     mgr_.deallocate(ptr, device);
   }
 
-  static bool try_allocate(void** ptr, size_t size, int device = current_device(), int group = 0) {
-    return mgr_.try_allocate(ptr, size, device, group);
+  static bool try_allocate(void** ptr, shared_ptr<CudaStream>& pstream,
+      size_t size, int device = current_device(), int group = 0) {
+    return mgr_.try_allocate(ptr, pstream, size, device, group);
   }
 
   static shared_mutex& read_write_mutex() {
@@ -67,10 +69,12 @@ struct GPUMemory {
   struct Workspace {
     Workspace()
       : ptr_(nullptr), size_(0), device_(current_device()) {}
+
     Workspace(size_t size, int device = current_device())
       : ptr_(nullptr), size_(size), device_(device) {
       reserve(size_, device);
     }
+
     ~Workspace() {
       if (ptr_ != nullptr) {
         mgr_.deallocate(ptr_, device_);
@@ -114,6 +118,7 @@ struct GPUMemory {
     void* ptr_;
     size_t size_;
     int device_;
+    shared_ptr<CudaStream> pstream_;
 
     DISABLE_COPY_MOVE_AND_ASSIGN(Workspace);
   };
@@ -125,7 +130,8 @@ struct GPUMemory {
     void lazy_init(int device);
     void GetInfo(size_t* free_mem, size_t* used_mem, bool with_update);
     void deallocate(void* ptr, int device);
-    bool try_allocate(void** ptr, size_t size, int device, int group = 0);
+    bool try_allocate(void** ptr, shared_ptr<CudaStream>& pstream,
+        size_t size, int device, int group = 0);
     void init(const std::vector<int>&, bool);
     void reset();
     void* pinned_buffer(size_t size, int device, int group);

@@ -63,7 +63,6 @@ namespace gflags = google;
 
 // Disable the copy and assignment operator for a class.
 #define DISABLE_COPY_MOVE_AND_ASSIGN(classname) \
-private:\
   classname(const classname&) = delete;\
   classname(classname&&) = delete;\
   classname& operator=(const classname&) = delete; \
@@ -246,8 +245,8 @@ using boost::upgrade_lock;
 using boost::unique_lock;
 using boost::upgrade_to_unique_lock;
 
-#ifndef CPU_ONLY
 // Shared CUDA Stream for correct life cycle management
+// Has no meaning for CPU_ONLY
 class CudaStream {
   explicit CudaStream(bool high_priority);
 
@@ -259,6 +258,9 @@ class CudaStream {
     return pstream;
   }
 
+  DISABLE_COPY_MOVE_AND_ASSIGN(CudaStream);
+
+#ifndef CPU_ONLY
   cudaStream_t get() const {
     return stream_;
   }
@@ -271,9 +273,10 @@ class CudaStream {
     CUDA_CHECK(cudaGetDevice(&device));
     return device;
   }
-  DISABLE_COPY_MOVE_AND_ASSIGN(CudaStream);
+#endif
 };
 
+#ifndef CPU_ONLY
 #ifdef USE_CUDNN
 struct CuDNNHandle {
   explicit CuDNNHandle(cudaStream_t stream);
@@ -459,7 +462,6 @@ class Caffe {
 
  protected:
 #ifndef CPU_ONLY
-  static std::list<shared_ptr<CudaStream>> all_streams_;
   vector<vector<shared_ptr<CudaStream>>> device_streams_;  // [device][group]
   vector<vector<shared_ptr<CudaStream>>> device_streams_aux_;  // [device][id]
   vector<vector<cublasHandle_t>> cublas_handles_;  // [device][group]

@@ -3,6 +3,15 @@ import unittest
 import caffe
 
 class TestLayerTypeList(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        super(TestLayerTypeList, self).setUpClass()
+        print('TestLayerTypeList.setUpClass')
+
+    @classmethod
+    def tearDownClass(self):
+        super(TestLayerTypeList, self).tearDownClass()
+        print('TestLayerTypeList.tearDownClass')
 
     def test_standard_types(self):
         #removing 'Data' from list 

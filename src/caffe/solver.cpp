@@ -28,7 +28,8 @@ SolverAction::Enum Solver::GetRequestedAction() {
 Solver::Solver(const SolverParameter& param, size_t rank, const Solver* root_solver)
     : param_(param), data_type_(param_.solver_data_type()), iter_(0), id_(0), net_(),
       callback_(nullptr), root_solver_(root_solver), rank_(rank), requested_early_exit_(false),
-      iteration_timer_(), test_timer_(), iterations_last_(0), iterations_restored_(0) {
+      iteration_timer_(make_shared<Timer>()), test_timer_(make_shared<Timer>()),
+      iterations_last_(0), iterations_restored_(0) {
   Init();
 }
 
@@ -253,12 +254,12 @@ void Solver::Step(int iters) {
     } else if (param_.test_interval()
         && iter_ % param_.test_interval() == 0
         && iterations_last_ >= 0) {
-      test_timer_.Start();
+      iteration_timer_->Start();
       if (TestAll(0, use_multi_gpu_testing)) {
         break;
       }
       callback_soft_barrier();
-      float lapse = test_timer_.Seconds();
+      float lapse = iteration_timer_->Seconds();
       LOG_IF(INFO, Caffe::root_solver()) << mgpu_str << "Tests completed in "
                                          << lapse << "s";
     }
@@ -277,7 +278,7 @@ void Solver::Step(int iters) {
     }
     const int rel_iter = relative_iter();
     if (rel_iter == 0) {
-      iteration_timer_.Start();
+      iteration_timer_->Start();
     }
 
     iteration_start_signal();
@@ -294,15 +295,15 @@ void Solver::Step(int iters) {
     loss /= param_.iter_size();
     iteration_wait();
     if (requested_early_exit_) {
-      total_lapse_ += iteration_timer_.Seconds();
+      total_lapse_ += iteration_timer_->Seconds();
       break;
     }
 
     // average the loss across iterations for smoothed reporting
     UpdateSmoothedLoss(loss, start_iter, average_loss);
     if (this->param_display() && (display || rel_iter <= 2 || iter_ + 1 >= stop_iter)) {
-      float lapse = iteration_timer_.Seconds();
-      iteration_timer_.Start();
+      float lapse = iteration_timer_->Seconds();
+      iteration_timer_->Start();
       if (rel_iter > 2) {  // we skip 0,1,2 for correct benchmarking
         total_lapse_ += lapse;
         float per_s = (iter_ - iterations_last_) / (lapse > 0.F ? lapse : 1.F);
@@ -350,7 +351,7 @@ void Solver::Step(int iters) {
     }
     if (SolverAction::STOP == request) {
       requested_early_exit_ = true;
-      total_lapse_ += iteration_timer_.Seconds();
+      total_lapse_ += iteration_timer_->Seconds();
       // Break out of training loop.
       break;
     }

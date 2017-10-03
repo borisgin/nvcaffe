@@ -64,10 +64,11 @@ void initialize_gpu_memory_scope(const vector<int>& gpus) {
     google::InitGoogleLogging("pyNVCaffe");
   }
 #ifndef CPU_ONLY
-  gpu_memory_scope.reset();
-  gpu_memory_scope.reset(new GPUMemory::Scope(gpus));
-  if (gpus.size() > 0) {
-    Caffe::SetDevice(gpus[0]);
+  if (!gpu_memory_scope) {
+    gpu_memory_scope.reset(new GPUMemory::Scope(gpus));
+    if (gpus.size() > 0) {
+      Caffe::SetDevice(gpus[0]);
+    }
   }
 #else
   LOG(WARNING) << "GPU memory initialization is ignored for CPU_ONLY build";

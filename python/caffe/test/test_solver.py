@@ -9,6 +9,16 @@ from test_net import simple_net_file
 
 
 class TestSolver(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        super(TestSolver, self).setUpClass()
+        print('TestSolver.setUpClass')
+
+    @classmethod
+    def tearDownClass(self):
+        super(TestSolver, self).tearDownClass()
+        print('TestSolver.tearDownClass')
+
     def setUp(self):
         self.num_output = 13
         net_f = simple_net_file(self.num_output)

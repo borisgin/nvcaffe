@@ -90,6 +90,7 @@ EMPTY_LINT_REPORT := $(BUILD_DIR)/.$(LINT_EXT)
 NONEMPTY_LINT_REPORT := $(BUILD_DIR)/$(LINT_EXT)
 # PY$(PROJECT)_SRC is the python wrapper for $(PROJECT)
 PY$(PROJECT)_SRC := python/$(PROJECT)/_$(PROJECT).cpp
+PY$(PROJECT)_OBJ := $(BUILD_DIR)/src/$(PROJECT)/layers/python_layer.o
 PY$(PROJECT)_SO := python/$(PROJECT)/_$(PROJECT).so
 PY$(PROJECT)_HXX := include/$(PROJECT)/layers/python_layer.hpp
 # MAT$(PROJECT)_SRC is the mex entrance point of matlab package for $(PROJECT)
@@ -192,7 +193,10 @@ ifneq ($(NO_NVML), 1)
 endif
 endif
 
-LIBRARIES += boost_system glog gflags protobuf boost_filesystem m
+# Note: libturbojpeg has a packaging bug. Workaround:
+# $ sudo ln -s /usr/lib/x86_64-linux-gnu/libturbojpeg.so.0 /usr/lib/x86_64-linux-gnu/libturbojpeg.so
+
+LIBRARIES += boost_system glog gflags protobuf boost_filesystem m turbojpeg
 ifeq ($(TEGRA), 1)
     LIBRARIES += hdf5_serial_hl hdf5_serial
 else
@@ -453,7 +457,7 @@ else
 	PKG_CONFIG :=
 endif
 LDFLAGS += $(foreach librarydir,$(LIBRARY_DIRS),-L$(librarydir)) $(PKG_CONFIG) \
-		$(foreach library,$(LIBRARIES),-l$(library)) /usr/lib/x86_64-linux-gnu/libturbojpeg.so.0
+		$(foreach library,$(LIBRARIES),-l$(library))
 PYTHON_LDFLAGS := $(LDFLAGS) $(foreach library,$(PYTHON_LIBRARIES),-l$(library))
 
 # 'superclean' target recursively* deletes all files ending with an extension
@@ -532,10 +536,10 @@ py$(PROJECT): py
 
 py: $(PY$(PROJECT)_SO) $(PROTO_GEN_PY)
 
-$(PY$(PROJECT)_SO): $(PY$(PROJECT)_SRC) $(PY$(PROJECT)_HXX) | $(DYNAMIC_NAME)
+$(PY$(PROJECT)_SO): $(PY$(PROJECT)_OBJ) $(PY$(PROJECT)_SRC) $(PY$(PROJECT)_HXX) | $(DYNAMIC_NAME)
 	@ echo CXX/LD -o $@ $<
-	$(Q)$(CXX) -shared -o $@ $(PY$(PROJECT)_SRC) \
-		-o $@ $(LINKFLAGS) -l$(LIBRARY_NAME) $(PYTHON_LDFLAGS) \
+	$(Q)$(CXX) -shared -o $@ $(PY$(PROJECT)_SRC) $(PY$(PROJECT)_OBJ) \
+		$(LINKFLAGS) -l$(LIBRARY_NAME) $(PYTHON_LDFLAGS) \
 		-Wl,-rpath,$(ORIGIN)/../../build/lib
 
 mat$(PROJECT): mat
@@ -562,7 +566,7 @@ runtest: $(TEST_ALL_BIN)
 	$(TEST_ALL_BIN) $(TEST_GPUID) --gtest_shuffle $(TEST_FILTER)
 
 pytest: py
-	cd python; python -m unittest discover -s caffe/test
+	cd python; python -u -m unittest discover -s caffe/test
 
 mattest: mat
 	cd matlab; $(MATLAB_DIR)/bin/matlab -nodisplay -r 'caffe.run_tests(), exit()'
