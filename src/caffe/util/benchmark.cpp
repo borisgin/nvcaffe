@@ -28,7 +28,9 @@ Timer::~Timer() {
     }
   }
 #else
+  if (Caffe::mode() == Caffe::GPU) {
     NO_GPU;
+  }
 #endif
 }
 
