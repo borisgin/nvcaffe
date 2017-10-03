@@ -9,7 +9,7 @@ import time
 
 from glob import glob
 from google.protobuf import text_format
-import PIL.Image
+import Image
 import scipy.misc
 
 # os.environ['GLOG_minloglevel'] = '2' # Suppress most caffe output
@@ -78,7 +78,7 @@ def load_image(path, height, width, mode='RGB'):
     mode -- the PIL mode that the image should be converted to
         (RGB for color or L for grayscale)
     """
-    image = PIL.Image.open(path)
+    image = Image.open(path)
     image = image.convert(mode)
     image = np.array(image)
     # squash
