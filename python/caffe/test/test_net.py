@@ -35,6 +35,16 @@ def simple_net_file(num_output):
 
 
 class TestNet(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        super(TestNet, self).setUpClass()
+        print('TestNet.setUpClass')
+
+    @classmethod
+    def tearDownClass(self):
+        super(TestNet, self).tearDownClass()
+        print('TestNet.tearDownClass')
+
     def setUp(self):
         self.num_output = 13
         net_file = simple_net_file(self.num_output)
@@ -45,14 +55,12 @@ class TestNet(unittest.TestCase):
                     size=self.net.blobs['label'].data.shape)
         os.remove(net_file)
 
-    def tearDown(self):
-        del self.net
-
     def test_memory(self):
         """Check that holding onto blob data beyond the life of a Net is OK"""
 
         params = sum(map(list, six.itervalues(self.net.params)), [])
         blobs = self.net.blobs.values()
+        del self.net
 
         # now sum everything (forcing all memory to be read)
         total = 0

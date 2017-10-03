@@ -195,8 +195,8 @@ class Solver {
   Flag init_flag_, iter0_flag_;
 
   // Timing information
-  Timer iteration_timer_;
-  Timer test_timer_;
+  shared_ptr<Timer> iteration_timer_;
+  shared_ptr<Timer> test_timer_;
   int iterations_last_;
   int iterations_restored_;
 

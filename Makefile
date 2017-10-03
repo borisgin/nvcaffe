@@ -566,7 +566,7 @@ runtest: $(TEST_ALL_BIN)
 	$(TEST_ALL_BIN) $(TEST_GPUID) --gtest_shuffle $(TEST_FILTER)
 
 pytest: py
-	cd python; python -m unittest discover -s caffe/test
+	cd python; python -u -m unittest discover -s caffe/test
 
 mattest: mat
 	cd matlab; $(MATLAB_DIR)/bin/matlab -nodisplay -r 'caffe.run_tests(), exit()'

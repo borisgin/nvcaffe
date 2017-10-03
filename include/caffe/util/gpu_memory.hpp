@@ -69,10 +69,12 @@ struct GPUMemory {
   struct Workspace {
     Workspace()
       : ptr_(nullptr), size_(0), device_(current_device()) {}
+
     Workspace(size_t size, int device = current_device())
       : ptr_(nullptr), size_(size), device_(device) {
       reserve(size_, device);
     }
+
     ~Workspace() {
       if (ptr_ != nullptr) {
         mgr_.deallocate(ptr_, device_);

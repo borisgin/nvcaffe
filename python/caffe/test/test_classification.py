@@ -150,8 +150,6 @@ def read_labels(labels_file):
     assert len(labels), 'No labels found'
     return labels
 
-
-
 def unzip_archive(archive):
     """
     Unzips an archive into a temporary directory
@@ -182,7 +180,10 @@ def unzip_archive(archive):
 
 
 class TestClassification(unittest.TestCase):
-    def setUp(self):
+    @classmethod
+    def setUpClass(self):
+        super(TestClassification, self).setUpClass()
+        print('Setting TestClassification...')
         cdir = glob('classification')
         if len(cdir) == 0:
             cdir = glob('*/classification')
@@ -200,10 +201,11 @@ class TestClassification(unittest.TestCase):
         self.tmpdir = unzip_archive(self.model)
         caffe.set_mode_gpu()
 
-    def tearDown(self):
+    @classmethod
+    def tearDownClass(self):
+        super(TestClassification, self).tearDownClass()
+        print('TestClassification.tearDownClass')
         shutil.rmtree(self.tmpdir)
-        del self.net
-        del self.transformer
 
     def classify(self, caffemodel, deploy_file, image_files,
                  mean_file=None, labels_file=None, batch_size=None, use_gpu=True):

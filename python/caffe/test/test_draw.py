@@ -14,7 +14,7 @@ def getFilenames():
         os.path.dirname(__file__), '..', '..', '..'))
     assert os.path.exists(root_dir)
 
-    for dirname in ('models', 'examples'):
+    for dirname in (['models/bvlc_alexnet']):
         dirname = os.path.join(root_dir, dirname)
         assert os.path.exists(dirname)
         for cwd, _, filenames in os.walk(dirname):
@@ -25,6 +25,16 @@ def getFilenames():
 
 
 class TestDraw(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        super(TestDraw, self).setUpClass()
+        print('TestDraw.setUpClass')
+
+    @classmethod
+    def tearDownClass(self):
+        super(TestDraw, self).tearDownClass()
+        print('TestDraw.tearDownClass')
+
     def test_draw_net(self):
         for filename in getFilenames():
             net = caffe_pb2.NetParameter()

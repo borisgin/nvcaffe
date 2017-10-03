@@ -9,6 +9,16 @@ from test_net import simple_net_file
 
 
 class TestSolver(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        super(TestSolver, self).setUpClass()
+        print('TestSolver.setUpClass')
+
+    @classmethod
+    def tearDownClass(self):
+        super(TestSolver, self).tearDownClass()
+        print('TestSolver.tearDownClass')
+
     def setUp(self):
         self.num_output = 13
         net_f = simple_net_file(self.num_output)
@@ -33,9 +43,6 @@ class TestSolver(unittest.TestCase):
         os.remove(f.name)
         os.remove(net_f)
 
-    def tearDown(self):
-        del self.solver
-
     def test_solve(self):
         self.assertEqual(self.solver.iter, 0)
         self.solver.solve()
@@ -46,6 +53,7 @@ class TestSolver(unittest.TestCase):
 
         nets = [self.solver.net] + list(self.solver.test_nets)
         self.assertEqual(len(nets), 2)
+        del self.solver
 
         total = 0
         for net in nets:

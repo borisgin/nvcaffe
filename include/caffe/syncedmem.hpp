@@ -18,12 +18,7 @@ namespace caffe {
  */
 class SyncedMemory {
  public:
-  SyncedMemory()
-      : cpu_ptr_(nullptr), gpu_ptr_(nullptr), size_(0), head_(UNINITIALIZED),
-        own_cpu_data_(false), cpu_malloc_use_cuda_(false), own_gpu_data_(false),
-        gpu_device_(-1), valid_(true)
-      {}
-  explicit SyncedMemory(size_t size)
+  explicit SyncedMemory(size_t size = 0UL)
       : cpu_ptr_(nullptr), gpu_ptr_(nullptr), size_(size), head_(UNINITIALIZED),
         own_cpu_data_(false), cpu_malloc_use_cuda_(false), own_gpu_data_(false),
         gpu_device_(-1), valid_(true)
@@ -37,15 +32,19 @@ class SyncedMemory {
   void* mutable_cpu_data();
   void* mutable_gpu_data();
   enum SyncedHead { UNINITIALIZED, HEAD_AT_CPU, HEAD_AT_GPU, SYNCED };
-  SyncedHead head() const { return head_; }
-  size_t size() const { return size_; }
+
+  SyncedHead head() const {
+    return head_;
+  }
+  size_t size() const {
+    return size_;
+  }
   size_t gpu_memory_use(bool own_only = false) const {
     return own_only ? (own_gpu_data_ ? size_ : 0ULL) : size_;
   }
   size_t cpu_memory_use(bool own_only = false) const {
     return own_only ? (own_cpu_data_ ? size_ : 0ULL) : size_;
   }
-
   bool is_valid() const {
     return valid_;
   }
@@ -56,14 +55,13 @@ class SyncedMemory {
     valid_ = true;
   }
 
+  // TODO clean up
   float cpu_asum(int count, Type type);
   float cpu_sumsq(int count, Type dtype);
-
 #ifndef CPU_ONLY
   int gpu_device() const {
     return gpu_device_;
   }
-  // TODO clean up
   void async_gpu_push();
   float gpu_asum(int count, Type type);
   float gpu_amax(int count, Type type);
