@@ -124,8 +124,9 @@ void Caffe::SetDevice(const int device_id) {
   NO_GPU;
 }
 
-void Caffe::DeviceQuery() {
+std::string Caffe::DeviceQuery() {
   NO_GPU;
+  return std::string();
 }
 
 bool Caffe::CheckDevice(const int device_id) {
