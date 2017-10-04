@@ -81,7 +81,7 @@ void InternalThread::entry(int thread_id, int device, Caffe::Brew mode, uint64_t
 #ifndef CPU_ONLY
   if (mode == Caffe::GPU && set_cpu_affinity) {
 #ifndef NO_NVML
-    nvml::setCpuAffinity(rank);
+    nvml::setCpuAffinity();
 #endif
   }
 #endif

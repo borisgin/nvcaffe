@@ -277,6 +277,18 @@ class CudaStream {
 };
 
 #ifndef CPU_ONLY
+struct CuBLASHandle {
+  explicit CuBLASHandle(cudaStream_t stream);
+  ~CuBLASHandle();
+
+  cublasHandle_t get() const {
+    return handle_;
+  }
+ private:
+  cublasHandle_t handle_;
+  DISABLE_COPY_MOVE_AND_ASSIGN(CuBLASHandle);
+};
+
 #ifdef USE_CUDNN
 struct CuDNNHandle {
   explicit CuDNNHandle(cudaStream_t stream);
@@ -344,14 +356,14 @@ class Caffe {
     return Get().pstream_aux(id)->get();
   }
   static cublasHandle_t cublas_handle(int group = 0) {
-    return Get().device_cublas_handle(group);
+    return Get().th_cublas_handle(group);
   }
   static curandGenerator_t curand_generator() {
     return Get().curand_generator_;
   }
 #ifdef USE_CUDNN
   static cudnnHandle_t cudnn_handle(int group = 0) {
-    return Get().device_cudnn_handle(group);
+    return Get().th_cudnn_handle(group);
   }
 #endif
 #endif
@@ -463,16 +475,18 @@ class Caffe {
 #ifndef CPU_ONLY
   vector<shared_ptr<CudaStream>> streams_;
   vector<shared_ptr<CudaStream>> streams_aux_;
-  vector<cublasHandle_t> cublas_handles_;
   shared_ptr<CudaStream> pstream(int group = 0);
   shared_ptr<CudaStream> pstream_aux(int id);
-  cublasHandle_t device_cublas_handle(int group = 0);
+
+  vector<shared_ptr<CuBLASHandle>> cublas_handles_;
+  cublasHandle_t th_cublas_handle(int group = 0);
 
 #ifdef USE_CUDNN
   vector<shared_ptr<CuDNNHandle>> cudnn_handles_;
-  cudnnHandle_t device_cudnn_handle(int group = 0);
+  cudnnHandle_t th_cudnn_handle(int group = 0);
 #endif
 #endif
+
   curandGenerator_t curand_generator_;
   shared_ptr<RNG> random_generator_;
   Brew mode_;
@@ -525,8 +539,6 @@ class Caffe {
     int device_capability(int device) const {
       return compute_capabilities_[device];
     }
-
-    ~Properties();
 
    private:
     std::vector<int> gpus_;

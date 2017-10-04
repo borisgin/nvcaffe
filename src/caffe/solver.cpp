@@ -235,7 +235,7 @@ void Solver::Step(int iters) {
   uint64_t random_seed = param_.random_seed() >= 0 ?
       static_cast<uint64_t>(param_.random_seed()) : Caffe::next_seed();
 
-  reduce_thread_.reset(new boost::thread(&Solver::Reduce, this,
+  reduce_thread_.reset(new boost::thread(&Solver::Reduce, this, callback(),
       Caffe::current_device(), mode, random_seed, solver_count, root_solver));
 
   while (iter_ < stop_iter) {
@@ -366,17 +366,18 @@ void Solver::Finalize() {
   }
 }
 
-void Solver::Reduce(int device, Caffe::Brew mode, uint64_t random_seed,
+void Solver::Reduce(Callback* callback, int device, Caffe::Brew mode, uint64_t random_seed,
     int solver_count, bool root_solver) {
-  Caffe::set_mode(mode);
+  set_callback(callback);
 #ifndef CPU_ONLY
-  if (Caffe::mode() == Caffe::GPU) {
+  if (mode == Caffe::GPU) {
     CUDA_CHECK(cudaSetDevice(device));
 #ifndef NO_NVML
-    nvml::setCpuAffinity(rank_);
+    nvml::setCpuAffinity();
 #endif
   }
 #endif
+  Caffe::set_mode(mode);
   Caffe::set_random_seed(random_seed);
   Caffe::set_solver_count(solver_count);
   Caffe::set_root_solver(root_solver);

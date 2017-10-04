@@ -231,8 +231,9 @@ void P2PSync::allreduce(int param_id) {
 void P2PSync::allreduce_bucket(int count, void* bucket, Type type) {
 #ifndef CPU_ONLY
 #ifdef USE_NCCL
-  NCCL_CHECK(ncclAllReduce(bucket, bucket, count, nccl::nccl_type(type),
-                           ncclSum, nccl_comm_, comm_stream_->get()));
+  NCCL_CHECK_ARG2(ncclAllReduce(bucket, bucket, count, nccl::nccl_type(type),
+                           ncclSum, nccl_comm_, comm_stream_->get()),
+                           Caffe::current_device(), comm_stream_->get());
   CUDA_CHECK(cudaStreamSynchronize(comm_stream_->get()));
 #endif  // USE_NCCL
 #endif  // CPU_ONLY

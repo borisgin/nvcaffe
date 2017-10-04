@@ -58,6 +58,13 @@ void classname<Dtype>::funcname##_##gpu(const vector<Blob*>& bottom, \
     CHECK_EQ(error, cudaSuccess) << " " << cudaGetErrorString(error); \
   } while (0)
 
+#define CUDA_CHECK_ARG(condition, arg) \
+  do { \
+    cudaError_t error = condition; \
+    CHECK_EQ(error, cudaSuccess) << " " << cudaGetErrorString(error) << \
+        " (" << arg << ")"; \
+  } while (0)
+
 #define CUBLAS_CHECK(condition) \
   do { \
     cublasStatus_t status = condition; \
@@ -109,22 +116,13 @@ namespace nvml {
 // Also, it's better to run this on current device (note that Caffe ctr
 // might be executed somewhere else). So, let's keep it risk free.
 struct NVMLInit {
-  NVMLInit() {
-    if (nvmlInit() != NVML_SUCCESS) {
-      LOG(ERROR) << "NVML failed to initialize";
-    } else {
-      LOG(INFO) << "NVML initialized on thread " << std::this_thread::get_id();
-    }
-  }
-  ~NVMLInit() {
-    nvmlShutdown();
-  }
-
+  NVMLInit();
+  ~NVMLInit();
   nvmlDevice_t device_;
   static std::mutex m_;
 };
 
-void setCpuAffinity(unsigned int rank);
+void setCpuAffinity();
 
 }  // namespace nvml
 #endif  // NO_NVML

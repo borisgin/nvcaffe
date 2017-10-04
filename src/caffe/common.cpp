@@ -178,11 +178,6 @@ Caffe::Caffe()
 }
 
 Caffe::~Caffe() {
-  for_each(cublas_handles_.begin(), cublas_handles_.end(), [](cublasHandle_t h) {
-    if (h) {
-      CUBLAS_CHECK(cublasDestroy(h));
-    }
-  });
   CURAND_CHECK(curandDestroyGenerator(curand_generator_));
 }
 
@@ -215,7 +210,7 @@ CudaStream::CudaStream(bool high_priority) {
     CUDA_CHECK(cudaStreamCreate(&stream_));
   }
   DLOG(INFO) << "New " << (high_priority ? "high priority " : "") << "stream "
-      << stream_ << " on device " << current_device() << ", thread " << std::this_thread::get_id();
+      << stream_ << ", device " << current_device() << ", thread " << std::this_thread::get_id();
 }
 
 CudaStream::~CudaStream() {
@@ -233,7 +228,7 @@ shared_ptr<CudaStream> Caffe::pstream(int group) {
     return streams_[group];
   }
   std::lock_guard<std::mutex> lock(pstream_mutex_);
-  streams_.resize(group + 1);
+  streams_.resize(group + 1UL);
   streams_[group] = CudaStream::create();
   return streams_[group];
 }
@@ -244,38 +239,33 @@ shared_ptr<CudaStream> Caffe::pstream_aux(int id) {
     return streams_aux_[id];
   }
   std::lock_guard<std::mutex> lock(pstream_mutex_);
-  streams_aux_.resize(id + 1);
+  streams_aux_.resize(id + 1UL);
   streams_aux_[id] = CudaStream::create();
   return streams_aux_[id];
 }
 
-cublasHandle_t Caffe::device_cublas_handle(int group) {
+cublasHandle_t Caffe::th_cublas_handle(int group) {
   CHECK_GE(group, 0);
   if (group < cublas_handles_.size() && cublas_handles_[group]) {
-    return cublas_handles_[group];
+    return cublas_handles_[group]->get();
   }
   std::lock_guard<std::mutex> lock(cublas_mutex_);
-  cublas_handles_.resize(group + 1);
-  cublasHandle_t& cublas_handle = cublas_handles_[group];
+  cublas_handles_.resize(group + 1UL);
+  shared_ptr<CuBLASHandle>& cublas_handle = cublas_handles_[group];
   if (!cublas_handle) {
-    // Try to create a cublas handler, and report an error if failed (but we will
-    // keep the program running as one might just want to run CPU code).
-    if (cublasCreate(&cublas_handle) != CUBLAS_STATUS_SUCCESS) {
-      LOG(ERROR) << "Cannot create Cublas handle. Cublas won't be available.";
-    }
-    CUBLAS_CHECK(cublasSetStream(cublas_handle, pstream(group)->get()));
+    cublas_handle = make_shared<CuBLASHandle>(pstream(group)->get());
   }
-  return cublas_handle;
+  return cublas_handle->get();
 }
 
 #ifdef USE_CUDNN
-cudnnHandle_t Caffe::device_cudnn_handle(int group) {
+cudnnHandle_t Caffe::th_cudnn_handle(int group) {
   CHECK_GE(group, 0);
   if (group < cudnn_handles_.size() && cudnn_handles_[group]) {
     return cudnn_handles_[group]->get();
   }
   std::lock_guard<std::mutex> lock(cudnn_mutex_);
-  cudnn_handles_.resize(group + 1);
+  cudnn_handles_.resize(group + 1UL);
   shared_ptr<CuDNNHandle>& cudnn_handle = cudnn_handles_[group];
   if (!cudnn_handle) {
     cudnn_handle = make_shared<CuDNNHandle>(pstream(group)->get());
@@ -464,15 +454,23 @@ const float16 TypedConsts<float16>::one = 1.0f;
 const int TypedConsts<int>::zero = 0;
 const int TypedConsts<int>::one = 1;
 
+#ifndef CPU_ONLY
+CuBLASHandle::CuBLASHandle(cudaStream_t stream) {
+  CUBLAS_CHECK(cublasCreate(&handle_));
+  CUBLAS_CHECK(cublasSetStream(handle_, stream));
+}
+CuBLASHandle::~CuBLASHandle() {
+  CUBLAS_CHECK(cublasDestroy(handle_));
+}
 #ifdef USE_CUDNN
 CuDNNHandle::CuDNNHandle(cudaStream_t stream) {
   CUDNN_CHECK(cudnnCreate(&handle_));
   CUDNN_CHECK(cudnnSetStream(handle_, stream));
 }
-
 CuDNNHandle::~CuDNNHandle() {
   CUDNN_CHECK(cudnnDestroy(handle_));
 }
+#endif
 #endif
 
 Caffe::Properties Caffe::props_;
@@ -511,9 +509,6 @@ Caffe::Properties::Properties() :
 #endif
 }
 
-Caffe::Properties::~Properties() {
-}
-
 std::string Caffe::time_from_init() {
   std::ostringstream os;
   os.unsetf(std::ios_base::floatfield);
@@ -542,28 +537,35 @@ namespace nvml {
 
 std::mutex NVMLInit::m_;
 
-// set the CPU affinity for this GPU
-void setCpuAffinity(unsigned int rank) {
-  std::lock_guard<std::mutex> lock(NVMLInit::m_);
-  static thread_local NVMLInit nvml_init_;
-  bool result = false;
+NVMLInit::NVMLInit() {
+  if (nvmlInit() != NVML_SUCCESS) {
+    LOG(ERROR) << "NVML failed to initialize";
+    return;
+  } else {
+    LOG(INFO) << "NVML initialized, thread " << std::this_thread::get_id();
+  }
   unsigned int deviceCount = 0U;
-  const std::vector<int>& gpus = Caffe::gpus();
   if (nvmlDeviceGetCount(&deviceCount) == NVML_SUCCESS) {
-
-    nvmlDeviceGetIndex
-    CHECK_LT(rank, deviceCount);
-    if (rank < deviceCount && rank < gpus.size() &&
-        nvmlDeviceGetHandleByIndex(gpus[rank], &nvml_init_.device_) == NVML_SUCCESS) {
-      if (nvmlDeviceSetCpuAffinity(nvml_init_.device_) == NVML_SUCCESS) {
-        LOG(INFO) << "NVML succeeded to set CPU affinity on device " << gpus[rank];
-        result = true;
+    for (unsigned int id = 0; id < deviceCount; ++id) {
+      if (nvmlDeviceGetHandleByIndex(id, &device_) != NVML_SUCCESS ||
+          nvmlDeviceSetCpuAffinity(device_) != NVML_SUCCESS) {
+          LOG(ERROR) << "NVML failed to set CPU affinity on device " << id
+              << ", thread " << std::this_thread::get_id();
       }
     }
+  } else {
+    LOG(ERROR) << "nvmlDeviceGetCount failed, thread " << std::this_thread::get_id();
   }
-  if (!result && rank < gpus.size()) {
-    LOG(ERROR) << "NVML failed to set CPU affinity on device " << gpus[rank];
-  }
+}
+
+NVMLInit::~NVMLInit() {
+  nvmlShutdown();
+}
+
+// set the CPU affinity for this thread
+void setCpuAffinity() {
+  std::lock_guard<std::mutex> lock(NVMLInit::m_);
+  static thread_local NVMLInit nvml_init_;
 }
 
 }  // namespace nvml
