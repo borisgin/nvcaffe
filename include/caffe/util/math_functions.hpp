@@ -208,7 +208,7 @@ void caffe_gpu_axpby(const int N, const Dtype alpha, const Dtype* X,
 void caffe_gpu_memcpy(const size_t N, const void *X, void *Y);
 
 template <typename Dtype>
-void caffe_gpu_set(const size_t N, const Dtype alpha, Dtype *X, cudaStream_t stream = nullptr);
+void caffe_gpu_set(const size_t N, const Dtype alpha, Dtype *X);
 
 inline void caffe_gpu_memset(const size_t N, const int alpha, void* X) {
   cudaStream_t stream = Caffe::thread_stream();

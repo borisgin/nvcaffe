@@ -394,18 +394,6 @@ class Blob {
     diff_tensor_->scale(scale, handle);
   }
 
-#ifndef CPU_ONLY
-  /// @brief Scale the blob data by a constant factor. Uses GPU, may be asynchronous
-  void gpu_scale_data(float scale, cublasHandle_t cublas_handle) {
-    data_tensor_->gpu_scale(scale, cublas_handle);
-  }
-
-  /// @brief Scale the blob diff by a constant factor. Uses GPU, may be asynchronous
-  void gpu_scale_diff(float scale, cublasHandle_t cublas_handle) {
-    diff_tensor_->gpu_scale(scale, cublas_handle);
-  }
-#endif
-
   /// @brief Set all the blob's data elements to a value.
   void set_data(float value) {
     data_tensor_->set(value);
@@ -473,22 +461,6 @@ class Blob {
 
   void set_gpu_diff(void* diff) {
     CHECK_NOTNULL(diff);
-    diff_tensor_->mutable_synced_mem()->set_gpu_data(diff);
-  }
-
-  template<typename Dtype>
-  void set_gpu_data(Dtype* data) {
-    CHECK_NOTNULL(data);
-    convert_data(tp<Dtype>());
-    CHECK(is_type<Dtype>(data_type()));
-    data_tensor_->mutable_synced_mem()->set_gpu_data(data);
-  }
-
-  template<typename Dtype>
-  void set_gpu_diff(Dtype* diff) {
-    CHECK_NOTNULL(diff);
-    convert_diff(tp<Dtype>());
-    CHECK(is_type<Dtype>(diff_type()));
     diff_tensor_->mutable_synced_mem()->set_gpu_data(diff);
   }
 

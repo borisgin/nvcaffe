@@ -82,19 +82,6 @@ void Blob::ShareData(const Blob& other) {
     return;
   }
   CHECK_EQ(count(), other.count());
-#ifdef DEBUG
-#ifndef CPU_ONLY
-  const shared_ptr<SyncedMemory>& mem = data_tensor_->synced_mem();
-  const shared_ptr<SyncedMemory>& other_mem = other.data_tensor_->synced_mem();
-  if (mem && other_mem) {
-    const int this_device = mem->gpu_device();
-    const int other_device = other_mem->gpu_device();
-    if (this_device >= 0 && other_device >= 0) {
-      CHECK_EQ(this_device, other_device);
-    }
-  }
-#endif
-#endif
   data_tensor_ = other.data_tensor_;
   CHECK(data_type() == other.data_type());
   CHECK(is_current_data_valid());
@@ -106,19 +93,6 @@ void Blob::ShareDiff(const Blob& other) {
     return;
   }
   CHECK_EQ(count(), other.count());
-#ifdef DEBUG
-#ifndef CPU_ONLY
-  const shared_ptr<SyncedMemory>& mem = diff_tensor_->synced_mem();
-  const shared_ptr<SyncedMemory>& other_mem = other.diff_tensor_->synced_mem();
-  if (mem && other_mem) {
-    const int this_device = mem->gpu_device();
-    const int other_device = other_mem->gpu_device();
-    if (this_device >= 0 && other_device >= 0) {
-      CHECK_EQ(this_device, other_device);
-    }
-  }
-#endif
-#endif
   diff_tensor_ = other.diff_tensor_;
   CHECK(diff_type() == other.diff_type());
   CHECK(is_current_diff_valid());

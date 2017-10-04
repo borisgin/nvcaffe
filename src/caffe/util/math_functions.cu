@@ -307,8 +307,7 @@ void scale_in_place_kernel_fp16(const int n, const float alpha, half2* x) {
   }
 }
 
-void caffe_gpu_scal_fp16(const int n, const float alpha, float16* x,
-    cublasHandle_t cublas_handle) {
+void caffe_gpu_scal_fp16(const int n, const float alpha, float16* x, cublasHandle_t cublas_handle) {
   if (alpha == 1.F) { return; }
   const unsigned int n2 = even(n) / 2;
   cudaStream_t stream;
@@ -486,10 +485,8 @@ __global__ void set_kernel(const size_t n, const Dtype alpha, Dtype* y) {
 }
 
 template<typename Dtype>
-void caffe_gpu_set(const size_t N, const Dtype alpha, Dtype* Y, cudaStream_t stream) {
-  if (stream == nullptr) {
-    stream = Caffe::thread_stream();
-  }
+void caffe_gpu_set(const size_t N, const Dtype alpha, Dtype* Y) {
+  cudaStream_t stream = Caffe::thread_stream();
   if (alpha == 0) {
     CUDA_CHECK(cudaMemsetAsync(Y, 0, sizeof(Dtype) * N, stream));  // NOLINT(caffe/alt_fn)
   } else {
@@ -501,13 +498,13 @@ void caffe_gpu_set(const size_t N, const Dtype alpha, Dtype* Y, cudaStream_t str
 }
 
 template void
-caffe_gpu_set<int>(const size_t N, const int alpha, int* Y, cudaStream_t stream);
+caffe_gpu_set<int>(const size_t N, const int alpha, int* Y);
 template void
-caffe_gpu_set<float>(const size_t N, const float alpha, float* Y, cudaStream_t stream);
+caffe_gpu_set<float>(const size_t N, const float alpha, float* Y);
 template void
-caffe_gpu_set<double>(const size_t N, const double alpha, double* Y, cudaStream_t stream);
+caffe_gpu_set<double>(const size_t N, const double alpha, double* Y);
 template void
-caffe_gpu_set<float16>(const size_t N, const float16 alpha, float16* Y, cudaStream_t stream);
+caffe_gpu_set<float16>(const size_t N, const float16 alpha, float16* Y);
 
 template<typename Dtype>
 __global__ void add_scalar_kernel(const int n, const Dtype alpha, Dtype* y) {
