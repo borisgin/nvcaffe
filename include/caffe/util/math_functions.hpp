@@ -212,6 +212,8 @@ void caffe_gpu_set(const size_t N, const Dtype alpha, Dtype *X);
 
 inline void caffe_gpu_memset(const size_t N, const int alpha, void* X) {
   cudaStream_t stream = Caffe::thread_stream();
+  DLOG(INFO) << "caffe_gpu_memset stream " << stream << " on device "
+             << Caffe::current_device() << ", thread " << std::this_thread::get_id();
   CUDA_CHECK(cudaMemsetAsync(X, alpha, N, stream));  // NOLINT(caffe/alt_fn)
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }

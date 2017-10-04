@@ -332,22 +332,22 @@ class Caffe {
   }
 #ifndef CPU_ONLY
   static shared_ptr<CudaStream> thread_pstream(int group = 0) {
-    return Get().device_pstream(group);
+    return Get().pstream(group);
   }
   static cudaStream_t thread_stream(int group = 0) {
-    return Get().device_pstream(group)->get();
+    return Get().pstream(group)->get();
   }
   static shared_ptr<CudaStream> th_pstream_aux(int id) {
-    return Get().device_pstream_aux(id);
+    return Get().pstream_aux(id);
   }
   static cudaStream_t th_stream_aux(int id) {
-    return Get().device_pstream_aux(id)->get();
+    return Get().pstream_aux(id)->get();
   }
   static cublasHandle_t cublas_handle(int group = 0) {
     return Get().device_cublas_handle(group);
   }
   static curandGenerator_t curand_generator() {
-    return Get().device_curand_generator();
+    return Get().curand_generator_;
   }
 #ifdef USE_CUDNN
   static cudnnHandle_t cudnn_handle(int group = 0) {
@@ -452,32 +452,29 @@ class Caffe {
   static size_t min_avail_device_memory();
 #endif
 
-    static int thread_count() {
+  static int thread_count() {
     return thread_count_;
   }
 
   static constexpr int STREAM_ID_ASYNC_PUSH = 0;
-  static constexpr int STREAM_ID_TRANSFORMER = 1;
   static constexpr uint64_t SEED_NOT_SET = static_cast<uint64_t>(-1);
 
  protected:
 #ifndef CPU_ONLY
-  vector<vector<shared_ptr<CudaStream>>> device_streams_;  // [device][group]
-  vector<vector<shared_ptr<CudaStream>>> device_streams_aux_;  // [device][id]
-  vector<vector<cublasHandle_t>> cublas_handles_;  // [device][group]
-  vector<curandGenerator_t> curand_generators_;
-  shared_ptr<CudaStream> device_pstream(int group = 0);
-  shared_ptr<CudaStream> device_pstream_aux(int id);
+  vector<shared_ptr<CudaStream>> streams_;
+  vector<shared_ptr<CudaStream>> streams_aux_;
+  vector<cublasHandle_t> cublas_handles_;
+  shared_ptr<CudaStream> pstream(int group = 0);
+  shared_ptr<CudaStream> pstream_aux(int id);
   cublasHandle_t device_cublas_handle(int group = 0);
-  curandGenerator_t device_curand_generator();
 
 #ifdef USE_CUDNN
-  vector<vector<shared_ptr<CuDNNHandle>>> cudnn_handles_;  // [device][group]
+  vector<shared_ptr<CuDNNHandle>> cudnn_handles_;
   cudnnHandle_t device_cudnn_handle(int group = 0);
 #endif
 #endif
+  curandGenerator_t curand_generator_;
   shared_ptr<RNG> random_generator_;
-
   Brew mode_;
   int solver_count_;
   bool root_solver_;
@@ -488,7 +485,7 @@ class Caffe {
   static int thread_count_;
   static int restored_iter_;
   static std::atomic<uint64_t> root_seed_;
-  static std::mutex caffe_mutex_, pstream_mutex_, cublas_mutex_, seed_mutex_;
+  static std::mutex caffe_mutex_, pstream_mutex_, cublas_mutex_, cudnn_mutex_, seed_mutex_;
 
  private:
   // The private constructor to avoid duplicate instantiation.
