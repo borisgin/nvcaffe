@@ -199,7 +199,6 @@ class TestClassification(unittest.TestCase):
         self.img4 = os.path.join(imdir, 'four.png')
         self.img5 = os.path.join(imdir, 'five.png')
         self.tmpdir = unzip_archive(self.model)
-        caffe.set_mode_gpu()
 
     @classmethod
     def tearDownClass(self):
