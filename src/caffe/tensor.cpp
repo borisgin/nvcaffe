@@ -215,8 +215,10 @@ float Tensor::asum() const {
   }
   if (is_type<float>(type_)) {
     asum = caffe_cpu_asum(count_, static_cast<const float*>(mem->cpu_data()));
+#ifndef CPU_ONLY
   } else if (is_type<float16>(type_)) {
     asum = caffe_cpu_asum(count_, static_cast<const float16*>(mem->cpu_data()));
+#endif
   } else if (is_type<double>(type_)) {
     asum = caffe_cpu_asum(count_, static_cast<const double*>(mem->cpu_data()));
   } else {
