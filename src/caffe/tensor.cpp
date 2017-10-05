@@ -290,7 +290,6 @@ std::string Tensor::to_string(int indent) const {  // debug helper
       } else {
         os << idt << "NOT VALID" << std::endl;
       }
-
     }
   }
   return os.str();
