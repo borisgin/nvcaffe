@@ -101,7 +101,7 @@ class P2PSync : public Solver::Callback, public InternalThread {
 
 #ifndef CPU_ONLY
   cublasHandle_t cublas_handle() const override {
-    return cublas_handle_;
+    return cublas_handle_->get();
   }
 #endif
 
@@ -110,18 +110,16 @@ class P2PSync : public Solver::Callback, public InternalThread {
 #ifndef CPU_ONLY
 #ifdef USE_NCCL
   ncclComm_t nccl_comm_;
-  ncclUniqueId nccl_id_;
 #endif
 #endif
   void InternalThreadEntry() override;
-  void init_streams();
 
   P2PManager* mgr_;
   const int rank_;
   const size_t nranks_;
 #ifndef CPU_ONLY
-  shared_ptr<CudaStream> comm_stream_;
-  cublasHandle_t cublas_handle_;
+  shared_ptr<CudaStream> comm_stream_, stream_;
+  shared_ptr<CuBLASHandle> cublas_handle_;
 #endif
   const int initial_iter_;
   shared_ptr<Solver> solver_, root_solver_;

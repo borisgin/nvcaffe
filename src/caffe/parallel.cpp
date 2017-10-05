@@ -113,29 +113,11 @@ P2PSync::P2PSync(P2PManager* mgr, shared_ptr<Solver> root_solver,
 #endif
 }
 
-void P2PSync::init_streams() {
-#ifndef CPU_ONLY
-  if (!comm_stream_) {
-    comm_stream_ = CudaStream::create(true);
-  }
-  if (cublas_handle_ != nullptr) {
-    CUBLAS_CHECK(cublasDestroy(cublas_handle_));
-  }
-  CUBLAS_CHECK(cublasCreate(&cublas_handle_));
-  CUBLAS_CHECK(cublasSetStream(cublas_handle_, comm_stream_->get()));
-#else
-  NO_GPU;
-#endif
-}
-
 P2PSync::~P2PSync() {
 #ifndef CPU_ONLY
-  if (cublas_handle_ != nullptr) {
-    CUBLAS_CHECK(cublasDestroy(cublas_handle_));
-  }
 #ifdef USE_NCCL
   ncclCommDestroy(nccl_comm_);
-#endif  // USE_NCCL
+#endif
 #endif
 }
 
@@ -173,7 +155,12 @@ void P2PSync::InternalThreadEntry() {
     Caffe::set_random_seed(Caffe::SEED_NOT_SET);
   }
 
-  init_streams();
+#ifndef CPU_ONLY
+  comm_stream_ = CudaStream::create(true);
+  stream_ = CudaStream::create();
+  cublas_handle_ = make_shared<CuBLASHandle>(stream_->get());
+#endif
+
   if (solver_->Solve()) {
     mgr_->EarlyCancel(this);
   }
