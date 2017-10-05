@@ -760,12 +760,8 @@ void Net::Finalize() {
 
 void Net::ReduceAndUpdate() {
 #ifndef CPU_ONLY
-  cublasHandle_t handle = nullptr;
-  if (Caffe::solver_count() > 1) {
-    handle = solver_->callback()->cublas_handle();
-  } else {
-    handle = Caffe::cublas_handle();
-  }
+  shared_ptr<CuBLASHandle> cublas_phandle = Caffe::cublas_phandle();
+  cublasHandle_t handle = cublas_phandle->get();
 #else
   void* handle = nullptr;
 #endif
@@ -894,7 +890,8 @@ void Net::Reduce(int param_id) {
     cb->allreduce(param_id);
     cb->reduce_barrier();
   }
-  this->learnable_params()[param_id]->scale_diff(1.F / Caffe::solver_count(), cb->cublas_handle());
+  this->learnable_params()[param_id]->scale_diff(1.F / Caffe::solver_count(),
+      Caffe::cublas_handle());
   // Also need to barrier to make sure lock isn't undone
   // until all have completed, but the current nature of
   // NCCL makes this unnecessary.
@@ -913,7 +910,8 @@ void Net::ReduceBucket(size_t count, Type bucket_type, void* bucket) {
     cb->allreduce_bucket(count, bucket, bucket_type);
     cb->reduce_barrier();
   }
-  Tensor::gpu_scal(count, bucket_type, bucket, 1.F / Caffe::solver_count(), cb->cublas_handle());
+  Tensor::gpu_scal(count, bucket_type, bucket, 1.F / Caffe::solver_count(),
+      Caffe::cublas_handle());
 }
 #endif
 

@@ -157,8 +157,12 @@ void P2PSync::InternalThreadEntry() {
 
 #ifndef CPU_ONLY
   comm_stream_ = CudaStream::create(true);
-  stream_ = CudaStream::create();
-  cublas_handle_ = make_shared<CuBLASHandle>(stream_->get());
+  stream_ = Caffe::thread_pstream();
+  cublas_handle_ = Caffe::cublas_phandle();
+  // sanity check
+  cudaStream_t stream;
+  CUBLAS_CHECK(cublasGetStream(cublas_handle_->get(), &stream));
+  CHECK_EQ(stream_->get(), stream);
 #endif
 
   if (solver_->Solve()) {

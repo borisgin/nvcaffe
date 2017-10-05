@@ -244,10 +244,10 @@ shared_ptr<CudaStream> Caffe::pstream_aux(int id) {
   return streams_aux_[id];
 }
 
-cublasHandle_t Caffe::th_cublas_handle(int group) {
+shared_ptr<CuBLASHandle> Caffe::th_cublas_handle(int group) {
   CHECK_GE(group, 0);
   if (group < cublas_handles_.size() && cublas_handles_[group]) {
-    return cublas_handles_[group]->get();
+    return cublas_handles_[group];
   }
   std::lock_guard<std::mutex> lock(cublas_mutex_);
   cublas_handles_.resize(group + 1UL);
@@ -255,7 +255,7 @@ cublasHandle_t Caffe::th_cublas_handle(int group) {
   if (!cublas_handle) {
     cublas_handle = make_shared<CuBLASHandle>(pstream(group)->get());
   }
-  return cublas_handle->get();
+  return cublas_handle;
 }
 
 #ifdef USE_CUDNN

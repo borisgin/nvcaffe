@@ -356,6 +356,9 @@ class Caffe {
     return Get().pstream_aux(id)->get();
   }
   static cublasHandle_t cublas_handle(int group = 0) {
+    return Get().th_cublas_handle(group)->get();
+  }
+  static shared_ptr<CuBLASHandle> cublas_phandle(int group = 0) {
     return Get().th_cublas_handle(group);
   }
   static curandGenerator_t curand_generator() {
@@ -478,7 +481,7 @@ class Caffe {
   shared_ptr<CudaStream> pstream(int group = 0);
   shared_ptr<CudaStream> pstream_aux(int id);
   vector<shared_ptr<CuBLASHandle>> cublas_handles_;
-  cublasHandle_t th_cublas_handle(int group = 0);
+  shared_ptr<CuBLASHandle> th_cublas_handle(int group = 0);
   curandGenerator_t curand_generator_;
 
 #ifdef USE_CUDNN
