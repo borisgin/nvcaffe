@@ -477,9 +477,9 @@ class Caffe {
   vector<shared_ptr<CudaStream>> streams_aux_;
   shared_ptr<CudaStream> pstream(int group = 0);
   shared_ptr<CudaStream> pstream_aux(int id);
-
   vector<shared_ptr<CuBLASHandle>> cublas_handles_;
   cublasHandle_t th_cublas_handle(int group = 0);
+  curandGenerator_t curand_generator_;
 
 #ifdef USE_CUDNN
   vector<shared_ptr<CuDNNHandle>> cudnn_handles_;
@@ -487,7 +487,6 @@ class Caffe {
 #endif
 #endif
 
-  curandGenerator_t curand_generator_;
   shared_ptr<RNG> random_generator_;
   Brew mode_;
   int solver_count_;
