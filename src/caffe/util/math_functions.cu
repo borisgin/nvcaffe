@@ -555,7 +555,8 @@ __global__ void add_kernel<half2>(const int n, const half2* a, const half2* b, h
 
 template<>
 void caffe_gpu_add<float>(const int N, const float* a, const float* b, float* y) {
-  cudaStream_t stream = Caffe::thread_stream();
+  shared_ptr<CudaStream> pstream = Caffe::short_term_pstream();
+  cudaStream_t stream = pstream->get();
   // NOLINT_NEXT_LINE(whitespace/operators)
   add_kernel<<<CAFFE_GET_BLOCKS(N), CAFFE_CUDA_NUM_THREADS, 0, stream>>>(N, a, b, y);
   CUDA_POST_KERNEL_CHECK;
@@ -564,7 +565,8 @@ void caffe_gpu_add<float>(const int N, const float* a, const float* b, float* y)
 
 template<>
 void caffe_gpu_add<double>(const int N, const double* a, const double* b, double* y) {
-  cudaStream_t stream = Caffe::thread_stream();
+  shared_ptr<CudaStream> pstream = Caffe::short_term_pstream();
+  cudaStream_t stream = pstream->get();
   // NOLINT_NEXT_LINE(whitespace/operators)
   add_kernel<<<CAFFE_GET_BLOCKS(N), CAFFE_CUDA_NUM_THREADS, 0, stream>>>(N, a, b, y);
   CUDA_POST_KERNEL_CHECK;
@@ -573,7 +575,8 @@ void caffe_gpu_add<double>(const int N, const double* a, const double* b, double
 
 template<>
 void caffe_gpu_add<float16>(const int N, const float16* a, const float16* b, float16* y) {
-  cudaStream_t stream = Caffe::thread_stream();
+  shared_ptr<CudaStream> pstream = Caffe::short_term_pstream();
+  cudaStream_t stream = pstream->get();
   const unsigned int n2 = even(N) / 2;
   // NOLINT_NEXT_LINE(whitespace/operators)
   add_kernel<<<CAFFE_GET_BLOCKS_HALF(n2), CAFFE_CUDA_NUM_THREADS_HALF, 0, stream>>>
@@ -599,7 +602,8 @@ __global__ void incr_kernel<half2>(const int n, const half2* a, half2* b) {
 
 template<>
 void caffe_gpu_incr<float>(const int N, const float* a, float* b) {
-  cudaStream_t stream = Caffe::thread_stream();
+  shared_ptr<CudaStream> pstream = Caffe::short_term_pstream();
+  cudaStream_t stream = pstream->get();
   // NOLINT_NEXT_LINE(whitespace/operators)
   incr_kernel<<<CAFFE_GET_BLOCKS(N), CAFFE_CUDA_NUM_THREADS, 0, stream>>>(N, a, b);
   CUDA_POST_KERNEL_CHECK;
@@ -608,7 +612,8 @@ void caffe_gpu_incr<float>(const int N, const float* a, float* b) {
 
 template<>
 void caffe_gpu_incr<double>(const int N, const double* a, double* b) {
-  cudaStream_t stream = Caffe::thread_stream();
+  shared_ptr<CudaStream> pstream = Caffe::short_term_pstream();
+  cudaStream_t stream = pstream->get();
   // NOLINT_NEXT_LINE(whitespace/operators)
   incr_kernel<<<CAFFE_GET_BLOCKS(N), CAFFE_CUDA_NUM_THREADS, 0, stream>>>(N, a, b);
   CUDA_POST_KERNEL_CHECK;
@@ -617,7 +622,8 @@ void caffe_gpu_incr<double>(const int N, const double* a, double* b) {
 
 template<>
 void caffe_gpu_incr<float16>(const int N, const float16* a, float16* b) {
-  cudaStream_t stream = Caffe::thread_stream();
+  shared_ptr<CudaStream> pstream = Caffe::short_term_pstream();
+  cudaStream_t stream = pstream->get();
   const unsigned int n2 = even(N) / 2;
   // NOLINT_NEXT_LINE(whitespace/operators)
   incr_kernel<<<CAFFE_GET_BLOCKS_HALF(n2), CAFFE_CUDA_NUM_THREADS_HALF, 0, stream>>>

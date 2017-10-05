@@ -364,6 +364,9 @@ class Caffe {
   static curandGenerator_t curand_generator() {
     return Get().curand_generator_;
   }
+  static shared_ptr<CudaStream> short_term_pstream() {
+    return CudaStream::create();
+  }
 #ifdef USE_CUDNN
   static cudnnHandle_t cudnn_handle(int group = 0) {
     return Get().th_cudnn_handle(group);
