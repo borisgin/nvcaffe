@@ -254,7 +254,8 @@ void CuDNNConvolutionLayer<Ftype, Btype>::AllocateFindExWorkspace() {
   GPUMemory::GetInfo(&bytes_available, &bytes_total, true);
   bytes_available = std::min(bytes_available, bytes_total / 2UL);
   // 2+ pages => reallocate
-  size_t req_bytes = align_down<7>(bytes_available > PAGE_SIZE ? bytes_available - PAGE_SIZE : 0UL);
+  size_t req_bytes = align_down<7>(bytes_available > 2UL * PAGE_SIZE ?
+      bytes_available - 2UL * PAGE_SIZE : 0UL);
   if (static_cast<float>(req_bytes) <= PAGE_SIZE) {
     return;
   }

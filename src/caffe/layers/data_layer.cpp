@@ -53,9 +53,7 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
     size_t current_transf_num = this->threads_num();
 #ifndef CPU_ONLY
     const size_t batch_bytes = this->prefetch_[0]->bytes();
-    size_t gpu_bytes, total_memory;
-    GPUMemory::GetInfo(&gpu_bytes, &total_memory, true);
-    gpu_bytes = Caffe::min_avail_device_memory();
+    size_t gpu_bytes = Caffe::min_avail_device_memory();
     size_t batches_fit = gpu_bytes / batch_bytes;
 #else
     size_t batches_fit = this->queues_num_;
