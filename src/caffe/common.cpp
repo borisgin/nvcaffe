@@ -209,8 +209,8 @@ CudaStream::CudaStream(bool high_priority) {
   } else {
     CUDA_CHECK(cudaStreamCreate(&stream_));
   }
-//  DLOG(INFO) << "New " << (high_priority ? "high priority " : "") << "stream "
-//      << stream_ << ", device " << current_device() << ", thread " << std::this_thread::get_id();
+  DLOG(INFO) << "New " << (high_priority ? "high priority " : "") << "stream "
+      << stream_ << ", device " << current_device() << ", thread " << std::this_thread::get_id();
 }
 
 CudaStream::~CudaStream() {
@@ -455,6 +455,9 @@ const int TypedConsts<int>::zero = 0;
 const int TypedConsts<int>::one = 1;
 
 #ifndef CPU_ONLY
+CuBLASHandle::CuBLASHandle() {
+  CUBLAS_CHECK(cublasCreate(&handle_));
+}
 CuBLASHandle::CuBLASHandle(cudaStream_t stream) {
   CUBLAS_CHECK(cublasCreate(&handle_));
   CUBLAS_CHECK(cublasSetStream(handle_, stream));

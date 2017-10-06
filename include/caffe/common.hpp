@@ -278,6 +278,7 @@ class CudaStream {
 
 #ifndef CPU_ONLY
 struct CuBLASHandle {
+  CuBLASHandle();
   explicit CuBLASHandle(cudaStream_t stream);
   ~CuBLASHandle();
 
@@ -366,6 +367,9 @@ class Caffe {
   }
   static shared_ptr<CudaStream> short_term_pstream() {
     return CudaStream::create();
+  }
+  static shared_ptr<CuBLASHandle> short_term_cublas_phandle() {
+    return make_shared<CuBLASHandle>();
   }
 #ifdef USE_CUDNN
   static cudnnHandle_t cudnn_handle(int group = 0) {

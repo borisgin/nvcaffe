@@ -138,7 +138,6 @@ void DataTransformer<Dtype>::TransformV1(const Datum& datum, Dtype* buf, size_t 
           data_index = (cdho + h) * datum_width + w_off;
           for (int w = 0; w < width; ++w) {
             datum_element = static_cast<unsigned char>(data[data_index]);
-            CHECK_LT(top_index, buf_len);
             if (has_mean_file) {
               buf[top_index] = datum_element - mean[data_index];
             } else {
@@ -163,7 +162,6 @@ void DataTransformer<Dtype>::TransformV1(const Datum& datum, Dtype* buf, size_t 
           data_index = (cdho + h) * datum_width + w_off;
           for (int w = 0; w < width; ++w) {
             datum_element = static_cast<unsigned char>(data[data_index]);
-            CHECK_LT(top_index, buf_len);
             if (has_mean_file) {
               buf[top_index] = (datum_element - mean[data_index]) * scale;
             } else {
@@ -189,7 +187,6 @@ void DataTransformer<Dtype>::TransformV1(const Datum& datum, Dtype* buf, size_t 
         data_index = (cdho + h) * datum_width + w_off;
         for (int w = 0; w < width; ++w) {
           datum_element = datum.float_data(data_index);
-          CHECK_LT(top_index, buf_len);
           if (has_mean_file) {
             buf[top_index] = (datum_element - mean[data_index]) * scale;
           } else {
