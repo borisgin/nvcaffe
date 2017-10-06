@@ -189,12 +189,6 @@ int train() {
       s << (i ? ", " : "") << gpus[i];
     }
 
-    solver_param.set_device_id(gpus[0]);
-    Caffe::set_mode(Caffe::GPU);
-    Caffe::set_gpus(gpus);
-    Caffe::set_solver_count(gpus.size());
-    CHECK_EQ(gpus.size(), Caffe::solver_count());
-
     LOG(INFO) << "Using GPUs " << s.str();
 #ifndef CPU_ONLY
     cudaDeviceProp device_prop;
@@ -202,7 +196,13 @@ int train() {
       cudaGetDeviceProperties(&device_prop, gpus[i]);
       LOG(INFO) << "GPU " << gpus[i] << ": " << device_prop.name;
     }
+    CUDA_CHECK(cudaSetDevice(solver_param.device_id()));
 #endif
+    solver_param.set_device_id(gpus[0]);
+    Caffe::set_mode(Caffe::GPU);
+    Caffe::set_gpus(gpus);
+    Caffe::set_solver_count(gpus.size());
+    CHECK_EQ(gpus.size(), Caffe::solver_count());
   }
 
   caffe::SignalHandler signal_handler(

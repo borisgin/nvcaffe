@@ -34,6 +34,14 @@ inline int CVFC<double>(int ch) {
   return CV_64FC(ch);
 }
 
+#ifndef CPU_ONLY
+template<>
+inline int CVFC<float16>(int ch) {
+  NOT_IMPLEMENTED;
+  return 0;
+}
+#endif
+
 using ::google::protobuf::Message;
 using ::boost::filesystem::path;
 
