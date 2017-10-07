@@ -318,6 +318,5 @@ void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, siz
 }
 
 INSTANTIATE_CLASS_FB(DataLayer);
-REGISTER_LAYER_CLASS(Data);
 
 }  // namespace caffe

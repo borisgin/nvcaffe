@@ -116,7 +116,7 @@ class BasePrefetchingDataLayer : public BaseDataLayer<Ftype, Btype>, public Inte
                          this->transform_param_.use_gpu_transform() : is_type<Ftype>(FLOAT16);
     const bool use_rand_resize = this->transform_param_.has_img_rand_resize_lower() ||
         this->transform_param_.has_img_rand_resize_upper();
-    return use_gpu && Caffe::mode() == Caffe::GPU && use_rand_resize;
+    return use_gpu && Caffe::mode() == Caffe::GPU && !use_rand_resize;
   }
 
 protected:
