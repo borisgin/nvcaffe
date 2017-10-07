@@ -128,7 +128,8 @@ void P2PSync::InternalThreadEntry() {
     solver_->root_add_callback(this);
   } else {
     Caffe::set_root_solver(false);
-    solver_.reset(caffe::SolverRegistry::CreateSolver(solver_param_, rank_, root_solver_.get()));
+    solver_param_.set_device_id(rank_);
+    solver_.reset(caffe::SolverRegistry::CreateSolver(solver_param_, root_solver_.get()));
   }
   solver_->set_callback(this);
 

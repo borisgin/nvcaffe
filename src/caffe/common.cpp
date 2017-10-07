@@ -498,8 +498,9 @@ Caffe::Properties::Properties() :
 #else
   cudnn_version_ = "USE_CUDNN is not defined";
 #endif
+  shared_ptr<CuBLASHandle> phandle = Caffe::short_term_cublas_phandle();
   int cublas_version = 0;
-  CUBLAS_CHECK(cublasGetVersion(Caffe::cublas_handle(), &cublas_version));
+  CUBLAS_CHECK(cublasGetVersion(phandle->get(), &cublas_version));
   cublas_version_ = std::to_string(cublas_version);
 
   int cuda_version = 0;

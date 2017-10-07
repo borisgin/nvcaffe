@@ -65,6 +65,13 @@ void classname<Dtype>::funcname##_##gpu(const vector<Blob*>& bottom, \
         " (" << arg << ")"; \
   } while (0)
 
+#define CUDA_CHECK_ARG2(condition, arg1, arg2) \
+  do { \
+    cudaError_t error = condition; \
+    CHECK_EQ(error, cudaSuccess) << " " << cudaGetErrorString(error) << \
+        " (" << arg1 << ") (" << arg2 << ")"; \
+  } while (0)
+
 #define CUBLAS_CHECK(condition) \
   do { \
     cublasStatus_t status = condition; \

@@ -485,6 +485,25 @@ unsigned int DataTransformer<Dtype>::Rand() const {
   return static_cast<unsigned int>((*rng)());
 }
 
-INSTANTIATE_CLASS_CPU(DataTransformer);
+template<typename Dtype>
+void DataTransformer<Dtype>::Fill3Randoms(unsigned int *rand) const {
+  rand[0] = rand[1] = rand[2] = 0;
+  if (param_.mirror()) {
+    rand[0] = Rand() + 1;
+  }
+  if (phase_ == TRAIN && param_.crop_size()) {
+    rand[1] = Rand() + 1;
+    rand[2] = Rand() + 1;
+  }
+}
+
+#ifndef CPU_ONLY
+template<>
+void DataTransformer<float16>::apply_mean_scale_mirror(const cv::Mat& src, cv::Mat& dst) {
+  NOT_IMPLEMENTED;
+}
+#endif
+
+INSTANTIATE_CLASS(DataTransformer);
 
 }  // namespace caffe

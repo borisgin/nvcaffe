@@ -87,7 +87,7 @@ void BasePrefetchingDataLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bot
   const uint64_t random_seed = (psolver == nullptr ||
       static_cast<uint64_t>(psolver->param().random_seed()) == Caffe::SEED_NOT_SET) ?
           Caffe::next_seed() : static_cast<uint64_t>(psolver->param().random_seed());
-  StartInternalThread(false, random_seed);
+  StartInternalThread(true, random_seed);
 }
 
 template<typename Ftype, typename Btype>
@@ -106,6 +106,9 @@ void BasePrefetchingDataLayer<Ftype, Btype>::InternalThreadEntryN(size_t thread_
     iter0 = false;
   }
   try {
+#ifndef CPU_ONLY
+    const bool use_gpu_transform = this->is_gpu_transform();
+#endif
     while (!must_stop(thread_id)) {
       const size_t qid = this->queue_id(thread_id);
 #ifndef CPU_ONLY
@@ -114,7 +117,9 @@ void BasePrefetchingDataLayer<Ftype, Btype>::InternalThreadEntryN(size_t thread_
       CHECK_EQ((size_t) -1, batch->id());
       load_batch(batch.get(), thread_id, qid);
       if (Caffe::mode() == Caffe::GPU) {
-        batch->data_->async_gpu_push();
+        if (!use_gpu_transform) {
+          batch->data_->async_gpu_push();
+        }
         if (this->output_labels_) {
           batch->label_->async_gpu_push();
         }
@@ -243,7 +248,7 @@ void BasePrefetchingDataLayer<Ftype, Btype>::Forward_cpu(const vector<Blob*>& bo
 STUB_GPU_FORWARD(BasePrefetchingDataLayer, Forward);
 #endif
 
-INSTANTIATE_CLASS_CPU_FB(BaseDataLayer);
-INSTANTIATE_CLASS_CPU_FB(BasePrefetchingDataLayer);
+INSTANTIATE_CLASS_FB(BaseDataLayer);
+INSTANTIATE_CLASS_FB(BasePrefetchingDataLayer);
 
 }  // namespace caffe

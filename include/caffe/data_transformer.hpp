@@ -28,6 +28,11 @@ class DataTransformer {
    */
   void InitRand();
 
+#ifndef CPU_ONLY
+  void TransformGPU(int N, int C, int H, int W, size_t sizeof_element, const void* in, Dtype* out,
+      const unsigned int* rands);
+#endif
+
   /**
    * @brief Applies transformations defined in the data layer's
    * transform_param block to the data.
@@ -84,6 +89,7 @@ class DataTransformer {
 
   void Transform(Datum& datum, TBlob<Dtype>* transformed_blob);
   void VariableSizedTransforms(Datum* datum);
+  void Fill3Randoms(unsigned int *rand) const;
 
  protected:
   bool image_random_resize_enabled() const;
@@ -110,7 +116,6 @@ class DataTransformer {
     return Rand() % n;
   }
 
- protected:
   unsigned int Rand() const;
 
   // Tranformation parameters
@@ -119,9 +124,11 @@ class DataTransformer {
   Phase phase_;
   TBlob<float> data_mean_;
   vector<float> mean_values_;
-
   cv::Mat mean_mat_orig_, mean_mat_;
   cv::Mat tmp_;
+#ifndef CPU_ONLY
+  GPUMemory::Workspace mean_values_gpu_;
+#endif
 };
 
 }  // namespace caffe
