@@ -1,6 +1,7 @@
 #include "caffe/data_transformer.hpp"
 #include "caffe/layer.hpp"
 #include "caffe/layers/data_layer.hpp"
+#include "caffe/util/io.hpp"
 #include "caffe/parallel.hpp"
 
 namespace caffe {
@@ -221,9 +222,11 @@ void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, siz
   DataReader* reader = sample_only ? sample_reader_.get() : reader_.get();
   shared_ptr<Datum> init_datum = reader->full_peek(qid);
   CHECK(init_datum);
-  const int init_datum_height = init_datum->height();
-  const int init_datum_width = init_datum->width();
+  int init_datum_height = init_datum->height();
+  int init_datum_width = init_datum->width();
   const bool use_gpu_transform = this->is_gpu_transform();
+  const int color_mode = this->transform_param_.force_color() ?
+                         1 : (this->transform_param_.force_gray() ? -1 : 0);
 
   // Use data_transformer to infer the expected blob shape from datum.
   vector<int> top_shape = this->dt(thread_id)->Transform(init_datum.get(), nullptr, 0);
@@ -235,17 +238,26 @@ void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, siz
 #ifndef CPU_ONLY
   cudaStream_t stream = Caffe::thread_stream();
   unsigned char *gptr = nullptr;
+  cv::Mat img;
   if (use_gpu_transform) {
-    datum_len = init_datum->channels() * init_datum->height() * init_datum->width();
-    CHECK_GT(datum_len, 0);
-    const string &datum_data = init_datum->data();
-    if (datum_data.size() > 0) {
-      CHECK_LE(sizeof(uint8_t), sizeof(Ftype));
-      CHECK_EQ(datum_len, datum_data.size());
+    if (init_datum->encoded()) {
+      DecodeDatumToCVMat(*init_datum, color_mode, img, false, false);
+      datum_len = img.channels() * img.rows * img.cols;
       datum_sizeof_element = sizeof(uint8_t);
+      init_datum_height = img.rows;
+      init_datum_width = img.cols;
     } else {
-      CHECK_LE(sizeof(float), sizeof(Ftype));
-      datum_sizeof_element = sizeof(float);
+      datum_len = init_datum->channels() * init_datum->height() * init_datum->width();
+      CHECK_GT(datum_len, 0);
+      const string &datum_data = init_datum->data();
+      if (datum_data.size() > 0) {
+        CHECK_LE(sizeof(uint8_t), sizeof(Ftype));
+        CHECK_EQ(datum_len, datum_data.size());
+        datum_sizeof_element = sizeof(uint8_t);
+      } else {
+        CHECK_LE(sizeof(float), sizeof(Ftype));
+        datum_sizeof_element = sizeof(float);
+      }
     }
     tmp_batch_holder_[thread_id]->safe_reserve(batch_size * datum_sizeof_element * datum_len);
     gptr = static_cast<unsigned char*>(tmp_batch_holder_[thread_id]->data());
@@ -262,6 +274,7 @@ void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, siz
   }
   size_t current_batch_id = 0UL;
   const size_t buf_len = batch->data_->offset(1);
+  Datum buf_datum;
   for (size_t entry = 0; entry < batch_size; ++entry) {
     shared_ptr<Datum> datum = reader->full_pop(qid, "Waiting for datum");
     size_t item_id = datum->record_id() % batch_size;
@@ -275,11 +288,17 @@ void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, siz
 
     if (use_gpu_transform) {
 #ifndef CPU_ONLY
-      CHECK_EQ(datum_len, datum->channels() * datum->height() * datum->width())
+      Datum& rdatum = *datum;
+      if (datum->encoded()) {
+        DecodeDatumToCVMat(*datum, color_mode, img, false, false);
+        CVMatToDatum(img, buf_datum);
+        rdatum = buf_datum;
+      }
+      CHECK_EQ(datum_len, rdatum.channels() * rdatum.height() * rdatum.width())
         << "Datum size can't vary in the same batch";
-      const void *src_ptr = datum->data().size() > 0 ?
-                            static_cast<const void *>(&datum->data().front()) :
-                            static_cast<const void *>(&datum->float_data().Get(0));
+      const void *src_ptr = rdatum.data().size() > 0 ?
+                            static_cast<const void *>(&rdatum.data().front()) :
+                            static_cast<const void *>(&rdatum.float_data().Get(0));
       CUDA_CHECK(cudaMemcpyAsync(gptr + item_id * datum_len * datum_sizeof_element,
           src_ptr, datum_len * datum_sizeof_element, cudaMemcpyHostToDevice, stream));
       this->dt(thread_id)->Fill3Randoms(&random_vectors_[thread_id]->mutable_cpu_data()[item_id * 3]);
