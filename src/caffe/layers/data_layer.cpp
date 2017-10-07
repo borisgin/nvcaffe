@@ -301,7 +301,8 @@ void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, siz
                             static_cast<const void *>(&rdatum.float_data().Get(0));
       CUDA_CHECK(cudaMemcpyAsync(gptr + item_id * datum_len * datum_sizeof_element,
           src_ptr, datum_len * datum_sizeof_element, cudaMemcpyHostToDevice, stream));
-      this->dt(thread_id)->Fill3Randoms(&random_vectors_[thread_id]->mutable_cpu_data()[item_id * 3]);
+      this->dt(thread_id)->Fill3Randoms(&random_vectors_[thread_id]->
+          mutable_cpu_data()[item_id * 3]);
       CUDA_CHECK(cudaStreamSynchronize(stream));
 #else
       NO_GPU;

@@ -51,13 +51,13 @@ void transform_kernel(int N, int C,
     const Dtype *in_ptr;// = &in[n*C*H*W];
     // Element-specific offset to a channel c
     if (sizeof_element == sizeof(uint8_t)) {
-      in_ptri = &reinterpret_cast<const uint8_t*>(in)[n*C*H*W];
+      in_ptri = &(reinterpret_cast<const uint8_t*>(in))[n*C*H*W];
       in_ptri += c*H*W;
     } else if (sizeof_element == sizeof(float)) {
-      in_ptrf = &reinterpret_cast<const float*>(in)[n*C*H*W];
+      in_ptrf = &(reinterpret_cast<const float*>(in))[n*C*H*W];
       in_ptrf += c*H*W;
     } else {
-      in_ptr = &reinterpret_cast<const Dtype*>(in)[n*C*H*W];
+      in_ptr = &(reinterpret_cast<const Dtype*>(in))[n*C*H*W];
       in_ptr += c*H*W;
     }
 
@@ -140,13 +140,13 @@ void transform_kernel<__half>(int N, int C,
     const __half *in_ptr;//  = &in[n*C*H*W];
     // Element-specific offset to a channel c
     if (sizeof_element == sizeof(uint8_t)) {
-      in_ptri = &reinterpret_cast<const uint8_t*>(in)[n*C*H*W];
+      in_ptri = &(reinterpret_cast<const uint8_t*>(in))[n*C*H*W];
       in_ptri += c*H*W;
     } else if (sizeof_element == sizeof(float)) {
-      in_ptrf = &reinterpret_cast<const float*>(in)[n*C*H*W];
+      in_ptrf = &(reinterpret_cast<const float*>(in))[n*C*H*W];
       in_ptrf += c*H*W;
     } else {
-      in_ptr = &reinterpret_cast<const __half*>(in)[n*C*H*W];
+      in_ptr = &(reinterpret_cast<const __half*>(in))[n*C*H*W];
       in_ptr += c*H*W;
     }
 

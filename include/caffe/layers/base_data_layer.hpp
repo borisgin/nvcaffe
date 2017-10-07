@@ -119,7 +119,7 @@ class BasePrefetchingDataLayer : public BaseDataLayer<Ftype, Btype>, public Inte
     return use_gpu && Caffe::mode() == Caffe::GPU && !use_rand_resize;
   }
 
-protected:
+ protected:
   void InternalThreadEntry() override;
   void InternalThreadEntryN(size_t thread_id) override;
   void ResizeQueues();
