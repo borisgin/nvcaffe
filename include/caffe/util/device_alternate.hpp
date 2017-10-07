@@ -86,6 +86,14 @@ void classname<Dtype>::funcname##_##gpu(const vector<Blob*>& bottom, \
       << caffe::curandGetErrorString(status); \
   } while (0)
 
+#define CURAND_CHECK_ARG(condition, arg) \
+  do { \
+    curandStatus_t status = condition; \
+    CHECK_EQ(status, CURAND_STATUS_SUCCESS) << " " \
+      << caffe::curandGetErrorString(status) << \
+        " (" << arg << ")"; \
+  } while (0)
+
 // CUDA: grid stride looping
 #define CUDA_KERNEL_LOOP(i, n) \
   for (int i = blockIdx.x * blockDim.x + threadIdx.x; \

@@ -165,20 +165,22 @@ void* Caffe::RNG::generator() {
 #else  // Normal GPU + CPU Caffe.
 
 Caffe::Caffe()
-    : curand_generator_(nullptr), random_generator_(), mode_(Caffe::CPU),
-      solver_count_(1), root_solver_(true) {
-  if (curandCreateGenerator(&curand_generator_, CURAND_RNG_PSEUDO_DEFAULT) !=
-          CURAND_STATUS_SUCCESS ||
-      curandSetPseudoRandomGeneratorSeed(curand_generator_, cluster_seedgen()) !=
-          CURAND_STATUS_SUCCESS) {
-    LOG(ERROR) << "Cannot create Curand generator. Curand won't be available.";
-  } else {
-    CURAND_CHECK(curandSetStream(curand_generator_, pstream()->get()));
-  }
+    : random_generator_(), mode_(Caffe::CPU), solver_count_(1), root_solver_(true) {
+  CURAND_CHECK_ARG(curandCreateGenerator(&curand_generator_, CURAND_RNG_PSEUDO_DEFAULT),
+      current_device());
+  CURAND_CHECK_ARG(curandSetPseudoRandomGeneratorSeed(curand_generator_, cluster_seedgen()),
+      current_device());
+  curand_stream_ = CudaStream::create();
+  CURAND_CHECK_ARG(curandSetStream(curand_generator_, curand_stream_->get()), current_device());
 }
 
 Caffe::~Caffe() {
-  CURAND_CHECK(curandDestroyGenerator(curand_generator_));
+  int current_device;  // Just to check CUDA status:
+  cudaError_t status = cudaGetDevice(&current_device);
+  // Preventing crash while Caffe shutting down.
+  if (status != cudaErrorCudartUnloading) {
+    CURAND_CHECK(curandDestroyGenerator(curand_generator_));
+  }
 }
 
 size_t Caffe::min_avail_device_memory() {

@@ -494,7 +494,7 @@ void caffe_gpu_set(const size_t N, const Dtype alpha, Dtype* Y) {
     set_kernel <<<CAFFE_GET_BLOCKS(N), CAFFE_CUDA_NUM_THREADS, 0, stream>>> (N, alpha, Y);
     CUDA_POST_KERNEL_CHECK;
   }
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  CUDA_CHECK_ARG2(cudaStreamSynchronize(stream), stream, Caffe::current_device());
 }
 
 template void

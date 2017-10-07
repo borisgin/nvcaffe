@@ -173,12 +173,6 @@ int train() {
   // Read flags for list of GPUs
   vector<int> gpus;
   get_gpus(&gpus);
-#ifndef CPU_ONLY
-  if (gpus.size() > 0) {
-    Caffe::SetDevice(gpus[0]);
-  }
-  caffe::GPUMemory::Scope gpu_memory_scope(gpus);
-#endif
   // Set mode and device id[s]
   if (gpus.size() == 0) {
     LOG(INFO) << "Use CPU.";
@@ -190,15 +184,21 @@ int train() {
     }
 
     LOG(INFO) << "Using GPUs " << s.str();
+    caffe::GPUMemory::Scope gpu_memory_scope(gpus);
+    int dev_id = 0;
 #ifndef CPU_ONLY
     cudaDeviceProp device_prop;
     for (int i = 0; i < gpus.size(); ++i) {
       cudaGetDeviceProperties(&device_prop, gpus[i]);
       LOG(INFO) << "GPU " << gpus[i] << ": " << device_prop.name;
+      if (gpus[i] == solver_param.device_id()) {
+        dev_id = i;
+      }
     }
-    CUDA_CHECK(cudaSetDevice(solver_param.device_id()));
+    CUDA_CHECK(cudaSetDevice(gpus[dev_id]));
+    Caffe::SetDevice(gpus[dev_id]);
 #endif
-    solver_param.set_device_id(gpus[0]);
+    solver_param.set_device_id(gpus[dev_id]);
     Caffe::set_mode(Caffe::GPU);
     Caffe::set_gpus(gpus);
     Caffe::set_solver_count(gpus.size());
