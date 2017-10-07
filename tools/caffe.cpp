@@ -173,6 +173,9 @@ int train() {
   // Read flags for list of GPUs
   vector<int> gpus;
   get_gpus(&gpus);
+#ifndef CPU_ONLY
+  caffe::GPUMemory::Scope gpu_memory_scope(gpus);
+#endif
   // Set mode and device id[s]
   if (gpus.size() == 0) {
     LOG(INFO) << "Use CPU.";
@@ -184,7 +187,6 @@ int train() {
     }
 
     LOG(INFO) << "Using GPUs " << s.str();
-    caffe::GPUMemory::Scope gpu_memory_scope(gpus);
     int dev_id = 0;
 #ifndef CPU_ONLY
     cudaDeviceProp device_prop;
