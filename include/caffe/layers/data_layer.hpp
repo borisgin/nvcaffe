@@ -42,6 +42,9 @@ class DataLayer : public BasePrefetchingDataLayer<Ftype, Btype> {
   Flag* layer_inititialized_flag() override {
     return this->phase_ == TRAIN ? &layer_inititialized_flag_ : nullptr;
   }
+  bool is_gpu_transform() const override {
+    return BasePrefetchingDataLayer<Ftype, Btype>::is_gpu_transform() && !datum_encoded_;
+  }
 
  protected:
   void InitializePrefetch() override;
