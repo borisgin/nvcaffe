@@ -300,37 +300,6 @@ shared_ptr<LayerBase> GetDropoutLayer(const LayerParameter& param,
 }
 REGISTER_LAYER_CREATOR(Dropout, GetDropoutLayer);
 
-shared_ptr<LayerBase> GetDataLayer(const LayerParameter& param, Type ftype, Type btype) {
-  LayerParameter lparam(param);
-  check_precision_support(ftype, btype, lparam);
-  shared_ptr<LayerBase> ret;
-  if (is_type<double>(ftype)) {
-    ret.reset(new DataLayer<double, double>(lparam));
-  } else {
-    ret.reset(new DataLayer<float, float>(lparam));
-  }
-  return ret;
-
-//  bool reduced_prec_ok = true;
-//  if (param.has_transform_param()) {
-//    reduced_prec_ok = !param.transform_param().has_img_rand_resize_lower() &&
-//                      !param.transform_param().has_img_rand_resize_upper();
-//  }
-//  if (reduced_prec_ok) {
-//    return CreateLayerBase<DataLayer>(param, ftype, btype);
-//  }
-//  LayerParameter lparam(param);
-//  check_precision_support(ftype, btype, lparam, true);
-//  shared_ptr<LayerBase> ret;
-//  if (is_type<double>(ftype)) {
-//    ret.reset(new DataLayer<double, double>(param));
-//  } else {
-//    ret.reset(new DataLayer<float, float>(param));
-//  }
-//  return ret;
-}
-REGISTER_LAYER_CREATOR(Data, GetDataLayer);
-
 shared_ptr<LayerBase> GetMemoryDataLayer(const LayerParameter& param, Type ftype, Type btype) {
   LayerParameter lparam(param);
   check_precision_support(ftype, btype, lparam);
