@@ -80,15 +80,9 @@ void Caffe::set_random_seed(uint64_t random_seed) {
     if (random_seed == Caffe::SEED_NOT_SET) {
       random_seed = cluster_seedgen();
     }
-    static bool g_curand_availability_logged = false;
     curandGenerator_t curand_generator_handle = curand_generator();
-    if (curand_generator_handle) {
-      CURAND_CHECK(curandSetPseudoRandomGeneratorSeed(curand_generator_handle, random_seed));
-      CURAND_CHECK(curandSetGeneratorOffset(curand_generator_handle, 0));
-    } else if (!g_curand_availability_logged) {
-      LOG(ERROR) << "Curand not available. Skipping setting the curand seed.";
-      g_curand_availability_logged = true;
-    }
+    CURAND_CHECK(curandSetPseudoRandomGeneratorSeed(curand_generator_handle, random_seed));
+    CURAND_CHECK(curandSetGeneratorOffset(curand_generator_handle, 0));
   }
 #endif
   // RNG seed
@@ -170,8 +164,7 @@ Caffe::Caffe()
       current_device());
   CURAND_CHECK_ARG(curandSetPseudoRandomGeneratorSeed(curand_generator_, cluster_seedgen()),
       current_device());
-  curand_stream_ = CudaStream::create();
-  CURAND_CHECK_ARG(curandSetStream(curand_generator_, curand_stream_->get()), current_device());
+  CURAND_CHECK_ARG(curandSetStream(curand_generator_, pstream()->get()), current_device());
 }
 
 Caffe::~Caffe() {

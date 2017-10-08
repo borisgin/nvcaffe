@@ -509,7 +509,6 @@ class Caffe {
   static int restored_iter_;
   static std::atomic<uint64_t> root_seed_;
   static std::mutex caffe_mutex_, pstream_mutex_, cublas_mutex_, cudnn_mutex_, seed_mutex_;
-  shared_ptr<CudaStream> curand_stream_;
 
 private:
   // The private constructor to avoid duplicate instantiation.

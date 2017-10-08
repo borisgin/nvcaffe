@@ -288,11 +288,17 @@ void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, siz
 
     if (use_gpu_transform) {
 #ifndef CPU_ONLY
-      CHECK_EQ(datum_len, datum->channels() * datum->height() * datum->width())
+      Datum& rdatum = *datum;
+      if (datum->encoded()) {
+        DecodeDatumToCVMat(*datum, color_mode, img, false, false);
+        CVMatToDatum(img, buf_datum);
+        rdatum = buf_datum;
+      }
+      CHECK_EQ(datum_len, rdatum.channels() * rdatum.height() * rdatum.width())
         << "Datum size can't vary in the same batch";
-      const void *src_ptr = datum->data().size() > 0 ?
-                            static_cast<const void *>(&datum->data().front()) :
-                            static_cast<const void *>(&datum->float_data().Get(0));
+      const void *src_ptr = rdatum.data().size() > 0 ?
+                            static_cast<const void *>(&rdatum.data().front()) :
+                            static_cast<const void *>(&rdatum.float_data().Get(0));
       CUDA_CHECK(cudaMemcpyAsync(gptr + item_id * datum_len * datum_sizeof_element,
           src_ptr, datum_len * datum_sizeof_element, cudaMemcpyHostToDevice, stream));
       this->dt(thread_id)->Fill3Randoms(&random_vectors_[thread_id]->
