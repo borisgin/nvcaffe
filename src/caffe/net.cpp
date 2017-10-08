@@ -756,6 +756,41 @@ void Net::Finalize() {
   reduction_queue_.push(END_OF_BATCH);
 }
 
+size_t Net::received_contiguous_count(int top, const std::set<int>& au_ids, int& from, int& to, int& cnt) {
+  if (learnable_params_.empty() || au_ids.empty()) {
+    return 0;
+  }
+  size_t ret = 0;
+  const int bottom = *au_ids.begin();
+  from = to = -1;
+  cnt = 0;
+  int gap = 1;
+  for (int i = top; i >= bottom; --i) {
+    if (learnable_params_ptrs_[i] == nullptr) {  // skipped blob (like 3rd in BN)
+      ++gap;
+      continue;
+    }
+    if (au_ids.find(i) != au_ids.end()) {
+      if (to < 0 || from < 0) {
+        from = to = i;
+      } else if (i + gap == from) {
+        if (learnable_params_[i]->diff_type() != learnable_params_[from]->diff_type()) {
+          break;
+        }
+        from = i;
+      } else {
+        continue;
+      }
+      ++cnt;
+      gap = 1;
+      ret += align_up<6>(learnable_params_[from]->count());
+    } else {
+      break;
+    }
+  }
+  return ret;
+}
+
 void Net::ReduceAndUpdate() {
 #ifndef CPU_ONLY
   shared_ptr<CuBLASHandle> cublas_phandle = Caffe::cublas_phandle();
@@ -769,6 +804,7 @@ void Net::ReduceAndUpdate() {
   CUBLAS_CHECK(cublasGetStream(handle, &stream));
   int max_params_per_bucket = 0;
   size_t bucket_space_count = 0UL;
+  int top = (int)learnable_params_.size() - 1;
   if (Caffe::solver_count() > 1) {
     CHECK_GT(reduce_buckets_, 0);
     max_params_per_bucket = (int) (learnable_params_.size() + 1UL) / (int) reduce_buckets_;
@@ -779,9 +815,7 @@ void Net::ReduceAndUpdate() {
         size_t((float)(learnable_space_count_ + 1UL) /
             learnable_params_ptrs_.size() * max_params_per_bucket);
   }
-  int id_from = -1, id_to = -1;
-  size_t received_count = 0U;
-  std::list<int> au_ids;
+  std::set<int> au_ids;
 #endif
   const bool clear_grads = !solver_->param().snapshot_diff();
   while (true) {
@@ -820,20 +854,13 @@ void Net::ReduceAndUpdate() {
 
 #ifndef CPU_ONLY
     if (learnable_params_.size() > 0 && Caffe::solver_count() > 1) {
-      // Is bucket big enough? Done with iteration? Next param_id doesn't fit?
-      // Type changed?
-      if (received_count >= bucket_space_count ||
-          (param_id == END_OF_ITERATION && id_from != -1) || // leftovers
-          (id_from != -1 && param_id < id_from - 1) ||
-          (id_to != -1 && param_id > id_to + 1) ||
-          (id_from != -1 && learnable_params_[id_from]->diff_type()
-                         != learnable_params_[param_id]->diff_type())) {
-        Type dtype = learnable_params_[id_from]->diff_type();
-        size_t count = 0U;
-        for (int i = id_from; i <= id_to; ++i) {
-          count += align_up<6>(learnable_params_[i]->count());
-        }
-        ReduceBucket(count, dtype, learnable_params_ptrs_[id_from]);
+      // Is bucket big enough? Done with iteration? Type changed?
+      int cnt = 0;
+      int id_from = -1, id_to = -1;
+      size_t received_count = received_contiguous_count(top, au_ids, id_from, id_to, cnt);
+      if (received_count >= bucket_space_count || param_id == END_OF_ITERATION) {
+        ReduceBucket(received_count, learnable_params_[id_from]->diff_type(),
+            learnable_params_ptrs_[id_from]);
 
         for (int i : au_ids) {
           // TODO fuse this with ComputeUpdateValue
@@ -842,22 +869,11 @@ void Net::ReduceAndUpdate() {
           }
           solver_->ApplyUpdate(i, handle, clear_grads);
         }
-        au_ids.clear();
-
-        if (param_id != END_OF_ITERATION) {
-          id_from = id_to = param_id;
-          received_count = (size_t) align_up<6>(learnable_params_[param_id]->count());
-          au_ids.emplace_back(param_id);
-        }
-      } else if (param_id != END_OF_ITERATION) {
-        if (id_from == -1 || param_id < id_from) {
-          id_from = param_id;
-        }
-        if (id_to == -1 || param_id > id_to) {
-          id_to = param_id;
-        }
-        received_count += align_up<6>(learnable_params_[param_id]->count());
-        au_ids.emplace_back(param_id);
+        au_ids.erase(au_ids.find(id_from), au_ids.end());
+        top = id_from - 1;
+      }
+      if (param_id != END_OF_ITERATION) {
+        au_ids.emplace(param_id);
       }
     }
 #endif
@@ -865,9 +881,8 @@ void Net::ReduceAndUpdate() {
     if (param_id == END_OF_ITERATION) {
 #ifndef CPU_ONLY
       CUDA_CHECK(cudaStreamSynchronize(stream));
-      received_count = 0U;
-      id_from = id_to = -1;
       au_ids.clear();
+      top = (int)learnable_params_.size() - 1;
 #endif
       solver_->iteration_complete_signal();
     }
@@ -1363,6 +1378,9 @@ void Net::InitializeLearnableDiffSpace() {
   for (int i = 0; i < layers_.size(); ++i) {
     for (int j = 0; j < layers_[i]->blobs().size(); ++j) {
       if (layers_[i]->skip_apply_update(j)) {
+        DLOG(INFO) << print_current_device()
+                   << "** Skipping non-learnable blob from " << layers_[i]->name()
+                   << " of type " << layers_[i]->type();
         continue;
       }
       const int lip = layer_index_params_[make_pair(i, j)];
