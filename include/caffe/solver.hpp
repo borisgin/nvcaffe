@@ -156,7 +156,7 @@ class Solver {
   virtual void RestoreSolverStateFromHDF5(const string& state_file) = 0;
   virtual void RestoreSolverStateFromBinaryProto(const string& state_file) = 0;
   void UpdateSmoothedLoss(float loss, int start_iter, int average_loss);
-  void Reduce(int device, Caffe::Brew mode, uint64_t rand_seed,
+  void Reduce(Callback* callback, int device, Caffe::Brew mode, uint64_t rand_seed,
       int solver_count, bool root_solver);
 
   void callback_soft_barrier() {
@@ -195,8 +195,8 @@ class Solver {
   Flag init_flag_, iter0_flag_;
 
   // Timing information
-  Timer iteration_timer_;
-  Timer test_timer_;
+  shared_ptr<Timer> iteration_timer_;
+  shared_ptr<Timer> test_timer_;
   int iterations_last_;
   int iterations_restored_;
 

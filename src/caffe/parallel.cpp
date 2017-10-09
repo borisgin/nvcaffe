@@ -87,6 +87,9 @@ void P2PManager::EarlyCancel(P2PSync* killed) {
       syncs_[i]->StopInternalThread();
     }
   }
+#ifndef CPU_ONLY
+  GPUMemory::Finalize();
+#endif
 }
 
 P2PSync::P2PSync(P2PManager* mgr, shared_ptr<Solver> root_solver,
@@ -110,29 +113,11 @@ P2PSync::P2PSync(P2PManager* mgr, shared_ptr<Solver> root_solver,
 #endif
 }
 
-void P2PSync::init_streams() {
-#ifndef CPU_ONLY
-  if (!comm_stream_) {
-    comm_stream_ = CudaStream::create(true);
-  }
-  if (cublas_handle_ != nullptr) {
-    CUBLAS_CHECK(cublasDestroy(cublas_handle_));
-  }
-  CUBLAS_CHECK(cublasCreate(&cublas_handle_));
-  CUBLAS_CHECK(cublasSetStream(cublas_handle_, comm_stream_->get()));
-#else
-  NO_GPU;
-#endif
-}
-
 P2PSync::~P2PSync() {
 #ifndef CPU_ONLY
-  if (cublas_handle_ != nullptr) {
-    CUBLAS_CHECK(cublasDestroy(cublas_handle_));
-  }
 #ifdef USE_NCCL
   ncclCommDestroy(nccl_comm_);
-#endif  // USE_NCCL
+#endif
 #endif
 }
 
@@ -143,7 +128,8 @@ void P2PSync::InternalThreadEntry() {
     solver_->root_add_callback(this);
   } else {
     Caffe::set_root_solver(false);
-    solver_.reset(caffe::SolverRegistry::CreateSolver(solver_param_, rank_, root_solver_.get()));
+    solver_param_.set_device_id(rank_);
+    solver_.reset(caffe::SolverRegistry::CreateSolver(solver_param_, root_solver_.get()));
   }
   solver_->set_callback(this);
 
@@ -170,7 +156,16 @@ void P2PSync::InternalThreadEntry() {
     Caffe::set_random_seed(Caffe::SEED_NOT_SET);
   }
 
-  init_streams();
+#ifndef CPU_ONLY
+  comm_stream_ = CudaStream::create(true);
+  stream_ = Caffe::thread_pstream();
+  cublas_handle_ = Caffe::cublas_phandle();
+  // sanity check
+  cudaStream_t stream;
+  CUBLAS_CHECK(cublasGetStream(cublas_handle_->get(), &stream));
+  CHECK_EQ(stream_->get(), stream);
+#endif
+
   if (solver_->Solve()) {
     mgr_->EarlyCancel(this);
   }
@@ -228,8 +223,9 @@ void P2PSync::allreduce(int param_id) {
 void P2PSync::allreduce_bucket(int count, void* bucket, Type type) {
 #ifndef CPU_ONLY
 #ifdef USE_NCCL
-  NCCL_CHECK(ncclAllReduce(bucket, bucket, count, nccl::nccl_type(type),
-                           ncclSum, nccl_comm_, comm_stream_->get()));
+  NCCL_CHECK_ARG2(ncclAllReduce(bucket, bucket, count, nccl::nccl_type(type),
+                           ncclSum, nccl_comm_, comm_stream_->get()),
+                           Caffe::current_device(), comm_stream_->get());
   CUDA_CHECK(cudaStreamSynchronize(comm_stream_->get()));
 #endif  // USE_NCCL
 #endif  // CPU_ONLY

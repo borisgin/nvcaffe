@@ -43,7 +43,8 @@ else
   apt-get install -y --no-install-recommends \
     python3-dev \
     python3-numpy \
-    python3-skimage
+    python3-skimage \
+    python3-pil
 
   # build Protobuf3 since it's needed for Python3
   echo "Building protobuf3 from source ..."

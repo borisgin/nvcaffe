@@ -49,6 +49,16 @@ def silent_net():
     return n.to_proto()
 
 class TestNetSpec(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        super(TestNetSpec, self).setUpClass()
+        print('TestNetSpec.setUpClass')
+
+    @classmethod
+    def tearDownClass(self):
+        super(TestNetSpec, self).tearDownClass()
+        print('TestNetSpec.tearDownClass')
+
     def load_net(self, net_proto):
         f = tempfile.NamedTemporaryFile(mode='w+', delete=False)
         f.write(str(net_proto))

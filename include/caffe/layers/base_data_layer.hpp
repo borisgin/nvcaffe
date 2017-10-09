@@ -41,6 +41,8 @@ class BaseDataLayer : public Layer<Ftype, Btype> {
   void Backward_gpu(const vector<Blob*>& top, const vector<bool>& propagate_down,
       const vector<Blob*>& bottom) override {}
 
+  virtual bool is_gpu_transform() const { return false; }
+
  protected:
   TransformationParameter transform_param_;
   bool output_labels_;
@@ -106,6 +108,14 @@ class BasePrefetchingDataLayer : public BaseDataLayer<Ftype, Btype>, public Inte
 
   DataTransformer<Ftype>* dt(int id) {
     return data_transformers_.at(id).get();
+  }
+
+  bool is_gpu_transform() const override {
+    // If user omitted this setting we deduce it from Ftype
+    const bool use_gpu = this->transform_param_.use_gpu_transform();
+    const bool use_rand_resize = this->transform_param_.has_img_rand_resize_lower() ||
+        this->transform_param_.has_img_rand_resize_upper();
+    return use_gpu && Caffe::mode() == Caffe::GPU && !use_rand_resize;
   }
 
  protected:

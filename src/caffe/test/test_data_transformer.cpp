@@ -360,6 +360,7 @@ class VarSzTransformsTest : public ::testing::Test {
     DataTransformer<Dtype> transformer(transform_param, TEST);
     Caffe::set_random_seed(seed_);
     transformer.InitRand();
+
     shared_ptr<Datum> transformed_datum = make_shared<Datum>(*datum);
     transformer.VariableSizedTransforms(transformed_datum.get());
     EXPECT_EQ(transformed_datum->channels(), 3);

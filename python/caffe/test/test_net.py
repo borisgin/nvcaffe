@@ -35,6 +35,16 @@ def simple_net_file(num_output):
 
 
 class TestNet(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        super(TestNet, self).setUpClass()
+        print('TestNet.setUpClass')
+
+    @classmethod
+    def tearDownClass(self):
+        super(TestNet, self).tearDownClass()
+        print('TestNet.tearDownClass')
+
     def setUp(self):
         self.num_output = 13
         net_file = simple_net_file(self.num_output)

@@ -9,9 +9,7 @@
 #include "caffe/layer.hpp"
 #include "caffe/net.hpp"
 #include "caffe/parallel.hpp"
-#include "caffe/proto/caffe.pb.h"
 #include "caffe/util/hdf5.hpp"
-#include "caffe/util/gpu_memory.hpp"
 #include "caffe/util/insert_splits.hpp"
 #include "caffe/util/math_functions.hpp"
 #include "caffe/util/upgrade_proto.hpp"
@@ -21,7 +19,7 @@
 namespace caffe {
 
 constexpr int Net::END_OF_ITERATION;
-constexpr int Net::END_OF_BATCH;
+constexpr int Net::END_OF_TRAIN;
 
 Net::Net(const NetParameter& param,
     size_t solver_rank,
@@ -54,6 +52,9 @@ Net::Net(const string& param_file,
 }
 
 Net::~Net() {
+#ifndef CPU_ONLY
+  learnable_space_.release();
+#endif
 }
 
 void Net::Init(const NetParameter& in_param) {
@@ -752,26 +753,58 @@ void Net::BackwardFromToAu(int start, int end, bool apply_update) {
 }
 
 void Net::Finalize() {
-  reduction_queue_.push(END_OF_BATCH);
+  reduction_queue_.push(END_OF_TRAIN);
 }
+
+#ifndef CPU_ONLY
+size_t Net::received_contiguous_count(int top, const std::set<int>& au_ids,
+    int& from, int& to, int& cnt) {
+  if (learnable_params_.empty() || au_ids.empty()) {
+    return 0;
+  }
+  size_t ret = 0;
+  const int bottom = *au_ids.begin();
+  from = to = -1;
+  cnt = 0;
+  int gap = 1;
+  for (int i = top; i >= bottom; --i) {
+    if (learnable_params_ptrs_[i] == nullptr) {  // skipped blob (like 3rd in BN)
+      ++gap;
+      continue;
+    }
+    if (au_ids.find(i) != au_ids.end()) {
+      if (to < 0 || from < 0) {
+        from = to = i;
+      } else if (i + gap == from) {
+        if (learnable_params_[i]->diff_type() != learnable_params_[from]->diff_type()) {
+          break;
+        }
+        from = i;
+      } else {
+        continue;
+      }
+      ++cnt;
+      gap = 1;
+      ret += align_up<6>(learnable_params_[from]->count());
+    } else {
+      break;
+    }
+  }
+  return ret;
+}
+#endif
 
 void Net::ReduceAndUpdate() {
 #ifndef CPU_ONLY
-  cublasHandle_t handle = nullptr;
-  if (Caffe::solver_count() > 1) {
-    handle = solver_->callback()->cublas_handle();
-  } else {
-    handle = Caffe::cublas_handle();
-  }
+  shared_ptr<CuBLASHandle> cublas_phandle = Caffe::cublas_phandle();
+  cublasHandle_t handle = cublas_phandle->get();
 #else
   void* handle = nullptr;
 #endif
 
-#ifndef CPU_ONLY
-  cudaStream_t stream;
-  CUBLAS_CHECK(cublasGetStream(handle, &stream));
   int max_params_per_bucket = 0;
   size_t bucket_space_count = 0UL;
+  int top = (int)learnable_params_.size() - 1;
   if (Caffe::solver_count() > 1) {
     CHECK_GT(reduce_buckets_, 0);
     max_params_per_bucket = (int) (learnable_params_.size() + 1UL) / (int) reduce_buckets_;
@@ -782,25 +815,17 @@ void Net::ReduceAndUpdate() {
         size_t((float)(learnable_space_count_ + 1UL) /
             learnable_params_ptrs_.size() * max_params_per_bucket);
   }
-  int id_from = -1, id_to = -1;
-  size_t received_count = 0U;
-  std::list<int> au_ids;
-#endif
+  std::set<int> au_ids;
+
   const bool clear_grads = !solver_->param().snapshot_diff();
   while (true) {
-    int param_id = reduction_queue_.pop();
+    const int param_id = reduction_queue_.pop();
     SolverAction::Enum request = solver_->GetRequestedAction();
     if (SolverAction::STOP == request) {
-#ifndef CPU_ONLY
-      CUDA_CHECK(cudaStreamSynchronize(stream));
-#endif
       solver_->request_early_exit();
       break;
     }
-    if (param_id == END_OF_BATCH) {
-#ifndef CPU_ONLY
-      CUDA_CHECK(cudaStreamSynchronize(stream));
-#endif
+    if (param_id == END_OF_TRAIN) {
       break;
     }
     if (param_id != END_OF_ITERATION) {
@@ -808,70 +833,42 @@ void Net::ReduceAndUpdate() {
 #ifndef CPU_ONLY
         if (max_params_per_bucket == 1) {
           Reduce(param_id);
+          solver_->ApplyUpdate(param_id, handle, clear_grads);
+          continue;
         }
 #else
         NO_GPU;
 #endif
       } else {
-        if (global_grad_scale_ != 1.F) {  // FIXME fuse this
-          this->learnable_params()[param_id]->scale_diff(1.F / global_grad_scale_, handle);
-        }
+        this->learnable_params()[param_id]->scale_diff(1.F / global_grad_scale_, handle);
         solver_->ApplyUpdate(param_id, handle, clear_grads);
         continue;
       }
     }
-
 #ifndef CPU_ONLY
-    if (learnable_params_.size() > 0 && Caffe::solver_count() > 1) {
-      // Is bucket big enough? Done with iteration? Next param_id doesn't fit?
-      // Type changed?
-      if (received_count >= bucket_space_count ||
-          (param_id == END_OF_ITERATION && id_from != -1) || // leftovers
-          (id_from != -1 && param_id < id_from - 1) ||
-          (id_to != -1 && param_id > id_to + 1) ||
-          (id_from != -1 && learnable_params_[id_from]->diff_type()
-                         != learnable_params_[param_id]->diff_type())) {
-        Type dtype = learnable_params_[id_from]->diff_type();
-        size_t count = 0U;
-        for (int i = id_from; i <= id_to; ++i) {
-          count += align_up<6>(learnable_params_[i]->count());
-        }
-        ReduceBucket(count, dtype, learnable_params_ptrs_[id_from]);
+    if (!learnable_params_.empty() && Caffe::solver_count() > 1) {
+      int cnt = 0;
+      int id_from = -1, id_to = -1;
+      // Is bucket big enough? Done with iteration? Type changed?
+      size_t received_count = received_contiguous_count(top, au_ids, id_from, id_to, cnt);
+      if (received_count >= bucket_space_count || param_id == END_OF_ITERATION) {
+        ReduceBucket(received_count, learnable_params_[id_from]->diff_type(),
+            learnable_params_ptrs_[id_from]);
 
         for (int i : au_ids) {
-          // TODO fuse this with ComputeUpdateValue
-          if (global_grad_scale_ != 1.F) {
-            this->learnable_params()[i]->scale_diff(1.F / global_grad_scale_, handle);
-          }
           solver_->ApplyUpdate(i, handle, clear_grads);
         }
-        au_ids.clear();
-
-        if (param_id != END_OF_ITERATION) {
-          id_from = id_to = param_id;
-          received_count = (size_t) align_up<6>(learnable_params_[param_id]->count());
-          au_ids.emplace_back(param_id);
-        }
-      } else if (param_id != END_OF_ITERATION) {
-        if (id_from == -1 || param_id < id_from) {
-          id_from = param_id;
-        }
-        if (id_to == -1 || param_id > id_to) {
-          id_to = param_id;
-        }
-        received_count += align_up<6>(learnable_params_[param_id]->count());
-        au_ids.emplace_back(param_id);
+        au_ids.erase(au_ids.find(id_from), au_ids.end());
+        top = id_from - 1;
+      }
+      if (param_id != END_OF_ITERATION) {
+        au_ids.emplace(param_id);
       }
     }
 #endif
-
     if (param_id == END_OF_ITERATION) {
-#ifndef CPU_ONLY
-      CUDA_CHECK(cudaStreamSynchronize(stream));
-      received_count = 0U;
-      id_from = id_to = -1;
       au_ids.clear();
-#endif
+      top = (int)learnable_params_.size() - 1;
       solver_->iteration_complete_signal();
     }
   }
@@ -880,18 +877,19 @@ void Net::ReduceAndUpdate() {
 
 #ifndef CPU_ONLY
 void Net::Reduce(int param_id) {
-  solver_->callback()->reduce_barrier();
+  Solver::Callback* cb = solver_->callback();
+  cb->reduce_barrier();
   {
     unique_ptr<unique_lock<shared_mutex>> lock;
     if (solver_->is_root()) {
       lock.reset(new unique_lock<shared_mutex>(GPUMemory::read_write_mutex()));
     }
-    solver_->callback()->reduce_barrier();
-    solver_->callback()->allreduce(param_id);
-    solver_->callback()->reduce_barrier();
+    cb->reduce_barrier();
+    cb->allreduce(param_id);
+    cb->reduce_barrier();
   }
-  this->learnable_params()[param_id]->gpu_scale_diff(1.F / Caffe::solver_count(),
-      solver_->callback()->cublas_handle());
+  this->learnable_params()[param_id]->scale_diff(1.F / (Caffe::solver_count() * global_grad_scale_),
+      Caffe::cublas_handle());
   // Also need to barrier to make sure lock isn't undone
   // until all have completed, but the current nature of
   // NCCL makes this unnecessary.
@@ -899,18 +897,19 @@ void Net::Reduce(int param_id) {
 }
 
 void Net::ReduceBucket(size_t count, Type bucket_type, void* bucket) {
-  solver_->callback()->reduce_barrier();
+  Solver::Callback* cb = solver_->callback();
+  cb->reduce_barrier();
   {
     unique_ptr<unique_lock<shared_mutex>> lock;
     if (solver_->is_root()) {
       lock.reset(new unique_lock<shared_mutex>(GPUMemory::read_write_mutex()));
     }
-    solver_->callback()->reduce_barrier();
-    solver_->callback()->allreduce_bucket(count, bucket, bucket_type);
-    solver_->callback()->reduce_barrier();
+    cb->reduce_barrier();
+    cb->allreduce_bucket(count, bucket, bucket_type);
+    cb->reduce_barrier();
   }
-  Tensor::gpu_scal(count, bucket_type, bucket, 1.F / Caffe::solver_count(),
-      solver_->callback()->cublas_handle());
+  Tensor::gpu_scal(count, bucket_type, bucket, 1.F / (Caffe::solver_count() * global_grad_scale_),
+      Caffe::cublas_handle());
 }
 #endif
 
@@ -1364,6 +1363,9 @@ void Net::InitializeLearnableDiffSpace() {
   for (int i = 0; i < layers_.size(); ++i) {
     for (int j = 0; j < layers_[i]->blobs().size(); ++j) {
       if (layers_[i]->skip_apply_update(j)) {
+        DLOG(INFO) << print_current_device()
+                   << "** Skipping non-learnable blob from " << layers_[i]->name()
+                   << " of type " << layers_[i]->type();
         continue;
       }
       const int lip = layer_index_params_[make_pair(i, j)];

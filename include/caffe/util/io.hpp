@@ -201,13 +201,13 @@ void TBlobDataToCVMat(const TBlob<Dtype>& blob, cv::Mat& img) {
   CHECK_GT(blob_channels, 0);
   CHECK_GT(blob_height, 0);
   CHECK_GT(blob_width, 0);
-  img.create(blob_height, blob_width, CVFC<Dtype>(blob_channels));
+  img.create(blob_height, blob_width, CVFC<float>(blob_channels));
   CHECK_EQ(img.channels(), blob_channels);
   CHECK_EQ(img.rows, blob_height);
   CHECK_EQ(img.cols, blob_width);
   const float* blob_buf = blob.cpu_data();
   // CHW -> HWC
-  chw2hwc(blob_channels, blob_width, blob_height, blob_buf, img.ptr<Dtype>(0));
+  chw2hwc(blob_channels, blob_width, blob_height, blob_buf, img.ptr<float>(0));
 }
 
 template<typename Dtype>
@@ -225,7 +225,7 @@ vector<int> DatumToCVMat(const Datum& datum, cv::Mat& img, bool shape_only) {
   CHECK_GT(datum_channels, 0);
   CHECK_GT(datum_height, 0);
   CHECK_GT(datum_width, 0);
-  img.create(datum_height, datum_width, CVFC<Dtype>(datum_channels));
+  img.create(datum_height, datum_width, CVFC<float>(datum_channels));
   CHECK_EQ(img.channels(), datum_channels);
   CHECK_EQ(img.rows, datum_height);
   CHECK_EQ(img.cols, datum_width);
@@ -233,7 +233,7 @@ vector<int> DatumToCVMat(const Datum& datum, cv::Mat& img, bool shape_only) {
   CHECK_EQ(datum_buf.size(), datum_size);
   // CHW -> HWC
   chw2hwc(datum_channels, datum_width, datum_height,
-      reinterpret_cast<const unsigned char*>(&datum_buf.front()), img.ptr<Dtype>(0));
+      reinterpret_cast<const unsigned char*>(&datum_buf.front()), img.ptr<float>(0));
   return vector<int>{1, datum_channels, datum_height, datum_width};
 }
 

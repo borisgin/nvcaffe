@@ -1,6 +1,7 @@
 #include "caffe/data_transformer.hpp"
 #include "caffe/layer.hpp"
 #include "caffe/layers/data_layer.hpp"
+#include "caffe/util/io.hpp"
 #include "caffe/parallel.hpp"
 
 namespace caffe {
@@ -12,7 +13,7 @@ DataLayer<Ftype, Btype>::DataLayer(const LayerParameter& param)
     shuffle_(param.data_param().shuffle()) {
   sample_only_.store(this->auto_mode_ && this->phase_ == TRAIN);
   init_offsets();
-  train_data_encoded_ = false;
+  datum_encoded_ = false;
 }
 
 template<typename Ftype, typename Btype>
@@ -22,10 +23,18 @@ DataLayer<Ftype, Btype>::init_offsets() {
   CHECK_LE(parser_offsets_.size(), this->transf_num_);
   CHECK_LE(queue_ids_.size(), this->transf_num_);
   parser_offsets_.resize(this->transf_num_);
+  random_vectors_.resize(this->transf_num_);
   queue_ids_.resize(this->transf_num_);
+#ifndef CPU_ONLY
+  tmp_batch_holder_.resize(this->transf_num_);
+#endif
   for (size_t i = 0; i < this->transf_num_; ++i) {
     parser_offsets_[i] = 0;
+    random_vectors_[i] = make_shared<TBlob<unsigned int>>();
     queue_ids_[i] = i * this->parsers_num_;
+#ifndef CPU_ONLY
+    tmp_batch_holder_[i] = make_shared<GPUMemory::Workspace>();
+#endif
   }
 }
 
@@ -53,23 +62,20 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
     size_t current_transf_num = this->threads_num();
 #ifndef CPU_ONLY
     const size_t batch_bytes = this->prefetch_[0]->bytes();
-    size_t gpu_bytes, total_memory;
-    GPUMemory::GetInfo(&gpu_bytes, &total_memory, true);
-    gpu_bytes = Caffe::min_avail_device_memory();
+    size_t gpu_bytes = Caffe::min_avail_device_memory();
     size_t batches_fit = gpu_bytes / batch_bytes;
 #else
     size_t batches_fit = this->queues_num_;
 #endif
     size_t max_parsers_num = 2;
-    size_t max_transf_num = train_data_encoded_ ? 4 : 3;
-    float ratio = train_data_encoded_ ? 3.F : 5.F;
+    const size_t max_transf_num = 4;
+    float ratio = datum_encoded_ ? 3.F : 4.F;
     Net* pnet = this->parent_net();
     if (pnet != nullptr) {
       Solver* psolver = pnet->parent_solver();
       if (psolver != nullptr) {
         if (pnet->layers().size() < 100) {
-          max_transf_num = 4;
-          ratio = 2.F; // 1:2 for "i/o bound", 1:5 or 1:3 otherwise
+          ratio = 2.F; // 1:2 for "i/o bound", 1:4 or 1:3 otherwise
         }
       }
     }
@@ -123,6 +129,7 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
   std::lock_guard<std::mutex> lock(mutex_setup_);
   const LayerParameter& param = this->layer_param();
   const int batch_size = param.data_param().batch_size();
+  const bool use_gpu_transform = this->is_gpu_transform();
   const bool cache = cache_ && this->phase_ == TRAIN;
   const bool shuffle = cache && shuffle_ && this->phase_ == TRAIN;
 
@@ -165,7 +172,7 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
   }
   // Read a data point, and use it to initialize the top blob.
   shared_ptr<Datum> sample_datum = sample_only_ ? sample_reader_->sample() : reader_->sample();
-  train_data_encoded_ = sample_datum->encoded();
+  datum_encoded_ = sample_datum->encoded();
   init_offsets();
 
   // Reshape top[0] and prefetch_data according to the batch_size.
@@ -183,6 +190,9 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
       << top_shape[3];
   for (int i = 0; i < this->prefetch_.size(); ++i) {
     this->prefetch_[i]->data_->Reshape(top_shape);
+  }
+  if (use_gpu_transform) {
+    LOG(INFO) << this->print_current_device() << " Transform on GPU enabled";
   }
   // label
   vector<int> label_shape(1, batch_size);
@@ -211,13 +221,50 @@ void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, siz
   DataReader* reader = sample_only ? sample_reader_.get() : reader_.get();
   shared_ptr<Datum> init_datum = reader->full_peek(qid);
   CHECK(init_datum);
-
+  const bool use_gpu_transform = this->is_gpu_transform();
   // Use data_transformer to infer the expected blob shape from datum.
   vector<int> top_shape = this->dt(thread_id)->Transform(init_datum.get(), nullptr, 0);
   // Reshape batch according to the batch_size.
   top_shape[0] = batch_size;
   batch->data_->Reshape(top_shape);
-  Ftype* top_data = batch->data_->mutable_cpu_data();
+#ifndef CPU_ONLY
+  int init_datum_height = init_datum->height();
+  int init_datum_width = init_datum->width();
+  const int color_mode = this->transform_param_.force_color() ?
+                         1 : (this->transform_param_.force_gray() ? -1 : 0);
+  size_t datum_sizeof_element = 0UL;
+  int datum_len = 0;
+  cudaStream_t stream = Caffe::thread_stream();
+  unsigned char *gptr = nullptr;
+  cv::Mat img;
+  if (use_gpu_transform) {
+    if (init_datum->encoded()) {
+      DecodeDatumToCVMat(*init_datum, color_mode, img, false, false);
+      datum_len = img.channels() * img.rows * img.cols;
+      datum_sizeof_element = sizeof(uint8_t);
+      init_datum_height = img.rows;
+      init_datum_width = img.cols;
+    } else {
+      datum_len = init_datum->channels() * init_datum->height() * init_datum->width();
+      CHECK_GT(datum_len, 0);
+      const string &datum_data = init_datum->data();
+      if (datum_data.size() > 0) {
+        CHECK_LE(sizeof(uint8_t), sizeof(Ftype));
+        CHECK_EQ(datum_len, datum_data.size());
+        datum_sizeof_element = sizeof(uint8_t);
+      } else {
+        CHECK_LE(sizeof(float), sizeof(Ftype));
+        datum_sizeof_element = sizeof(float);
+      }
+    }
+    tmp_batch_holder_[thread_id]->safe_reserve(batch_size * datum_sizeof_element * datum_len);
+    gptr = static_cast<unsigned char*>(tmp_batch_holder_[thread_id]->data());
+    vector<int> random_vec_shape(1, batch_size * 3);
+    random_vectors_[thread_id]->Reshape(random_vec_shape);
+  }
+#endif
+
+  Ftype* top_data = use_gpu_transform ? nullptr : batch->data_->mutable_cpu_data(false);
   Ftype* top_label = nullptr;
   if (this->output_labels_) {
     batch->label_->Reshape(vector<int>(1, batch_size));
@@ -225,6 +272,7 @@ void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, siz
   }
   size_t current_batch_id = 0UL;
   const size_t buf_len = batch->data_->offset(1);
+  Datum buf_datum;
   for (size_t entry = 0; entry < batch_size; ++entry) {
     shared_ptr<Datum> datum = reader->full_pop(qid, "Waiting for datum");
     size_t item_id = datum->record_id() % batch_size;
@@ -235,20 +283,59 @@ void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, siz
     if (top_label != nullptr) {
       top_label[item_id] = datum->label();
     }
-    // Get data offset for this datum to hand off to transform thread
-    const size_t offset = batch->data_->offset(item_id);
-    Ftype* ptr = top_data + offset;
 
-    vector<int> shape = this->dt(thread_id)->Transform(datum.get(), ptr, buf_len);
-    CHECK_EQ(top_shape[1], shape[1]) << "Number of channels can't vary in the same batch";
-    CHECK_EQ(top_shape[2], shape[2]) << "Image height can't vary in the same batch";
-    CHECK_EQ(top_shape[3], shape[3]) << "Image width can't vary in the same batch";
+    if (use_gpu_transform) {
+#ifndef CPU_ONLY
+      Datum& rdatum = *datum;
+      if (datum->encoded()) {
+        DecodeDatumToCVMat(*datum, color_mode, img, false, false);
+        CVMatToDatum(img, buf_datum);
+        rdatum = buf_datum;
+      }
+      CHECK_EQ(datum_len, rdatum.channels() * rdatum.height() * rdatum.width())
+        << "Datum size can't vary in the same batch";
+      const void *src_ptr = rdatum.data().size() > 0 ?
+                            static_cast<const void *>(&rdatum.data().front()) :
+                            static_cast<const void *>(&rdatum.float_data().Get(0));
+      CUDA_CHECK(cudaMemcpyAsync(gptr + item_id * datum_len * datum_sizeof_element,
+          src_ptr, datum_len * datum_sizeof_element, cudaMemcpyHostToDevice, stream));
+      this->dt(thread_id)->Fill3Randoms(&random_vectors_[thread_id]->
+          mutable_cpu_data()[item_id * 3]);
+      CUDA_CHECK(cudaStreamSynchronize(stream));
+#else
+      NO_GPU;
+#endif
+    } else {
+      // Get data offset for this datum to hand off to transform thread
+      const size_t offset = batch->data_->offset(item_id);
+      Ftype *ptr = top_data + offset;
+      vector<int> shape = this->dt(thread_id)->Transform(datum.get(), ptr, buf_len);
+      CHECK_EQ(top_shape[1], shape[1]) << "Number of channels can't vary in the same batch";
+      CHECK_EQ(top_shape[2], shape[2]) << "Image height can't vary in the same batch";
+      CHECK_EQ(top_shape[3], shape[3]) << "Image width can't vary in the same batch";
+    }
     reader->free_push(qid, datum);
+  }
+
+  if (use_gpu_transform) {
+#ifndef CPU_ONLY
+    this->dt(thread_id)->TransformGPU(top_shape[0], top_shape[1],
+        init_datum_height,  // non-crop
+        init_datum_width,  // non-crop
+        datum_sizeof_element,
+        gptr,
+        batch->data_->template mutable_gpu_data<Ftype>(false),
+        random_vectors_[thread_id]->gpu_data());
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+#else
+    NO_GPU;
+#endif
   }
   batch->set_id(current_batch_id);
   sample_only_.store(false);
 }
 
-INSTANTIATE_CLASS_CPU_FB(DataLayer);
+INSTANTIATE_CLASS_FB(DataLayer);
+REGISTER_LAYER_CLASS(Data);
 
 }  // namespace caffe

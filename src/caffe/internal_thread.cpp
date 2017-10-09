@@ -66,22 +66,25 @@ void InternalThread::entry(int thread_id, int device, Caffe::Brew mode, uint64_t
   }
   rank_ = rank;
   target_device_ = device;
-  DLOG(INFO) << "Started internal thread " << std::this_thread::get_id()
-            << " on device " << device << ", rank " << rank_;
+
 #ifndef CPU_ONLY
   if (mode == Caffe::GPU) {
     CUDA_CHECK(cudaSetDevice(device));
-    if (set_cpu_affinity) {
-#ifndef NO_NVML
-      nvml::setCpuAffinity(rank);
-#endif
-    }
   }
 #endif
   Caffe::set_mode(mode);
   Caffe::set_random_seed(random_seed);
   Caffe::set_solver_count(solver_count);
 
+  DLOG(INFO) << "Started internal thread " << std::this_thread::get_id()
+            << " on device " << device << ", rank " << rank_;
+#ifndef CPU_ONLY
+  if (mode == Caffe::GPU && set_cpu_affinity) {
+#ifndef NO_NVML
+    nvml::setCpuAffinity();
+#endif
+  }
+#endif
   if (threads_.size() == 1) {
     InternalThreadEntry();
   } else {

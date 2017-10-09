@@ -233,57 +233,6 @@ TYPED_TEST(GPUMathFunctionsTest, TestAsum) {
   EXPECT_LT((gpu_asum - std_asum) / std_asum, 1e-2);
 }
 
-TYPED_TEST(GPUMathFunctionsTest, TestAmax) {
-  int n = this->blob_bottom_->count();
-  const TypeParam* x = this->blob_bottom_->cpu_data();
-  TypeParam m, std_amax = 0.;
-  int std_nnz = 0;
-  float std_asum = 0.;
-  for (int i = 0; i < n; ++i) {
-    m = std::fabs(x[i]);
-    std_asum += m;
-    if (m > std_amax) {
-      std_amax = m;
-    }
-    if (x[i] != 0) {
-      std_nnz++;
-    }
-  }
-  float gpu_amax;
-  caffe_gpu_amax(n, this->blob_bottom_->gpu_data(), &gpu_amax);
-  EXPECT_FLOAT_EQ(static_cast<float>(std_amax), static_cast<float>(gpu_amax));
-
-  // pow2 test
-  for (int j = 0; j < 22; ++j) {
-    Caffe::set_random_seed(1391);
-    TBlob<TypeParam> b;
-    b.Reshape(1 << j, 1, 1, 1);
-    FillerParameter filler_param;
-    GaussianFiller<TypeParam> filler(filler_param);
-    filler.Fill(&b);
-    n = b.count();
-    x = b.cpu_data();
-    std_amax = 0.;
-    std_asum = 0.F;
-    std_nnz = 0;
-    for (int i = 0; i < n; ++i) {
-      m = std::fabs(x[i]);
-      if (m > std_amax) {
-        std_amax = m;
-      }
-      std_asum += m;
-      if (m > std_amax) {
-        std_amax = m;
-      }
-      if (x[i] != 0) {
-        std_nnz++;
-      }
-    }
-    gpu_amax = b.amax_data();
-    EXPECT_FLOAT_EQ(static_cast<float>(std_amax), static_cast<float>(gpu_amax));
-  }
-}
-
 TYPED_TEST(GPUMathFunctionsTest, TestExtFP16) {
   if (!is_type<TypeParam>(FLOAT)) {
     return;

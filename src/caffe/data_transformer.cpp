@@ -138,7 +138,6 @@ void DataTransformer<Dtype>::TransformV1(const Datum& datum, Dtype* buf, size_t 
           data_index = (cdho + h) * datum_width + w_off;
           for (int w = 0; w < width; ++w) {
             datum_element = static_cast<unsigned char>(data[data_index]);
-            CHECK_LT(top_index, buf_len);
             if (has_mean_file) {
               buf[top_index] = datum_element - mean[data_index];
             } else {
@@ -163,7 +162,6 @@ void DataTransformer<Dtype>::TransformV1(const Datum& datum, Dtype* buf, size_t 
           data_index = (cdho + h) * datum_width + w_off;
           for (int w = 0; w < width; ++w) {
             datum_element = static_cast<unsigned char>(data[data_index]);
-            CHECK_LT(top_index, buf_len);
             if (has_mean_file) {
               buf[top_index] = (datum_element - mean[data_index]) * scale;
             } else {
@@ -189,7 +187,6 @@ void DataTransformer<Dtype>::TransformV1(const Datum& datum, Dtype* buf, size_t 
         data_index = (cdho + h) * datum_width + w_off;
         for (int w = 0; w < width; ++w) {
           datum_element = datum.float_data(data_index);
-          CHECK_LT(top_index, buf_len);
           if (has_mean_file) {
             buf[top_index] = (datum_element - mean[data_index]) * scale;
           } else {
@@ -346,7 +343,7 @@ void DataTransformer<Dtype>::apply_mean_scale_mirror(const cv::Mat& src, cv::Mat
       mean_mat_ = mean_mat_orig_;
       image_center_crop(src.cols, src.rows, mean_mat_);
       // scale & convert in place
-      mean_mat_.convertTo(mean_mat_, CVFC<Dtype>(ch), scale);
+      mean_mat_.convertTo(mean_mat_, CVFC<float>(ch), scale);
     }
   } else if (has_mean_values) {
     CHECK(mean_values_.size() == 1 || mean_values_.size() == ch)
@@ -355,21 +352,21 @@ void DataTransformer<Dtype>::apply_mean_scale_mirror(const cv::Mat& src, cv::Mat
       if (ch == 3) {
         const int i1 = mean_values_.size() == 1 ? 0 : 1;
         const int i2 = mean_values_.size() == 1 ? 0 : 2;
-        cv::Scalar_<Dtype> s(scale * mean_values_[0],
+        cv::Scalar_<float> s(scale * mean_values_[0],
             scale * mean_values_[i1], scale * mean_values_[i2]);
-        mean_mat_ = cv::Mat(src.rows, src.cols, CVFC<Dtype>(3), s);
+        mean_mat_ = cv::Mat(src.rows, src.cols, CVFC<float>(3), s);
       } else {
-        cv::Scalar_<Dtype> s(scale * mean_values_[0]);
-        mean_mat_ = cv::Mat(src.rows, src.cols, CVFC<Dtype>(1), s);
+        cv::Scalar_<float> s(scale * mean_values_[0]);
+        mean_mat_ = cv::Mat(src.rows, src.cols, CVFC<float>(1), s);
       }
     }
   }
 
   const bool do_mirror = param_.mirror() && Rand(2) > 0;
-  src.convertTo(tmp_, CVFC<Dtype>(ch), scale);  // scale & convert
+  src.convertTo(tmp_, CVFC<float>(ch), scale);  // scale & convert
   dst = tmp_;
   if (has_mean_file || has_mean_values) {
-    cv::subtract(tmp_, mean_mat_, dst, cv::noArray(), CVFC<Dtype>(ch));  // src-mean -> dst
+    cv::subtract(tmp_, mean_mat_, dst, cv::noArray(), CVFC<float>(ch));  // src-mean -> dst
     if (do_mirror) {
       tmp_ = dst;
     }
@@ -488,6 +485,18 @@ unsigned int DataTransformer<Dtype>::Rand() const {
   return static_cast<unsigned int>((*rng)());
 }
 
-INSTANTIATE_CLASS_CPU(DataTransformer);
+template<typename Dtype>
+void DataTransformer<Dtype>::Fill3Randoms(unsigned int *rand) const {
+  rand[0] = rand[1] = rand[2] = 0;
+  if (param_.mirror()) {
+    rand[0] = Rand() + 1;
+  }
+  if (phase_ == TRAIN && param_.crop_size()) {
+    rand[1] = Rand() + 1;
+    rand[2] = Rand() + 1;
+  }
+}
+
+INSTANTIATE_CLASS(DataTransformer);
 
 }  // namespace caffe

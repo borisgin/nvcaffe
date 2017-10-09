@@ -4,6 +4,15 @@ import unittest
 import caffe
 
 class TestBlobProtoToArray(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        super(TestBlobProtoToArray, self).setUpClass()
+        print('TestBlobProtoToArray.setUpClass')
+
+    @classmethod
+    def tearDownClass(self):
+        super(TestBlobProtoToArray, self).tearDownClass()
+        print('TestBlobProtoToArray.tearDownClass')
 
     def test_old_format(self):
         data = np.zeros((10,10))
@@ -42,6 +51,15 @@ class TestBlobProtoToArray(unittest.TestCase):
 
 
 class TestArrayToDatum(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        super(TestArrayToDatum, self).setUpClass()
+        print('TestArrayToDatum.setUpClass')
+
+    @classmethod
+    def tearDownClass(self):
+        super(TestArrayToDatum, self).tearDownClass()
+        print('TestArrayToDatum.tearDownClass')
 
     def test_label_none_size(self):
         # Set label
