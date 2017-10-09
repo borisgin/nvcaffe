@@ -27,8 +27,8 @@ class SyncedMemory {
   const void* gpu_data();
   void set_cpu_data(void* data);
   void set_gpu_data(void* data);
-  void* mutable_cpu_data();
-  void* mutable_gpu_data();
+  void* mutable_cpu_data(bool copy_from_gpu = true);
+  void* mutable_gpu_data(bool copy_from_cpu = true);
 
   enum SyncedHead { UNINITIALIZED, HEAD_AT_CPU, HEAD_AT_GPU, SYNCED };
 
@@ -62,8 +62,8 @@ class SyncedMemory {
   void FreeHost(void* ptr, bool use_cuda);
 
  private:
-  void to_cpu();
-  void to_gpu();
+  void to_cpu(bool copy_from_gpu = true);
+  void to_gpu(bool copy_from_cpu = true);
 
   void* cpu_ptr_;
   void* gpu_ptr_;

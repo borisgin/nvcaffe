@@ -816,7 +816,7 @@ void Net::ReduceAndUpdate() {
 
   const bool clear_grads = !solver_->param().snapshot_diff();
   while (true) {
-    int param_id = reduction_queue_.pop();
+    const int param_id = reduction_queue_.pop();
     SolverAction::Enum request = solver_->GetRequestedAction();
     if (SolverAction::STOP == request) {
       solver_->request_early_exit();
@@ -830,6 +830,8 @@ void Net::ReduceAndUpdate() {
 #ifndef CPU_ONLY
         if (max_params_per_bucket == 1) {
           Reduce(param_id);
+          solver_->ApplyUpdate(param_id, handle, clear_grads);
+          continue;
         }
 #else
         NO_GPU;

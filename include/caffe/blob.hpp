@@ -334,15 +334,15 @@ class Blob {
   }
 
   template<typename Dtype>
-  Dtype* mutable_cpu_data() {
+  Dtype* mutable_cpu_data(bool copy_from_gpu = true) {
     convert_data(tp<Dtype>());
-    return static_cast<Dtype*>(data_tensor_->mutable_synced_mem()->mutable_cpu_data());
+    return static_cast<Dtype*>(data_tensor_->mutable_synced_mem()->mutable_cpu_data(copy_from_gpu));
   }
 
   template<typename Dtype>
-  Dtype* mutable_cpu_diff() {
+  Dtype* mutable_cpu_diff(bool copy_from_gpu = true) {
     convert_diff(tp<Dtype>());
-    return static_cast<Dtype*>(diff_tensor_->mutable_synced_mem()->mutable_cpu_data());
+    return static_cast<Dtype*>(diff_tensor_->mutable_synced_mem()->mutable_cpu_data(copy_from_gpu));
   }
 
   // Element-wise accessor. Might be slow due to syncing from GPU to CPU.
@@ -477,15 +477,15 @@ class Blob {
   }
 
   template<typename Dtype>
-  Dtype* mutable_gpu_data() {
+  Dtype* mutable_gpu_data(bool copy_from_cpu = true) {
     convert_data(tp<Dtype>());
-    return static_cast<Dtype*>(data_tensor_->mutable_synced_mem()->mutable_gpu_data());
+    return static_cast<Dtype*>(data_tensor_->mutable_synced_mem()->mutable_gpu_data(copy_from_cpu));
   }
 
   template<typename Dtype>
-  Dtype* mutable_gpu_diff() {
+  Dtype* mutable_gpu_diff(bool copy_from_cpu = true) {
     convert_diff(tp<Dtype>());
-    return static_cast<Dtype*>(diff_tensor_->mutable_synced_mem()->mutable_gpu_data());
+    return static_cast<Dtype*>(diff_tensor_->mutable_synced_mem()->mutable_gpu_data(copy_from_cpu));
   }
 
   void async_gpu_push() {
@@ -605,15 +605,15 @@ class TBlob : public Blob {
   }
 
   template<typename T = Dtype>
-  T* mutable_cpu_data() {
+  T* mutable_cpu_data(bool copy_from_gpu = true) {
     check_integrity(true, data_type(), tp<T>());
-    return Blob::mutable_cpu_data<T>();
+    return Blob::mutable_cpu_data<T>(copy_from_gpu);
   }
 
   template<typename T = Dtype>
-  T* mutable_cpu_diff() {
+  T* mutable_cpu_diff(bool copy_from_gpu = true) {
     check_integrity(false, diff_type(), tp<T>());
-    return Blob::mutable_cpu_diff<T>();
+    return Blob::mutable_cpu_diff<T>(copy_from_gpu);
   }
 
 #ifndef CPU_ONLY
@@ -630,15 +630,15 @@ class TBlob : public Blob {
   }
 
   template<typename T = Dtype>
-  T* mutable_gpu_data() {
+  T* mutable_gpu_data(bool copy_from_cpu = true) {
     check_integrity(true, data_type(), tp<T>());
-    return Blob::mutable_gpu_data<T>();
+    return Blob::mutable_gpu_data<T>(copy_from_cpu);
   }
 
   template<typename T = Dtype>
-  T* mutable_gpu_diff() {
+  T* mutable_gpu_diff(bool copy_from_cpu = true) {
     check_integrity(false, diff_type(), tp<T>());
-    return Blob::mutable_gpu_diff<T>();
+    return Blob::mutable_gpu_diff<T>(copy_from_cpu);
   }
 #endif
 

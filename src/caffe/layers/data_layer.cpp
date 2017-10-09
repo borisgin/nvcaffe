@@ -265,7 +265,7 @@ void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, siz
   }
 #endif
 
-  Ftype* top_data = batch->data_->mutable_cpu_data();
+  Ftype* top_data = use_gpu_transform ? nullptr : batch->data_->mutable_cpu_data(false);
   Ftype* top_label = nullptr;
   if (this->output_labels_) {
     batch->label_->Reshape(vector<int>(1, batch_size));
@@ -325,7 +325,7 @@ void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, siz
         init_datum_width,  // non-crop
         datum_sizeof_element,
         gptr,
-        batch->data_->template mutable_gpu_data<Ftype>(),
+        batch->data_->template mutable_gpu_data<Ftype>(false),
         random_vectors_[thread_id]->gpu_data());
     CUDA_CHECK(cudaStreamSynchronize(stream));
 #else

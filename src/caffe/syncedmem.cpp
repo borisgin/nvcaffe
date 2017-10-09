@@ -59,7 +59,7 @@ SyncedMemory::~SyncedMemory() {
 #endif  // CPU_ONLY
 }
 
-void SyncedMemory::to_cpu() {
+void SyncedMemory::to_cpu(bool copy_from_gpu) {
   switch (head_) {
     case UNINITIALIZED:
       MallocHost(&cpu_ptr_, size_, &cpu_malloc_use_cuda_);
@@ -73,8 +73,12 @@ void SyncedMemory::to_cpu() {
         MallocHost(&cpu_ptr_, size_, &cpu_malloc_use_cuda_);
         own_cpu_data_ = true;
       }
-      caffe_gpu_memcpy(size_, gpu_ptr_, cpu_ptr_);
-      head_ = SYNCED;
+      if (copy_from_gpu) {
+        caffe_gpu_memcpy(size_, gpu_ptr_, cpu_ptr_);
+        head_ = SYNCED;
+      } else {
+        head_ = HEAD_AT_CPU;
+      }
 #else
       NO_GPU;
 #endif
@@ -85,7 +89,7 @@ void SyncedMemory::to_cpu() {
   }
 }
 
-void SyncedMemory::to_gpu() {
+void SyncedMemory::to_gpu(bool copy_from_cpu) {
 #ifndef CPU_ONLY
   switch (head_) {
     case UNINITIALIZED:
@@ -101,8 +105,12 @@ void SyncedMemory::to_gpu() {
         GPUMemory::allocate(&gpu_ptr_, pstream_, size_, device_);
         own_gpu_data_ = true;
       }
-      caffe_gpu_memcpy(size_, cpu_ptr_, gpu_ptr_);
-      head_ = SYNCED;
+      if (copy_from_cpu) {
+        caffe_gpu_memcpy(size_, cpu_ptr_, gpu_ptr_);
+        head_ = SYNCED;
+      } else {
+        head_ = HEAD_AT_GPU;
+      }
       break;
     case HEAD_AT_GPU:
     case SYNCED:
@@ -152,15 +160,15 @@ void SyncedMemory::set_gpu_data(void* data) {
 #endif
 }
 
-void* SyncedMemory::mutable_cpu_data() {
-  to_cpu();
+void* SyncedMemory::mutable_cpu_data(bool copy_from_gpu) {
+  to_cpu(copy_from_gpu);
   head_ = HEAD_AT_CPU;
   return cpu_ptr_;
 }
 
-void* SyncedMemory::mutable_gpu_data() {
+void* SyncedMemory::mutable_gpu_data(bool copy_from_cpu) {
 #ifndef CPU_ONLY
-  to_gpu();
+  to_gpu(copy_from_cpu);
   head_ = HEAD_AT_GPU;
   return gpu_ptr_;
 #else
