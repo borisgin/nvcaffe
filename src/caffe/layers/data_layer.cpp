@@ -68,15 +68,14 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
     size_t batches_fit = this->queues_num_;
 #endif
     size_t max_parsers_num = 2;
-    size_t max_transf_num = datum_encoded_ ? 4 : 3;
-    float ratio = datum_encoded_ ? 3.F : 5.F;
+    const size_t max_transf_num = 4;
+    float ratio = datum_encoded_ ? 3.F : 4.F;
     Net* pnet = this->parent_net();
     if (pnet != nullptr) {
       Solver* psolver = pnet->parent_solver();
       if (psolver != nullptr) {
         if (pnet->layers().size() < 100) {
-          max_transf_num = 4;
-          ratio = 2.F; // 1:2 for "i/o bound", 1:5 or 1:3 otherwise
+          ratio = 2.F; // 1:2 for "i/o bound", 1:4 or 1:3 otherwise
         }
       }
     }
