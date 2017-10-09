@@ -756,7 +756,9 @@ void Net::Finalize() {
   reduction_queue_.push(END_OF_TRAIN);
 }
 
-size_t Net::received_contiguous_count(int top, const std::set<int>& au_ids, int& from, int& to, int& cnt) {
+#ifndef CPU_ONLY
+size_t Net::received_contiguous_count(int top, const std::set<int>& au_ids,
+    int& from, int& to, int& cnt) {
   if (learnable_params_.empty() || au_ids.empty()) {
     return 0;
   }
@@ -790,6 +792,7 @@ size_t Net::received_contiguous_count(int top, const std::set<int>& au_ids, int&
   }
   return ret;
 }
+#endif
 
 void Net::ReduceAndUpdate() {
 #ifndef CPU_ONLY

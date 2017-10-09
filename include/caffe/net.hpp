@@ -308,8 +308,9 @@ class Net {
   void Reduce(int param_id);
   /// @brief Multi-GPU reduction for a particular bucket of parameters.
   void ReduceBucket(size_t count, Type bucket_type, void* bucket);
+  size_t received_contiguous_count(int top, const std::set<int>& au_ids,
+    int& from, int& to, int& cnt);
 #endif
-  size_t received_contiguous_count(int top, const std::set<int>& au_ids, int& from, int& to, int& cnt);
 
   /// @brief The network name
   string name_;
@@ -354,12 +355,12 @@ class Net {
   vector<shared_ptr<Blob>> learnable_params_;
   bool trained_layers_shared_;
 
-#ifndef CPU_ONLY
   vector<void*> learnable_params_ptrs_;
+#ifndef CPU_ONLY
   GPUMemory::Workspace learnable_space_;
+#endif
   size_t learnable_space_count_;
   size_t reduce_buckets_;
-#endif
 
   /**
    * The mapping from params_ -> learnable_params_: we have

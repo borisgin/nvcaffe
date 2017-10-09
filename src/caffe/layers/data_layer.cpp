@@ -221,20 +221,19 @@ void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, siz
   DataReader* reader = sample_only ? sample_reader_.get() : reader_.get();
   shared_ptr<Datum> init_datum = reader->full_peek(qid);
   CHECK(init_datum);
-  int init_datum_height = init_datum->height();
-  int init_datum_width = init_datum->width();
   const bool use_gpu_transform = this->is_gpu_transform();
-  const int color_mode = this->transform_param_.force_color() ?
-                         1 : (this->transform_param_.force_gray() ? -1 : 0);
-
   // Use data_transformer to infer the expected blob shape from datum.
   vector<int> top_shape = this->dt(thread_id)->Transform(init_datum.get(), nullptr, 0);
   // Reshape batch according to the batch_size.
   top_shape[0] = batch_size;
   batch->data_->Reshape(top_shape);
+#ifndef CPU_ONLY
+  int init_datum_height = init_datum->height();
+  int init_datum_width = init_datum->width();
+  const int color_mode = this->transform_param_.force_color() ?
+                         1 : (this->transform_param_.force_gray() ? -1 : 0);
   size_t datum_sizeof_element = 0UL;
   int datum_len = 0;
-#ifndef CPU_ONLY
   cudaStream_t stream = Caffe::thread_stream();
   unsigned char *gptr = nullptr;
   cv::Mat img;

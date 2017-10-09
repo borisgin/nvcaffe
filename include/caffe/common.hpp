@@ -511,7 +511,7 @@ class Caffe {
   static std::mutex caffe_mutex_, pstream_mutex_, cublas_mutex_, cudnn_mutex_, seed_mutex_;
   shared_ptr<CudaStream> curand_stream_;
 
-private:
+ private:
   // The private constructor to avoid duplicate instantiation.
   Caffe();
 
