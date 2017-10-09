@@ -401,7 +401,7 @@ class Net {
   float global_grad_scale_;
 
   static constexpr int END_OF_ITERATION = -1;
-  static constexpr int END_OF_BATCH = -2;
+  static constexpr int END_OF_TRAIN = -2;
 
   DISABLE_COPY_MOVE_AND_ASSIGN(Net);
 };

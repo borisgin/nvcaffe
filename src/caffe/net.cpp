@@ -19,7 +19,7 @@
 namespace caffe {
 
 constexpr int Net::END_OF_ITERATION;
-constexpr int Net::END_OF_BATCH;
+constexpr int Net::END_OF_TRAIN;
 
 Net::Net(const NetParameter& param,
     size_t solver_rank,
@@ -753,7 +753,7 @@ void Net::BackwardFromToAu(int start, int end, bool apply_update) {
 }
 
 void Net::Finalize() {
-  reduction_queue_.push(END_OF_BATCH);
+  reduction_queue_.push(END_OF_TRAIN);
 }
 
 size_t Net::received_contiguous_count(int top, const std::set<int>& au_ids, int& from, int& to, int& cnt) {
@@ -799,9 +799,6 @@ void Net::ReduceAndUpdate() {
   void* handle = nullptr;
 #endif
 
-#ifndef CPU_ONLY
-  cudaStream_t stream;
-  CUBLAS_CHECK(cublasGetStream(handle, &stream));
   int max_params_per_bucket = 0;
   size_t bucket_space_count = 0UL;
   int top = (int)learnable_params_.size() - 1;
@@ -816,22 +813,16 @@ void Net::ReduceAndUpdate() {
             learnable_params_ptrs_.size() * max_params_per_bucket);
   }
   std::set<int> au_ids;
-#endif
+
   const bool clear_grads = !solver_->param().snapshot_diff();
   while (true) {
     int param_id = reduction_queue_.pop();
     SolverAction::Enum request = solver_->GetRequestedAction();
     if (SolverAction::STOP == request) {
-#ifndef CPU_ONLY
-      CUDA_CHECK(cudaStreamSynchronize(stream));
-#endif
       solver_->request_early_exit();
       break;
     }
-    if (param_id == END_OF_BATCH) {
-#ifndef CPU_ONLY
-      CUDA_CHECK(cudaStreamSynchronize(stream));
-#endif
+    if (param_id == END_OF_TRAIN) {
       break;
     }
     if (param_id != END_OF_ITERATION) {
@@ -844,29 +835,22 @@ void Net::ReduceAndUpdate() {
         NO_GPU;
 #endif
       } else {
-        if (global_grad_scale_ != 1.F) {  // FIXME fuse this
-          this->learnable_params()[param_id]->scale_diff(1.F / global_grad_scale_, handle);
-        }
+        this->learnable_params()[param_id]->scale_diff(1.F / global_grad_scale_, handle);
         solver_->ApplyUpdate(param_id, handle, clear_grads);
         continue;
       }
     }
-
 #ifndef CPU_ONLY
-    if (learnable_params_.size() > 0 && Caffe::solver_count() > 1) {
-      // Is bucket big enough? Done with iteration? Type changed?
+    if (!learnable_params_.empty() && Caffe::solver_count() > 1) {
       int cnt = 0;
       int id_from = -1, id_to = -1;
+      // Is bucket big enough? Done with iteration? Type changed?
       size_t received_count = received_contiguous_count(top, au_ids, id_from, id_to, cnt);
       if (received_count >= bucket_space_count || param_id == END_OF_ITERATION) {
         ReduceBucket(received_count, learnable_params_[id_from]->diff_type(),
             learnable_params_ptrs_[id_from]);
 
         for (int i : au_ids) {
-          // TODO fuse this with ComputeUpdateValue
-          if (global_grad_scale_ != 1.F) {
-            this->learnable_params()[i]->scale_diff(1.F / global_grad_scale_, handle);
-          }
           solver_->ApplyUpdate(i, handle, clear_grads);
         }
         au_ids.erase(au_ids.find(id_from), au_ids.end());
@@ -877,13 +861,9 @@ void Net::ReduceAndUpdate() {
       }
     }
 #endif
-
     if (param_id == END_OF_ITERATION) {
-#ifndef CPU_ONLY
-      CUDA_CHECK(cudaStreamSynchronize(stream));
       au_ids.clear();
       top = (int)learnable_params_.size() - 1;
-#endif
       solver_->iteration_complete_signal();
     }
   }
@@ -903,7 +883,7 @@ void Net::Reduce(int param_id) {
     cb->allreduce(param_id);
     cb->reduce_barrier();
   }
-  this->learnable_params()[param_id]->scale_diff(1.F / Caffe::solver_count(),
+  this->learnable_params()[param_id]->scale_diff(1.F / (Caffe::solver_count() * global_grad_scale_),
       Caffe::cublas_handle());
   // Also need to barrier to make sure lock isn't undone
   // until all have completed, but the current nature of
@@ -923,7 +903,7 @@ void Net::ReduceBucket(size_t count, Type bucket_type, void* bucket) {
     cb->allreduce_bucket(count, bucket, bucket_type);
     cb->reduce_barrier();
   }
-  Tensor::gpu_scal(count, bucket_type, bucket, 1.F / Caffe::solver_count(),
+  Tensor::gpu_scal(count, bucket_type, bucket, 1.F / (Caffe::solver_count() * global_grad_scale_),
       Caffe::cublas_handle());
 }
 #endif

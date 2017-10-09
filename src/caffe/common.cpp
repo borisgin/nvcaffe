@@ -164,7 +164,8 @@ Caffe::Caffe()
       current_device());
   CURAND_CHECK_ARG(curandSetPseudoRandomGeneratorSeed(curand_generator_, cluster_seedgen()),
       current_device());
-  CURAND_CHECK_ARG(curandSetStream(curand_generator_, pstream()->get()), current_device());
+  curand_stream_ = pstream();
+  CURAND_CHECK_ARG(curandSetStream(curand_generator_, curand_stream_->get()), current_device());
 }
 
 Caffe::~Caffe() {
