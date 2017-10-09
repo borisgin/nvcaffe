@@ -17,7 +17,7 @@ base_lr:  0.05   	# B=32
 lr_policy: "poly"
 power: 2.0
 momentum: 0.9
-weight_decay: 1e-4
+weight_decay: 0.0005 #1e-4
 
 snapshot: 2500000
 snapshot_prefix: "models/resnet50/snapshots/resnet50_fp16"
