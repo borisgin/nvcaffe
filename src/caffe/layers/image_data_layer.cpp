@@ -98,7 +98,7 @@ void ImageDataLayer<Ftype, Btype>::InitializePrefetch() {}
 
 // This function is called on prefetch thread
 template <typename Ftype, typename Btype>
-void ImageDataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, size_t queue_id) {
+void ImageDataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t queue_id) {
   CPUTimer batch_timer;
   batch_timer.Start();
   double read_time = 0;
@@ -123,8 +123,8 @@ void ImageDataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id
   vector<int> label_shape(1, batch_size);
   batch->label_->Reshape(label_shape);
 
-  Ftype* prefetch_data = batch->data_->mutable_cpu_data();
-  Ftype* prefetch_label = batch->label_->mutable_cpu_data();
+  Ftype* prefetch_data = batch->data_->mutable_cpu_data<Ftype>();
+  Ftype* prefetch_label = batch->label_->mutable_cpu_data<Ftype>();
 
   // datum scales
   const int lines_size = lines_.size();

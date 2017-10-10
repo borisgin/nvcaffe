@@ -177,9 +177,9 @@ struct GPUMemory {
   // Workspace used by all Convolution layers one after another.
   // We carry it global to prevent unnecessary allocations/deallocations
   // because they hurt performance. It's also shared between TRAIN and TESTS nets.
-  static std::unordered_map<int, shared_ptr<Workspace>> workspace_;
+  static vector<shared_ptr<Workspace>> workspace_;
   // This one is for TRAIN only:
-  static std::unordered_map<int, shared_ptr<Workspace>> weights_workspace_;
+  static vector<shared_ptr<Workspace>> weights_workspace_;
 
   static void Init();
   static void Finalize();

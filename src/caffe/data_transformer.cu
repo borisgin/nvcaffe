@@ -184,7 +184,7 @@ void transform_kernel<__half>(int N, int C,
 
 
 template <typename Dtype>
-void DataTransformer<Dtype>::TransformGPU(int N, int C, int H, int W,
+void DataTransformer::TransformGPU(int N, int C, int H, int W,
     size_t sizeof_element,
     const void *in, Dtype *out,
     const unsigned int *random_numbers) {
@@ -240,8 +240,10 @@ void DataTransformer<Dtype>::TransformGPU(int N, int C, int H, int W,
   dim3 block(16, 16);
   cudaStream_t stream = Caffe::thread_stream();
 
-  transform_kernel<Dtype>
-    <<< grid, block, 0, stream >>>(N, C, H, W,
+  // TODO clean
+  if (is_precise<Dtype>()) {
+    transform_kernel<Dtype>
+        <<< grid, block, 0, stream >>> (N, C, H, W,
         height, width,
         param_.mirror(),
         datum_height, datum_width,
@@ -252,15 +254,29 @@ void DataTransformer<Dtype>::TransformGPU(int N, int C, int H, int W,
         static_cast<int>(has_mean_file),
         static_cast<int>(has_mean_values),
         mean, random_numbers);
+  } else {
+    transform_kernel<__half>
+        <<< grid, block, 0, stream >>> (N, C, H, W,
+        height, width,
+        param_.mirror(),
+        datum_height, datum_width,
+        crop_size, phase_,
+        sizeof_element,
+        in, reinterpret_cast<__half*>(out),
+        scale,
+        static_cast<int>(has_mean_file),
+        static_cast<int>(has_mean_values),
+        mean, random_numbers);
+  }
   CUDA_POST_KERNEL_CHECK;
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
-template void DataTransformer<float>::TransformGPU(int, int, int, int,
+template void DataTransformer::TransformGPU<float>(int, int, int, int,
     size_t, const void*, float*, const unsigned int*);
-template void DataTransformer<double>::TransformGPU(int, int, int, int,
+template void DataTransformer::TransformGPU<double>(int, int, int, int,
     size_t, const void*, double*, const unsigned int*);
-template void DataTransformer<float16>::TransformGPU(int, int, int, int,
+template void DataTransformer::TransformGPU<float16>(int, int, int, int,
     size_t, const void*, float16*, const unsigned int*);
 
 }  // namespace caffe

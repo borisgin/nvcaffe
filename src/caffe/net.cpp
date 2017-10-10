@@ -118,54 +118,63 @@ void Net::Init(const NetParameter& in_param) {
     // For non-root solvers, whether this layer is shared from root_net_.
     bool share_from_root = !Caffe::root_solver()
         && root_net_->layers_[layer_id]->ShareInParallel();
-    // Inherit phase from net if unset.
-    if (!param.layer(layer_id).has_phase()) {
-      param.mutable_layer(layer_id)->set_phase(phase_);
-    }
+
+    const LayerParameter& layer_param = param.layer(layer_id);
+    LayerParameter* mutable_layer_param = param.mutable_layer(layer_id);
 
     DLOG_IF(INFO, Caffe::root_solver())
-        << "Setting types for Layer " << param.layer(layer_id).name();
+        << "Setting types for Layer " << layer_param.name();
+
+    // Inherit phase from net if unset.
+    if (!layer_param.has_phase()) {
+      mutable_layer_param->set_phase(phase_);
+    }
+    const bool is_data_layer = layer_param.has_transform_param();
 
     // Data&Math types
-    const bool fm_by_user = param.layer(layer_id).has_forward_math();
+    const bool fm_by_user = layer_param.has_forward_math();
     if (!fm_by_user) {
-      if (param.layer(layer_id).has_forward_type()) {
-        param.mutable_layer(layer_id)->set_forward_math(param.layer(layer_id).forward_type());
+      if (layer_param.has_forward_type()) {
+        mutable_layer_param->set_forward_math(layer_param.forward_type());
       } else {
-        param.mutable_layer(layer_id)->set_forward_math(default_fmath);
+        mutable_layer_param->set_forward_math(default_fmath);
       }
     }
-    const bool bm_by_user = param.layer(layer_id).has_backward_math();
+    const bool bm_by_user = layer_param.has_backward_math();
     if (!bm_by_user) {
-      if (param.layer(layer_id).has_backward_type()) {
-        param.mutable_layer(layer_id)->set_backward_math(param.layer(layer_id).backward_type());
+      if (layer_param.has_backward_type()) {
+        mutable_layer_param->set_backward_math(layer_param.backward_type());
       } else {
-        param.mutable_layer(layer_id)->set_backward_math(default_bmath);
+        mutable_layer_param->set_backward_math(default_bmath);
       }
     }
 
-    if (!param.layer(layer_id).has_forward_type()) {
-      param.mutable_layer(layer_id)->set_forward_type(in_param.default_forward_type());
+    if (!layer_param.has_forward_type()) {
+      mutable_layer_param->set_forward_type(in_param.default_forward_type());
     }
-    if (!param.layer(layer_id).has_backward_type()) {
-      param.mutable_layer(layer_id)->set_backward_type(in_param.default_backward_type());
+    if (!layer_param.has_backward_type()) {
+      if (is_data_layer) {
+        // In majority of cases we manage to avoid redundant conversion:
+        mutable_layer_param->set_backward_type(FLOAT);
+      } else {
+        mutable_layer_param->set_backward_type(in_param.default_backward_type());
+      }
     }
 
     // Convolution algorithms
-    if (param.has_default_conv_algos_override() && param.layer(layer_id).has_convolution_param() &&
-        !param.layer(layer_id).convolution_param().has_conv_algos_override()) {
-      param.mutable_layer(layer_id)->mutable_convolution_param()->
+    if (param.has_default_conv_algos_override() && layer_param.has_convolution_param() &&
+        !layer_param.convolution_param().has_conv_algos_override()) {
+      mutable_layer_param->mutable_convolution_param()->
           set_conv_algos_override(param.default_conv_algos_override());
     }
 
     // cuDNN math
     if (param.has_default_cudnn_math_override() &&
-        !param.layer(layer_id).has_cudnn_math_override()) {
-      param.mutable_layer(layer_id)->set_cudnn_math_override(param.default_cudnn_math_override());
+        !layer_param.has_cudnn_math_override()) {
+      mutable_layer_param->set_cudnn_math_override(param.default_cudnn_math_override());
     }
 
     // Setup layer.
-    const LayerParameter& layer_param = param.layer(layer_id);
     if (layer_param.propagate_down_size() > 0) {
       CHECK_EQ(layer_param.propagate_down_size(),
           layer_param.bottom_size())

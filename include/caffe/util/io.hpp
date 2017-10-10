@@ -183,13 +183,10 @@ cv::Mat DecodeDatumToCVMatNative(const Datum& datum);
 cv::Mat DecodeDatumToCVMat(const Datum& datum, bool is_color);
 bool DecodeDatumNative(Datum* datum);
 bool DecodeDatum(Datum* datum, bool is_color);
-
-void
-CVMatToDatum(const cv::Mat& cv_img, Datum& datum);
-
-vector<int>
-DecodeDatumToCVMat(const Datum& datum, int color_mode, cv::Mat& cv_img, bool shape_only,
-    bool accurate_jpeg = true);
+void CVMatToDatum(const cv::Mat& cv_img, Datum& datum);
+vector<int> DatumToCVMat(const Datum& datum, cv::Mat& img, bool shape_only);
+vector<int> DecodeDatumToCVMat(const Datum& datum, int color_mode, cv::Mat& cv_img,
+    bool shape_only, bool accurate_jpeg = true);
 
 template<typename Dtype>
 void TBlobDataToCVMat(const TBlob<Dtype>& blob, cv::Mat& img) {
@@ -205,36 +202,9 @@ void TBlobDataToCVMat(const TBlob<Dtype>& blob, cv::Mat& img) {
   CHECK_EQ(img.channels(), blob_channels);
   CHECK_EQ(img.rows, blob_height);
   CHECK_EQ(img.cols, blob_width);
-  const float* blob_buf = blob.cpu_data();
+  const Dtype* blob_buf = blob.cpu_data();
   // CHW -> HWC
   chw2hwc(blob_channels, blob_width, blob_height, blob_buf, img.ptr<float>(0));
-}
-
-template<typename Dtype>
-vector<int> DatumToCVMat(const Datum& datum, cv::Mat& img, bool shape_only) {
-  if (datum.encoded()) {
-    LOG(FATAL) << "Datum encoded";
-  }
-  const int datum_channels = datum.channels();
-  const int datum_height = datum.height();
-  const int datum_width = datum.width();
-  if (shape_only) {
-    return vector<int>{1, datum_channels, datum_height, datum_width};
-  }
-  const int datum_size = datum_channels * datum_height * datum_width;
-  CHECK_GT(datum_channels, 0);
-  CHECK_GT(datum_height, 0);
-  CHECK_GT(datum_width, 0);
-  img.create(datum_height, datum_width, CVFC<float>(datum_channels));
-  CHECK_EQ(img.channels(), datum_channels);
-  CHECK_EQ(img.rows, datum_height);
-  CHECK_EQ(img.cols, datum_width);
-  const std::string& datum_buf = datum.data();
-  CHECK_EQ(datum_buf.size(), datum_size);
-  // CHW -> HWC
-  chw2hwc(datum_channels, datum_width, datum_height,
-      reinterpret_cast<const unsigned char*>(&datum_buf.front()), img.ptr<float>(0));
-  return vector<int>{1, datum_channels, datum_height, datum_width};
 }
 
 template<typename Dtype>

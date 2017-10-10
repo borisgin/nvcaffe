@@ -216,7 +216,7 @@ unsigned int WindowDataLayer<Ftype, Btype>::PrefetchRand() {
 
 // This function is called on prefetch thread
 template <typename Ftype, typename Btype>
-void WindowDataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch,
+void WindowDataLayer<Ftype, Btype>::load_batch(Batch* batch,
     int thread_id, size_t queue_id) {
   // At each iteration, sample N windows where N*p are foreground (object)
   // windows and N*(1-p) are background (non-object) windows
@@ -227,8 +227,8 @@ void WindowDataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch,
   CPUTimer timer;
   batch->data_->Reshape(data_shape_);
   batch->label_->Reshape(label_shape_);
-  Ftype* top_data = batch->data_->mutable_cpu_data();
-  Ftype* top_label = batch->label_->mutable_cpu_data();
+  Ftype* top_data = batch->data_->mutable_cpu_data<Ftype>();
+  Ftype* top_label = batch->label_->mutable_cpu_data<Ftype>();
   const Ftype scale = this->layer_param_.window_data_param().scale();
   const int batch_size = this->layer_param_.window_data_param().batch_size();
   const int context_pad = this->layer_param_.window_data_param().context_pad();

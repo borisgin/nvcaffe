@@ -8,7 +8,7 @@ template<typename Ftype, typename Btype>
 void BasePrefetchingDataLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom,
     const vector<Blob*>& top) {
   // Note: this function runs in one thread per object and one object per one Solver thread
-  shared_ptr<Batch<Ftype>> batch =
+  shared_ptr<Batch> batch =
       prefetches_full_[next_batch_queue_]->pop("Data layer prefetch queue empty");
   if (top[0]->data_type() == batch->data_->data_type()
       && top[0]->shape() == batch->data_->shape()) {

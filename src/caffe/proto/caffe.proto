@@ -571,7 +571,7 @@ message TransformationParameter {
   //
   optional uint32 img_rand_resize_lower = 10 [default = 0];
   optional uint32 img_rand_resize_upper = 11 [default = 0];
-  optional bool var_sz_img_enabled = 12 [default = false];
+  optional bool resize_to_square = 12 [default = true];
   // For data pre-processing, we can do simple scaling and subtracting the
   // data mean, if provided. Note that the mean subtraction is always carried
   // out before scaling.

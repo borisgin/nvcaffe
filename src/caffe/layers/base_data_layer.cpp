@@ -81,7 +81,7 @@ void BasePrefetchingDataLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bot
 
   for (int i = 0; i < transf_num_; ++i) {
     data_transformers_.emplace_back(
-        make_shared<DataTransformer<Ftype>>(this->transform_param_, this->phase_));
+        make_shared<DataTransformer>(this->transform_param_, this->phase_));
   }
   const Solver* psolver = this->parent_solver();
   const uint64_t random_seed = (psolver == nullptr ||
@@ -112,7 +112,7 @@ void BasePrefetchingDataLayer<Ftype, Btype>::InternalThreadEntryN(size_t thread_
     while (!must_stop(thread_id)) {
       const size_t qid = this->queue_id(thread_id);
 #ifndef CPU_ONLY
-      shared_ptr<Batch<Ftype>> batch = prefetches_free_[qid]->pop();
+      shared_ptr<Batch> batch = prefetches_free_[qid]->pop();
 
       CHECK_EQ((size_t) -1, batch->id());
       load_batch(batch.get(), thread_id, qid);
@@ -128,7 +128,7 @@ void BasePrefetchingDataLayer<Ftype, Btype>::InternalThreadEntryN(size_t thread_
 
       prefetches_full_[qid]->push(batch);
 #else
-      shared_ptr<Batch<Ftype>> batch = prefetches_free_[qid]->pop();
+      shared_ptr<Batch> batch = prefetches_free_[qid]->pop();
       load_batch(batch.get(), thread_id, qid);
       prefetches_full_[qid]->push(batch);
 #endif
@@ -159,10 +159,10 @@ void BasePrefetchingDataLayer<Ftype, Btype>::ResizeQueues() {
     prefetches_free_.resize(queues_num_);
     prefetches_full_.resize(queues_num_);
     for (size_t i = size; i < queues_num_; ++i) {
-      shared_ptr<Batch<Ftype>> batch = make_shared<Batch<Ftype>>();
+      shared_ptr<Batch> batch = make_shared<Batch>(tp<Ftype>(), tp<Ftype>());
       prefetch_.push_back(batch);
-      prefetches_free_[i] = make_shared<BlockingQueue<shared_ptr<Batch<Ftype>>>>();
-      prefetches_full_[i] = make_shared<BlockingQueue<shared_ptr<Batch<Ftype>>>>();
+      prefetches_free_[i] = make_shared<BlockingQueue<shared_ptr<Batch>>>();
+      prefetches_full_[i] = make_shared<BlockingQueue<shared_ptr<Batch>>>();
       prefetches_free_[i]->push(batch);
     }
   }
@@ -177,7 +177,7 @@ void BasePrefetchingDataLayer<Ftype, Btype>::ResizeQueues() {
   if (transf_num_ > size) {
     for (size_t i = size; i < transf_num_; ++i) {
       this->data_transformers_.emplace_back(
-          make_shared<DataTransformer<Ftype>>(this->transform_param_, this->phase_));
+          make_shared<DataTransformer>(this->transform_param_, this->phase_));
     }
   }
 }
@@ -198,9 +198,15 @@ void BasePrefetchingDataLayer<Ftype, Btype>::AllocatePrefetch() {
 #ifndef CPU_ONLY
   if (Caffe::mode() == Caffe::GPU) {
     for (int i = 0; i < prefetch_.size(); ++i) {
-      prefetch_[i]->data_->allocate_data();
+      Btype* bdata = prefetch_[i]->data_->template mutable_cpu_data<Btype>(false);
+      (void) bdata;
+      Ftype* tdata = prefetch_[i]->data_->template mutable_cpu_data<Ftype>(false);
+      (void) tdata;
       if (this->output_labels_) {
-        prefetch_[i]->label_->allocate_data();
+        bdata = prefetch_[i]->label_->template mutable_cpu_data<Btype>(false);
+        (void) bdata;
+        tdata = prefetch_[i]->label_->template mutable_cpu_data<Ftype>(false);
+        (void) tdata;
       }
     }
   }
@@ -223,7 +229,7 @@ template<typename Ftype, typename Btype>
 void BasePrefetchingDataLayer<Ftype, Btype>::Forward_cpu(const vector<Blob*>& bottom,
     const vector<Blob*>& top) {
   // Note: this function runs in one thread per object and one object per one Solver thread
-  shared_ptr<Batch<Ftype>> batch = prefetches_full_[next_batch_queue_]->pop(
+  shared_ptr<Batch> batch = prefetches_full_[next_batch_queue_]->pop(
       "Data layer prefetch queue empty");
   if (top[0]->data_type() == batch->data_->data_type()
       && top[0]->shape() == batch->data_->shape()) {

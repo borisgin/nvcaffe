@@ -48,51 +48,29 @@ class BaseDataLayer : public Layer<Ftype, Btype> {
   bool output_labels_;
 };
 
-template<typename Ftype>
 class Batch {
  public:
-  shared_ptr<TBlob<Ftype>> data_;
-  shared_ptr<TBlob<Ftype>> label_;
+  shared_ptr<Blob> data_;
+  shared_ptr<Blob> label_;
 
-  Batch() : data_(make_shared<TBlob<Ftype>>()),
-            label_(make_shared<TBlob<Ftype>>()),
-            id_((size_t) -1) {}
-
-  ~Batch() {
-  }
+  Batch(Type data_type, Type diff_type)
+      : data_(Blob::create(data_type, diff_type)), label_(Blob::create(data_type, diff_type)),
+        id_((size_t) -1) {}
 
   size_t id() const {
     return id_;
   }
-
   void set_id(size_t id) {
     id_ = id;
   }
-
   size_t bytes() const {
-    return sizeof(Ftype) * (data_->count() + label_->count());
+    return data_->size_of(true) + label_->size_of(true);
   }
 
   DISABLE_COPY_MOVE_AND_ASSIGN(Batch);
-
  private:
   size_t id_;
 };
-
-template<typename Ftype>
-inline bool operator<(const shared_ptr <Batch<Ftype>>& a, const shared_ptr <Batch<Ftype>>& b) {
-  return a->id() < b->id();
-}
-
-template<typename Ftype>
-inline bool operator==(const shared_ptr <Batch<Ftype>>& a, const shared_ptr <Batch<Ftype>>& b) {
-  return a->id() == b->id();
-}
-
-template<typename Ftype>
-inline bool operator>(const shared_ptr <Batch<Ftype>>& a, const shared_ptr <Batch<Ftype>>& b) {
-  return a->id() > b->id();
-}
 
 template<typename Ftype, typename Btype>
 class BasePrefetchingDataLayer : public BaseDataLayer<Ftype, Btype>, public InternalThread {
@@ -106,7 +84,7 @@ class BasePrefetchingDataLayer : public BaseDataLayer<Ftype, Btype>, public Inte
   void Forward_cpu(const vector<Blob*>& bottom, const vector<Blob*>& top) override;
   void Forward_gpu(const vector<Blob*>& bottom, const vector<Blob*>& top) override;
 
-  DataTransformer<Ftype>* dt(int id) {
+  DataTransformer* dt(int id) {
     return data_transformers_.at(id).get();
   }
 
@@ -125,7 +103,7 @@ class BasePrefetchingDataLayer : public BaseDataLayer<Ftype, Btype>, public Inte
   void AllocatePrefetch();
 
   virtual void InitializePrefetch();
-  virtual void load_batch(Batch<Ftype>* batch, int thread_id, size_t queue_id) = 0;
+  virtual void load_batch(Batch* batch, int thread_id, size_t queue_id) = 0;
   virtual void start_reading() = 0;
   virtual size_t queue_id(size_t thread_id) const {
     return thread_id;
@@ -153,17 +131,17 @@ class BasePrefetchingDataLayer : public BaseDataLayer<Ftype, Btype>, public Inte
   static bool auto_mode(const LayerParameter& param);
 
   std::vector<size_t> batch_ids_;
-  std::vector<shared_ptr<Batch<Ftype>>> prefetch_;
+  std::vector<shared_ptr<Batch>> prefetch_;
   const bool auto_mode_;
   size_t parsers_num_, transf_num_, queues_num_;
-  std::vector<shared_ptr<BlockingQueue<shared_ptr<Batch<Ftype>>>>> prefetches_full_;
-  std::vector<shared_ptr<BlockingQueue<shared_ptr<Batch<Ftype>>>>> prefetches_free_;
+  std::vector<shared_ptr<BlockingQueue<shared_ptr<Batch>>>> prefetches_full_;
+  std::vector<shared_ptr<BlockingQueue<shared_ptr<Batch>>>> prefetches_free_;
   size_t next_batch_queue_;
   // These two are for delayed init only
   std::vector<Blob*> bottom_init_;
   std::vector<Blob*> top_init_;
 
-  vector<shared_ptr<DataTransformer<Ftype>>> data_transformers_;
+  vector<shared_ptr<DataTransformer>> data_transformers_;
 };
 
 }  // namespace caffe
