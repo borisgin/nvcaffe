@@ -22,31 +22,37 @@ mutex GPUMemory::ws_mutex_init_;
 
 GPUMemory::Manager GPUMemory::mgr_;
 
-std::unordered_map<int, shared_ptr<GPUMemory::Workspace>> GPUMemory::workspace_;
-std::unordered_map<int, shared_ptr<GPUMemory::Workspace>> GPUMemory::weights_workspace_;
+vector<shared_ptr<GPUMemory::Workspace>> GPUMemory::workspace_;
+vector<shared_ptr<GPUMemory::Workspace>> GPUMemory::weights_workspace_;
 
 // To be called for every device
 void GPUMemory::Init() {
   std::lock_guard<std::mutex> lock(ws_mutex_init_);
-  const int dev = Caffe::current_device();
-  if (GPUMemory::workspace_.find(dev) == GPUMemory::workspace_.end()) {
-    workspace_.emplace(dev, make_shared<Workspace>());
+  const int device = Caffe::current_device();
+  if (device + 1 > workspace_.size()) {
+    workspace_.resize(device + 1);
   }
-  if (GPUMemory::weights_workspace_.find(dev) == GPUMemory::weights_workspace_.end()) {
-    weights_workspace_.emplace(dev, make_shared<Workspace>());
+  if (!workspace_[device]) {
+    workspace_[device] = make_shared<Workspace>();
+  }
+  if (device + 1 > weights_workspace_.size()) {
+    weights_workspace_.resize(device + 1);
+  }
+  if (!weights_workspace_[device]) {
+    weights_workspace_[device] = make_shared<Workspace>();
   }
 }
 
 void GPUMemory::Finalize() {
   std::lock_guard<std::mutex> lock(ws_mutex_init_);
   for_each(workspace_.begin(), workspace_.end(),
-      [&](std::pair<const int, boost::shared_ptr<caffe::GPUMemory::Workspace>> it) {
-    it.second->release();
+      [&](boost::shared_ptr<caffe::GPUMemory::Workspace> it) {
+    it->release();
   });
   workspace_.clear();
   for_each(weights_workspace_.begin(), weights_workspace_.end(),
-      [&](std::pair<const int, boost::shared_ptr<caffe::GPUMemory::Workspace> > it) {
-    it.second->release();
+      [&](boost::shared_ptr<caffe::GPUMemory::Workspace> it) {
+    it->release();
   });
   weights_workspace_.clear();
 }
