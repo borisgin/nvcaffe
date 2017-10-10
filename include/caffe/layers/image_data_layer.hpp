@@ -33,7 +33,7 @@ class ImageDataLayer : public BasePrefetchingDataLayer<Ftype, Btype> {
 
  protected:
   void ShuffleImages();
-  void load_batch(Batch<Ftype>* batch, int thread_id, size_t queue_id = 0UL) override;
+  void load_batch(Batch* batch, int thread_id, size_t queue_id = 0UL) override;
   void start_reading() override {}
   void InitializePrefetch() override;
   bool auto_mode() const override {

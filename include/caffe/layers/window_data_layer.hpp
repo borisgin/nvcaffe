@@ -34,7 +34,7 @@ class WindowDataLayer : public BasePrefetchingDataLayer<Ftype, Btype> {
 
  protected:
   unsigned int PrefetchRand();
-  void load_batch(Batch<Ftype>* batch, int thread_id, size_t queue_id = 0UL) override;
+  void load_batch(Batch* batch, int thread_id, size_t queue_id = 0UL) override;
   void start_reading() override {}
 
   shared_ptr<Caffe::RNG> prefetch_rng_;

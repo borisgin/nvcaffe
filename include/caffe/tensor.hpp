@@ -37,8 +37,9 @@ class Tensor {
   Type type() const {
     return type_;
   }
-  size_t size() const {
-    return synced_arrays_->size();
+
+  size_t size_of() const {
+    return tsize(type_) * count_;
   }
 
   void set(float value);

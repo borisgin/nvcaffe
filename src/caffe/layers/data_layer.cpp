@@ -211,7 +211,7 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
 }
 
 template<typename Ftype, typename Btype>
-void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, size_t queue_id) {
+void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t queue_id) {
   const bool sample_only = sample_only_.load();
   // Reshape according to the first datum of each batch
   // on single input batches allows for inputs of varying dimension.
@@ -265,11 +265,12 @@ void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, siz
   }
 #endif
 
-  Ftype* top_data = use_gpu_transform ? nullptr : batch->data_->mutable_cpu_data(false);
+  Btype* top_data = use_gpu_transform ?
+                    nullptr : batch->data_->template mutable_cpu_data<Btype>(false);
   Ftype* top_label = nullptr;
   if (this->output_labels_) {
     batch->label_->Reshape(vector<int>(1, batch_size));
-    top_label = batch->label_->mutable_cpu_data();
+    top_label = batch->label_->template mutable_cpu_data<Ftype>(false);
   }
   size_t current_batch_id = 0UL;
   const size_t buf_len = batch->data_->offset(1);
@@ -309,7 +310,7 @@ void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, siz
     } else {
       // Get data offset for this datum to hand off to transform thread
       const size_t offset = batch->data_->offset(item_id);
-      Ftype *ptr = top_data + offset;
+      Btype *ptr = top_data + offset;
       vector<int> shape = this->dt(thread_id)->Transform(datum.get(), ptr, buf_len);
       CHECK_EQ(top_shape[1], shape[1]) << "Number of channels can't vary in the same batch";
       CHECK_EQ(top_shape[2], shape[2]) << "Image height can't vary in the same batch";

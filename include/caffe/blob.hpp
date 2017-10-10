@@ -198,8 +198,17 @@ class Blob {
     return shape_[CanonicalAxisIndex(index)];
   }
 
-  int num_axes() const { return shape_.size(); }
-  int count() const { return count_; }
+  int num_axes() const {
+    return shape_.size();
+  }
+
+  int count() const {
+    return count_;
+  }
+
+  size_t size_of(bool of_data) const {
+    return of_data ? data_tensor_->size_of() : diff_tensor_->size_of();
+  }
 
   /**
    * @brief Compute the volume of a slice; i.e., the product of dimensions
