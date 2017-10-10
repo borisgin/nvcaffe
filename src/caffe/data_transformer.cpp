@@ -473,6 +473,32 @@ unsigned int DataTransformer::Rand() const {
   return static_cast<unsigned int>((*rng)());
 }
 
+// tests only, TODO: clean
+void DataTransformer::VariableSizedTransforms(Datum* datum) {
+  cv::Mat img1, img2;
+  const int color_mode = param_.force_color() ? 1 : (param_.force_gray() ? -1 : 0);
+  if (datum->encoded()) {
+    DecodeDatumToCVMat(*datum, color_mode, img1, false);
+  } else {
+    DatumToCVMat(*datum, img1, false);
+  }
+  if (image_random_resize_enabled()) {
+    const int lower_sz = param_.img_rand_resize_lower();
+    const int upper_sz = param_.img_rand_resize_upper();
+    const int new_size = lower_sz + Rand(upper_sz - lower_sz + 1);
+    image_random_resize(new_size, img1, img2);
+  } else {
+    img2 = img1;
+  }
+  if (image_random_crop_enabled()) {
+    image_random_crop(param_.crop_size(), param_.crop_size(), img2);
+  }
+  if (image_center_crop_enabled()) {
+    image_center_crop(param_.crop_size(), param_.crop_size(), img2);
+  }
+  CVMatToDatum(img2, *datum);
+}
+
 void DataTransformer::Fill3Randoms(unsigned int *rand) const {
   rand[0] = rand[1] = rand[2] = 0;
   if (param_.mirror()) {
