@@ -103,7 +103,7 @@ class DataTransformer {
 
       const int new_size = lower_sz + Rand(upper_sz - lower_sz + 1);
       if (new_size > 0) {
-        image_random_resize(new_size, src, tmp);
+        image_random_resize(new_size, param_.resize_to_square(), src, tmp);
       } else {
         tmp = src;
       }
@@ -350,7 +350,7 @@ class DataTransformer {
     }
   }
 
-  static void image_random_resize(int new_size, const cv::Mat& src, cv::Mat& dst);
+  static void image_random_resize(int new_size, bool square, const cv::Mat& src, cv::Mat& dst);
   static void image_center_crop(int crop_w, int crop_h, cv::Mat& img);
 
   /**

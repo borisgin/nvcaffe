@@ -757,101 +757,100 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
         CUDNN_CHECK(cudnnSetConvolutionMathType(bwd_conv_filter_descs_[i],
             bwd_filter_cudnn_math_[i]));
       }
-      if (!propagate_down_[i]) {
-        continue;
-      }
+      if (propagate_down_[i]) {
 
-      cudnnMathType_t bwd_data_cudnn_math_0 = CUDNN_DEFAULT_MATH;
-      if (try_top && cudnn_math_override_ != 0) {
-        bwd_data_cudnn_math_[i] = bwd_data_cudnn_math_0 =
-            cudnn_math_override_ == 0 ? CUDNN_DEFAULT_MATH : CUDNN_TENSOR_OP_MATH;
-        CUDNN_CHECK(cudnnSetConvolutionMathType(bwd_conv_data_descs_[i],
-            bwd_data_cudnn_math_[i]));
-      }
+        cudnnMathType_t bwd_data_cudnn_math_0 = CUDNN_DEFAULT_MATH;
+        if (try_top && cudnn_math_override_ != 0) {
+          bwd_data_cudnn_math_[i] = bwd_data_cudnn_math_0 =
+              cudnn_math_override_ == 0 ? CUDNN_DEFAULT_MATH : CUDNN_TENSOR_OP_MATH;
+          CUDNN_CHECK(cudnnSetConvolutionMathType(bwd_conv_data_descs_[i],
+              bwd_data_cudnn_math_[i]));
+        }
 #endif
-      if (user_algos_override_[1] < 0) {
-        float algo_time = 0.F;
-        for (int m = 0; m < 2; ++m) {
-          if (m > 0 &&
-              // if user wants specific math type, no need to check anything else
-              (this->is_bm_by_user() ||
-               // also, we skip this in fp32/64 modes
-               !is_type<Ftype>(FLOAT16) ||
-               // and sanity check for current descriptor type
-               convolutionDescDataType(bwd_conv_data_descs_[i])
-               != CUDNN_DATA_HALF)) {
-            break;
-          }
-          if (m == 1) {
-            // second run in pseudo fp32 mode
-            setConvolutionDescMath(FLOAT, bwd_conv_data_descs_[i]);
-          }
-
-          int prev_algo = -1;
-          for (int t = 0; t < 5; ++t) {
-            // Find backward data algorithm
-            CUDNN_CHECK(cudnnFindConvolutionBackwardDataAlgorithmEx(handle,
-                bwd_filter_desc_,
-                this->blobs_[0]->template gpu_data<Btype>(),
-                bwd_top_descs_[i],
-                top[i]->gpu_diff<Btype>(),
-                bwd_conv_data_descs_[i],
-                bwd_bottom_descs_[i],
-                bottom[i]->mutable_gpu_diff<Btype>(),  // overwritten
-                REQUEST_ALGO_COUNT,
-                &data_algo_count,
-                bwd_data_results,
-                ws->data(),
-                gsize));
-            CUDA_CHECK(cudaStreamSynchronize(stream));
-            // Waiting for two identical decisions in a row
-            if (prev_algo == (int)bwd_data_results[0].algo) {
+        if (user_algos_override_[1] < 0) {
+          float algo_time = 0.F;
+          for (int m = 0; m < 2; ++m) {
+            if (m > 0 &&
+                // if user wants specific math type, no need to check anything else
+                (this->is_bm_by_user() ||
+                 // also, we skip this in fp32/64 modes
+                 !is_type<Ftype>(FLOAT16) ||
+                 // and sanity check for current descriptor type
+                 convolutionDescDataType(bwd_conv_data_descs_[i])
+                 != CUDNN_DATA_HALF)) {
               break;
             }
-            prev_algo = (int)bwd_data_results[0].algo;
-          }
+            if (m == 1) {
+              // second run in pseudo fp32 mode
+              setConvolutionDescMath(FLOAT, bwd_conv_data_descs_[i]);
+            }
 
-          for (int k = 0; k < data_algo_count; ++k) {
-            if (bwd_data_results[k].status == CUDNN_STATUS_SUCCESS) {
-              if (m == 0) {
-                algo_time = bwd_data_results[k].time;
-              } else {
-                // here we compare pseudo fp32 against native fp16
-                if (bwd_data_results[k].time >= algo_time) {
-                  // pseudo fp32 lost, switching back to native fp16
-                  setConvolutionDescMath(FLOAT16, bwd_conv_data_descs_[i]);
-                  break;
+            int prev_algo = -1;
+            for (int t = 0; t < 5; ++t) {
+              // Find backward data algorithm
+              CUDNN_CHECK(cudnnFindConvolutionBackwardDataAlgorithmEx(handle,
+                  bwd_filter_desc_,
+                  this->blobs_[0]->template gpu_data<Btype>(),
+                  bwd_top_descs_[i],
+                  top[i]->gpu_diff<Btype>(),
+                  bwd_conv_data_descs_[i],
+                  bwd_bottom_descs_[i],
+                  bottom[i]->mutable_gpu_diff<Btype>(),  // overwritten
+                  REQUEST_ALGO_COUNT,
+                  &data_algo_count,
+                  bwd_data_results,
+                  ws->data(),
+                  gsize));
+              CUDA_CHECK(cudaStreamSynchronize(stream));
+              // Waiting for two identical decisions in a row
+              if (prev_algo == (int) bwd_data_results[0].algo) {
+                break;
+              }
+              prev_algo = (int) bwd_data_results[0].algo;
+            }
+
+            for (int k = 0; k < data_algo_count; ++k) {
+              if (bwd_data_results[k].status == CUDNN_STATUS_SUCCESS) {
+                if (m == 0) {
+                  algo_time = bwd_data_results[k].time;
+                } else {
+                  // here we compare pseudo fp32 against native fp16
+                  if (bwd_data_results[k].time >= algo_time) {
+                    // pseudo fp32 lost, switching back to native fp16
+                    setConvolutionDescMath(FLOAT16, bwd_conv_data_descs_[i]);
+                    break;
+                  }
+                  // pseudo fp32 won
+                  backward_data_math_ = tpm(tp<Btype>(), FLOAT);
                 }
-                // pseudo fp32 won
-                backward_data_math_ = tpm(tp<Btype>(), FLOAT);
-              }
-              bwd_data_algo_[i] = bwd_data_results[k].algo;
+                bwd_data_algo_[i] = bwd_data_results[k].algo;
 #if CUDNN_VERSION_MIN(7, 0, 0)
-              if (cudnn_math_override_ < 0) {
-                // Winning Math for either native or pseudo mode:
-                bwd_data_cudnn_math_0 = bwd_data_results[k].mathType;
-              } else {
-                bwd_data_cudnn_math_0 =
-                    cudnn_math_override_ == 0 ? CUDNN_DEFAULT_MATH : CUDNN_TENSOR_OP_MATH;
-              }
+                if (cudnn_math_override_ < 0) {
+                  // Winning Math for either native or pseudo mode:
+                  bwd_data_cudnn_math_0 = bwd_data_results[k].mathType;
+                } else {
+                  bwd_data_cudnn_math_0 =
+                      cudnn_math_override_ == 0 ? CUDNN_DEFAULT_MATH : CUDNN_TENSOR_OP_MATH;
+                }
 #endif
-              workspace_bwd_data_sizes_[i] = bwd_data_results[k].memory;
-              train_mem_req_all_grps_.insert_max(dev,
-                  align_up<7>(workspace_bwd_data_sizes_[i]) * ws_groups());
-              bwd_data_pseudo = is_precise(backward_data_math_) && !is_precise(tp<Btype>());
-              bdtime = bwd_data_results[k].time;
-              break;
+                workspace_bwd_data_sizes_[i] = bwd_data_results[k].memory;
+                train_mem_req_all_grps_.insert_max(dev,
+                    align_up<7>(workspace_bwd_data_sizes_[i]) * ws_groups());
+                bwd_data_pseudo = is_precise(backward_data_math_) && !is_precise(tp<Btype>());
+                bdtime = bwd_data_results[k].time;
+                break;
+              }
             }
           }
         }
-      }
 #if CUDNN_VERSION_MIN(7, 0, 0)
-      if (top_device) {
-        bwd_data_cudnn_math_[i] = bwd_data_cudnn_math_0;
-        CUDNN_CHECK(cudnnSetConvolutionMathType(bwd_conv_data_descs_[i],
-            bwd_data_cudnn_math_[i]));
-      }
+        if (top_device) {
+          bwd_data_cudnn_math_[i] = bwd_data_cudnn_math_0;
+          CUDNN_CHECK(cudnnSetConvolutionMathType(bwd_conv_data_descs_[i],
+              bwd_data_cudnn_math_[i]));
+        }
 #endif
+      }
     }
     CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
     AllocateWorkspace(bottom.size());  // if user overrides

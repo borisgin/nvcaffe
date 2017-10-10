@@ -42,17 +42,21 @@ DataTransformer::DataTransformer(const TransformationParameter& param, Phase pha
   InitRand();
 }
 
-void DataTransformer::image_random_resize(int new_size, const cv::Mat& src, cv::Mat& dst) {
+void DataTransformer::image_random_resize(int new_size, bool square,
+    const cv::Mat& src, cv::Mat& dst) {
   const int img_height = src.rows;
   const int img_width = src.cols;
-  const float scale = img_width >= img_height ?
-      static_cast<float>(new_size) / static_cast<float>(img_height) :
-      static_cast<float>(new_size) / static_cast<float>(img_width);
-  const int resize_height = static_cast<int>(std::round(scale * static_cast<float>(img_height)));
-  const int resize_width = static_cast<int>(std::round(scale * static_cast<float>(img_width)));
+  int resize_height = new_size;
+  int resize_width = new_size;
+  if (!square) {
+    const float scale = img_width >= img_height ?
+        static_cast<float>(new_size) / static_cast<float>(img_height) :
+        static_cast<float>(new_size) / static_cast<float>(img_width);
+    resize_height = static_cast<int>(std::round(scale * static_cast<float>(img_height)));
+    resize_width = static_cast<int>(std::round(scale * static_cast<float>(img_width)));
+  }
 
   if (resize_height < img_height || resize_width < img_width) {
-    CHECK_LE(scale, 1.0F);
     CHECK_LE(resize_height, img_height) << "cannot downsample width without downsampling height";
     CHECK_LE(resize_width, img_width) << "cannot downsample height without downsampling width";
     cv::resize(
@@ -62,7 +66,6 @@ void DataTransformer::image_random_resize(int new_size, const cv::Mat& src, cv::
         cv::INTER_NEAREST);
   } else if (resize_height > img_height || resize_width > img_width) {
     // Upsample with cubic interpolation.
-    CHECK_GE(scale, 1.0F);
     CHECK_GE(resize_height, img_height) << "cannot upsample width without upsampling height";
     CHECK_GE(resize_width, img_width) << "cannot upsample height without upsampling width";
     cv::resize(
@@ -197,7 +200,7 @@ void DataTransformer::VariableSizedTransforms(Datum* datum) {
     const int lower_sz = param_.img_rand_resize_lower();
     const int upper_sz = param_.img_rand_resize_upper();
     const int new_size = lower_sz + Rand(upper_sz - lower_sz + 1);
-    image_random_resize(new_size, img1, img2);
+    image_random_resize(new_size, param_.resize_to_square(), img1, img2);
   } else {
     img2 = img1;
   }

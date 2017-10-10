@@ -66,6 +66,9 @@ bool GPUMemory::Workspace::safe_reserve(size_t size, int device) {
   size_t gpu_bytes_left, total_memory;
   GPUMemory::GetInfo(&gpu_bytes_left, &total_memory, true);
   if (size > size_ + align_down<7>(gpu_bytes_left)) {
+    LOG(FATAL) << "Out of memory in safe_reserve: "
+        << size << " > " << size_ << " + " << align_down<7>(gpu_bytes_left)
+        << " on device " << device;
     return false;
   }
   release();
