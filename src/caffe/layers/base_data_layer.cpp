@@ -81,7 +81,7 @@ void BasePrefetchingDataLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bot
 
   for (int i = 0; i < transf_num_; ++i) {
     data_transformers_.emplace_back(
-        make_shared<DataTransformer<Ftype>>(this->transform_param_, this->phase_));
+        make_shared<DataTransformer>(this->transform_param_, this->phase_));
   }
   const Solver* psolver = this->parent_solver();
   const uint64_t random_seed = (psolver == nullptr ||
@@ -177,7 +177,7 @@ void BasePrefetchingDataLayer<Ftype, Btype>::ResizeQueues() {
   if (transf_num_ > size) {
     for (size_t i = size; i < transf_num_; ++i) {
       this->data_transformers_.emplace_back(
-          make_shared<DataTransformer<Ftype>>(this->transform_param_, this->phase_));
+          make_shared<DataTransformer>(this->transform_param_, this->phase_));
     }
   }
 }

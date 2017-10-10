@@ -21,7 +21,7 @@ class MemoryDataLayer : public BaseDataLayer<Ftype, Btype> {
  public:
   explicit MemoryDataLayer(const LayerParameter& param)
       : BaseDataLayer<Ftype, Btype>(param, 1), has_new_data_(false) {
-    dt_ = make_shared<DataTransformer<Ftype>>(this->transform_param_, this->phase_);
+    dt_ = make_shared<DataTransformer>(this->transform_param_, this->phase_);
   }
   virtual void DataLayerSetUp(const vector<Blob*>& bottom,
       const vector<Blob*>& top);
@@ -58,7 +58,7 @@ class MemoryDataLayer : public BaseDataLayer<Ftype, Btype> {
   TBlob<Ftype> added_data_;
   TBlob<Ftype> added_label_;
   bool has_new_data_;
-  shared_ptr<DataTransformer<Ftype>> dt_;
+  shared_ptr<DataTransformer> dt_;
 };
 
 }  // namespace caffe

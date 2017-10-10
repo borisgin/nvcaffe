@@ -178,7 +178,7 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
   // Reshape top[0] and prefetch_data according to the batch_size.
   // Note: all these reshapings here in load_batch are needed only in case of
   // different datum shapes coming from database.
-  vector<int> top_shape = this->dt(0)->Transform(sample_datum.get(), nullptr, 0);
+  vector<int> top_shape = this->dt(0)->template Transform<Btype>(sample_datum.get(), nullptr, 0);
   top_shape[0] = batch_size;
   top[0]->Reshape(top_shape);
 
@@ -223,7 +223,8 @@ void DataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch, int thread_id, siz
   CHECK(init_datum);
   const bool use_gpu_transform = this->is_gpu_transform();
   // Use data_transformer to infer the expected blob shape from datum.
-  vector<int> top_shape = this->dt(thread_id)->Transform(init_datum.get(), nullptr, 0);
+  vector<int> top_shape =
+      this->dt(thread_id)->template Transform<Btype>(init_datum.get(), nullptr, 0);
   // Reshape batch according to the batch_size.
   top_shape[0] = batch_size;
   batch->data_->Reshape(top_shape);

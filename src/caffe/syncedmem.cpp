@@ -162,14 +162,14 @@ void SyncedMemory::set_gpu_data(void* data) {
 
 void* SyncedMemory::mutable_cpu_data(bool copy_from_gpu) {
   to_cpu(copy_from_gpu);
-  head_ = HEAD_AT_CPU;
+//  head_ = HEAD_AT_CPU;
   return cpu_ptr_;
 }
 
 void* SyncedMemory::mutable_gpu_data(bool copy_from_cpu) {
 #ifndef CPU_ONLY
   to_gpu(copy_from_cpu);
-  head_ = HEAD_AT_GPU;
+//  head_ = HEAD_AT_GPU;
   return gpu_ptr_;
 #else
   NO_GPU;

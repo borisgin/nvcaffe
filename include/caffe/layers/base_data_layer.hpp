@@ -79,20 +79,20 @@ class Batch {
   size_t id_;
 };
 
-template<typename Ftype>
-inline bool operator<(const shared_ptr <Batch<Ftype>>& a, const shared_ptr <Batch<Ftype>>& b) {
-  return a->id() < b->id();
-}
-
-template<typename Ftype>
-inline bool operator==(const shared_ptr <Batch<Ftype>>& a, const shared_ptr <Batch<Ftype>>& b) {
-  return a->id() == b->id();
-}
-
-template<typename Ftype>
-inline bool operator>(const shared_ptr <Batch<Ftype>>& a, const shared_ptr <Batch<Ftype>>& b) {
-  return a->id() > b->id();
-}
+//template<typename Ftype>
+//inline bool operator<(const shared_ptr <Batch<Ftype>>& a, const shared_ptr <Batch<Ftype>>& b) {
+//  return a->id() < b->id();
+//}
+//
+//template<typename Ftype>
+//inline bool operator==(const shared_ptr <Batch<Ftype>>& a, const shared_ptr <Batch<Ftype>>& b) {
+//  return a->id() == b->id();
+//}
+//
+//template<typename Ftype>
+//inline bool operator>(const shared_ptr <Batch<Ftype>>& a, const shared_ptr <Batch<Ftype>>& b) {
+//  return a->id() > b->id();
+//}
 
 template<typename Ftype, typename Btype>
 class BasePrefetchingDataLayer : public BaseDataLayer<Ftype, Btype>, public InternalThread {
@@ -106,7 +106,7 @@ class BasePrefetchingDataLayer : public BaseDataLayer<Ftype, Btype>, public Inte
   void Forward_cpu(const vector<Blob*>& bottom, const vector<Blob*>& top) override;
   void Forward_gpu(const vector<Blob*>& bottom, const vector<Blob*>& top) override;
 
-  DataTransformer<Ftype>* dt(int id) {
+  DataTransformer* dt(int id) {
     return data_transformers_.at(id).get();
   }
 
@@ -163,7 +163,7 @@ class BasePrefetchingDataLayer : public BaseDataLayer<Ftype, Btype>, public Inte
   std::vector<Blob*> bottom_init_;
   std::vector<Blob*> top_init_;
 
-  vector<shared_ptr<DataTransformer<Ftype>>> data_transformers_;
+  vector<shared_ptr<DataTransformer>> data_transformers_;
 };
 
 }  // namespace caffe
