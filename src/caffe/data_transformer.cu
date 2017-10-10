@@ -241,7 +241,7 @@ void DataTransformer::TransformGPU(int N, int C, int H, int W,
   cudaStream_t stream = Caffe::thread_stream();
 
   // TODO clean
-  if(is_precise<Dtype>()) {
+  if (is_precise<Dtype>()) {
     transform_kernel<Dtype>
         <<< grid, block, 0, stream >>> (N, C, H, W,
         height, width,

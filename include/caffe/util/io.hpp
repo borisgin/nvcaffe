@@ -183,13 +183,10 @@ cv::Mat DecodeDatumToCVMatNative(const Datum& datum);
 cv::Mat DecodeDatumToCVMat(const Datum& datum, bool is_color);
 bool DecodeDatumNative(Datum* datum);
 bool DecodeDatum(Datum* datum, bool is_color);
-
-void
-CVMatToDatum(const cv::Mat& cv_img, Datum& datum);
-
-vector<int>
-DecodeDatumToCVMat(const Datum& datum, int color_mode, cv::Mat& cv_img, bool shape_only,
-    bool accurate_jpeg = true);
+void CVMatToDatum(const cv::Mat& cv_img, Datum& datum);
+vector<int> DatumToCVMat(const Datum& datum, cv::Mat& img, bool shape_only);
+vector<int> DecodeDatumToCVMat(const Datum& datum, int color_mode, cv::Mat& cv_img,
+    bool shape_only, bool accurate_jpeg = true);
 
 template<typename Dtype>
 void TBlobDataToCVMat(const TBlob<Dtype>& blob, cv::Mat& img) {
@@ -209,8 +206,6 @@ void TBlobDataToCVMat(const TBlob<Dtype>& blob, cv::Mat& img) {
   // CHW -> HWC
   chw2hwc(blob_channels, blob_width, blob_height, blob_buf, img.ptr<float>(0));
 }
-
-vector<int> DatumToCVMat(const Datum& datum, cv::Mat& img, bool shape_only);
 
 template<typename Dtype>
 void FloatCVMatToBuf(const cv::Mat& cv_img, size_t buf_len, Dtype* buf) {

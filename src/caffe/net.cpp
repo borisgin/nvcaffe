@@ -150,12 +150,7 @@ void Net::Init(const NetParameter& in_param) {
     }
 
     if (!layer_param.has_forward_type()) {
-//      if (is_data_layer) {
-//        // DataLayer works on CPU, float is faster
-//        mutable_layer_param->set_forward_type(FLOAT);
-//      } else {
-        mutable_layer_param->set_forward_type(in_param.default_forward_type());
-//      }
+      mutable_layer_param->set_forward_type(in_param.default_forward_type());
     }
     if (!layer_param.has_backward_type()) {
       if (is_data_layer) {

@@ -62,7 +62,6 @@ void WriteProtoToBinaryFile(const Message& proto, const char* filename) {
       "no write permissions, the destination folder doesn't exist";
 }
 
-
 bool ReadFileToDatum(const string& filename, const int label, Datum* datum) {
   std::streampos size;
 
