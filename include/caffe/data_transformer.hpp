@@ -2,6 +2,7 @@
 #define CAFFE_DATA_TRANSFORMER_HPP
 
 #include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
 #include <string>
 #include <vector>
 
@@ -104,6 +105,17 @@ class DataTransformer {
       const int new_size = lower_sz + Rand(upper_sz - lower_sz + 1);
       if (new_size > 0) {
         image_random_resize(new_size, param_.resize_to_square(), src, tmp);
+
+//        cv::Mat im = src, dsp;
+//        cv::normalize(im, dsp, 0, 1, cv::NORM_MINMAX);
+//        cv::imshow("test", dsp);
+//        cv::waitKey(0);
+
+
+
+
+
+
       } else {
         tmp = src;
       }
@@ -116,6 +128,8 @@ class DataTransformer {
       image_center_crop(param_.crop_size(), param_.crop_size(), tmp);
     }
     apply_mean_scale_mirror(tmp, dst);
+
+
     FloatCVMatToBuf<Dtype>(dst, buf_len, buf);
   }
 

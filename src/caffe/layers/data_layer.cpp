@@ -310,6 +310,7 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
     } else {
       // Get data offset for this datum to hand off to transform thread
       const size_t offset = batch->data_->offset(item_id);
+      CHECK_EQ(0, offset % buf_len);
       Btype *ptr = top_data + offset;
       vector<int> shape = this->dt(thread_id)->Transform(datum.get(), ptr, buf_len);
       CHECK_EQ(top_shape[1], shape[1]) << "Number of channels can't vary in the same batch";

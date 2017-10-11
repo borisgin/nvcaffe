@@ -794,7 +794,7 @@ size_t Net::received_contiguous_count(int top, const std::set<int>& au_ids,
       }
       ++cnt;
       gap = 1;
-      ret += align_up<6>(learnable_params_[from]->count());
+      ret += learnable_params_[from]->count();
     } else {
       break;
     }
@@ -1340,13 +1340,13 @@ void Net::set_solver(Solver* s) {
 void Net::InitializeLearnableDiffSpace() {
   learnable_space_count_ = 0;
   size_t workspace_size = 0UL;
-  size_t max_tsize = 0UL;
+//  size_t max_tsize = 0UL;
   learnable_params_ptrs_.resize(learnable_params_.size());
-  for (int i = 0; i < learnable_params_.size(); ++i) {
-    if (max_tsize < tsize(learnable_params_[i]->diff_type())) {
-      max_tsize = tsize(learnable_params_[i]->diff_type());
-    }
-  }
+//  for (int i = 0; i < learnable_params_.size(); ++i) {
+//    if (max_tsize < tsize(learnable_params_[i]->diff_type())) {
+//      max_tsize = tsize(learnable_params_[i]->diff_type());
+//    }
+//  }
   for (int i = 0; i < layers_.size(); ++i) {
     for (int j = 0; j < layers_[i]->blobs().size(); ++j) {
       if (layers_[i]->skip_apply_update(j)) {
@@ -1355,8 +1355,9 @@ void Net::InitializeLearnableDiffSpace() {
       const int lip = layer_index_params_[make_pair(i, j)];
       if (param_owners_[lip] < 0) {
         const int param_id = learnable_param_ids_[lip];
-        learnable_space_count_ += align_up<6>(learnable_params_[param_id]->count());
-        workspace_size += align_up<6>(learnable_params_[param_id]->count()) * max_tsize;
+        learnable_space_count_ += learnable_params_[param_id]->count();
+        workspace_size += learnable_params_[param_id]->count() *
+            tsize(learnable_params_[param_id]->diff_type());
       }
     }
   }
@@ -1385,7 +1386,8 @@ void Net::InitializeLearnableDiffSpace() {
         const int param_id = learnable_param_ids_[lip];
         learnable_params_[param_id]->set_gpu_diff(static_cast<void*>(ptr));
         learnable_params_ptrs_[param_id] = ptr;
-        ptr += align_up<6>(learnable_params_[param_id]->count()) * max_tsize;
+        ptr += learnable_params_[param_id]->count() *
+            tsize(learnable_params_[param_id]->diff_type());
       }
     }
   }

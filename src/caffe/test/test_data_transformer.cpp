@@ -347,13 +347,14 @@ class VarSzTransformsTest : public ::testing::Test {
     : seed_(1701) {}
 
   void Run(
-      const TransformationParameter transform_param,
-      const int expected_height, const int expected_width) {
+      TransformationParameter transform_param,
+      int expected_height, int expected_width) {
     const bool unique_pixels = false;  // pixels are equal to label
     const int label = 42;
     const int channels = 3;
     const int height = 4;
     const int width = 5;
+    transform_param.set_resize_to_square(false);
 
     shared_ptr<Datum> datum = make_shared<Datum>();
     FillDatum(label, channels, height, width, unique_pixels, datum.get());

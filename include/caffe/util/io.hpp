@@ -2,6 +2,7 @@
 #define CAFFE_UTIL_IO_H_
 
 #include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
 
 #include <boost/filesystem.hpp>
 #include <iomanip>
@@ -227,6 +228,18 @@ void FloatCVMatToBuf(const cv::Mat& cv_img, size_t buf_len, Dtype* buf) {
   } else if (cv_img.depth() == CV_64F) {
     hwc2chw(img_channels, img_width, img_height, cv_img.ptr<double>(0), buf);
   }
+
+//  cv::Mat im;
+//  im.create(img_height, img_width, CVFC<float>(img_channels));
+//  chw2hwc(img_channels, img_width, img_height, buf, im.ptr<float>(0));
+//  cv::Mat dsp;
+////  im.convertTo(dsp, CV_32F);
+//  cv::normalize(im, dsp, 0, 1, cv::NORM_MINMAX);
+//  cv::imshow("test", dsp);
+//  cv::waitKey(0);
+
+
+
 }
 
 }  // namespace caffe
