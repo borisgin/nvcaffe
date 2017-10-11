@@ -758,7 +758,6 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
             bwd_filter_cudnn_math_[i]));
       }
       if (propagate_down_[i]) {
-
         cudnnMathType_t bwd_data_cudnn_math_0 = CUDNN_DEFAULT_MATH;
         if (try_top && cudnn_math_override_ != 0) {
           bwd_data_cudnn_math_[i] = bwd_data_cudnn_math_0 =

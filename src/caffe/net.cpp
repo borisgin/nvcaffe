@@ -807,9 +807,6 @@ void Net::ReduceAndUpdate() {
 #ifndef CPU_ONLY
   shared_ptr<CuBLASHandle> cublas_phandle = Caffe::cublas_phandle();
   cublasHandle_t handle = cublas_phandle->get();
-#else
-  void* handle = nullptr;
-#endif
 
   int max_params_per_bucket = 0;
   size_t bucket_space_count = 0UL;
@@ -822,9 +819,12 @@ void Net::ReduceAndUpdate() {
     }
     bucket_space_count =
         size_t((float)(learnable_space_count_ + 1UL) /
-            learnable_params_ptrs_.size() * max_params_per_bucket);
+               learnable_params_ptrs_.size() * max_params_per_bucket);
   }
   std::set<int> au_ids;
+#else
+  void* handle = nullptr;
+#endif
 
   const bool clear_grads = !solver_->param().snapshot_diff();
   while (true) {
@@ -863,7 +863,6 @@ void Net::ReduceAndUpdate() {
       if (received_count >= bucket_space_count || param_id == END_OF_ITERATION) {
         ReduceBucket(received_count, learnable_params_[id_from]->diff_type(),
             learnable_params_ptrs_[id_from]);
-
         for (int i : au_ids) {
           solver_->ApplyUpdate(i, handle, clear_grads);
         }
@@ -874,12 +873,16 @@ void Net::ReduceAndUpdate() {
         au_ids.emplace(param_id);
       }
     }
-#endif
     if (param_id == END_OF_ITERATION) {
       au_ids.clear();
       top = (int)learnable_params_.size() - 1;
       solver_->iteration_complete_signal();
     }
+#else
+    if (param_id == END_OF_ITERATION) {
+      solver_->iteration_complete_signal();
+    }
+#endif
   }
   DLOG(INFO) << "[" << Caffe::current_device() << "] Leaving ReduceAndUpdate thread";
 }
