@@ -189,38 +189,39 @@ bool DataReader::DataCache::check_memory() {
         << " of swap buffer. Free swap memory left: " << sinfo.freeswap << " of total "
         << sinfo.totalswap << ". Cache and shuffling are now disabled.";
     mem_ok = false;
-  } else {
-    unsigned long ram_avail = 0UL;  // NOLINT(runtime/int)
-    char buf[128];
-    char *e;
-    FILE *fp = fopen("/proc/meminfo", "r");
-    while (fgets(buf, sizeof(buf) - 1, fp) != nullptr) {
-      if (strstr(buf, "vailable") != nullptr) {
-        char *p = strchr(buf, ':');
-        if (p != nullptr) {
-          ++p;
-          ram_avail = strtoull(p, &e, 10) * 1024UL;
-          break;
-        }
-      }
-      if (feof(fp)) {
-        break;
-      }
-    }
-    fclose(fp);
-    if (ram_avail == 0UL) {
-      // 2nd attempt
-      ram_avail = sinfo.freeram + sinfo.bufferram + sinfo.sharedram;
-    }
-    if (sinfo.totalswap == 0UL && ram_avail < sinfo.totalram / 50UL) {
-      LOG_FIRST_N(WARNING, 1) << "Data Reader cached " << cache_buffer_.size()
-          << " records so far but it can't continue because it used more than 98%"
-          << " of RAM and there is no swap space available. RAM available: "
-          << ram_avail << " of total " << sinfo.totalram
-          << ". Cache and shuffling are now disabled.";
-      mem_ok = false;
-    }
   }
+//  else {
+//    unsigned long ram_avail = 0UL;  // NOLINT(runtime/int)
+//    char buf[128];
+//    char *e;
+//    FILE *fp = fopen("/proc/meminfo", "r");
+//    while (fgets(buf, sizeof(buf) - 1, fp) != nullptr) {
+//      if (strstr(buf, "vailable") != nullptr) {
+//        char *p = strchr(buf, ':');
+//        if (p != nullptr) {
+//          ++p;
+//          ram_avail = strtoull(p, &e, 10) * 1024UL;
+//          break;
+//        }
+//      }
+//      if (feof(fp)) {
+//        break;
+//      }
+//    }
+//    fclose(fp);
+//    if (ram_avail == 0UL) {
+//      // 2nd attempt
+//      ram_avail = sinfo.freeram + sinfo.bufferram + sinfo.sharedram;
+//    }
+//    if (sinfo.totalswap == 0UL && ram_avail < sinfo.totalram / 50UL) {
+//      LOG_FIRST_N(WARNING, 1) << "Data Reader cached " << cache_buffer_.size()
+//          << " records so far but it can't continue because it used more than 98%"
+//          << " of RAM and there is no swap space available. RAM available: "
+//          << ram_avail << " of total " << sinfo.totalram
+//          << ". Cache and shuffling are now disabled.";
+//      mem_ok = false;
+//    }
+//  }
   if (!mem_ok) {
     cache_buffer_.clear();
     shuffle_ = false;
