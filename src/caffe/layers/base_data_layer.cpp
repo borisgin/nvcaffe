@@ -198,14 +198,14 @@ void BasePrefetchingDataLayer<Ftype, Btype>::AllocatePrefetch() {
 #ifndef CPU_ONLY
   if (Caffe::mode() == Caffe::GPU) {
     for (int i = 0; i < prefetch_.size(); ++i) {
-      Btype* bdata = prefetch_[i]->data_->template mutable_cpu_data<Btype>(false);
+      Btype* bdata = prefetch_[i]->data_->template mutable_cpu_data_c<Btype>(false);
       (void) bdata;
-      Ftype* tdata = prefetch_[i]->data_->template mutable_cpu_data<Ftype>(false);
+      Ftype* tdata = prefetch_[i]->data_->template mutable_cpu_data_c<Ftype>(false);
       (void) tdata;
       if (this->output_labels_) {
-        bdata = prefetch_[i]->label_->template mutable_cpu_data<Btype>(false);
+        bdata = prefetch_[i]->label_->template mutable_cpu_data_c<Btype>(false);
         (void) bdata;
-        tdata = prefetch_[i]->label_->template mutable_cpu_data<Ftype>(false);
+        tdata = prefetch_[i]->label_->template mutable_cpu_data_c<Ftype>(false);
         (void) tdata;
       }
     }
