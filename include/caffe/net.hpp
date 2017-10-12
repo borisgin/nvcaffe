@@ -308,8 +308,7 @@ class Net {
   void Reduce(int param_id);
   /// @brief Multi-GPU reduction for a particular bucket of parameters.
   void ReduceBucket(size_t count, Type bucket_type, void* bucket);
-  size_t received_contiguous_count(int top, const std::set<int>& au_ids,
-    int& from, int& to, int& cnt);
+  size_t received_contiguous_count(int top, const std::set<int>& au_ids, int& from);
 #endif
 
   /// @brief The network name

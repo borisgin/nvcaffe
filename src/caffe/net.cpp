@@ -766,40 +766,55 @@ void Net::Finalize() {
 }
 
 #ifndef CPU_ONLY
-size_t Net::received_contiguous_count(int top, const std::set<int>& au_ids,
-    int& from, int& to, int& cnt) {
-  if (learnable_params_.empty() || au_ids.empty()) {
+size_t Net::received_contiguous_count(int top, const std::set<int>& au_ids, int& id_from_ret) {
+  if (learnable_params_.empty() || au_ids.empty() || param_id_vecs_.empty()) {
     return 0;
   }
-  size_t ret = 0;
+  size_t cnt_ret = 0UL, cnt = 0UL;
   const int bottom = *au_ids.begin();
-  from = to = -1;
-  cnt = 0;
+  int id_from = -1;
   int gap = 1;
+  id_from_ret = -1;
+  size_t top_layer_id = param_id_vecs_.size() - 1UL;
   for (int i = top; i >= bottom; --i) {
     if (learnable_params_ptrs_[i] == nullptr) {  // skipped blob (like 3rd in BN)
       ++gap;
       continue;
     }
     if (au_ids.find(i) != au_ids.end()) {
-      if (to < 0 || from < 0) {
-        from = to = i;
-      } else if (i + gap == from) {
-        if (learnable_params_[i]->diff_type() != learnable_params_[from]->diff_type()) {
+      if (id_from < 0) {
+        id_from = i;
+      } else if (i + gap == id_from) {
+        if (learnable_params_[i]->diff_type() != learnable_params_[id_from]->diff_type()) {
           break;
         }
-        from = i;
+        id_from = i;
+        cnt += learnable_params_[id_from]->count();
+        for (size_t layer_id = top_layer_id; layer_id > 0UL; --layer_id) {
+          bool layer_complete = !param_id_vecs_[layer_id].empty();
+          for (int param_id : param_id_vecs_[layer_id]) {
+            if (param_id < bottom || au_ids.find(param_id) == au_ids.end()) {
+              layer_complete = false;
+              break;
+            }
+          }
+          if (layer_complete && param_id_vecs_[layer_id][0] == i) {
+            // layer complete
+            id_from_ret = id_from;
+            cnt_ret = cnt;
+            top_layer_id = layer_id > 0UL ? layer_id - 1UL : 0UL;
+            break;
+          }
+        }
       } else {
         continue;
       }
-      ++cnt;
       gap = 1;
-      ret += learnable_params_[from]->count();
     } else {
       break;
     }
   }
-  return ret;
+  return cnt_ret;
 }
 #endif
 
@@ -856,11 +871,10 @@ void Net::ReduceAndUpdate() {
     }
 #ifndef CPU_ONLY
     if (!learnable_params_.empty() && Caffe::solver_count() > 1) {
-      int cnt = 0;
-      int id_from = -1, id_to = -1;
+      int id_from = -1;
       // Is bucket big enough? Done with iteration? Type changed?
-      size_t received_count = received_contiguous_count(top, au_ids, id_from, id_to, cnt);
-      if (received_count >= bucket_space_count || param_id == END_OF_ITERATION) {
+      size_t received_count = received_contiguous_count(top, au_ids, id_from);
+      if (id_from >= 0 && (received_count >= bucket_space_count || param_id == END_OF_ITERATION)) {
         ReduceBucket(received_count, learnable_params_[id_from]->diff_type(),
             learnable_params_ptrs_[id_from]);
         for (int i : au_ids) {
@@ -1340,13 +1354,7 @@ void Net::set_solver(Solver* s) {
 void Net::InitializeLearnableDiffSpace() {
   learnable_space_count_ = 0;
   size_t workspace_size = 0UL;
-//  size_t max_tsize = 0UL;
   learnable_params_ptrs_.resize(learnable_params_.size());
-//  for (int i = 0; i < learnable_params_.size(); ++i) {
-//    if (max_tsize < tsize(learnable_params_[i]->diff_type())) {
-//      max_tsize = tsize(learnable_params_[i]->diff_type());
-//    }
-//  }
   for (int i = 0; i < layers_.size(); ++i) {
     for (int j = 0; j < layers_[i]->blobs().size(); ++j) {
       if (layers_[i]->skip_apply_update(j)) {
