@@ -81,7 +81,7 @@ class Solver {
   class Callback {
    public:
     virtual void allreduce(int param_id) = 0;
-    virtual void allreduce_bucket(int count, void* bucket, Type type) = 0;
+    virtual void allreduce_bucket(size_t count, void* bucket, Type type) = 0;
     virtual void soft_barrier() = 0;
     virtual void reduce_barrier() = 0;
     virtual void saveTestResults(float loss, const vector<float>& scores) = 0;

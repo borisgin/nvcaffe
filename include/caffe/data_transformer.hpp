@@ -166,7 +166,7 @@ class DataTransformer {
       CHECK_EQ(crop_size, height);
       CHECK_EQ(crop_size, width);
     }
-    Transform(img, transformed_blob->mutable_cpu_data_c(false), transformed_blob->count());
+    Transform(img, transformed_blob->mutable_cpu_data(false), transformed_blob->count());
   }
 
   /**

@@ -93,7 +93,7 @@ class P2PSync : public Solver::Callback, public InternalThread {
   static unsigned int divide_batch_size(NetParameter* net);
 
   void allreduce(int param_id) override;
-  void allreduce_bucket(int count, void* bucket, Type type) override;
+  void allreduce_bucket(size_t count, void* bucket, Type type) override;
   void soft_barrier() override;
   void reduce_barrier() override;
   void saveTestResults(float loss, const vector<float>& scores) override;

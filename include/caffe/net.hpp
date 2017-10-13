@@ -311,6 +311,14 @@ class Net {
   size_t received_contiguous_count(int top, const std::set<int>& au_ids, int& from);
 #endif
 
+  size_t lp_aligned_count(int id) const {
+    return align_up<6>((size_t)learnable_params_[id]->count());
+  }
+
+  size_t lp_size(int id) const {
+    return tsize(learnable_params_[id]->diff_type());
+  }
+
   /// @brief The network name
   string name_;
   /// @brief The phase: TRAIN or TEST
@@ -358,7 +366,7 @@ class Net {
 #ifndef CPU_ONLY
   GPUMemory::Workspace learnable_space_;
 #endif
-  size_t learnable_space_count_;
+  size_t learnable_space_size_;
   size_t reduce_buckets_;
 
   /**

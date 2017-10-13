@@ -220,7 +220,7 @@ void P2PSync::allreduce(int param_id) {
 #endif  // CPU_ONLY
 }
 
-void P2PSync::allreduce_bucket(int count, void* bucket, Type type) {
+void P2PSync::allreduce_bucket(size_t count, void* bucket, Type type) {
 #ifndef CPU_ONLY
 #ifdef USE_NCCL
   NCCL_CHECK_ARG2(ncclAllReduce(bucket, bucket, count, nccl::nccl_type(type),
