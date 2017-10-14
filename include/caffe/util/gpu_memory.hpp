@@ -62,7 +62,6 @@ struct GPUMemory {
       mgr_.init(gpus, debug);
     }
     ~Scope() {
-      mgr_.reset();
     }
   };
 

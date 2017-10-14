@@ -258,7 +258,8 @@ float SGDSolver<Dtype>::GetLocalRate(int param_id) const {
   float local_lr = net_params_lr[param_id];
 
   if (this->param_.local_lr_auto()) {
-    shared_ptr<Blob> param = this->net_->learnable_params()[param_id];
+    shared_ptr<Blob> param = is_precise<Dtype>() ?
+        this->net_->learnable_params()[param_id] : this->net_->lars_learnable_param(param_id);
     const float w_norm = std::sqrt(param->sumsq_data());
     const float wgrad_norm = std::sqrt(param->sumsq_diff());
     const float gw_ratio = this->param_.local_gw_ratio();

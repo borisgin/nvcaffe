@@ -44,17 +44,17 @@ void GPUMemory::Init() {
 }
 
 void GPUMemory::Finalize() {
-  std::lock_guard<std::mutex> lock(ws_mutex_init_);
-  for_each(workspace_.begin(), workspace_.end(),
-      [&](boost::shared_ptr<caffe::GPUMemory::Workspace> it) {
-    it->release();
-  });
-  workspace_.clear();
-  for_each(weights_workspace_.begin(), weights_workspace_.end(),
-      [&](boost::shared_ptr<caffe::GPUMemory::Workspace> it) {
-    it->release();
-  });
-  weights_workspace_.clear();
+  const int device = Caffe::current_device();
+  if (device < workspace_.size() && workspace_[device]) {
+    std::lock_guard<std::mutex> lock(ws_mutex_init_);
+    workspace_[device]->release();
+    workspace_[device].reset();
+  }
+  if (device < weights_workspace_.size() && weights_workspace_[device]) {
+    std::lock_guard<std::mutex> lock(ws_mutex_init_);
+    weights_workspace_[device]->release();
+    weights_workspace_[device].reset();
+  }
 }
 
 // If there is a room to grow it tries
@@ -286,7 +286,7 @@ bool GPUMemory::Manager::try_allocate(void** ptr, shared_ptr<CudaStream>& pstrea
 
 void GPUMemory::Manager::deallocate(void* ptr, int device) {
   // allow for null pointer deallocation
-  if (!ptr) {
+  if (!ptr || !cub_allocator_) {
     return;
   }
   int current_device;  // Just to check CUDA status:

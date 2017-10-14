@@ -183,6 +183,16 @@ class Net {
     return learnable_params_;
   }
 
+  shared_ptr<TBlob<float>> lars_learnable_param(int param_id) {
+    lars_learnable_params_.resize(learnable_params_.size());
+    if (!lars_learnable_params_[param_id]) {
+      lars_learnable_params_[param_id] = make_shared<TBlob<float>>();
+    }
+    lars_learnable_params_[param_id]->CopyDataFrom(*learnable_params_[param_id], true);
+    lars_learnable_params_[param_id]->CopyDiffFrom(*learnable_params_[param_id], true);
+    return lars_learnable_params_[param_id];
+  }
+
   /// @brief returns the learnable parameter learning rate multipliers
   const vector<float>& params_lr() const { return params_lr_; }
   const vector<bool>& has_params_lr() const { return has_params_lr_; }
@@ -360,6 +370,7 @@ class Net {
   /// The parameters in the network.
   vector<shared_ptr<Blob>> params_;
   vector<shared_ptr<Blob>> learnable_params_;
+  vector<shared_ptr<TBlob<float>>> lars_learnable_params_;
   bool trained_layers_shared_;
 
   vector<void*> learnable_params_ptrs_;
