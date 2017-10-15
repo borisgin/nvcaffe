@@ -354,7 +354,6 @@ class VarSzTransformsTest : public ::testing::Test {
     const int channels = 3;
     const int height = 4;
     const int width = 5;
-    transform_param.set_resize_to_square(false);
 
     shared_ptr<Datum> datum = make_shared<Datum>();
     FillDatum(label, channels, height, width, unique_pixels, datum.get());

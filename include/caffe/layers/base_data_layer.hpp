@@ -91,8 +91,13 @@ class BasePrefetchingDataLayer : public BaseDataLayer<Ftype, Btype>, public Inte
   bool is_gpu_transform() const override {
     // If user omitted this setting we deduce it from Ftype
     const bool use_gpu = this->transform_param_.use_gpu_transform();
-    const bool use_rand_resize = this->transform_param_.has_img_rand_resize_lower() ||
-        this->transform_param_.has_img_rand_resize_upper();
+    const bool use_rand_resize =
+        this->transform_param_.has_img_rand_resize_lower() ||
+        this->transform_param_.has_img_rand_resize_upper() ||
+        this->transform_param_.has_rand_rel_ar_lower() ||
+        this->transform_param_.has_rand_rel_ar_upper() ||
+        this->transform_param_.has_rand_abs_ar_lower() ||
+        this->transform_param_.has_rand_abs_ar_upper();
     return use_gpu && Caffe::mode() == Caffe::GPU && !use_rand_resize;
   }
 
