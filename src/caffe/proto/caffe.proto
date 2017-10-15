@@ -590,17 +590,24 @@ message TransformationParameter {
   optional float rand_rel_ar_lower = 12 [default = 1];
   optional float rand_rel_ar_upper = 13 [default = 1];
 
-  // Limits for randomly generated absolute aspect ratio multiplier, i.e.
-  // "width" / "height" *= "rand_aspect_ratio" where
-  // "rand_aspect_ratio" = Rand(rand_abs_ar_lower,rand_abs_ar_upper).
+  // Limits for randomly generated width multiplier, i.e.
+  // "width" *= "rand_wscale" where
+  // "rand_wscale" = Rand(rand_wscale_lower,rand_wscale_upper).
   // Pair {1,1} (default) means "do nothing".
-  optional float rand_abs_ar_lower = 14 [default = 1];
-  optional float rand_abs_ar_upper = 15 [default = 1];
+  optional float rand_wscale_lower = 14 [default = 1];
+  optional float rand_wscale_upper = 15 [default = 1];
+
+  // Limits for randomly generated height multiplier, i.e.
+  // "height" *= "rand_hscale" where
+  // "rand_hscale" = Rand(rand_hscale_lower,rand_hscale_upper).
+  // Pair {1,1} (default) means "do nothing".
+  optional float rand_hscale_lower = 16 [default = 1];
+  optional float rand_hscale_upper = 17 [default = 1];
 
   // OpenCV algorithm used for downsampling
-  optional InterpolationAlgo interpolation_algo_down = 16 [default = INTER_CUBIC];
+  optional InterpolationAlgo interpolation_algo_down = 18 [default = INTER_NEAREST];
   // OpenCV algorithm used for upsampling
-  optional InterpolationAlgo interpolation_algo_up = 17 [default = INTER_CUBIC];
+  optional InterpolationAlgo interpolation_algo_up = 19 [default = INTER_CUBIC];
 
   // For data pre-processing, we can do simple scaling and subtracting the
   // data mean, if provided. Note that the mean subtraction is always carried

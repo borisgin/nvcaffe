@@ -18,7 +18,11 @@ bool DataTransformer::image_center_crop_enabled() const {
 }
 
 DataTransformer::DataTransformer(const TransformationParameter& param, Phase phase)
-    : param_(param), phase_(phase) {
+    : param_(param), phase_(phase),
+      rand_wscale_lower_(param_.rand_wscale_lower()),
+      rand_wscale_upper_(param_.rand_wscale_upper()),
+      rand_hscale_lower_(param_.rand_hscale_lower()),
+      rand_hscale_upper_(param_.rand_hscale_upper()) {
   // check if we want to use mean_file
   if (param_.has_mean_file()) {
     CHECK_EQ(param_.mean_value_size(), 0)
@@ -39,12 +43,33 @@ DataTransformer::DataTransformer(const TransformationParameter& param, Phase pha
       mean_values_.emplace_back(param_.mean_value(c));
     }
   }
+  CHECK_GT(rand_wscale_lower_, 0) << "rand_wscale_lower parameter must be positive";
+  CHECK_GT(rand_wscale_upper_, 0) << "rand_wscale_upper parameter must be positive";
+  CHECK_GE(rand_wscale_upper_, rand_wscale_lower_)
+    << "rand_wscale_upper can't be less than rand_wscale_lower";
+  CHECK_GT(rand_hscale_lower_, 0) << "rand_hscale_lower parameter must be positive";
+  CHECK_GT(rand_hscale_upper_, 0) << "rand_hscale_upper parameter must be positive";
+  CHECK_GE(rand_hscale_upper_, rand_hscale_lower_)
+    << "rand_hscale_upper can't be less than rand_hscale_lower";
+
   InitRand();
 }
 
-void DataTransformer::image_random_resize(int new_size, const cv::Mat& src, cv::Mat& dst) {
+void DataTransformer::image_random_resize(const cv::Mat& src, cv::Mat& dst) {
+  if (!image_random_resize_enabled()) {
+    dst = src;
+    return;
+  }
   const int img_height = src.rows;
   const int img_width = src.cols;
+  int new_size = std::min(img_height, img_width);
+
+  int lower_sz = param_.img_rand_resize_lower();
+  int upper_sz = param_.img_rand_resize_upper();
+  if (lower_sz > 0 && upper_sz > 0) {
+    CHECK_GE(upper_sz, lower_sz) << "random resize upper bound can't be less than lower";
+    new_size = lower_sz + Rand(upper_sz - lower_sz + 1);
+  }
   const float scale = img_width >= img_height ?
                       static_cast<float>(new_size) / static_cast<float>(img_height) :
                       static_cast<float>(new_size) / static_cast<float>(img_width);
@@ -55,12 +80,6 @@ void DataTransformer::image_random_resize(int new_size, const cv::Mat& src, cv::
   CHECK_GE(rel_ar_lower, 0) << "rand_rel_ar_lower parameter must be non-negative";
   CHECK_GE(rel_ar_upper, 0) << "rand_rel_ar_upper parameter must be non-negative";
   CHECK_GE(rel_ar_upper, rel_ar_lower) << "rand_rel_ar_upper can't be less than rand_rel_ar_lower";
-
-  const float abs_ar_lower = param_.rand_abs_ar_lower();
-  const float abs_ar_upper = param_.rand_abs_ar_upper();
-  CHECK_GT(abs_ar_lower, 0) << "rand_abs_ar_lower parameter must be positive";
-  CHECK_GT(abs_ar_upper, 0) << "rand_abs_ar_upper parameter must be positive";
-  CHECK_GE(abs_ar_upper, abs_ar_lower) << "rand_abs_ar_upper can't be less than rand_abs_ar_lower";
 
   float rel_ratio = new_fwidth >= new_fheight ?
                     new_fwidth / new_fheight : new_fheight / new_fwidth;
@@ -76,20 +95,11 @@ void DataTransformer::image_random_resize(int new_size, const cv::Mat& src, cv::
     new_fheight = new_fwidth * rel_ratio;
   }
 
-  const float abs_ar = Rand(abs_ar_lower, abs_ar_upper);
-  if (abs_ar < 1.F) {
-    if (new_fwidth > new_fheight) {
-      new_fheight = new_fwidth * abs_ar;
-    } else {
-      new_fwidth = new_fheight * abs_ar;
-    }
-  } else if (abs_ar > 1.F) {
-    if (new_fwidth > new_fheight) {
-      new_fwidth = new_fheight * abs_ar;
-    } else {
-      new_fheight = new_fwidth * abs_ar;
-    }
-  }
+  const float wscale = Rand(rand_wscale_lower_, rand_wscale_upper_);
+  new_fwidth *= wscale;
+  const float hscale = Rand(rand_hscale_lower_, rand_hscale_upper_);
+  new_fheight *= hscale;
+
   int new_height = std::max((int)param_.crop_size(), static_cast<int>(std::round(new_fheight)));
   int new_width = std::max((int)param_.crop_size(), static_cast<int>(std::round(new_fwidth)));
 
@@ -108,15 +118,14 @@ void DataTransformer::image_random_resize(int new_size, const cv::Mat& src, cv::
 bool DataTransformer::image_random_resize_enabled() const {
   const int resize_lower = param_.img_rand_resize_lower();
   const int resize_upper = param_.img_rand_resize_upper();
-  if (resize_lower == 0 && resize_upper == 0) {
-    return false;
-  } else if (resize_lower != 0 && resize_upper != 0) {
-    return true;
-  }
-  LOG(FATAL)
-      << "random resize 'lower' and 'upper' parameters must either "
-          "both be zero or both be nonzero";
-  return false;
+  const bool use_rand_resize =
+      this->param_.has_rand_rel_ar_lower() ||
+      this->param_.has_rand_rel_ar_upper() ||
+      this->param_.has_rand_wscale_lower() ||
+      this->param_.has_rand_wscale_upper() ||
+      this->param_.has_rand_hscale_lower() ||
+      this->param_.has_rand_hscale_upper();
+  return resize_lower != 0 || resize_upper != 0 || use_rand_resize;
 }
 
 void DataTransformer::image_random_crop(int crop_w, int crop_h, cv::Mat& img) {
@@ -228,14 +237,9 @@ void DataTransformer::VariableSizedTransforms(Datum* datum) {
   } else {
     DatumToCVMat(*datum, img1, false);
   }
-  if (image_random_resize_enabled()) {
-    const int lower_sz = param_.img_rand_resize_lower();
-    const int upper_sz = param_.img_rand_resize_upper();
-    const int new_size = lower_sz + Rand(upper_sz - lower_sz + 1);
-    image_random_resize(new_size, img1, img2);
-  } else {
-    img2 = img1;
-  }
+
+  image_random_resize(img1, img2);
+
   if (image_random_crop_enabled()) {
     image_random_crop(param_.crop_size(), param_.crop_size(), img2);
   }

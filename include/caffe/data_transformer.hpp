@@ -94,22 +94,9 @@ class DataTransformer {
   template<typename Dtype>
   void Transform(const cv::Mat& src, Dtype* buf, size_t buf_len) {
     cv::Mat tmp, dst;
-    if (image_random_resize_enabled()) {
-      int lower_sz = param_.img_rand_resize_lower();
-      int upper_sz = param_.img_rand_resize_upper();
-      CHECK_GT(lower_sz, 0) << "random resize lower bound parameter must be positive";
-      CHECK_GT(upper_sz, 0) << "random resize upper bound parameter must be positive";
-      CHECK_GE(upper_sz, lower_sz) << "random resize upper bound can't be less than lower";
 
-      const int new_size = lower_sz + Rand(upper_sz - lower_sz + 1);
-      if (new_size > 0) {
-        image_random_resize(new_size, src, tmp);
-      } else {
-        tmp = src;
-      }
-    } else {
-      tmp = src;
-    }
+    image_random_resize(src, tmp);
+
     if (image_random_crop_enabled()) {
       image_random_crop(param_.crop_size(), param_.crop_size(), tmp);  // TODO
     } else if (image_center_crop_enabled()) {
@@ -350,7 +337,7 @@ class DataTransformer {
     }
   }
 
-  void image_random_resize(int new_size, const cv::Mat& src, cv::Mat& dst);
+  void image_random_resize(const cv::Mat& src, cv::Mat& dst);
   static void image_center_crop(int crop_w, int crop_h, cv::Mat& img);
 
   /**
@@ -377,6 +364,10 @@ class DataTransformer {
   vector<float> mean_values_;
   cv::Mat mean_mat_orig_, mean_mat_;
   cv::Mat tmp_;
+
+  const float rand_wscale_lower_, rand_wscale_upper_;
+  const float rand_hscale_lower_, rand_hscale_upper_;
+
 #ifndef CPU_ONLY
   GPUMemory::Workspace mean_values_gpu_;
 #endif
