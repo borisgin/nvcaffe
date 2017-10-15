@@ -543,6 +543,12 @@ message LayerParameter {
 // Message that stores parameters used to apply transformation
 // to the data layer's data
 message TransformationParameter {
+  enum InterpolationAlgo {
+    INTER_NEAREST = 0; //!< nearest neighbor interpolation
+    INTER_LINEAR  = 1; //!< bilinear interpolation
+    INTER_CUBIC   = 2; //!< bicubic interpolation
+    INTER_AREA    = 3; //!< area-based (or super) interpolation
+  }
   // When the images in a batch are of different shapes, we need to preprocess
   // them into the same fixed shape, as downstream operations in caffe require
   // images within a batch to be of the same shape.
@@ -571,7 +577,31 @@ message TransformationParameter {
   //
   optional uint32 img_rand_resize_lower = 10 [default = 0];
   optional uint32 img_rand_resize_upper = 11 [default = 0];
-  optional bool resize_to_square = 12 [default = false];
+
+  // Limits for randomly generated relative aspect ratio change by this formula:
+  // "new_ar" = 1 + ("old_ar" - 1) * "rand_aspect_ratio" where
+  // "rand_aspect_ratio" = Rand(rand_rel_ar_lower,rand_rel_ar_upper).
+  //
+  // Here "old_ar" = "longer_side" / "shorter side", i.e. "rand_aspect_ratio"
+  // values less than 1 make rectangle pictures to be closer to square.
+  // If applied to sguare, landscape/portrait mode is chosen randomly.
+  // Pair {1,1} (default) means "do nothing".
+  // Pair {0,0} means "resize image to square (by shortest side)".
+  optional float rand_rel_ar_lower = 12 [default = 1];
+  optional float rand_rel_ar_upper = 13 [default = 1];
+
+  // Limits for randomly generated absolute aspect ratio multiplier, i.e.
+  // "width" / "height" *= "rand_aspect_ratio" where
+  // "rand_aspect_ratio" = Rand(rand_abs_ar_lower,rand_abs_ar_upper).
+  // Pair {1,1} (default) means "do nothing".
+  optional float rand_abs_ar_lower = 14 [default = 1];
+  optional float rand_abs_ar_upper = 15 [default = 1];
+
+  // OpenCV algorithm used for downsampling
+  optional InterpolationAlgo interpolation_algo_down = 16 [default = INTER_CUBIC];
+  // OpenCV algorithm used for upsampling
+  optional InterpolationAlgo interpolation_algo_up = 17 [default = INTER_CUBIC];
+
   // For data pre-processing, we can do simple scaling and subtracting the
   // data mean, if provided. Note that the mean subtraction is always carried
   // out before scaling.

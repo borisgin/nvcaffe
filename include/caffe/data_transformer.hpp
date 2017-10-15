@@ -103,7 +103,7 @@ class DataTransformer {
 
       const int new_size = lower_sz + Rand(upper_sz - lower_sz + 1);
       if (new_size > 0) {
-        image_random_resize(new_size, param_.resize_to_square(), src, tmp);
+        image_random_resize(new_size, src, tmp);
       } else {
         tmp = src;
       }
@@ -350,7 +350,7 @@ class DataTransformer {
     }
   }
 
-  static void image_random_resize(int new_size, bool square, const cv::Mat& src, cv::Mat& dst);
+  void image_random_resize(int new_size, const cv::Mat& src, cv::Mat& dst);
   static void image_center_crop(int crop_w, int crop_h, cv::Mat& img);
 
   /**
@@ -367,6 +367,7 @@ class DataTransformer {
   }
 
   unsigned int Rand() const;
+  float Rand(float lo, float up) const;
 
   // Tranformation parameters
   TransformationParameter param_;
@@ -379,6 +380,7 @@ class DataTransformer {
 #ifndef CPU_ONLY
   GPUMemory::Workspace mean_values_gpu_;
 #endif
+  static constexpr double UM = static_cast<double>(UINT_MAX);
 };
 
 }  // namespace caffe
