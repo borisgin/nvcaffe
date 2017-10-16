@@ -604,10 +604,18 @@ message TransformationParameter {
   optional float rand_hscale_lower = 16 [default = 1];
   optional float rand_hscale_upper = 17 [default = 1];
 
+  // Limits for randomly generated longer side multiplier, i.e.
+  // Max("width","height") *= "rand_lscale" where
+  // "rand_lscale" = Rand(rand_lscale_lower,rand_lscale_upper).
+  // If applied to sguare, the side is chosen randomly.
+  // Pair {1,1} (default) means "do nothing".
+  optional float rand_lscale_lower = 18 [default = 1];
+  optional float rand_lscale_upper = 19 [default = 1];
+
   // OpenCV algorithm used for downsampling
-  optional InterpolationAlgo interpolation_algo_down = 18 [default = INTER_NEAREST];
+  optional InterpolationAlgo interpolation_algo_down = 20 [default = INTER_NEAREST];
   // OpenCV algorithm used for upsampling
-  optional InterpolationAlgo interpolation_algo_up = 19 [default = INTER_CUBIC];
+  optional InterpolationAlgo interpolation_algo_up = 21 [default = INTER_CUBIC];
 
   // For data pre-processing, we can do simple scaling and subtracting the
   // data mean, if provided. Note that the mean subtraction is always carried

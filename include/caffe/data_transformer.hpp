@@ -367,6 +367,7 @@ class DataTransformer {
 
   const float rand_wscale_lower_, rand_wscale_upper_;
   const float rand_hscale_lower_, rand_hscale_upper_;
+  const float rand_lscale_lower_, rand_lscale_upper_;
 
 #ifndef CPU_ONLY
   GPUMemory::Workspace mean_values_gpu_;

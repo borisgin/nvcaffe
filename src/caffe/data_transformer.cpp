@@ -22,7 +22,9 @@ DataTransformer::DataTransformer(const TransformationParameter& param, Phase pha
       rand_wscale_lower_(param_.rand_wscale_lower()),
       rand_wscale_upper_(param_.rand_wscale_upper()),
       rand_hscale_lower_(param_.rand_hscale_lower()),
-      rand_hscale_upper_(param_.rand_hscale_upper()) {
+      rand_hscale_upper_(param_.rand_hscale_upper()),
+      rand_lscale_lower_(param_.rand_lscale_lower()),
+      rand_lscale_upper_(param_.rand_lscale_upper()) {
   // check if we want to use mean_file
   if (param_.has_mean_file()) {
     CHECK_EQ(param_.mean_value_size(), 0)
@@ -51,6 +53,10 @@ DataTransformer::DataTransformer(const TransformationParameter& param, Phase pha
   CHECK_GT(rand_hscale_upper_, 0) << "rand_hscale_upper parameter must be positive";
   CHECK_GE(rand_hscale_upper_, rand_hscale_lower_)
     << "rand_hscale_upper can't be less than rand_hscale_lower";
+  CHECK_GT(rand_lscale_lower_, 0) << "rand_lscale_lower parameter must be positive";
+  CHECK_GT(rand_lscale_upper_, 0) << "rand_lscale_upper parameter must be positive";
+  CHECK_GE(rand_lscale_upper_, rand_lscale_lower_)
+    << "rand_lscale_upper can't be less than rand_lscale_lower";
 
   InitRand();
 }
@@ -99,6 +105,16 @@ void DataTransformer::image_random_resize(const cv::Mat& src, cv::Mat& dst) {
   new_fwidth *= wscale;
   const float hscale = Rand(rand_hscale_lower_, rand_hscale_upper_);
   new_fheight *= hscale;
+  const float lscale = Rand(rand_lscale_lower_, rand_lscale_upper_);
+  if (new_fwidth > new_fheight) {
+    new_fwidth *= lscale;
+  } else if (new_fwidth < new_fheight) {
+    new_fheight *= lscale;
+  } else if (Rand(2) > 0) {
+    new_fwidth *= lscale;
+  } else {
+    new_fheight *= lscale;
+  }
 
   int new_height = std::max((int)param_.crop_size(), static_cast<int>(std::round(new_fheight)));
   int new_width = std::max((int)param_.crop_size(), static_cast<int>(std::round(new_fwidth)));
@@ -124,7 +140,9 @@ bool DataTransformer::image_random_resize_enabled() const {
       this->param_.has_rand_wscale_lower() ||
       this->param_.has_rand_wscale_upper() ||
       this->param_.has_rand_hscale_lower() ||
-      this->param_.has_rand_hscale_upper();
+      this->param_.has_rand_hscale_upper() ||
+      this->param_.has_rand_lscale_lower() ||
+      this->param_.has_rand_lscale_upper();
   return resize_lower != 0 || resize_upper != 0 || use_rand_resize;
 }
 
