@@ -234,7 +234,7 @@ void FloatCVMatToBuf(const cv::Mat& cv_img, size_t buf_len, Dtype* buf) {
 //  cv::Mat dsp;
 ////  im.convertTo(dsp, CV_32F);
 //  cv::normalize(im, dsp, 0, 1, cv::NORM_MINMAX);
-//  cv::imshow("test", dsp);
+//  cv::imshow("testCR", dsp);
 //  cv::waitKey(0);
 }
 

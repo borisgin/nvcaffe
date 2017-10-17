@@ -94,12 +94,8 @@ class BasePrefetchingDataLayer : public BaseDataLayer<Ftype, Btype>, public Inte
     const bool use_rand_resize =
         this->transform_param_.has_img_rand_resize_lower() ||
         this->transform_param_.has_img_rand_resize_upper() ||
-        this->transform_param_.has_rand_wscale_lower() ||
-        this->transform_param_.has_rand_wscale_upper() ||
-        this->transform_param_.has_rand_hscale_lower() ||
-        this->transform_param_.has_rand_hscale_upper() ||
-        this->transform_param_.has_rand_lscale_lower() ||
-        this->transform_param_.has_rand_lscale_upper();
+        this->transform_param_.has_rand_resize_ratio_lower() ||
+        this->transform_param_.has_rand_resize_ratio_upper();
     return use_gpu && Caffe::mode() == Caffe::GPU && !use_rand_resize;
   }
 

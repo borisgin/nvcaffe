@@ -578,44 +578,18 @@ message TransformationParameter {
   optional uint32 img_rand_resize_lower = 10 [default = 0];
   optional uint32 img_rand_resize_upper = 11 [default = 0];
 
-  // Limits for randomly generated relative aspect ratio change by this formula:
-  // "new_ar" = 1 + ("old_ar" - 1) * "rand_aspect_ratio" where
-  // "rand_aspect_ratio" = Rand(rand_rel_ar_lower,rand_rel_ar_upper).
-  //
-  // Here "old_ar" = "longer_side" / "shorter side", i.e. "rand_aspect_ratio"
-  // values less than 1 make rectangle pictures to be closer to square.
-  // If applied to sguare, landscape/portrait mode is chosen randomly.
-  // Pair {1,1} (default) means "do nothing".
-  // Pair {0,0} means "resize image to square (by shortest side)".
-  optional float rand_rel_ar_lower = 12 [default = 1];
-  optional float rand_rel_ar_upper = 13 [default = 1];
-
-  // Limits for randomly generated width multiplier, i.e.
-  // "width" *= "rand_wscale" where
-  // "rand_wscale" = Rand(rand_wscale_lower,rand_wscale_upper).
-  // Pair {1,1} (default) means "do nothing".
-  optional float rand_wscale_lower = 14 [default = 1];
-  optional float rand_wscale_upper = 15 [default = 1];
-
-  // Limits for randomly generated height multiplier, i.e.
-  // "height" *= "rand_hscale" where
-  // "rand_hscale" = Rand(rand_hscale_lower,rand_hscale_upper).
-  // Pair {1,1} (default) means "do nothing".
-  optional float rand_hscale_lower = 16 [default = 1];
-  optional float rand_hscale_upper = 17 [default = 1];
-
-  // Limits for randomly generated longer side multiplier, i.e.
-  // Max("width","height") *= "rand_lscale" where
-  // "rand_lscale" = Rand(rand_lscale_lower,rand_lscale_upper).
-  // If applied to sguare, the side is chosen randomly.
-  // Pair {1,1} (default) means "do nothing".
-  optional float rand_lscale_lower = 18 [default = 1];
-  optional float rand_lscale_upper = 19 [default = 1];
+  // Limits for randomly generated ratio R so that longer side
+  // length would be set to shorter side length multiplied by R.
+  // If applied to sguare, the shorter side is chosen randomly.
+  // Pair {1,1} means "resize image to square (by shortest side)".
+  // Values less than 1 are ignored.
+  optional float rand_resize_ratio_lower = 12 [default = 0];
+  optional float rand_resize_ratio_upper = 13 [default = 0];
 
   // OpenCV algorithm used for downsampling
-  optional InterpolationAlgo interpolation_algo_down = 20 [default = INTER_NEAREST];
+  optional InterpolationAlgo interpolation_algo_down = 14 [default = INTER_NEAREST];
   // OpenCV algorithm used for upsampling
-  optional InterpolationAlgo interpolation_algo_up = 21 [default = INTER_CUBIC];
+  optional InterpolationAlgo interpolation_algo_up = 15 [default = INTER_CUBIC];
 
   // For data pre-processing, we can do simple scaling and subtracting the
   // data mean, if provided. Note that the mean subtraction is always carried
