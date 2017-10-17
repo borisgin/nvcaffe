@@ -211,7 +211,8 @@ int train() {
         GetRequestedAction(FLAGS_sigint_effect),
         GetRequestedAction(FLAGS_sighup_effect));
 
-  shared_ptr<caffe::Solver> solver(caffe::SolverRegistry::CreateSolver(solver_param));
+  shared_ptr<caffe::Solver> solver(caffe::SolverRegistry::CreateSolver(solver_param,
+      nullptr, gpus.size()));
   solver->SetActionFunction(signal_handler.GetActionFunction());
 
   if (FLAGS_snapshot.size()) {
