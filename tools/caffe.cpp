@@ -193,7 +193,7 @@ int train() {
     for (int i = 0; i < gpus.size(); ++i) {
       cudaGetDeviceProperties(&device_prop, gpus[i]);
       LOG(INFO) << "GPU " << gpus[i] << ": " << device_prop.name;
-      if (gpus[i] == solver_param.device_id()) {
+      if (solver_param.has_device_id() && gpus[i] == solver_param.device_id()) {
         dev_id = i;
       }
     }
@@ -211,8 +211,7 @@ int train() {
         GetRequestedAction(FLAGS_sigint_effect),
         GetRequestedAction(FLAGS_sighup_effect));
 
-  shared_ptr<caffe::Solver> solver(caffe::SolverRegistry::CreateSolver(solver_param,
-      nullptr, gpus.size()));
+  shared_ptr<caffe::Solver> solver(caffe::SolverRegistry::CreateSolver(solver_param, nullptr, 0));
   solver->SetActionFunction(signal_handler.GetActionFunction());
 
   if (FLAGS_snapshot.size()) {
