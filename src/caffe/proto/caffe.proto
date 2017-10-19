@@ -234,7 +234,7 @@ message SolverParameter {
   optional bool test_compute_loss = 19 [default = false];
   // If true, run an initial test pass before the first iteration,
   // ensuring memory availability and printing the starting value of the loss.
-  optional bool test_initialization = 32 [default = true];
+  optional bool test_initialization = 32 [default = false];
   
   optional int32 rampup_interval = 41 [default = 0];
   optional float rampup_lr = 42 [default = 0.];
