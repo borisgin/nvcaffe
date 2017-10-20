@@ -1,5 +1,6 @@
 #include <vector>
 #include <driver_types.h>
+#include <device_launch_parameters.h>
 
 #include "caffe/layers/eltwise_layer.hpp"
 
@@ -45,8 +46,15 @@ void EltwiseLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom,
     }
     break;
   case EltwiseParameter_EltwiseOp_SUM:
-    if (bottom.size() == 2 && no_coeffs_) {
-      caffe_gpu_add(count, bottom[0]->gpu_data<Ftype>(), bottom[1]->gpu_data<Ftype>(), top_data);
+    if (no_coeffs_) {
+      if (bottom.size() >= 2) {
+        caffe_gpu_add(count, bottom[0]->gpu_data<Ftype>(), bottom[1]->gpu_data<Ftype>(), top_data);
+        for (int i = 2; i < bottom.size(); ++i) {
+          caffe_gpu_incr(count, bottom[i]->gpu_data<Ftype>(), top_data);
+        }
+      } else if (bottom.size() == 1) {
+        caffe_copy(count, bottom[0]->gpu_data<Ftype>(), top_data);
+      }
     } else {
       caffe_gpu_set(count, Ftype(0.), top_data);
       // TODO(shelhamer) does cuBLAS optimize to sum for coeff = 1?
@@ -119,10 +127,8 @@ void EltwiseLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
         }
         break;
       case EltwiseParameter_EltwiseOp_SUM:
-        if (no_coeffs_) {
-          if (i > 0) {
-            caffe_copy(count, top_diff, bottom[i]->mutable_gpu_diff<Btype>());
-          }
+        if (coeffs_[i] == Btype(1.)) {
+          caffe_copy(count, top_diff, bottom[i]->mutable_gpu_diff<Btype>());
         } else {
           caffe_gpu_scale(count, Btype(coeffs_[i]), top_diff, bottom[i]->mutable_gpu_diff<Btype>());
         }
@@ -130,7 +136,7 @@ void EltwiseLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
       case EltwiseParameter_EltwiseOp_MAX:
         mask = max_idx_.gpu_data();
         MaxBackward<Btype>  // NOLINT_NEXT_LINE(whitespace/operators)
-            <<< CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS, 0, Caffe::thread_stream()>>> (
+            <<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS, 0, Caffe::thread_stream()>>>(
             count, top_diff, i, mask, bottom[i]->mutable_gpu_diff<Btype>());
         CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
         break;

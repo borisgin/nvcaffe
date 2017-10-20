@@ -50,6 +50,10 @@ TYPED_TEST_CASE(SplitLayerTest, TestDtypesAndDevices);
 TYPED_TEST(SplitLayerTest, TestSetup) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter layer_param;
+  layer_param.set_forward_type(tp<Dtype>());
+  layer_param.set_backward_type(tp<Dtype>());
+  layer_param.set_forward_math(tp<Dtype>());
+  layer_param.set_backward_math(tp<Dtype>());
   SplitLayer<Dtype, Dtype> layer(layer_param);
   layer.SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
   EXPECT_EQ(this->blob_top_a_->num(), 2);
@@ -65,6 +69,10 @@ TYPED_TEST(SplitLayerTest, TestSetup) {
 TYPED_TEST(SplitLayerTest, Test) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter layer_param;
+  layer_param.set_forward_type(tp<Dtype>());
+  layer_param.set_backward_type(tp<Dtype>());
+  layer_param.set_forward_math(tp<Dtype>());
+  layer_param.set_backward_math(tp<Dtype>());
   SplitLayer<Dtype, Dtype> layer(layer_param);
   layer.SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
   layer.Forward(this->blob_bottom_vec_, this->blob_top_vec_);
@@ -78,8 +86,12 @@ TYPED_TEST(SplitLayerTest, Test) {
 TYPED_TEST(SplitLayerTest, TestGradient) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter layer_param;
+  layer_param.set_forward_type(tp<Dtype>());
+  layer_param.set_backward_type(tp<Dtype>());
+  layer_param.set_forward_math(tp<Dtype>());
+  layer_param.set_backward_math(tp<Dtype>());
   SplitLayer<Dtype, Dtype> layer(layer_param);
-  GradientChecker<Dtype> checker(5e-2, tol<Dtype>(1e-2, 1.e-1));
+  GradientChecker<Dtype> checker(1e-2, 1e-2);
   checker.CheckGradientEltwise(&layer, this->blob_bottom_vec_,
       this->blob_top_vec_);
 }
@@ -636,10 +648,6 @@ TEST_F(SplitLayerInsertionTest, TestLossInsertion) {
       "  bottom: 'data' "
       "  top: 'data_data_0_split_0' "
       "  top: 'data_data_0_split_1' "
-      "  forward_type: FLOAT"
-      "  backward_type: FLOAT"
-      "  forward_math: FLOAT"
-      "  backward_math: FLOAT"
       "} "
       "layer { "
       "  name: 'innerproduct1' "
@@ -664,10 +672,6 @@ TEST_F(SplitLayerInsertionTest, TestLossInsertion) {
       "  top: 'innerproduct1_innerproduct1_0_split_1' "
       "  loss_weight: 2.5 "
       "  loss_weight: 0 "
-      "  forward_type: FLOAT"
-      "  backward_type: FLOAT"
-      "  forward_math: FLOAT"
-      "  backward_math: FLOAT"
       "} "
       "layer { "
       "  name: 'innerproduct2' "
@@ -747,10 +751,6 @@ TEST_F(SplitLayerInsertionTest, TestInsertion) {
       "  top: 'data_data_0_split_0' "
       "  top: 'data_data_0_split_1' "
       "  top: 'data_data_0_split_2' "
-      "  forward_type: FLOAT"
-      "  backward_type: FLOAT"
-      "  forward_math: FLOAT"
-      "  backward_math: FLOAT"
       "} "
       "layer { "
       "  name: 'innerprod1' "
@@ -770,10 +770,6 @@ TEST_F(SplitLayerInsertionTest, TestInsertion) {
       "  bottom: 'innerprod2' "
       "  top: 'innerprod2_innerprod2_0_split_0' "
       "  top: 'innerprod2_innerprod2_0_split_1' "
-      "  forward_type: FLOAT"
-      "  backward_type: FLOAT"
-      "  forward_math: FLOAT"
-      "  backward_math: FLOAT"
       "} "
       "layer { "
       "  name: 'innerprod3' "
@@ -855,10 +851,6 @@ TEST_F(SplitLayerInsertionTest, TestInsertionTwoTop) {
       "  bottom: 'data' "
       "  top: 'data_data_0_split_0' "
       "  top: 'data_data_0_split_1' "
-      "  forward_type: FLOAT"
-      "  backward_type: FLOAT"
-      "  forward_math: FLOAT"
-      "  backward_math: FLOAT"
       "} "
       "layer { "
       "  name: 'label_data_1_split' "
@@ -866,10 +858,6 @@ TEST_F(SplitLayerInsertionTest, TestInsertionTwoTop) {
       "  bottom: 'label' "
       "  top: 'label_data_1_split_0' "
       "  top: 'label_data_1_split_1' "
-      "  forward_type: FLOAT"
-      "  backward_type: FLOAT"
-      "  forward_math: FLOAT"
-      "  backward_math: FLOAT"
       "} "
       "layer { "
       "  name: 'innerprod1' "
@@ -963,10 +951,6 @@ TEST_F(SplitLayerInsertionTest, TestWithInPlace) {
       "  bottom: 'data' "
       "  top: 'data_data_0_split_0' "
       "  top: 'data_data_0_split_1' "
-      "  forward_type: FLOAT"
-      "  backward_type: FLOAT"
-      "  forward_math: FLOAT"
-      "  backward_math: FLOAT"
       "} "
       "layer { "
       "  name: 'innerprod1' "
@@ -986,10 +970,6 @@ TEST_F(SplitLayerInsertionTest, TestWithInPlace) {
       "  bottom: 'innerprod1' "
       "  top: 'innerprod1_relu1_0_split_0' "
       "  top: 'innerprod1_relu1_0_split_1' "
-      "  forward_type: FLOAT"
-      "  backward_type: FLOAT"
-      "  forward_math: FLOAT"
-      "  backward_math: FLOAT"
       "} "
       "layer { "
       "  name: 'innerprod2' "
