@@ -44,14 +44,13 @@ void GPUMemory::Init() {
 }
 
 void GPUMemory::Finalize() {
+  std::lock_guard<std::mutex> lock(ws_mutex_init_);
   const int device = Caffe::current_device();
   if (device < workspace_.size() && workspace_[device]) {
-    std::lock_guard<std::mutex> lock(ws_mutex_init_);
     workspace_[device]->release();
     workspace_[device].reset();
   }
   if (device < weights_workspace_.size() && weights_workspace_[device]) {
-    std::lock_guard<std::mutex> lock(ws_mutex_init_);
     weights_workspace_[device]->release();
     weights_workspace_[device].reset();
   }
