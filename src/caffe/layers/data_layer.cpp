@@ -67,7 +67,7 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
 #else
     size_t batches_fit = this->queues_num_;
 #endif
-    size_t max_parsers_num = 1;
+    size_t max_parsers_num = 2;
     const size_t max_transf_num = 4;
     float ratio = datum_encoded_ ? 3.F : 4.F;
     Net* pnet = this->parent_net();
