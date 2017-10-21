@@ -586,10 +586,26 @@ message TransformationParameter {
   optional float rand_resize_ratio_lower = 12 [default = 0];
   optional float rand_resize_ratio_upper = 13 [default = 0];
 
+  // Limits for randomly generated vertical stretch, i.e.
+  // "height" *= "vertical_stretch" where
+  // "vertical_stretch" = Rand(vertical_stretch_lower,vertical_stretch_upper).
+  // Pair {1,1} means "do nothing".
+  optional float vertical_stretch_lower = 14 [default = 1];
+  optional float vertical_stretch_upper = 15 [default = 1];
+
+  // Limits for randomly generated horizontal stretch, i.e.
+  // "width" *= "horizontal_stretch" where
+  // "horizontal_stretch" = Rand(horizontal_stretch_lower,horizontal_stretch_upper).
+  // Pair {1,1} means "do nothing".
+  optional float horizontal_stretch_lower = 16 [default = 1];
+  optional float horizontal_stretch_upper = 17 [default = 1];
+
   // OpenCV algorithm used for downsampling
-  optional InterpolationAlgo interpolation_algo_down = 14 [default = INTER_NEAREST];
+  optional InterpolationAlgo interpolation_algo_down = 18 [default = INTER_NEAREST];
   // OpenCV algorithm used for upsampling
-  optional InterpolationAlgo interpolation_algo_up = 15 [default = INTER_CUBIC];
+  optional InterpolationAlgo interpolation_algo_up = 19 [default = INTER_CUBIC];
+  // No upscale by default no matter what resize parameters are chosen
+  optional bool allow_upscale = 20 [default = false];
 
   // For data pre-processing, we can do simple scaling and subtracting the
   // data mean, if provided. Note that the mean subtraction is always carried

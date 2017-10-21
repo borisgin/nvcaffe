@@ -20,7 +20,12 @@ bool DataTransformer::image_center_crop_enabled() const {
 DataTransformer::DataTransformer(const TransformationParameter& param, Phase phase)
     : param_(param), phase_(phase),
       rand_resize_ratio_lower_(param_.rand_resize_ratio_lower()),
-      rand_resize_ratio_upper_(param_.rand_resize_ratio_upper()) {
+      rand_resize_ratio_upper_(param_.rand_resize_ratio_upper()),
+      vertical_stretch_lower_(param_.vertical_stretch_lower()),
+      vertical_stretch_upper_(param_.vertical_stretch_upper()),
+      horizontal_stretch_lower_(param_.horizontal_stretch_lower()),
+      horizontal_stretch_upper_(param_.horizontal_stretch_upper()),
+      allow_upscale_(param_.allow_upscale()){
   // check if we want to use mean_file
   if (param_.has_mean_file()) {
     CHECK_EQ(param_.mean_value_size(), 0)
@@ -77,8 +82,25 @@ void DataTransformer::image_random_resize(const cv::Mat& src, cv::Mat& dst) {
       new_fheight = new_fwidth * ratio;
     }
   }
-  int new_height = std::max((int)param_.crop_size(), static_cast<int>(std::round(new_fheight)));
-  int new_width = std::max((int)param_.crop_size(), static_cast<int>(std::round(new_fwidth)));
+
+  if (vertical_stretch_lower_ > 0.F && vertical_stretch_upper_ > 0.F) {
+    const float vertical_stretch = Rand(vertical_stretch_lower_, vertical_stretch_upper_);
+    new_fheight *= vertical_stretch;
+  }
+  if (horizontal_stretch_lower_ > 0.F && horizontal_stretch_upper_ > 0.F) {
+    const float horizontal_stretch = Rand(horizontal_stretch_lower_, horizontal_stretch_upper_);
+    new_fwidth *= horizontal_stretch;
+  }
+  int new_height = std::max((int)param_.crop_size(), static_cast<int>(std::lround(new_fheight)));
+  int new_width = std::max((int)param_.crop_size(), static_cast<int>(std::lround(new_fwidth)));
+  if (!allow_upscale_) {
+    if (new_height > img_height) {
+      new_height = img_height;
+    }
+    if (new_width > img_width) {
+      new_width = img_width;
+    }
+  }
 
   if (new_height == img_height && new_width == img_width) {
     dst = src;

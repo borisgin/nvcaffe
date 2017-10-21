@@ -366,6 +366,11 @@ class DataTransformer {
   cv::Mat tmp_;
 
   const float rand_resize_ratio_lower_, rand_resize_ratio_upper_;
+  const float vertical_stretch_lower_;
+  const float vertical_stretch_upper_;
+  const float horizontal_stretch_lower_;
+  const float horizontal_stretch_upper_;
+  const bool allow_upscale_;
 
 #ifndef CPU_ONLY
   GPUMemory::Workspace mean_values_gpu_;
