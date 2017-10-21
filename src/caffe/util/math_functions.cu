@@ -109,18 +109,24 @@ template<>
 void caffe_gpu_gemv<float16>(const CBLAS_TRANSPOSE TransA, const int M,
     const int N, const float16 alpha, const float16* A, const float16* x,
     const float16 beta, float16* y) {
-  float alpha_fp32 = static_cast<float>(alpha);
-  float beta_fp32 = static_cast<float>(beta);
-  cublasOperation_t cuTransA =
-      (TransA == CblasNoTrans) ? CUBLAS_OP_T : CUBLAS_OP_N;
-  int m = (cuTransA == CUBLAS_OP_N) ? N : M;
-  int k = (cuTransA == CUBLAS_OP_N) ? M : N;
-  int LDA = (cuTransA == CUBLAS_OP_N) ? m : k;
+  cublasOperation_t cuTransA = TransA == CblasNoTrans ? CUBLAS_OP_T : CUBLAS_OP_N;
+  int m = cuTransA == CUBLAS_OP_N ? N : M;
+  int k = cuTransA == CUBLAS_OP_N ? M : N;
+  int LDA = cuTransA == CUBLAS_OP_N ? m : k;
   int LDC = m;
-  CUBLAS_CHECK(cublasSgemmEx(Caffe::cublas_handle(), cuTransA, CUBLAS_OP_N,
-      m, 1, k, &alpha_fp32, A, CAFFE_DATA_HALF, LDA,
-      x, CAFFE_DATA_HALF, k, &beta_fp32,
-      y, CAFFE_DATA_HALF, LDC));
+  if (Caffe::device_capability(Caffe::current_device()) >= 503) {
+    CUBLAS_CHECK(cublasHgemm(Caffe::cublas_handle(), cuTransA, CUBLAS_OP_N,
+        m, 1, k, alpha.gethp<half>(), A->gethp<half>(), LDA,
+        x->gethp<half>(), k, beta.gethp<half>(),
+        y->gethp<half>(), LDC));
+  } else {
+    float alpha_fp32 = static_cast<float>(alpha);
+    float beta_fp32 = static_cast<float>(beta);
+    CUBLAS_CHECK(cublasSgemmEx(Caffe::cublas_handle(), cuTransA, CUBLAS_OP_N,
+        m, 1, k, &alpha_fp32, A, CAFFE_DATA_HALF, LDA,
+        x, CAFFE_DATA_HALF, k, &beta_fp32,
+        y, CAFFE_DATA_HALF, LDC));
+  }
   CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
 }
 

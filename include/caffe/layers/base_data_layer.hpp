@@ -95,7 +95,11 @@ class BasePrefetchingDataLayer : public BaseDataLayer<Ftype, Btype>, public Inte
         this->transform_param_.has_img_rand_resize_lower() ||
         this->transform_param_.has_img_rand_resize_upper() ||
         this->transform_param_.has_rand_resize_ratio_lower() ||
-        this->transform_param_.has_rand_resize_ratio_upper();
+        this->transform_param_.has_rand_resize_ratio_upper() ||
+        this->transform_param_.has_vertical_stretch_lower() ||
+        this->transform_param_.has_vertical_stretch_upper() ||
+        this->transform_param_.has_horizontal_stretch_lower() ||
+        this->transform_param_.has_horizontal_stretch_upper();
     return use_gpu && Caffe::mode() == Caffe::GPU && !use_rand_resize;
   }
 

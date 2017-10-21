@@ -117,8 +117,13 @@ void DataTransformer::image_random_resize(const cv::Mat& src, cv::Mat& dst) {
 bool DataTransformer::image_random_resize_enabled() const {
   const int resize_lower = param_.img_rand_resize_lower();
   const int resize_upper = param_.img_rand_resize_upper();
-  const bool use_rand_resize = this->param_.has_rand_resize_ratio_lower() ||
-      this->param_.has_rand_resize_ratio_upper();
+  const bool use_rand_resize =
+      this->param_.has_rand_resize_ratio_lower() ||
+      this->param_.has_rand_resize_ratio_upper() ||
+      this->param_.has_vertical_stretch_lower() ||
+      this->param_.has_vertical_stretch_upper() ||
+      this->param_.has_horizontal_stretch_lower() ||
+      this->param_.has_horizontal_stretch_upper();
   return resize_lower != 0 || resize_upper != 0 || use_rand_resize;
 }
 
