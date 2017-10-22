@@ -18,6 +18,7 @@ void BasePrefetchingDataLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bo
   }
   if (this->output_labels_) {
     if (top[1]->data_type() == batch->label_->data_type()
+        && top[1]->diff_type() == batch->label_->diff_type()
         && top[1]->shape() == batch->label_->shape()) {
       top[1]->Swap(*batch->label_);
     } else {

@@ -61,6 +61,9 @@ class BatchNormLayer : public Layer<Ftype, Btype> {
       const vector<bool>& propagate_down, const vector<Blob*>& bottom);
   virtual void Backward_gpu(const vector<Blob*>& top,
      const vector<bool>& propagate_down, const vector<Blob*>& bottom);
+  virtual Type blobs_type() const {
+    return tp<Ftype>();
+  }
 
   //  multicast x[c] into y[.,c,...]
   template <typename Dtype>

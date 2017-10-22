@@ -182,6 +182,9 @@ class Net {
   const vector<shared_ptr<Blob>>& learnable_params() const {
     return learnable_params_;
   }
+  const vector<shared_ptr<Blob>>& learnable_params_unskipped() const {
+    return learnable_params_unskipped_;
+  }
 
   shared_ptr<TBlob<float>> lars_learnable_param(int param_id) {
     lars_learnable_params_.resize(learnable_params_.size());
@@ -318,7 +321,8 @@ class Net {
   void Reduce(int param_id);
   /// @brief Multi-GPU reduction for a particular bucket of parameters.
   void ReduceBucket(size_t count, Type bucket_type, void* bucket);
-  size_t received_contiguous_count(int top, const std::set<int>& au_ids, int& from);
+  size_t received_contiguous_count(int top, const std::set<int>& au_ids,
+      int& from, bool& type_changed);
 #endif
 
   size_t lp_aligned_count(int id) const {
@@ -370,6 +374,7 @@ class Net {
   /// The parameters in the network.
   vector<shared_ptr<Blob>> params_;
   vector<shared_ptr<Blob>> learnable_params_;
+  vector<shared_ptr<Blob>> learnable_params_unskipped_;
   vector<shared_ptr<TBlob<float>>> lars_learnable_params_;
   bool trained_layers_shared_;
 

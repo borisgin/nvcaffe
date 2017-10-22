@@ -8,7 +8,11 @@ namespace caffe {
 Tensor::Tensor(Type dtype)
     : type_(dtype),
       synced_arrays_(make_shared<vector<shared_ptr<SyncedMemory>>>(Type_ARRAYSIZE)),
-      count_(0) {}
+      count_(0) {
+#ifdef DEBUG
+  frozen_ = false;
+#endif
+}
 
 const shared_ptr<SyncedMemory>& Tensor::synced_mem() const {
   const shared_ptr<SyncedMemory>& mem = synced_arrays_->at(type_);
@@ -55,6 +59,10 @@ void Tensor::convert(Type new_type) {
   if (new_type == type_) {
     return;
   }
+#ifdef DEBUG
+  CHECK(!frozen_);
+#endif
+
   const shared_ptr<SyncedMemory>& current_mem = synced_mem();
   shared_ptr<SyncedMemory>& new_mem = synced_arrays_->at(new_type);
 

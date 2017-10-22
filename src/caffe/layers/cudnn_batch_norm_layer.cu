@@ -114,13 +114,8 @@ void CuDNNBatchNormLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
     save_inv_var = save_inv_var_->template gpu_data<float>();
     if (this->scale_bias_) {
       scale_data = this->blobs_[3]->template gpu_data<float>();
-//      scale_diff = this->blobs_[3]->template mutable_gpu_diff<float>();
-//      bias_diff  = this->blobs_[4]->template mutable_gpu_diff<float>();
-// TODO: this is workaround required for bucket reduce
-      scale_diff_tmp_.CopyDiffFrom(*this->blobs_[3]);
-      bias_diff_tmp_.CopyDiffFrom(*this->blobs_[4]);
-      scale_diff = scale_diff_tmp_.mutable_gpu_diff();
-      bias_diff  = bias_diff_tmp_.mutable_gpu_diff();
+      scale_diff = this->blobs_[3]->template mutable_gpu_diff<float>();
+      bias_diff  = this->blobs_[4]->template mutable_gpu_diff<float>();
     } else {
       scale_data = scale_ones_->template gpu_data<float>();
       scale_diff = scale_ones_->template mutable_gpu_diff<float>();
@@ -152,11 +147,6 @@ void CuDNNBatchNormLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
       bwd_scale_bias_mean_var_desc_, scale_data, scale_diff, bias_diff,
       epsilon, save_mean, save_inv_var));
   CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
-
-  if (this->scale_bias_ && is_type<Btype>(FLOAT16)) {
-    this->blobs_[3]->CopyDiffFrom(scale_diff_tmp_);
-    this->blobs_[4]->CopyDiffFrom(bias_diff_tmp_);
-  }
 }
 
 INSTANTIATE_LAYER_GPU_FUNCS_FB(CuDNNBatchNormLayer);

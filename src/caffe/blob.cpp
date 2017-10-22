@@ -32,6 +32,8 @@ void Blob::Reshape(const int n) {
 
 void Blob::Reshape(const vector<int>& shape) {
   CHECK_LE(shape.size(), kMaxBlobAxes);
+  CHECK(data_tensor_);
+  CHECK(diff_tensor_);
   count_ = 1;
   shape_.resize(shape.size());
   if (!shape_data_ || shape_data_->size() < shape.size() * sizeof(int)) {
@@ -46,12 +48,6 @@ void Blob::Reshape(const vector<int>& shape) {
     count_ *= shape[i];
     shape_[i] = shape[i];
     shape_data[i] = shape[i];
-  }
-  if (!data_tensor_) { // might be moved
-    data_tensor_ = make_shared<Tensor>(last_data_type_);
-  }
-  if (!diff_tensor_) { // might be moved
-    diff_tensor_ = make_shared<Tensor>(last_diff_type_);
   }
   data_tensor_->Reshape(count_);
   diff_tensor_->Reshape(count_);

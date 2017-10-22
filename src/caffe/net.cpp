@@ -766,7 +766,8 @@ void Net::Finalize() {
 }
 
 #ifndef CPU_ONLY
-size_t Net::received_contiguous_count(int top, const std::set<int>& au_ids, int& id_from_ret) {
+size_t Net::received_contiguous_count(int top, const std::set<int>& au_ids,
+    int& id_from_ret, bool& type_changed) {
   if (learnable_params_.empty() || au_ids.empty() || param_id_vecs_.empty()) {
     return 0;
   }
@@ -787,7 +788,7 @@ size_t Net::received_contiguous_count(int top, const std::set<int>& au_ids, int&
         cnt += lp_aligned_count(id_from);
       } else if (i + gap == id_from) {
         if (learnable_params_[i]->diff_type() != learnable_params_[id_from]->diff_type()) {
-          break;
+          type_changed = true;
         }
         id_from = i;
         cnt += lp_aligned_count(id_from);
@@ -804,8 +805,14 @@ size_t Net::received_contiguous_count(int top, const std::set<int>& au_ids, int&
             id_from_ret = id_from;
             cnt_ret = cnt;
             top_layer_id = layer_id > 0UL ? layer_id - 1UL : 0UL;
+            if (learnable_params_[bottom]->diff_type() != learnable_params_[id_from]->diff_type()) {
+              type_changed = true;
+            }
             break;
           }
+        }
+        if (type_changed) {
+          break;
         }
       } else {
         continue;
@@ -865,15 +872,19 @@ void Net::ReduceAndUpdate() {
 #ifndef CPU_ONLY
     if (!learnable_params_.empty() && Caffe::solver_count() > 1) {
       int id_from = -1;
+      bool type_changed = false;
       // Is bucket big enough? Done with iteration? Type changed?
-      const size_t received_count = received_contiguous_count(top, au_ids, id_from);
+      const size_t received_count = received_contiguous_count(top, au_ids, id_from, type_changed);
       if (id_from >= 0) {
         const size_t received_size = received_count * lp_size(id_from);
-        if (received_size >= bucket_size || param_id == END_OF_ITERATION) {
+        if (received_size >= bucket_size || param_id == END_OF_ITERATION || type_changed) {
 #ifdef DEBUG
           {
             size_t c = 0UL;
             for (int i : au_ids) {
+              if (type_changed && i < id_from) {
+                continue;
+              }
               c += lp_aligned_count(i);
             }
             CHECK_EQ(c, received_count);
@@ -1392,6 +1403,12 @@ void Net::InitializeLearnableDiffSpace() {
           learnable_params_[param_id]->set_gpu_diff(ptr);
           learnable_params_ptrs_[param_id] = static_cast<void*>(ptr);
           ptr += lp_aligned_count(param_id) * lp_size(param_id);
+#ifdef DEBUG
+          learnable_params_[param_id]->freeze_diff();
+#endif
+          learnable_params_unskipped_.push_back(learnable_params_[param_id]);
+          void* p = learnable_params_[param_id]->current_mutable_data_memory(true);
+          (void) p;
         }
       } else {
         DLOG(INFO) << print_current_device()

@@ -44,11 +44,6 @@ void CuDNNBatchNormLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bottom,
     private_top_ = Blob::create<Ftype>(top[0]->shape());
     private_bottom_ = Blob::create<Ftype>(bottom[0]->shape());
   }
-
-  if (this->blobs_.size() > 3) {
-    scale_diff_tmp_.Reshape(this->blobs_[3]->shape());
-    bias_diff_tmp_.Reshape(this->blobs_[4]->shape());
-  }
 }
 
 template<typename Ftype, typename Btype>

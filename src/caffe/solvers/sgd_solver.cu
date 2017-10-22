@@ -6,9 +6,9 @@
 
 namespace caffe {
 
-template<typename Gtype, typename Wtype>
+template<typename Gtype, typename Wtype, typename Htype>
 __global__ void SGDRegUpdateAllAndClear(int N,
-  Gtype* g, Wtype* w, Wtype* h,
+  Gtype* g, Wtype* w, Htype* h,
     float momentum, float local_rate, float local_decay, bool reg_L2,  bool clear_grads) {
   CUDA_KERNEL_LOOP(i, N) {
     Wtype reg = reg_L2 ? w[i] : Wtype((Wtype(0) < w[i]) - (w[i] < Wtype(0)));
@@ -20,7 +20,7 @@ __global__ void SGDRegUpdateAllAndClear(int N,
 }
 
 template<>
-__global__ void SGDRegUpdateAllAndClear<half, half>(int N,
+__global__ void SGDRegUpdateAllAndClear<half, half, half>(int N,
   half* g, half* w, half* h,
     float momentum, float local_rate, float local_decay, bool reg_L2,  bool clear_grads) {
   half hz;
@@ -41,7 +41,28 @@ __global__ void SGDRegUpdateAllAndClear<half, half>(int N,
 }
 
 template<>
-__global__ void SGDRegUpdateAllAndClear<half, float>(int N,
+__global__ void SGDRegUpdateAllAndClear<float, float, half>(int N,
+    float* g, float* w, half* h,
+    float momentum, float local_rate, float local_decay, bool reg_L2,  bool clear_grads) {
+  half hz;
+  CUDA_KERNEL_LOOP(i, N) {
+    float wf = w[i];
+    float gf = g[i];
+    float hf = __half2float(h[i]);
+
+    float reg = reg_L2 ? wf : float((0.F < wf)-(wf < 0.F));
+    gf += reg * local_decay;
+    gf = hf = momentum * hf  + local_rate * gf;
+    wf -= gf;
+
+    h[i] = float2half_clip(hf);
+    w[i] = wf;
+    g[i] = clear_grads ? 0.F : gf;
+  }
+}
+
+template<>
+__global__ void SGDRegUpdateAllAndClear<half, float, float>(int N,
     half* g, float* w, float* h,
     float momentum, float local_rate, float local_decay, bool reg_L2, bool clear_grads) {
   half hz;
@@ -54,9 +75,9 @@ __global__ void SGDRegUpdateAllAndClear<half, float>(int N,
   }
 }
 
-template<typename Gtype, typename Wtype>
+template<typename Gtype, typename Wtype, typename Htype>
 void sgd_reg_update_all_and_clear_gpu(int N,
-  Gtype* g, Wtype* w, Wtype* h,
+  Gtype* g, Wtype* w, Htype* h,
   float momentum, float local_rate, const std::string& reg_type, float local_decay,
   void* handle,  bool clear_grads) {
   cublasHandle_t cublas_handle =
@@ -74,20 +95,34 @@ void sgd_reg_update_all_and_clear_gpu(int N,
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
-template void sgd_reg_update_all_and_clear_gpu<float16, double>(int, float16*, double*, double*,
+template void sgd_reg_update_all_and_clear_gpu<float16, double, double>(
+    int, float16*, double*, double*,
   float, float, const std::string&, float,  void*, bool);
-template void sgd_reg_update_all_and_clear_gpu<float, float>(int, float*, float*, float*,
+template void sgd_reg_update_all_and_clear_gpu<float, float, float>(
+    int, float*, float*, float*,
   float, float, const std::string&, float,  void*, bool);
-template void sgd_reg_update_all_and_clear_gpu<float, double>(int, float*, double*, double*,
+template void sgd_reg_update_all_and_clear_gpu<float, double, double>(
+    int, float*, double*, double*,
   float, float, const std::string&, float,  void*, bool);
-template void sgd_reg_update_all_and_clear_gpu<float, float16>(int, float*, float16*, float16*,
+template void sgd_reg_update_all_and_clear_gpu<float, float16, float16>(
+    int, float*, float16*, float16*,
   float, float, const std::string&, float,  void*, bool);
-template void sgd_reg_update_all_and_clear_gpu<double, float>(int, double*, float*, float*,
+template void sgd_reg_update_all_and_clear_gpu<double, float, float>(
+    int, double*, float*, float*,
   float, float, const std::string&, float,  void*, bool);
-template void sgd_reg_update_all_and_clear_gpu<double, double>(int, double*, double*, double*,
+template void sgd_reg_update_all_and_clear_gpu<double, double, double>(
+    int, double*, double*, double*,
   float, float, const std::string&, float,  void*, bool);
-template void sgd_reg_update_all_and_clear_gpu<double, float16>(int, double*, float16*, float16*,
+template void sgd_reg_update_all_and_clear_gpu<double, float16, float16>(
+    int, double*, float16*, float16*,
   float, float, const std::string&, float,  void*, bool);
+
+template void sgd_reg_update_all_and_clear_gpu<float, float, float16>(
+    int, float*, float*, float16*,
+    float, float, const std::string&, float,  void*, bool);
+template void sgd_reg_update_all_and_clear_gpu<float, float, double>(
+    int, float*, float*, double*,
+    float, float, const std::string&, float,  void*, bool);
 
 template<>
 void

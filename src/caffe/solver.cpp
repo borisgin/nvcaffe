@@ -202,10 +202,6 @@ void Solver::Step(int iters) {
   }
 
 #ifndef CPU_ONLY
-  for (const shared_ptr<Blob>& param : net_->learnable_params()) {
-    // To prevent allocations inside on_start call:
-    param->allocate_data(mode == Caffe::GPU);
-  }
 
   net_->InitializeLearnableDiffSpace();
 
@@ -220,7 +216,7 @@ void Solver::Step(int iters) {
         lock.reset(new unique_lock<shared_mutex>(GPUMemory::read_write_mutex()));
       }
       callback_soft_barrier();
-      callback_->on_start(net_->learnable_params());
+      callback_->on_start(net_->learnable_params_unskipped());
     }
     callback_soft_barrier();
     LOG(INFO) << "Starting Optimization on GPU " << Caffe::current_device();

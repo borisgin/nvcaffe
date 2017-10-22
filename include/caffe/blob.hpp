@@ -37,21 +37,20 @@ class TBlob;
 class Blob {
  public:
   void Swap(Blob& other) noexcept {
+    CHECK_EQ(data_tensor_->type(), other.data_tensor_->type());
+    CHECK_EQ(diff_tensor_->type(), other.diff_tensor_->type());
     std::swap(data_tensor_, other.data_tensor_);
     std::swap(diff_tensor_, other.diff_tensor_);
     std::swap(shape_data_, other.shape_data_);
     std::swap(shape_, other.shape_);
     std::swap(count_, other.count_);
-    std::swap(last_data_type_, other.last_data_type_);
-    std::swap(last_diff_type_, other.last_diff_type_);
   }
 
  protected:
   Blob(Type data_type, Type diff_type)
       : data_tensor_(make_shared<Tensor>(data_type)),
         diff_tensor_(make_shared<Tensor>(diff_type)),
-        count_(0), last_data_type_(data_type), last_diff_type_(diff_type) {
-  }
+        count_(0) {}
   explicit Blob(Type dtype)
       : Blob(dtype, dtype) {}
 
@@ -88,11 +87,11 @@ class Blob {
   }
 
   Type data_type() const {
-    return data_tensor_ ? data_tensor_->type() : last_data_type_;
+    return data_tensor_->type();
   }
 
   Type diff_type() const {
-    return diff_tensor_ ? diff_tensor_->type() : last_diff_type_;
+    return diff_tensor_->type();
   }
 
   bool diff_equals(const Blob& other) const {
@@ -524,6 +523,15 @@ class Blob {
   const int* gpu_shape() const;
 #endif
 
+#ifdef DEBUG
+  void freeze_data() {
+    data_tensor_->frozen_ = true;
+  }
+  void freeze_diff() {
+    diff_tensor_->frozen_ = true;
+  }
+#endif
+
   DISABLE_COPY_MOVE_AND_ASSIGN(Blob);
 
  protected:
@@ -532,7 +540,6 @@ class Blob {
   shared_ptr<SyncedMemory> shape_data_;
   vector<int> shape_;
   int count_;
-  Type last_data_type_, last_diff_type_; // in case of move
 
   bool is_current_data_valid() const {
     return data_tensor_->is_current_valid();

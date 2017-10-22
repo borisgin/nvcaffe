@@ -50,16 +50,19 @@ float SGDSolver<Dtype>::GetLearningRate() {
     }
     rate = this->param_.base_lr() * pow(this->param_.gamma(), this->current_step_);
   } else if (lr_policy == "poly") {
-    float min_lr  = this->param_.min_lr();
     float base_lr = this->param_.base_lr();
     float power = this->param_.power();
     float maxiter = this->param_.max_iter() > 0 ? float(this->param_.max_iter()) : 1.F;
-    rate = min_lr + (base_lr - min_lr) * pow(1.F - (float(this->iter_) / maxiter), power);
+    rate = base_lr * pow(1.F - (float(this->iter_) / maxiter), power);
   } else if (lr_policy == "sigmoid") {
     rate = this->param_.base_lr() / (1.F +
         exp(-this->param_.gamma() * (double(this->iter_ - this->param_.stepsize()))));
   } else {
     LOG(FATAL) << "Unknown learning rate policy: " << lr_policy;
+  }
+  float min_lr = this->param_.min_lr();
+  if (rate < min_lr) {
+    rate = min_lr;
   }
   return rate;
 }
@@ -191,9 +194,9 @@ void SGDSolver<Dtype>::Regularize(int param_id, void* handle) {
 }
 
 #ifndef CPU_ONLY
-template<typename Gtype, typename Wtype>
+template<typename Gtype, typename Wtype, typename Htype>
 void sgd_reg_update_all_and_clear_gpu(int N,
-    Gtype* g, Wtype* w, Wtype* h,
+    Gtype* g, Wtype* w, Htype* h,
     float momentum, float local_rate, const std::string& regularization_type, float local_decay,
     void* handle, bool clear_grads);
 #endif
@@ -222,21 +225,30 @@ SGDSolver<Dtype>::ComputeUpdateValue(int param_id, void* handle, float rate, boo
 #ifndef CPU_ONLY
     const std::string& regularization_type = this->param_.regularization_type();
     float decay = local_decay(param_id);
+    const Type wtype = param->data_type();
     const Type gtype = param->diff_type();
     if (gtype == tp<float16>()) {
-      sgd_reg_update_all_and_clear_gpu<float16, Dtype>(param->count(),
+      sgd_reg_update_all_and_clear_gpu<float16, Dtype, Dtype>(param->count(),
           param->mutable_gpu_diff<float16>(),
           param->mutable_gpu_data<Dtype>(),
           history->mutable_gpu_data(),
           momentum, local_rate, regularization_type, decay,  handle, clear_grads);
     } else if (gtype == tp<float>()) {
-      sgd_reg_update_all_and_clear_gpu<float, Dtype>(param->count(),
-          param->mutable_gpu_diff<float>(),
-          param->mutable_gpu_data<Dtype>(),
-          history->mutable_gpu_data(),
-          momentum, local_rate, regularization_type, decay,  handle, clear_grads);
+      if (wtype == tp<float>()) {
+        sgd_reg_update_all_and_clear_gpu<float, float, Dtype>(param->count(),
+            param->mutable_gpu_diff<float>(),
+            param->mutable_gpu_data<float>(),
+            history->mutable_gpu_data(),
+            momentum, local_rate, regularization_type, decay, handle, clear_grads);
+      } else {
+        sgd_reg_update_all_and_clear_gpu<float, Dtype, Dtype>(param->count(),
+            param->mutable_gpu_diff<float>(),
+            param->mutable_gpu_data<Dtype>(),
+            history->mutable_gpu_data(),
+            momentum, local_rate, regularization_type, decay, handle, clear_grads);
+      }
     } else if (gtype == tp<double>()) {
-      sgd_reg_update_all_and_clear_gpu<double, Dtype>(param->count(),
+      sgd_reg_update_all_and_clear_gpu<double, Dtype, Dtype>(param->count(),
           param->mutable_gpu_diff<double>(),
           param->mutable_gpu_data<Dtype>(),
           history->mutable_gpu_data(),
