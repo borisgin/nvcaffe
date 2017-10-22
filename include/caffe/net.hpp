@@ -322,7 +322,7 @@ class Net {
   void Reduce(int type_id, int param_id);
   /// @brief Multi-GPU reduction for a particular bucket of parameters.
   void ReduceBucket(int type_id, size_t count, Type bucket_type, void* bucket);
-  size_t received_contiguous_count(int type_id, int top, const std::set<int>& au_ids, int& from);
+  size_t received_contiguous_count(int type_id, const std::set<int>& au_ids, int& from);
 #endif
 
   size_t lp_aligned_count(int id) const {
@@ -384,6 +384,8 @@ class Net {
   GPUMemory::Workspace learnable_space_[2];
 #endif
   size_t learnable_space_size_[2];
+  /// layer_id->{param,count}
+  std::multimap<size_t, std::pair<size_t, size_t>> ltopc_[2];
   size_t reduce_buckets_;
 
   /**

@@ -369,11 +369,11 @@ void Solver::Step(int iters) {
 }
 
 void Solver::Finalize() {
+  net_->Finalize();
   if (reduce_thread0_) {
     reduce_thread0_->join();
   }
   if (reduce_thread1_) {
-    net_->Finalize();
     reduce_thread1_->join();
   }
 }

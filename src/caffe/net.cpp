@@ -779,51 +779,29 @@ void Net::Finalize() {
 }
 
 #ifndef CPU_ONLY
-size_t Net::received_contiguous_count(int type_id, int top, const std::set<int>& au_ids, int& id_from_ret) {
+size_t Net::received_contiguous_count(int type_id, const std::set<int>& au_ids, int& id_from_ret) {
   if (learnable_params_.empty() || au_ids.empty() || param_id_vecs_.empty()) {
     return 0;
   }
   size_t cnt_ret = 0UL, cnt = 0UL;
   const int bottom = *au_ids.begin();
-  int id_from = -1;
-  int gap = 1;
   id_from_ret = -1;
   size_t top_layer_id = param_id_vecs_.size() - 1UL;
-  for (int i = top; i >= bottom; --i) {
-    if (learnable_params_ptrs_[type_id][i] == nullptr) {  // skipped blob (like 3rd in BN)
-      ++gap;
-      continue;
-    }
-    if (au_ids.find(i) != au_ids.end()) {
-      if (id_from < 0) {
-        id_from = i;
-        cnt += lp_aligned_count(id_from);
-      } else if (i + gap == id_from) {
-        CHECK_EQ(learnable_params_[i]->diff_type(), learnable_params_[id_from]->diff_type());
-        id_from = i;
-        cnt += lp_aligned_count(id_from);
-        for (size_t layer_id = top_layer_id; layer_id > 0UL; --layer_id) {
-          bool layer_complete = !param_id_vecs_[layer_id].empty();
-          for (int param_id : param_id_vecs_[layer_id]) {
-            if (param_id < bottom || au_ids.find(param_id) == au_ids.end()) {
-              layer_complete = false;
-              break;
-            }
-          }
-          if (layer_complete && param_id_vecs_[layer_id][0] == i) {
-            // layer complete
-            id_from_ret = id_from;
-            cnt_ret = cnt;
-            top_layer_id = layer_id > 0UL ? layer_id - 1UL : 0UL;
-            break;
-          }
-        }
-      } else {
-        continue;
+  const std::multimap<size_t, std::pair<size_t, size_t>>& ltopc = ltopc_[type_id];
+  for (size_t layer_id = top_layer_id; layer_id > 0UL; --layer_id) {
+    auto range = ltopc.equal_range(layer_id);
+    bool layer_complete = range.first != range.second;
+    for (auto p = range.first; p != range.second; ++p) {
+      int param_id = (int) p->second.first;
+      if (param_id < bottom || au_ids.find(param_id) == au_ids.end()) {
+        layer_complete = false;
+        break;
       }
-      gap = 1;
-    } else {
-      break;
+      cnt += p->second.second;
+    }
+    if (layer_complete) {
+      id_from_ret = (int) range.first->second.first;
+      cnt_ret = cnt;
     }
   }
   return cnt_ret;
@@ -834,7 +812,6 @@ void Net::ReduceAndUpdate(int type_id) {
 #ifndef CPU_ONLY
   shared_ptr<CuBLASHandle> cublas_phandle = Caffe::cublas_phandle();
   cublasHandle_t handle = cublas_phandle->get();
-  int top = (int)learnable_params_.size() - 1;
   size_t bucket_size = 0UL;
   CHECK_GE(reduce_buckets_, 0);
   if (Caffe::solver_count() > 1 && reduce_buckets_ > 0) {
@@ -876,9 +853,8 @@ void Net::ReduceAndUpdate(int type_id) {
 #ifndef CPU_ONLY
     if (!learnable_params_.empty() && Caffe::solver_count() > 1) {
       int id_from = -1;
-      // Is bucket big enough? Done with iteration? Type changed?
-      const size_t received_count =
-          received_contiguous_count(type_id, top, au_ids, id_from);
+      // Is bucket big enough? Done with iteration?
+      const size_t received_count = received_contiguous_count(type_id, au_ids, id_from);
       if (id_from >= 0) {
         const size_t received_size = received_count * lp_size(id_from);
         if (received_size >= bucket_size || param_id == END_OF_ITERATION) {
@@ -901,7 +877,6 @@ void Net::ReduceAndUpdate(int type_id) {
             solver_->ApplyUpdate(i, handle, clear_grads);
           }
           au_ids.erase(au_ids.find(id_from), au_ids.end());
-          top = id_from - 1;
         }
       }
       if (param_id != END_OF_ITERATION) {
@@ -910,7 +885,6 @@ void Net::ReduceAndUpdate(int type_id) {
     }
     if (param_id == END_OF_ITERATION) {
       au_ids.clear();
-      top = (int)learnable_params_.size() - 1;
       solver_->iteration_complete_signal(type_id);
     }
 #else
@@ -1417,6 +1391,7 @@ void Net::InitializeLearnableDiffSpace(int type_id) {
             learnable_params_[param_id]->freeze_diff();
 #endif
             learnable_params_mapped_.push_back(learnable_params_[param_id]);
+            ltopc_[type_id].emplace(i, std::make_pair(param_id, lp_aligned_count(param_id)));
             void *p = learnable_params_[param_id]->current_mutable_data_memory(true);
             (void) p;
           }
