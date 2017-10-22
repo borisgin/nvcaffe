@@ -16,7 +16,8 @@ namespace caffe {
 
 unique_ptr<boost::barrier> P2PManager::dl_bar(new boost::barrier(1));
 unique_ptr<boost::barrier> P2PManager::bar;
-unique_ptr<boost::barrier> P2PManager::rbar;
+unique_ptr<boost::barrier> P2PManager::rbar0;
+unique_ptr<boost::barrier> P2PManager::rbar1;
 
 P2PManager::P2PManager(shared_ptr<Solver> root_solver,
     int nranks, const SolverParameter& solver_param) :
@@ -28,7 +29,8 @@ P2PManager::P2PManager(shared_ptr<Solver> root_solver,
 #endif
   dl_bar.reset(new boost::barrier(nranks_));
   bar.reset(new boost::barrier(nranks_));
-  rbar.reset(new boost::barrier(nranks_));
+  rbar0.reset(new boost::barrier(nranks_));
+  rbar1.reset(new boost::barrier(nranks_));
 }
 
 void P2PManager::Run(const vector<int>& gpus) {
@@ -36,7 +38,8 @@ void P2PManager::Run(const vector<int>& gpus) {
 #ifdef USE_NCCL
   CHECK_EQ(nranks_, gpus.size());
   CHECK_EQ(nranks_, Caffe::solver_count());
-  NCCL_CHECK(ncclGetUniqueId(&nccl_id_));
+  NCCL_CHECK(ncclGetUniqueId(&nccl_id_[0]));
+  NCCL_CHECK(ncclGetUniqueId(&nccl_id_[1]));
 #else
   LOG(FATAL) << "Multi-GPU execution not available - rebuild with USE_NCCL";
 #endif  // USE_NCCL
@@ -48,7 +51,8 @@ void P2PManager::Run(const vector<int>& gpus) {
     syncs_[i].reset(new P2PSync(this, root_solver_, i, gpus.size(), param));
 #ifndef CPU_ONLY
 #ifdef USE_NCCL
-    syncs_[i]->aux_ = &nccl_id_;
+    syncs_[i]->aux_[0] = &nccl_id_[0];
+    syncs_[i]->aux_[1] = &nccl_id_[1];
 #else
     LOG(FATAL) << "Multi-GPU execution not available - rebuild with USE_NCCL";
 #endif  // USE_NCCL
@@ -116,7 +120,8 @@ P2PSync::P2PSync(P2PManager* mgr, shared_ptr<Solver> root_solver,
 P2PSync::~P2PSync() {
 #ifndef CPU_ONLY
 #ifdef USE_NCCL
-  ncclCommDestroy(nccl_comm_);
+  ncclCommDestroy(nccl_comm_[0]);
+  ncclCommDestroy(nccl_comm_[1]);
 #endif
 #endif
 }
@@ -136,9 +141,12 @@ void P2PSync::InternalThreadEntry() {
 
 #ifndef CPU_ONLY
 #ifdef USE_NCCL
-  ncclUniqueId* nccl_id = reinterpret_cast<ncclUniqueId*>(this->aux_);
+  ncclUniqueId* nccl_id[2];
+  nccl_id[0] = reinterpret_cast<ncclUniqueId*>(this->aux_[0]);
+  nccl_id[1] = reinterpret_cast<ncclUniqueId*>(this->aux_[1]);
   soft_barrier();
-  NCCL_CHECK(ncclCommInitRank(&nccl_comm_, nranks_, *nccl_id, rank_));
+  NCCL_CHECK(ncclCommInitRank(&nccl_comm_[0], nranks_, *nccl_id[0], rank_));
+  NCCL_CHECK(ncclCommInitRank(&nccl_comm_[1], nranks_, *nccl_id[1], rank_));
   soft_barrier();
 #endif
 #endif
@@ -156,7 +164,8 @@ void P2PSync::InternalThreadEntry() {
   }
 
 #ifndef CPU_ONLY
-  comm_stream_ = CudaStream::create(true);
+  comm_stream_[0] = CudaStream::create(true);
+  comm_stream_[1] = CudaStream::create(true);
   stream_ = Caffe::thread_pstream();
   cublas_handle_ = Caffe::cublas_phandle();
   // sanity check
@@ -177,9 +186,9 @@ void P2PSync::soft_barrier() {
 #endif
 }
 
-void P2PSync::reduce_barrier() {
+void P2PSync::reduce_barrier(int type_id) {
 #ifndef CPU_ONLY
-  P2PManager::rbar_wait();
+  P2PManager::rbar_wait(type_id);
 #endif
 }
 
@@ -187,7 +196,7 @@ void P2PSync::on_start(const vector<shared_ptr<Blob>>& net) {
 #ifndef CPU_ONLY
 #ifdef USE_NCCL
   int count = 0;
-  NCCL_CHECK(ncclCommCount(nccl_comm_, &count));
+  NCCL_CHECK(ncclCommCount(nccl_comm_[0], &count));
   CHECK_EQ(count, nranks_);
   for (int i = 0; i < net.size(); ++i) {
     const shared_ptr<Blob>& param = net[i];
@@ -195,15 +204,15 @@ void P2PSync::on_start(const vector<shared_ptr<Blob>>& net) {
         even(param->count()),
         nccl::nccl_type(param->data_type()),
         0,
-        nccl_comm_,
-        comm_stream_->get()));
+        nccl_comm_[0],
+        comm_stream_[0]->get()));
   }
-  CUDA_CHECK(cudaStreamSynchronize(comm_stream_->get()));
+  CUDA_CHECK(cudaStreamSynchronize(comm_stream_[0]->get()));
 #endif  // USE_NCCL
 #endif
 }
 
-void P2PSync::allreduce(int param_id) {
+void P2PSync::allreduce(int type_id, int param_id) {
 #ifndef CPU_ONLY
 #ifdef USE_NCCL
   const shared_ptr<Blob>& param = solver_->net()->learnable_params()[param_id];
@@ -212,20 +221,20 @@ void P2PSync::allreduce(int param_id) {
       even(param->count()),
       nccl::nccl_type(param->diff_type()),
       ncclSum,
-      nccl_comm_,
-      comm_stream_->get()));
-  CUDA_CHECK(cudaStreamSynchronize(comm_stream_->get()));
+      nccl_comm_[type_id],
+      comm_stream_[type_id]->get()));
+  CUDA_CHECK(cudaStreamSynchronize(comm_stream_[type_id]->get()));
 #endif  // USE_NCCL
 #endif  // CPU_ONLY
 }
 
-void P2PSync::allreduce_bucket(size_t count, void* bucket, Type type) {
+void P2PSync::allreduce_bucket(int type_id, size_t count, void* bucket, Type type) {
 #ifndef CPU_ONLY
 #ifdef USE_NCCL
   NCCL_CHECK_ARG2(ncclAllReduce(bucket, bucket, count, nccl::nccl_type(type),
-                           ncclSum, nccl_comm_, comm_stream_->get()),
-                           Caffe::current_device(), comm_stream_->get());
-  CUDA_CHECK(cudaStreamSynchronize(comm_stream_->get()));
+                  ncclSum, nccl_comm_[type_id], comm_stream_[type_id]->get()),
+                  Caffe::current_device(), comm_stream_[type_id]->get());
+  CUDA_CHECK(cudaStreamSynchronize(comm_stream_[type_id]->get()));
 #endif  // USE_NCCL
 #endif  // CPU_ONLY
 }

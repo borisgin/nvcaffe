@@ -80,10 +80,10 @@ class Solver {
   // Invoked at specific points during an iteration
   class Callback {
    public:
-    virtual void allreduce(int param_id) = 0;
-    virtual void allreduce_bucket(size_t count, void* bucket, Type type) = 0;
+    virtual void allreduce(int type_id, int param_id) = 0;
+    virtual void allreduce_bucket(int type_id, size_t count, void* bucket, Type type) = 0;
     virtual void soft_barrier() = 0;
-    virtual void reduce_barrier() = 0;
+    virtual void reduce_barrier(int type_id) = 0;
     virtual void saveTestResults(float loss, const vector<float>& scores) = 0;
     virtual void aggregateTestResults(float* loss, vector<float>* scores) = 0;
 
@@ -106,16 +106,16 @@ class Solver {
     root_callbacks_.push_back(value);
   }
 
-  Flag iter_flag_;
+  Flag iter_flag_[2];
 
-  void iteration_complete_signal() {
-    iter_flag_.set();
+  void iteration_complete_signal(int ltype) {
+    iter_flag_[ltype].set();
   }
-  void iteration_start_signal() {
-    iter_flag_.reset();
+  void iteration_start_signal(int ltype) {
+    iter_flag_[ltype].reset();
   }
-  void iteration_wait() {
-    iter_flag_.wait();
+  void iteration_wait(int ltype) {
+    iter_flag_[ltype].wait();
   }
 
   void CheckSnapshotWritePermissions();
@@ -123,7 +123,8 @@ class Solver {
 
   void request_early_exit() {
     requested_early_exit_ = true;
-    iteration_complete_signal();
+    iteration_complete_signal(0);
+    iteration_complete_signal(1);
   }
 
   bool display() const {
@@ -157,7 +158,7 @@ class Solver {
   virtual void RestoreSolverStateFromBinaryProto(const string& state_file) = 0;
   void UpdateSmoothedLoss(float loss, int start_iter, int average_loss);
   void Reduce(Callback* callback, int device, Caffe::Brew mode, uint64_t rand_seed,
-      int solver_count, bool root_solver);
+      int solver_count, bool root_solver, int type_id);
 
   void callback_soft_barrier() {
     if (callback_ != nullptr) {
@@ -177,7 +178,8 @@ class Solver {
   vector<Callback*> root_callbacks_;
   vector<float> losses_;
   float smoothed_loss_;
-  unique_ptr<boost::thread> reduce_thread_;
+  unique_ptr<boost::thread> reduce_thread0_;
+  unique_ptr<boost::thread> reduce_thread1_;
 
   // The root solver that holds root nets (actually containing shared layers)
   // in data parallelism

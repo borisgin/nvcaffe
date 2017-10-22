@@ -90,7 +90,7 @@ class Net {
    * a forward pass, e.g. to compute output feature size.
    */
   void Reshape();
-  void ReduceAndUpdate();
+  void ReduceAndUpdate(int type_id);
 
   float ForwardBackward(bool apply_update = true);
 
@@ -182,8 +182,8 @@ class Net {
   const vector<shared_ptr<Blob>>& learnable_params() const {
     return learnable_params_;
   }
-  const vector<shared_ptr<Blob>>& learnable_params_unskipped() const {
-    return learnable_params_unskipped_;
+  const vector<shared_ptr<Blob>>& learnable_params_mapped() const {
+    return learnable_params_mapped_;
   }
 
   shared_ptr<TBlob<float>> lars_learnable_param(int param_id) {
@@ -195,6 +195,7 @@ class Net {
     lars_learnable_params_[param_id]->CopyDiffFrom(*learnable_params_[param_id], true);
     return lars_learnable_params_[param_id];
   }
+  vector<int> learnable_types();
 
   /// @brief returns the learnable parameter learning rate multipliers
   const vector<float>& params_lr() const { return params_lr_; }
@@ -267,7 +268,7 @@ class Net {
   }
 
 #ifndef CPU_ONLY
-  void InitializeLearnableDiffSpace();
+  void InitializeLearnableDiffSpace(int type_id);
 #endif
 
   void wait_layers_init() {
@@ -318,11 +319,10 @@ class Net {
   void UpdateDebugInfo(const int param_id);
   /// @brief Multi-GPU reduction for a particular parameter.
 #ifndef CPU_ONLY
-  void Reduce(int param_id);
+  void Reduce(int type_id, int param_id);
   /// @brief Multi-GPU reduction for a particular bucket of parameters.
-  void ReduceBucket(size_t count, Type bucket_type, void* bucket);
-  size_t received_contiguous_count(int top, const std::set<int>& au_ids,
-      int& from, bool& type_changed);
+  void ReduceBucket(int type_id, size_t count, Type bucket_type, void* bucket);
+  size_t received_contiguous_count(int type_id, int top, const std::set<int>& au_ids, int& from);
 #endif
 
   size_t lp_aligned_count(int id) const {
@@ -374,15 +374,16 @@ class Net {
   /// The parameters in the network.
   vector<shared_ptr<Blob>> params_;
   vector<shared_ptr<Blob>> learnable_params_;
-  vector<shared_ptr<Blob>> learnable_params_unskipped_;
+  vector<shared_ptr<Blob>> learnable_params_mapped_;
   vector<shared_ptr<TBlob<float>>> lars_learnable_params_;
   bool trained_layers_shared_;
 
-  vector<void*> learnable_params_ptrs_;
+  vector<int> learnable_types_;
+  vector<void*> learnable_params_ptrs_[2];
 #ifndef CPU_ONLY
-  GPUMemory::Workspace learnable_space_;
+  GPUMemory::Workspace learnable_space_[2];
 #endif
-  size_t learnable_space_size_;
+  size_t learnable_space_size_[2];
   size_t reduce_buckets_;
 
   /**
@@ -415,7 +416,7 @@ class Net {
   /// Pointer to the solver being used with this net
   Solver* solver_;
   size_t solver_rank_;
-  BlockingQueue<int> reduction_queue_;
+  BlockingQueue<int> reduction_queue_[2];
   Flag* solver_init_flag_;
   Flag* solver_iter0_flag_;
   vector<Flag*> layer_inititialized_flags_;
