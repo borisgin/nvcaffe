@@ -180,7 +180,7 @@ message NetParameter {
   // For better performance we unify multiple layers in buckets.
   // This parameter sets approximate number of buckets to combine layers to.
   // Default value is good for majority of nets.
-  optional int32 reduce_buckets = 18 [default = 6];
+  optional int32 reduce_buckets = 18 [default = 3];
 
   // Sets the default "cudnn_math_override" value for every layer
   optional int32 default_cudnn_math_override = 19 [default = -1];

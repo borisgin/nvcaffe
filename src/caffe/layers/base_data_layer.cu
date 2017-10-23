@@ -11,6 +11,7 @@ void BasePrefetchingDataLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bo
   shared_ptr<Batch> batch =
       prefetches_full_[next_batch_queue_]->pop("Data layer prefetch queue empty");
   if (top[0]->data_type() == batch->data_->data_type()
+      && top[0]->diff_type() == batch->data_->diff_type()
       && top[0]->shape() == batch->data_->shape()) {
     top[0]->Swap(*batch->data_);
   } else {
