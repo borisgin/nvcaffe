@@ -231,6 +231,7 @@ void P2PSync::allreduce(int type_id, int param_id) {
 void P2PSync::allreduce_bucket(int type_id, size_t count, void* bucket, Type type) {
 #ifndef CPU_ONLY
 #ifdef USE_NCCL
+  CHECK(bucket);
   NCCL_CHECK_ARG2(ncclAllReduce(bucket, bucket, count, nccl::nccl_type(type),
                   ncclSum, nccl_comm_[type_id], comm_stream_[type_id]->get()),
                   Caffe::current_device(), comm_stream_[type_id]->get());

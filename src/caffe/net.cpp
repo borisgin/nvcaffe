@@ -785,23 +785,27 @@ size_t Net::received_contiguous_count(int type_id, const std::set<int>& au_ids, 
   }
   size_t cnt_ret = 0UL, cnt = 0UL;
   const int bottom = *au_ids.begin();
+  const int top = *au_ids.rbegin();
   id_from_ret = -1;
-  size_t top_layer_id = param_id_vecs_.size() - 1UL;
-  const std::multimap<size_t, std::pair<size_t, size_t>>& ltopc = ltopc_[type_id];
-  for (size_t layer_id = top_layer_id; layer_id > 0UL; --layer_id) {
-    auto range = ltopc.equal_range(layer_id);
-    bool layer_complete = range.first != range.second;
-    for (auto p = range.first; p != range.second; ++p) {
-      int param_id = (int) p->second.first;
+  const std::map<size_t, std::set<int>>& ltop = ltop_[type_id];
+  for (auto lit = ltop.rbegin(); lit != ltop.rend(); ++lit) { //size_t layer_id = top_layer_id; layer_id > 0UL; --layer_id) {
+    if (lit->second.empty() || *lit->second.begin() > top) {
+      continue;
+    }
+    bool layer_complete = true;
+    for (auto p = lit->second.begin(); p != lit->second.end(); ++p) {
+      int param_id = *p;
       if (param_id < bottom || au_ids.find(param_id) == au_ids.end()) {
         layer_complete = false;
         break;
       }
-      cnt += p->second.second;
+      cnt += lp_aligned_count(param_id);
     }
     if (layer_complete) {
-      id_from_ret = (int) range.first->second.first;
+      id_from_ret = *lit->second.begin();
       cnt_ret = cnt;
+    } else {
+      break;
     }
   }
   return cnt_ret;
@@ -870,6 +874,7 @@ void Net::ReduceAndUpdate(int type_id) {
             CHECK_EQ(c, received_count);
           }
 #endif
+          CHECK_EQ((int) learnable_params_[id_from]->diff_type(), learnable_types_[type_id]);
           ReduceBucket(type_id, received_count, learnable_params_[id_from]->diff_type(),
               learnable_params_ptrs_[type_id][id_from]);
 
@@ -884,7 +889,7 @@ void Net::ReduceAndUpdate(int type_id) {
       }
     }
     if (param_id == END_OF_ITERATION) {
-      au_ids.clear();
+      CHECK(au_ids.empty());
       solver_->iteration_complete_signal(type_id);
     }
 #else
@@ -1352,7 +1357,7 @@ void Net::InitializeLearnableDiffSpace(int type_id) {
   CHECK_LT(type_id, 2);
   const Type t = (Type) learnable_types_[type_id];
   learnable_space_size_[type_id] = 0UL;
-  learnable_params_ptrs_[type_id].resize(learnable_params_.size());
+  learnable_params_ptrs_[type_id].resize(learnable_params_.size(), nullptr);
   for (int i = 0; i < layers_.size(); ++i) {
     for (int j = 0; j < layers_[i]->blobs().size(); ++j) {
       if (!layers_[i]->skip_apply_update(j)) {
@@ -1391,7 +1396,7 @@ void Net::InitializeLearnableDiffSpace(int type_id) {
             learnable_params_[param_id]->freeze_diff();
 #endif
             learnable_params_mapped_.push_back(learnable_params_[param_id]);
-            ltopc_[type_id].emplace(i, std::make_pair(param_id, lp_aligned_count(param_id)));
+            ltop_[type_id][i].insert(param_id);
             void *p = learnable_params_[param_id]->current_mutable_data_memory(true);
             (void) p;
           }
@@ -1406,7 +1411,7 @@ void Net::InitializeLearnableDiffSpace(int type_id) {
 }
 
 vector<int> Net::learnable_types() {
-  CHECK_EQ(learnable_types_.size(), 0);
+  learnable_types_.clear();
   int type0 = -1;
   int type1 = -1;
   for (shared_ptr<Blob> lp : learnable_params_) {

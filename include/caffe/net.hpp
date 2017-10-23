@@ -384,8 +384,8 @@ class Net {
   GPUMemory::Workspace learnable_space_[2];
 #endif
   size_t learnable_space_size_[2];
-  /// layer_id->{param,count}
-  std::multimap<size_t, std::pair<size_t, size_t>> ltopc_[2];
+  /// layer_id->{paramss}
+  std::map<size_t, std::set<int>> ltop_[2];
   size_t reduce_buckets_;
 
   /**
