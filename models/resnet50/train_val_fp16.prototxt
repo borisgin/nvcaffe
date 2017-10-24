@@ -24,8 +24,12 @@ layer {
   transform_param {
 #    mean_file: "data/ilsvrc12/imagenet_mean.binaryproto"
     mean_file: "/data/imagenet/imagenet_256x256_mean.binaryproto"
-    img_rand_resize_lower: 224
-    img_rand_resize_upper: 256
+    img_rand_resize_lower: 240
+    img_rand_resize_upper: 288
+    vertical_stretch_lower: 0.7
+    vertical_stretch_upper: 1.3
+    horizontal_stretch_lower: 0.7
+    horizontal_stretch_upper: 1.3
     crop_size: 224
     mirror: true
     scale: 0.00390625
