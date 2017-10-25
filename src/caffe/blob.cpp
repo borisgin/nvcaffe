@@ -278,7 +278,9 @@ void Blob::CopyFrom(const Blob& source, bool copy_diff, bool reshape,
   shared_ptr<Tensor> &dstt = copy_diff ? diff_tensor_ : data_tensor_;
   const shared_ptr<SyncedMemory> &src = srct->synced_mem();
   shared_ptr<SyncedMemory> &dst = dstt->mutable_synced_mem();
-  CHECK(src->head() != SyncedMemory::UNINITIALIZED);
+  if (src->head() == SyncedMemory::UNINITIALIZED) {
+    return;
+  }
   Type src_type = copy_diff ? source.diff_type() : source.data_type();
   Type dst_type = copy_diff ? diff_type() : data_type();
   const bool is_gpu = Caffe::mode() == Caffe::GPU;
