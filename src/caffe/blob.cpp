@@ -1,5 +1,6 @@
 #include <climits>
 #include <vector>
+#include <caffe/util/cudnn.hpp>
 
 #include "caffe/blob.hpp"
 
@@ -264,7 +265,8 @@ bool Blob::ShapeEquals(const BlobProto& other) {
   return shape_ == other_shape;
 }
 
-void Blob::CopyFrom(const Blob& source, bool copy_diff, bool reshape) {
+void Blob::CopyFrom(const Blob& source, bool copy_diff, bool reshape,
+    Packing src_packing, Packing dst_packing) {
   if (source.count() != count_ || source.shape() != shape_) {
     if (reshape) {
       ReshapeLike(source);
@@ -272,23 +274,40 @@ void Blob::CopyFrom(const Blob& source, bool copy_diff, bool reshape) {
       LOG(FATAL) << "Trying to copy blobs of different sizes.";
     }
   }
-  const shared_ptr<Tensor>& srct = copy_diff ? source.diff_tensor_ : source.data_tensor_;
-  shared_ptr<Tensor>& dstt = copy_diff ? diff_tensor_ : data_tensor_;
-  shared_ptr<SyncedMemory>& dst = dstt->mutable_synced_mem();
-  if (srct == dstt) {
-    return;
-  }
-  const shared_ptr<SyncedMemory>& src = srct->synced_mem();
-  if (src->head() != SyncedMemory::UNINITIALIZED) {
-    const bool is_gpu = Caffe::mode() == Caffe::GPU;
-    Type src_data_type = copy_diff ? source.diff_type() : source.data_type();
-    Type dst_data_type = copy_diff ? diff_type() : data_type();
+  const shared_ptr<Tensor> &srct = copy_diff ? source.diff_tensor_ : source.data_tensor_;
+  shared_ptr<Tensor> &dstt = copy_diff ? diff_tensor_ : data_tensor_;
+  const shared_ptr<SyncedMemory> &src = srct->synced_mem();
+  shared_ptr<SyncedMemory> &dst = dstt->mutable_synced_mem();
+  CHECK(src->head() != SyncedMemory::UNINITIALIZED);
+  Type src_type = copy_diff ? source.diff_type() : source.data_type();
+  Type dst_type = copy_diff ? diff_type() : data_type();
+  const bool is_gpu = Caffe::mode() == Caffe::GPU;
+  if ((src_packing == dst_packing && src_type == dst_type)
+      || !is_gpu) {
+    if (srct == dstt) {
+      return;
+    }
     Tensor::copy_helper(is_gpu, count_,
         is_gpu ? src->gpu_data() : src->cpu_data(),
-        src_data_type,
+        src_type,
         is_gpu ? dst->mutable_gpu_data(false) : dst->mutable_cpu_data(false),
-        dst_data_type);
+        dst_type);
     dst->validate();
+  } else {
+    CHECK(srct != dstt);
+    cudnnHandle_t handle = Caffe::cudnn_handle();
+    cudnnTensorDescriptor_t src_desc, dst_desc;
+    CUDNN_CHECK(cudnnCreateTensorDescriptor(&src_desc));
+    CUDNN_CHECK(cudnnCreateTensorDescriptor(&dst_desc));
+    cudnn::setTensor4dDesc(&src_desc, src_type, src_packing, source.shape_);
+    cudnn::setTensor4dDesc(&dst_desc, dst_type, dst_packing, shape_);
+
+    CUDNN_CHECK(cudnnTransformTensor(handle,
+        cudnn::one(src_type), src_desc, src->gpu_data(),
+        cudnn::zero(dst_type), dst_desc, dst->mutable_gpu_data(false)));
+    CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
+    CUDNN_CHECK(cudnnDestroyTensorDescriptor(src_desc));
+    CUDNN_CHECK(cudnnDestroyTensorDescriptor(dst_desc));
   }
 }
 

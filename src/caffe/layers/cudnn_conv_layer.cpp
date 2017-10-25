@@ -34,7 +34,7 @@ void setConvolutionDesc(Type math, cudnnConvolutionDescriptor_t conv,
   int upscaleA[2] = {1, 1};
   CUDNN_CHECK(cudnnSetConvolutionNdDescriptor(conv,
       2, padA, strideA, upscaleA, CUDNN_CROSS_CORRELATION,
-      cudnn::conv_type(math)));
+      cudnn::cudnn_data_type(math)));
 }
 
 void setConvolutionDescMath(Type math, cudnnConvolutionDescriptor_t conv) {
@@ -51,7 +51,7 @@ void setConvolutionDescMath(Type math, cudnnConvolutionDescriptor_t conv) {
       &mode, &dataType));
   CUDNN_CHECK(cudnnSetConvolutionNdDescriptor(conv,
       2, padA, strideA, upscaleA, mode,
-      cudnn::conv_type(math)));
+      cudnn::cudnn_data_type(math)));
 }
 
 cudnnDataType_t convolutionDescDataType(cudnnConvolutionDescriptor_t conv) {
