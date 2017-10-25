@@ -12,10 +12,12 @@ void BasePrefetchingDataLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bo
       prefetches_full_[next_batch_queue_]->pop("Data layer prefetch queue empty");
   if (top[0]->data_type() == batch->data_->data_type()
       && top[0]->diff_type() == batch->data_->diff_type()
-      && top[0]->shape() == batch->data_->shape()) {
+      && top[0]->shape() == batch->data_->shape()
+      && batch->data_packing() == this->transform_param_.forward_packing()) {
     top[0]->Swap(*batch->data_);
   } else {
-    top[0]->CopyDataFrom(*batch->data_, true);
+    top[0]->CopyDataFrom(*batch->data_, true, batch->data_packing(),
+        this->transform_param_.forward_packing());
   }
   if (this->output_labels_) {
     if (top[1]->data_type() == batch->label_->data_type()

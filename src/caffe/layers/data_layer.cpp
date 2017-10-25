@@ -311,7 +311,7 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
       const size_t offset = batch->data_->offset(item_id);
       CHECK_EQ(0, offset % buf_len);
       Btype *ptr = top_data + offset;
-      vector<int> shape = this->dt(thread_id)->Transform(datum.get(), ptr, buf_len);
+      vector<int> shape = this->dt(thread_id)->Transform(datum.get(), ptr, buf_len, false);
       CHECK_EQ(top_shape[1], shape[1]) << "Number of channels can't vary in the same batch";
       CHECK_EQ(top_shape[2], shape[2]) << "Image height can't vary in the same batch";
       CHECK_EQ(top_shape[3], shape[3]) << "Image width can't vary in the same batch";
@@ -332,6 +332,8 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
 #else
     NO_GPU;
 #endif
+  } else {
+    batch->set_data_packing(NHWC);
   }
   batch->set_id(current_batch_id);
   sample_only_.store(false);

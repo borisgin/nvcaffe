@@ -55,7 +55,7 @@ class Batch {
 
   Batch(Type data_type, Type diff_type)
       : data_(Blob::create(data_type, diff_type)), label_(Blob::create(data_type, diff_type)),
-        id_((size_t) -1) {}
+        id_((size_t) -1), data_packing_(NCHW) {}
 
   size_t id() const {
     return id_;
@@ -66,10 +66,17 @@ class Batch {
   size_t bytes() const {
     return data_->size_of(true) + label_->size_of(true);
   }
+  Packing data_packing() const {
+    return data_packing_;
+  }
+  void set_data_packing(Packing packing) {
+    data_packing_ = packing;
+  }
 
   DISABLE_COPY_MOVE_AND_ASSIGN(Batch);
  private:
   size_t id_;
+  Packing data_packing_;
 };
 
 template<typename Ftype, typename Btype>

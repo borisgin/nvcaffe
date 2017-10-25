@@ -48,7 +48,7 @@ class DataTransformer {
    * @return Output shape
    */
   template<typename Dtype>
-  vector<int> Transform(const Datum* datum, Dtype* buf, size_t buf_len) {
+  vector<int> Transform(const Datum* datum, Dtype* buf, size_t buf_len, bool repack = true) {
     vector<int> shape;
     const bool shape_only = buf == nullptr;
     CHECK(!(param_.force_color() && param_.force_gray()))
@@ -74,7 +74,7 @@ class DataTransformer {
     }
     if (!shape_only && !v1_path) {
       CHECK_NOTNULL(img.data);
-      Transform(img, buf, buf_len);
+      Transform(img, buf, buf_len, repack);
     }
     return shape;
   }
@@ -92,7 +92,7 @@ class DataTransformer {
    *    shape.
    */
   template<typename Dtype>
-  void Transform(const cv::Mat& src, Dtype* buf, size_t buf_len) {
+  void Transform(const cv::Mat& src, Dtype* buf, size_t buf_len, bool repack = true) {
     cv::Mat tmp, dst;
 
     image_random_resize(src, tmp);
@@ -103,7 +103,7 @@ class DataTransformer {
       image_center_crop(param_.crop_size(), param_.crop_size(), tmp);
     }
     apply_mean_scale_mirror(tmp, dst);
-    FloatCVMatToBuf<Dtype>(dst, buf_len, buf);
+    FloatCVMatToBuf<Dtype>(dst, buf_len, buf, repack);
   }
 
   /**
