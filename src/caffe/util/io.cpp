@@ -130,7 +130,7 @@ vector<int> DecodeDatumToCVMat(const Datum& datum, int color_mode, cv::Mat& cv_i
 }
 
 cv::Mat ReadImageToCVMat(const string& filename,
-    const int height, const int width, const bool is_color) {
+    int height, int width, bool is_color, int min_height, int min_width) {
   cv::Mat cv_img;
   int cv_read_flag = (is_color ? CV_LOAD_IMAGE_COLOR :
     CV_LOAD_IMAGE_GRAYSCALE);
@@ -138,6 +138,12 @@ cv::Mat ReadImageToCVMat(const string& filename,
   if (!cv_img_origin.data) {
     LOG(ERROR) << "Could not open or find file " << filename;
     return cv_img_origin;
+  }
+  if (min_height > 0) {
+    height = std::max(min_height, height);
+  }
+  if (min_width > 0) {
+    width = std::max(min_width, width);
   }
   if (height > 0 && width > 0) {
     cv::resize(cv_img_origin, cv_img, cv::Size(width, height));

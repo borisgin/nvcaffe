@@ -170,7 +170,8 @@ inline bool ReadImageToDatum(const string& filename, const int label,
 }
 
 cv::Mat ReadImageToCVMat(const string& filename,
-    const int height, const int width, const bool is_color);
+    int height, int width, bool is_color,
+    int min_height = 0, int min_width = 0);
 
 cv::Mat ReadImageToCVMat(const string& filename,
     const int height, const int width);
