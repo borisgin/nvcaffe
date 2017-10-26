@@ -210,7 +210,7 @@ void TBlobDataToCVMat(const TBlob<Dtype>& blob, cv::Mat& img) {
 }
 
 template<typename Dtype>
-void FloatCVMatToBuf(const cv::Mat& cv_img, size_t buf_len, Dtype* buf) {
+void FloatCVMatToBuf(const cv::Mat& cv_img, size_t buf_len, Dtype* buf, bool repack = true) {
   const size_t img_channels = cv_img.channels();
   const size_t img_height = cv_img.rows;
   const size_t img_width = cv_img.cols;
@@ -220,14 +220,40 @@ void FloatCVMatToBuf(const cv::Mat& cv_img, size_t buf_len, Dtype* buf) {
   const size_t img_size = img_channels * img_height * img_width;
   CHECK_LE(img_size, buf_len);
   // TODO This is the place where we fill top blob
-  // Here we might leave HWC as is for faster convolutions
-  // So far, we do slow HWC -> CHW transformation
-  if (cv_img.depth() == CV_8U) {
-    hwc2chw(img_channels, img_width, img_height, cv_img.ptr<unsigned char>(0), buf);
-  } else if (cv_img.depth() == CV_32F) {
-    hwc2chw(img_channels, img_width, img_height, cv_img.ptr<float>(0), buf);
-  } else if (cv_img.depth() == CV_64F) {
-    hwc2chw(img_channels, img_width, img_height, cv_img.ptr<double>(0), buf);
+  if (repack) {
+    // Here we might leave HWC as is for faster convolutions
+    // So far, we do slow HWC -> CHW transformation
+    if (cv_img.depth() == CV_8U) {
+      hwc2chw(img_channels, img_width, img_height, cv_img.ptr<unsigned char>(0), buf);
+    } else if (cv_img.depth() == CV_32F) {
+      hwc2chw(img_channels, img_width, img_height, cv_img.ptr<float>(0), buf);
+    } else if (cv_img.depth() == CV_64F) {
+      hwc2chw(img_channels, img_width, img_height, cv_img.ptr<double>(0), buf);
+    } else {
+      LOG(FATAL) << "Image depth is not supported";
+    }
+  } else {
+    if (cv_img.depth() == CV_32F && tp<Dtype>() == FLOAT) {
+      std::memcpy(buf, cv_img.ptr<float>(0), img_size * sizeof(float));
+    } else if (cv_img.depth() == CV_64F && tp<Dtype>() == DOUBLE) {
+      std::memcpy(buf, cv_img.ptr<double>(0), img_size * sizeof(double));
+    } else {
+      if (cv_img.depth() == CV_8U) {
+        for (size_t i = 0UL; i < img_size; ++i) {
+          buf[i] = static_cast<Dtype>(cv_img.ptr<unsigned char>(0)[i]);
+        }
+      } else if (cv_img.depth() == CV_32F) {
+        for (size_t i = 0UL; i < img_size; ++i) {
+          buf[i] = static_cast<Dtype>(cv_img.ptr<float>(0)[i]);
+        }
+      } else if (cv_img.depth() == CV_64F) {
+        for (size_t i = 0UL; i < img_size; ++i) {
+          buf[i] = static_cast<Dtype>(cv_img.ptr<double>(0)[i]);
+        }
+      } else {
+        LOG(FATAL) << "Image depth is not supported";
+      }
+    }
   }
 //  cv::Mat im;
 //  im.create(img_height, img_width, CVFC<float>(img_channels));

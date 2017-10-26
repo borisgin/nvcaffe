@@ -11,6 +11,11 @@ enum Type {
   UINT = 4;  // math not supported
 }
 
+enum Packing {
+  NCHW = 0;
+  NHWC = 1;
+}
+
 // Specifies the shape (dimensions) of a Blob.
 message BlobShape {
   repeated int64 dim = 1 [packed = true];
@@ -606,6 +611,9 @@ message TransformationParameter {
   optional InterpolationAlgo interpolation_algo_up = 19 [default = INTER_CUBIC];
   // No upscale by default no matter what resize parameters are chosen
   optional bool allow_upscale = 20 [default = false];
+
+  // If followed by CuDNN, set to NHWC for better performance
+  optional Packing forward_packing = 21 [default = NCHW];
 
   // For data pre-processing, we can do simple scaling and subtracting the
   // data mean, if provided. Note that the mean subtraction is always carried
