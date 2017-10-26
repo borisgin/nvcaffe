@@ -479,7 +479,7 @@ class Layer : public LayerBase {
   virtual void Backward(const vector<Blob*>& top, const vector<bool>& propagate_down,
       const vector<Blob*>& bottom);
 
-  virtual void ToProto(LayerParameter* param, bool write_diff = false);
+  void ToProto(LayerParameter* param, bool write_diff = false) override;
 
   /**
  * @brief Returns the scalar loss associated with a top blob at a given index.

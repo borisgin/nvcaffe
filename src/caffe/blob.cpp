@@ -348,7 +348,7 @@ void Blob::FromProto(const BlobProto& proto, bool reshape) {
       set_value_at(true, i, proto.data(i));
     }
     data_tensor_->invalidate_others();
-  } else if (proto.has_raw_data() > 0) {
+  } else if (proto.has_raw_data()) {
     CHECK(proto.has_raw_data_type()) << "Missing raw data type";
     Type raw_type = proto.raw_data_type();
     Type dt = data_tensor_->type();
@@ -388,7 +388,7 @@ void Blob::FromProto(const BlobProto& proto, bool reshape) {
       set_value_at(false, i, proto.diff(i));
     }
     diff_tensor_->invalidate_others();
-  } else if (proto.has_raw_diff() > 0) {
+  } else if (proto.has_raw_diff()) {
     CHECK(proto.has_raw_diff_type()) << "Missing raw diff type";
     Type raw_type = proto.raw_diff_type();
     Type dt = diff_tensor_->type();
@@ -419,6 +419,15 @@ void Blob::FromProto(const BlobProto& proto, bool reshape) {
 
 template<typename Dtype>
 void Blob::ToProto(BlobProto* proto, bool store_in_old_format, bool write_diff) const {
+  if (this->data_type() != tp<Dtype>() || this->diff_type() != tp<Dtype>()) {
+    Blob tmp(tp<Dtype>(), tp<Dtype>());
+    tmp.CopyDataFrom(*this, true);
+    if (write_diff) {
+      tmp.CopyDiffFrom(*this, true);
+    }
+    tmp.ToProto<Dtype>(proto, store_in_old_format, write_diff);
+    return;
+  }
   if (store_in_old_format) {
     if (tp<Dtype>() == tp<double>()) {
       ToProtoBVLC<double>(proto, write_diff);
