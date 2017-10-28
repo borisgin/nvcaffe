@@ -1233,6 +1233,11 @@ message PoolingParameter {
   // If global_pooling then it will pool over the size of the bottom by doing
   // kernel_h = bottom->height and kernel_w = bottom->width
   optional bool global_pooling = 12 [default = false];
+  
+  // FB pooling parameters
+  // Use floor((height + 2 * padding - kernel) / stride) + 1
+  // instead of ceil((height + 2 * padding - kernel) / stride) + 1
+  optional bool torch_pooling = 40 [default = false];
 }
 
 message PowerParameter {

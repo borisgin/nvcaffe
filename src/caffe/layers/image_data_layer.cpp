@@ -136,6 +136,8 @@ void ImageDataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_
     cv::Mat cv_img = ReadImageToCVMat(root_folder + lines_[lines_id_].first,
         new_height, new_width, is_color);
     CHECK(cv_img.data) << "Could not load " << lines_[lines_id_].first;
+    CHECK_EQ(cv_img.rows, top_shape[2]) << "Can't mix different image sizes in one batch";
+    CHECK_EQ(cv_img.cols, top_shape[3]) << "Can't mix different image sizes in one batch";
     read_time += timer.MicroSeconds();
     timer.Start();
     // Apply transformations (mirror, crop...) to the image

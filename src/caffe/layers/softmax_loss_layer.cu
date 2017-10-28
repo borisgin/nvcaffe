@@ -66,10 +66,18 @@ void SoftmaxWithLossLayer<Ftype, Btype>::Forward_gpu(
   // to avoid having to allocate additional GPU memory.
   Ftype* counts = prob_->template mutable_gpu_diff<Ftype>();
   cudaStream_t stream = Caffe::thread_stream();
-  // NOLINT_NEXT_LINE(whitespace/operators)
-  SoftmaxLossForwardGPU<<<CAFFE_GET_BLOCKS(nthreads),
-      CAFFE_CUDA_NUM_THREADS, 0, stream>>>(nthreads, prob_data, label, loss_data,
-      outer_num_, dim, inner_num_, has_ignore_label_, ignore_label_, counts);
+  if (tp<Ftype>() == FLOAT16) {
+    // NOLINT_NEXT_LINE(whitespace/operators)
+    SoftmaxLossForwardGPU<half><<<CAFFE_GET_BLOCKS(nthreads),
+        CAFFE_CUDA_NUM_THREADS, 0, stream>>>(nthreads, reinterpret_cast<const half*>(prob_data),
+        reinterpret_cast<const half*>(label), reinterpret_cast<half*>(loss_data),
+        outer_num_, dim, inner_num_, has_ignore_label_, ignore_label_,
+        reinterpret_cast<half*>(counts));
+  } else {
+    SoftmaxLossForwardGPU<<<CAFFE_GET_BLOCKS(nthreads),
+        CAFFE_CUDA_NUM_THREADS, 0, stream>>> (nthreads, prob_data, label, loss_data,
+        outer_num_, dim, inner_num_, has_ignore_label_, ignore_label_, counts);
+  }
   CUDA_CHECK(cudaStreamSynchronize(stream));
   Ftype loss;
   caffe_gpu_asum(nthreads, loss_data, &loss);
