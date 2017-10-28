@@ -354,7 +354,7 @@ TYPED_TEST(BlobSerializationTest, TestSerialization) {
   TBlob<TypeParam> blob;
 
   bool store_in_old_format = false;
-  this->blob_.template ToProto<TypeParam>(&proto, store_in_old_format, true);
+  this->blob_.ToProto(&proto, store_in_old_format, true);
   blob.FromProto(proto, true);
   EXPECT_TRUE(this->blob_.shape() == blob.shape());
   const TypeParam* psrc_data = this->blob_.cpu_data();
@@ -367,7 +367,7 @@ TYPED_TEST(BlobSerializationTest, TestSerialization) {
   }
 
   store_in_old_format = true;
-  this->blob_.template ToProto<TypeParam>(&proto, store_in_old_format, true);
+  this->blob_.ToProto(&proto, store_in_old_format, true);
   blob.FromProto(proto, true);
   EXPECT_TRUE(this->blob_.shape() == blob.shape());
   for (int i = 0; i < this->blob_.count(); ++i) {

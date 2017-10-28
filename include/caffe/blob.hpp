@@ -179,7 +179,7 @@ class Blob {
 
   std::string shape_string() const {
     std::ostringstream stream;
-    for (int i = 0; i < shape_.size(); ++i) {
+    for (size_t i = 0; i < shape_.size(); ++i) {
       stream << shape_[i] << " ";
     }
     stream << "(" << count_ << ")";
@@ -307,7 +307,7 @@ class Blob {
     int offset = 0;
     for (int i = 0; i < num_axes(); ++i) {
       offset *= shape(i);
-      if (indices.size() > i) {
+      if ((int)indices.size() > i) {
         CHECK_GE(indices[i], 0);
         CHECK_LT(indices[i], shape(i));
         offset += indices[i];
@@ -445,9 +445,7 @@ class Blob {
    */
   void ShareDiff(const Blob& other);
 
-  template<typename Dtype>
   void ToProto(BlobProto* proto, bool store_in_old_format, bool write_diff = false) const;
-  template<typename Dtype>
   void ToProtoBVLC(BlobProto* proto, bool write_diff = false) const;
 
   void FromProto(const BlobProto& proto, bool reshape = true);
@@ -463,11 +461,11 @@ class Blob {
     return diff_tensor_->current_mutable_memory(is_gpu);
   }
 
-  const void* current_data_memory(bool is_gpu) {
+  const void* current_data_memory(bool is_gpu) const {
     return data_tensor_->current_memory(is_gpu);
   }
 
-  const void* current_diff_memory(bool is_gpu) {
+  const void* current_diff_memory(bool is_gpu) const {
     return diff_tensor_->current_memory(is_gpu);
   }
 
