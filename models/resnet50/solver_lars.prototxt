@@ -20,7 +20,7 @@ rampup_interval: 10000
 lr_policy: "poly"
 power: 2.0
 momentum: 0.9
-weight_decay: 0.0005 #1e-4
+weight_decay: 1e-4
 
 snapshot: 1000000
 snapshot_prefix: "models/resnet50/snapshots/resnet50"
