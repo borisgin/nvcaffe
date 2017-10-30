@@ -31,7 +31,7 @@ class DataTransformer {
 #ifndef CPU_ONLY
   template<typename Dtype>
   void TransformGPU(int N, int C, int H, int W, size_t sizeof_element,
-      const void* in, Dtype* out, const unsigned int* rands);
+      const void* in, Dtype* out, const unsigned int* rands, bool signed_data);
 #endif
 
   /**
