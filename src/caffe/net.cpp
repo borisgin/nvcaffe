@@ -151,7 +151,12 @@ void Net::Init(const NetParameter& in_param) {
     }
 
     if (!layer_param.has_forward_type()) {
-      mutable_layer_param->set_forward_type(in_param.default_forward_type());
+      if (is_data_layer) {
+        // In majority of cases we manage to avoid redundant conversion:
+        mutable_layer_param->set_forward_type(FLOAT);
+      } else {
+        mutable_layer_param->set_forward_type(in_param.default_forward_type());
+      }
     }
     if (!layer_param.has_backward_type()) {
       if (is_data_layer) {
