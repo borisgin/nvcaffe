@@ -90,6 +90,10 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
     }
     current_transf_num = std::min(max_transf_num, std::max(current_transf_num,
         static_cast<size_t>(std::lround(fit / current_parsers_num))));
+    if (current_parsers_num > 1 && current_transf_num == max_transf_num - 1) {
+      current_parsers_num = 1;
+      current_transf_num = max_transf_num;
+    }
     this->RestartAllThreads(current_transf_num, true, false, Caffe::next_seed());
     this->transf_num_ = this->threads_num();
     this->parsers_num_ = current_parsers_num;
@@ -269,7 +273,7 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
       }
     }
     tmp_batch_holder_[thread_id]->safe_reserve(batch_size *
-        std::max(datum_sizeof_element, sizeof(Btype)) * datum_len);
+        std::max(datum_sizeof_element, sizeof(Ftype)) * datum_len);
     vector<int> random_vec_shape(1, batch_size * 3);
     random_vectors_[thread_id]->Reshape(random_vec_shape);
     datum_size = datum_len * datum_sizeof_element;
@@ -280,7 +284,7 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
     if (init_datum->encoded()) {
       vector<int> init_shape { top_shape[0], top_shape[1], init_datum_height, init_datum_width };
       batch->data_->Reshape(init_shape);
-      dst_gptr = batch->data_->template mutable_gpu_data_c<Btype>(false);
+      dst_gptr = batch->data_->template mutable_gpu_data_c<Ftype>(false);
     } else {
       dst_gptr = tmp_batch_holder_[thread_id]->data();
     }
@@ -363,18 +367,18 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
       CUDNN_CHECK(cudnnCreateTensorDescriptor(&src_desc));
       CUDNN_CHECK(cudnnCreateTensorDescriptor(&dst_desc));
       cudnn::setTensor4dDesc(&src_desc, CUDNN_DATA_INT8, NHWC, batch->data_->shape());
-      cudnn::setTensor4dDesc(&dst_desc, tp<Btype>(), NCHW, batch->data_->shape());
+      cudnn::setTensor4dDesc(&dst_desc, tp<Ftype>(), NCHW, batch->data_->shape());
 
       CUDNN_CHECK(cudnnTransformTensor(handle,
           cudnn::one(tp<float>()), src_desc, dst_gptr,
-          cudnn::zero(tp<Btype>()), dst_desc, tmp_batch_holder_[thread_id]->data()));
+          cudnn::zero(tp<Ftype>()), dst_desc, tmp_batch_holder_[thread_id]->data()));
       CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
       CUDNN_CHECK(cudnnDestroyTensorDescriptor(src_desc));
       CUDNN_CHECK(cudnnDestroyTensorDescriptor(dst_desc));
 
       dst_gptr = tmp_batch_holder_[thread_id]->data();
       batch->data_->Reshape(top_shape);
-      datum_sizeof_element = sizeof(Btype);
+      datum_sizeof_element = sizeof(Ftype);
     }
 
     this->dt(thread_id)->TransformGPU(top_shape[0], top_shape[1],

@@ -549,10 +549,11 @@ __global__ void add_kernel(const int n, const Dtype* a, const Dtype* b, Dtype* y
     y[index] = a[index] + b[index];
   }
 }
+
 template<>
-__global__ void add_kernel<half2>(const int n, const half2* a, const half2* b, half2* y) {
+__global__ void add_kernel<half>(const int n, const half* a, const half* b, half* y) {
   CUDA_KERNEL_LOOP(index, n) {
-    y[index] = hadd2(a[index], b[index]);
+    y[index] = hadd(a[index], b[index]);
   }
 }
 
@@ -577,11 +578,10 @@ void caffe_gpu_add<double>(const int N, const double* a, const double* b, double
 template<>
 void caffe_gpu_add<float16>(const int N, const float16* a, const float16* b, float16* y) {
   cudaStream_t stream = Caffe::thread_stream();
-  const unsigned int n2 = even(N) / 2;
   // NOLINT_NEXT_LINE(whitespace/operators)
-  add_kernel<<<CAFFE_GET_BLOCKS_HALF(n2), CAFFE_CUDA_NUM_THREADS_HALF, 0, stream>>>
-      (n2, reinterpret_cast<const half2*>(a), reinterpret_cast<const half2*>(b),
-       reinterpret_cast<half2*>(y));
+  add_kernel<<<CAFFE_GET_BLOCKS_HALF(N), CAFFE_CUDA_NUM_THREADS_HALF, 0, stream>>>
+      (N, reinterpret_cast<const half*>(a), reinterpret_cast<const half*>(b),
+       reinterpret_cast<half*>(y));
   CUDA_POST_KERNEL_CHECK;
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }
@@ -594,9 +594,9 @@ __global__ void incr_kernel(const int n, const Dtype* a, Dtype* b) {
 }
 
 template<>
-__global__ void incr_kernel<half2>(const int n, const half2* a, half2* b) {
+__global__ void incr_kernel<half>(const int n, const half* a, half* b) {
   CUDA_KERNEL_LOOP(index, n) {
-    b[index] = hadd2(a[index], b[index]);
+    b[index] = hadd(a[index], b[index]);
   }
 }
 
@@ -621,10 +621,9 @@ void caffe_gpu_incr<double>(const int N, const double* a, double* b) {
 template<>
 void caffe_gpu_incr<float16>(const int N, const float16* a, float16* b) {
   cudaStream_t stream = Caffe::thread_stream();
-  const unsigned int n2 = even(N) / 2;
   // NOLINT_NEXT_LINE(whitespace/operators)
-  incr_kernel<<<CAFFE_GET_BLOCKS_HALF(n2), CAFFE_CUDA_NUM_THREADS_HALF, 0, stream>>>
-      (n2, reinterpret_cast<const half2*>(a), reinterpret_cast<half2*>(b));
+  incr_kernel<<<CAFFE_GET_BLOCKS_HALF(N), CAFFE_CUDA_NUM_THREADS_HALF, 0, stream>>>
+      (N, reinterpret_cast<const half*>(a), reinterpret_cast<half*>(b));
   CUDA_POST_KERNEL_CHECK;
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }
