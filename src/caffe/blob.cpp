@@ -348,7 +348,7 @@ void Blob::FromProto(const BlobProto& proto, bool reshape) {
       set_value_at(true, i, proto.data(i));
     }
     data_tensor_->invalidate_others();
-  } else if (proto.has_raw_data() > 0) {
+  } else if (proto.has_raw_data()) {
     CHECK(proto.has_raw_data_type()) << "Missing raw data type";
     Type raw_type = proto.raw_data_type();
     Type dt = data_tensor_->type();
@@ -388,7 +388,7 @@ void Blob::FromProto(const BlobProto& proto, bool reshape) {
       set_value_at(false, i, proto.diff(i));
     }
     diff_tensor_->invalidate_others();
-  } else if (proto.has_raw_diff() > 0) {
+  } else if (proto.has_raw_diff()) {
     CHECK(proto.has_raw_diff_type()) << "Missing raw diff type";
     Type raw_type = proto.raw_diff_type();
     Type dt = diff_tensor_->type();
@@ -417,35 +417,28 @@ void Blob::FromProto(const BlobProto& proto, bool reshape) {
   }
 }
 
-template<typename Dtype>
 void Blob::ToProto(BlobProto* proto, bool store_in_old_format, bool write_diff) const {
   if (store_in_old_format) {
-    if (tp<Dtype>() == tp<double>()) {
-      ToProtoBVLC<double>(proto, write_diff);
-    } else {
-      // Convert FP16 to 32
-      ToProtoBVLC<float>(proto, write_diff);
-    }
+    ToProtoBVLC(proto, write_diff);
     return;
   }
   CHECK(is_current_data_valid());
   CHECK(is_current_diff_valid());
-  const Type dt = tp<Dtype>();
+  const Type dt = data_type();
   proto->clear_shape();
   for (int i = 0; i < shape_.size(); ++i) {
     proto->mutable_shape()->add_dim(shape_[i]);
   }
-  const void* pdata = cpu_data<Dtype>();
+  const void* pdata = current_data_memory(false);
   proto->set_raw_data_type(dt);
   proto->set_raw_data(pdata, count_ * tsize(dt));
   if (write_diff) {
-    const void* pdiff = cpu_diff<Dtype>();
+    const void* pdiff = current_diff_memory(false);
     proto->set_raw_diff_type(dt);
     proto->set_raw_diff(pdiff, count_ * tsize(dt));
   }
 }
 
-template<typename Dtype>
 void Blob::ToProtoBVLC(BlobProto* proto, bool write_diff) const {
   CHECK(is_current_data_valid());
   CHECK(is_current_diff_valid());
@@ -453,42 +446,42 @@ void Blob::ToProtoBVLC(BlobProto* proto, bool write_diff) const {
   for (int i = 0; i < shape_.size(); ++i) {
     proto->mutable_shape()->add_dim(shape_[i]);
   }
-  const void* pdata = cpu_data<Dtype>();
-  if (tp<Dtype>() == tp<float>()) {
+  const void* pdata = current_data_memory(false);
+  if (data_type() == tp<float>()) {
     proto->clear_data();
     const float* data_vec = static_cast<const float*>(pdata);
     for (int i = 0; i < count_; ++i) {
       proto->add_data(data_vec[i]);
     }
-  } else if (tp<Dtype>() == tp<double>()) {
+  } else if (data_type() == tp<double>()) {
     proto->clear_double_data();
     const double* data_vec = static_cast<const double*>(pdata);
     for (int i = 0; i < count_; ++i) {
       proto->add_double_data(data_vec[i]);
     }
   } else {
-    LOG(FATAL) << "BVLC format doesn't support data type " << Type_Name(tp<Dtype>());
+    LOG(FATAL) << "BVLC format doesn't support data type " << Type_Name(data_type());
   }
 
   if (!write_diff) {
     return;
   }
 
-  const void* pdiff = cpu_diff<Dtype>();
-  if (tp<Dtype>() == tp<float>()) {
+  const void* pdiff = current_diff_memory(false);
+  if (diff_type() == tp<float>()) {
     proto->clear_diff();
     const float* diff_vec = static_cast<const float*>(pdiff);
     for (int i = 0; i < count_; ++i) {
       proto->add_diff(diff_vec[i]);
     }
-  } else if (tp<Dtype>() == tp<double>()) {
+  } else if (diff_type() == tp<double>()) {
     proto->clear_double_diff();
     const double* diff_vec = static_cast<const double*>(pdiff);
     for (int i = 0; i < count_; ++i) {
       proto->add_double_diff(diff_vec[i]);
     }
   } else {
-    LOG(FATAL) << "BVLC format doesn't support diff type " << Type_Name(tp<Dtype>());
+    LOG(FATAL) << "BVLC format doesn't support diff type " << Type_Name(diff_type());
   }
 }
 
@@ -512,12 +505,6 @@ std::string Blob::to_string(int indent) const {  // debug helper
   os << std::endl;
   return os.str();
 }
-
-template void Blob::ToProto<float>(BlobProto*, bool, bool) const;
-template void Blob::ToProto<double>(BlobProto*, bool, bool) const;
-#ifndef CPU_ONLY
-template void Blob::ToProto<float16>(BlobProto*, bool, bool) const;
-#endif
 
 INSTANTIATE_CLASS(TBlob);
 

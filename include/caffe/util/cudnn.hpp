@@ -156,7 +156,7 @@ inline void setTensor4dDesc(cudnnTensorDescriptor_t *desc,
       stride_n, stride_c, stride_h, stride_w);
 }
 
-inline void setTensor4dDesc(cudnnTensorDescriptor_t *desc, Type type,
+inline void setTensor4dDesc(cudnnTensorDescriptor_t *desc, cudnnDataType_t type,
     Packing packing, const vector<int> &shape) {
   int stride_w = 0, stride_h = 0, stride_c = 0, stride_n = 0;
   const int n = shape[0];
@@ -176,8 +176,13 @@ inline void setTensor4dDesc(cudnnTensorDescriptor_t *desc, Type type,
   } else {
     LOG(FATAL) << "Unknown packing";
   }
-  CUDNN_CHECK(cudnnSetTensor4dDescriptorEx(*desc, cudnn_data_type(type),
+  CUDNN_CHECK(cudnnSetTensor4dDescriptorEx(*desc, type,
       n, c, h, w, stride_n, stride_c, stride_h, stride_w));
+}
+
+inline void setTensor4dDesc(cudnnTensorDescriptor_t *desc, Type type,
+    Packing packing, const vector<int> &shape) {
+  setTensor4dDesc(desc, cudnn_data_type(type), packing, shape);
 }
 
 }  // namespace cudnn

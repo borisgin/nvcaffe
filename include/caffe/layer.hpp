@@ -308,7 +308,7 @@ class LayerBase {
    * for all parameters, but possibly with wasteful computation.
    */
   inline bool param_propagate_down(const int param_id) {
-    return (param_propagate_down_.size() > param_id) ? param_propagate_down_[param_id] : false;
+    return ((int)param_propagate_down_.size() > param_id) ? param_propagate_down_[param_id] : false;
   }
 
   /**
@@ -316,7 +316,7 @@ class LayerBase {
    *        parameter at a particular index given by param_id.
    */
   inline void set_param_propagate_down(const int param_id, const bool value) {
-    if (param_propagate_down_.size() <= param_id) {
+    if ((int)param_propagate_down_.size() <= param_id) {
       param_propagate_down_.resize(param_id + 1, true);
     }
     param_propagate_down_[param_id] = value;
@@ -479,7 +479,7 @@ class Layer : public LayerBase {
   virtual void Backward(const vector<Blob*>& top, const vector<bool>& propagate_down,
       const vector<Blob*>& bottom);
 
-  virtual void ToProto(LayerParameter* param, bool write_diff = false);
+  void ToProto(LayerParameter* param, bool write_diff = false) override;
 
   /**
  * @brief Returns the scalar loss associated with a top blob at a given index.
