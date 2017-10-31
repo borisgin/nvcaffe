@@ -128,6 +128,46 @@ vector<int> DecodeDatumToCVMat(const Datum& datum, int color_mode, cv::Mat& cv_i
   }
   return vector<int>{1, ch, cv_img.rows, cv_img.cols};
 }
+// TODO unify these two
+void DecodeDatumToSignedBuf(const Datum& datum, int color_mode,
+    char* buf, size_t buf_len, bool accurate_jpeg) {
+  CHECK(datum.encoded()) << "Datum not encoded";
+  const std::string& content = datum.data();
+  const size_t content_size = content.size();
+  int ch = 0;
+
+  if (content_size > 1
+      && static_cast<unsigned char>(content[0]) == 255
+      && static_cast<unsigned char>(content[1]) == 216) {  // probably jpeg
+    int width, height, subsamp;
+    auto *content_data = reinterpret_cast<unsigned char*>(const_cast<char*>(content.data()));
+
+    tjhandle jpeg_decoder = tjInitDecompress();
+    tjDecompressHeader2(jpeg_decoder, content_data, content_size, &width, &height, &subsamp);
+
+    ch = color_mode < 0 ? 1 : (color_mode > 0 ? 3 : (subsamp == TJSAMP_GRAY ? 1 : 3));
+    CHECK_EQ(ch * height * width, buf_len);
+
+    CHECK_EQ(0, tjDecompress2(jpeg_decoder, content_data, content_size,
+        reinterpret_cast<unsigned char*>(buf), width, 0, height, ch == 3 ? TJPF_BGR : TJPF_GRAY,
+        accurate_jpeg ? (TJFLAG_ACCURATEDCT | TJFLAG_NOREALLOC)
+                      : (TJFLAG_FASTDCT | TJFLAG_NOREALLOC))) << tjGetErrorStr();
+
+    tjDestroy(jpeg_decoder);
+  } else {
+    // probably not jpeg...
+    std::vector<char> vec_data(content.c_str(), content.c_str() + content_size);
+    const int flag = color_mode < 0 ? CV_LOAD_IMAGE_GRAYSCALE :
+                     (color_mode > 0 ? CV_LOAD_IMAGE_COLOR : CV_LOAD_IMAGE_ANYCOLOR);
+    cv::Mat cv_img = cv::imdecode(vec_data, flag);
+    ch = cv_img.channels();
+    if (!cv_img.data) {
+      LOG(ERROR) << "Could not decode datum";
+    }
+    CHECK_EQ(cv_img.channels() * cv_img.rows * cv_img.cols, buf_len);
+    std::memcpy(buf, cv_img.data, buf_len);
+  }
+}
 
 cv::Mat ReadImageToCVMat(const string& filename,
     int height, int width, bool is_color, int min_height, int min_width) {

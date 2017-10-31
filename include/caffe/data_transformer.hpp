@@ -48,7 +48,8 @@ class DataTransformer {
    * @return Output shape
    */
   template<typename Dtype>
-  vector<int> Transform(const Datum* datum, Dtype* buf, size_t buf_len, bool repack = true) {
+  vector<int> Transform(const Datum* datum, Dtype* buf, size_t buf_len,
+      Packing& out_packing, bool repack = true) {
     vector<int> shape;
     const bool shape_only = buf == nullptr;
     CHECK(!(param_.force_color() && param_.force_gray()))
@@ -66,6 +67,7 @@ class DataTransformer {
         TransformV1(*datum, buf, buf_len);
         shape = vector<int>{1, datum->channels(), datum->height(), datum->width()};
         v1_path = true;
+        out_packing = NCHW;
       }
     }
     if (param_.crop_size() > 0) {
@@ -75,6 +77,7 @@ class DataTransformer {
     if (!shape_only && !v1_path) {
       CHECK_NOTNULL(img.data);
       Transform(img, buf, buf_len, repack);
+      out_packing = NHWC;
     }
     return shape;
   }
