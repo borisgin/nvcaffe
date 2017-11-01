@@ -197,10 +197,6 @@ template <typename Dtype>
 void caffe_gpu_axpy(const int N, const Dtype alpha, const Dtype* X,
     Dtype* Y, void* handle = nullptr);
 
-void caffe_gpu_axpy_extfp16(const int N, const float alpha, const float16* X,
-    float16* Y);
-
-
 template <typename Dtype>
 void caffe_gpu_axpby(const int N, const Dtype alpha, const Dtype* X,
     const Dtype beta, Dtype* Y);
@@ -223,9 +219,6 @@ void caffe_gpu_add_scalar(const int N, const Dtype alpha, Dtype *X);
 template <typename Dtype>
 void caffe_gpu_scal(const int N, const Dtype alpha, Dtype* X);
 
-void caffe_gpu_scal_fp16(const int N, const float alpha, float16* X,
-    cublasHandle_t cublas_handle);
-
 template <typename Dtype>
 void caffe_gpu_scal(const int N, const Dtype alpha, Dtype* X, cublasHandle_t cublas_handle);
 
@@ -243,7 +236,6 @@ void caffe_gpu_mul(const int N, const Dtype* a, const Dtype* b, Dtype* y);
 
 template <typename Dtype>
 void caffe_gpu_square(const int N, const Dtype* a, Dtype* y);
-
 
 template <typename Dtype>
 void caffe_gpu_div(const int N, const Dtype* a, const Dtype* b, Dtype* y);

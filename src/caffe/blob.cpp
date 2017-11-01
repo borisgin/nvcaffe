@@ -202,11 +202,11 @@ void Blob::gpu_axpy(int count, Type dtype, float alpha, const void* X, void* Y) 
     caffe_gpu_axpy(count, alpha, static_cast<const float*>(X),
         static_cast<float*>(Y));
   } else if (is_type<float16>(dtype)) {
-    caffe_gpu_axpy_extfp16(count, alpha,
-        static_cast<const float16*>(X), static_cast<float16*>(Y));
+    caffe_gpu_axpy(count, static_cast<float16>(alpha), static_cast<const float16*>(X),
+        static_cast<float16*>(Y));
   } else if (is_type<double>(dtype)) {
-    caffe_gpu_axpy(count, static_cast<double>(alpha),
-        static_cast<const double*>(X), static_cast<double*>(Y));
+    caffe_gpu_axpy(count, static_cast<double>(alpha), static_cast<const double*>(X),
+        static_cast<double*>(Y));
   } else {
     LOG(FATAL) << "Unsupported data type: " << Type_Name(dtype);
   }

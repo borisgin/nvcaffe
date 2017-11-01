@@ -254,7 +254,7 @@ void Tensor::gpu_scal(int count, Type dtype, void* data, float scal, cublasHandl
   if (is_type<float>(dtype)) {
     caffe_gpu_scal(count, scal, static_cast<float*>(data), cublas_handle);
   } else if (is_type<float16>(dtype)) {
-    caffe_gpu_scal_fp16(count, scal, static_cast<float16*>(data), cublas_handle);
+    caffe_gpu_scal(count, static_cast<float16>(scal), static_cast<float16*>(data), cublas_handle);
   } else if (is_type<double>(dtype)) {
     caffe_gpu_scal(count, static_cast<double>(scal), static_cast<double*>(data), cublas_handle);
   } else {
