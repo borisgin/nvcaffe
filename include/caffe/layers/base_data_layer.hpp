@@ -66,7 +66,7 @@ class Batch {
     id_ = id;
   }
   size_t bytes() const {
-    return data_->sizeof_data() + label_->sizeof_data();
+    return data_->sizeof_data(true) + label_->sizeof_data(true);
   }
   Packing data_packing() const {
     return data_packing_;

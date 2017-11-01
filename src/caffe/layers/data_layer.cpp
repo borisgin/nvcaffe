@@ -296,14 +296,13 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
     src_buf.resize(src_buf_size);
     if (init_datum->encoded()) {
       vector<int> init_shape { top_shape[0], top_shape[1], init_datum_height, init_datum_width };
-      if (init_shape != batch->data_->shape()) {
-        batch->data_->Reshape(init_shape);
-      }
+      batch->data_->Reshape(init_shape);
       dst_gptr = batch->data_->template mutable_gpu_data_c<Ftype>(false);
     } else {
       dst_gptr = tmp_holder_[thread_id]->data();
     }
   }
+  size_t last_item_id = 0UL;
 #endif
 
   Btype* top_data = use_gpu_transform ?
@@ -314,7 +313,6 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
     top_label = batch->label_->template mutable_cpu_data_c<Ftype>(false);
   }
   size_t current_batch_id = 0UL;
-  size_t last_item_id = 0UL;
   const size_t buf_len = batch->data_->offset(1);
   for (size_t entry = 0; entry < batch_size; ++entry) {
     shared_ptr<Datum> datum = reader->full_pop(qid, "Waiting for datum");
@@ -392,9 +390,7 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
       CUDNN_CHECK(cudnnDestroyTensorDescriptor(dst_desc));
 
       dst_gptr = tmp_holder_[thread_id]->data();
-      if (top_shape != batch->data_->shape()) {
-        batch->data_->Reshape(top_shape);
-      }
+      batch->data_->Reshape(top_shape);
       datum_sizeof_element = sizeof(Ftype);
     }
 

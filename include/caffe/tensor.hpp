@@ -42,8 +42,8 @@ class Tensor {
     return type_;
   }
 
-  size_t size_of() const {
-    return tsize(type_) * count_;
+  size_t size_of(bool allocated = false) const {
+    return tsize(type_) * (allocated ? alloc_count_ : count_);
   }
 
   void set(float value);

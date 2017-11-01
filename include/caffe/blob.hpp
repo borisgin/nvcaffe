@@ -206,12 +206,12 @@ class Blob {
     return count_;
   }
 
-  size_t sizeof_data() const {
-    return data_tensor_->size_of();
+  size_t sizeof_data(bool allocated = false) const {
+    return data_tensor_->size_of(allocated);
   }
 
-  size_t sizeof_diff(bool of_data) const {
-    return diff_tensor_->size_of();
+  size_t sizeof_diff(bool allocated = false) const {
+    return diff_tensor_->size_of(allocated);
   }
 
   void safe_reshape_mode(bool mode) {

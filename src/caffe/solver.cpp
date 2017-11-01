@@ -235,12 +235,14 @@ void Solver::Step(int iters) {
       static_cast<uint64_t>(param_.random_seed()) : Caffe::next_seed();
   reduce_thread0_.reset(new boost::thread(&Solver::Reduce, this, callback(),
       Caffe::current_device(), mode, random_seed, solver_count, root_solver, 0));
+#ifndef CPU_ONLY
   if (ltypes.size() > 1) {
     random_seed = param_.random_seed() >= 0 ?
                   static_cast<uint64_t>(param_.random_seed()) : Caffe::next_seed();
     reduce_thread1_.reset(new boost::thread(&Solver::Reduce, this, callback(),
         Caffe::current_device(), mode, random_seed, solver_count, root_solver, 1));
   }
+#endif
 
   while (iter_ < stop_iter) {
     if (param_.snapshot_diff()) {
@@ -285,9 +287,13 @@ void Solver::Step(int iters) {
       iteration_timer_->Start();
     }
 
+#ifndef CPU_ONLY
     for (int type_id = 0; type_id < ltypes.size(); ++type_id) {
       iteration_start_signal(type_id);
     }
+#else
+    iteration_start_signal(0);
+#endif
     for (int i = 0; i < param_.iter_size(); ++i) {
 
       loss += net_->ForwardBackward(i + 1 == param_.iter_size());
@@ -300,9 +306,14 @@ void Solver::Step(int iters) {
       }
     }
     loss /= param_.iter_size();
+#ifndef CPU_ONLY
     for (int type_id = 0; type_id < ltypes.size(); ++type_id) {
       iteration_wait(type_id);
     }
+#else
+    iteration_wait(0);
+#endif
+
     if (requested_early_exit_) {
       total_lapse_ += iteration_timer_->Seconds();
       break;
