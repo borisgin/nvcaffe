@@ -37,8 +37,6 @@ class TBlob;
 class Blob {
  public:
   void Swap(Blob& other) noexcept {
-    CHECK_EQ(data_tensor_->type(), other.data_tensor_->type());
-    CHECK_EQ(diff_tensor_->type(), other.diff_tensor_->type());
     std::swap(data_tensor_, other.data_tensor_);
     std::swap(diff_tensor_, other.diff_tensor_);
     std::swap(shape_data_, other.shape_data_);
