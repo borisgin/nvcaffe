@@ -64,7 +64,7 @@ class Batch {
     id_ = id;
   }
   size_t bytes() const {
-    return data_->size_of(true) + label_->size_of(true);
+    return data_->sizeof_data() + label_->sizeof_data();
   }
   Packing data_packing() const {
     return data_packing_;
@@ -113,9 +113,9 @@ class BasePrefetchingDataLayer : public BaseDataLayer<Ftype, Btype>, public Inte
  protected:
   void InternalThreadEntry() override;
   void InternalThreadEntryN(size_t thread_id) override;
-  void ResizeQueues();
   void AllocatePrefetch();
 
+  virtual void ResizeQueues();
   virtual void InitializePrefetch();
   virtual void load_batch(Batch* batch, int thread_id, size_t queue_id) = 0;
   virtual void start_reading() = 0;

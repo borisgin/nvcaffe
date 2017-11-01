@@ -206,8 +206,12 @@ class Blob {
     return count_;
   }
 
-  size_t size_of(bool of_data) const {
-    return of_data ? data_tensor_->size_of() : diff_tensor_->size_of();
+  size_t sizeof_data() const {
+    return data_tensor_->size_of();
+  }
+
+  size_t sizeof_diff(bool of_data) const {
+    return diff_tensor_->size_of();
   }
 
   /**

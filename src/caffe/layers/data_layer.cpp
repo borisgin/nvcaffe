@@ -25,17 +25,31 @@ DataLayer<Ftype, Btype>::init_offsets() {
   parser_offsets_.resize(this->transf_num_);
   random_vectors_.resize(this->transf_num_);
   queue_ids_.resize(this->transf_num_);
-#ifndef CPU_ONLY
-  tmp_batch_holder_.resize(this->transf_num_);
-#endif
   for (size_t i = 0; i < this->transf_num_; ++i) {
     parser_offsets_[i] = 0;
-    random_vectors_[i] = make_shared<TBlob<unsigned int>>();
     queue_ids_[i] = i * this->parsers_num_;
-#ifndef CPU_ONLY
-    tmp_batch_holder_[i] = make_shared<GPUMemory::Workspace>();
-#endif
+    if (!random_vectors_[i]) {
+      random_vectors_[i] = make_shared<TBlob<unsigned int>>();
+    }
   }
+}
+
+template<typename Ftype, typename Btype>
+void
+DataLayer<Ftype, Btype>::ResizeQueues() {
+  BasePrefetchingDataLayer<Ftype, Btype>::ResizeQueues();
+#ifndef CPU_ONLY
+  ws1_.resize(this->transf_num_);
+  ws2_.resize(this->transf_num_);
+  for (size_t i = 0; i < this->transf_num_; ++i) {
+    if (!ws1_[i]) {
+      ws1_[i] = make_shared<GPUMemory::Workspace>();
+    }
+    if (!ws2_[i]) {
+      ws2_[i] = make_shared<GPUMemory::Workspace>();
+    }
+  }
+#endif
 }
 
 template<typename Ftype, typename Btype>
@@ -177,6 +191,7 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
   // Read a data point, and use it to initialize the top blob.
   shared_ptr<Datum> sample_datum = sample_only_ ? sample_reader_->sample() : reader_->sample();
   datum_encoded_ = sample_datum->encoded();
+  ResizeQueues();
   init_offsets();
 
   // Reshape top[0] and prefetch_data according to the batch_size.
@@ -234,7 +249,12 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
       this->dt(thread_id)->template Transform<Btype>(init_datum.get(), nullptr, 0, packing);
   // Reshape batch according to the batch_size.
   top_shape[0] = batch_size;
-  batch->data_->Reshape(top_shape);
+  if (top_shape != batch->data_->shape()) {
+    // TODO integrate these:
+    batch->data_->Reshape(top_shape);
+    ws2_[thread_id]->safe_reserve(batch->data_->sizeof_data());
+    batch->data_->set_gpu_data(ws2_[thread_id]->data());
+  }
 #ifndef CPU_ONLY
   int init_datum_height = init_datum->height();
   int init_datum_width = init_datum->width();
@@ -272,7 +292,7 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
         datum_sizeof_element = sizeof(float);
       }
     }
-    tmp_batch_holder_[thread_id]->safe_reserve(batch_size *
+    ws1_[thread_id]->safe_reserve(batch_size *
         std::max(datum_sizeof_element, sizeof(Ftype)) * datum_len);
     vector<int> random_vec_shape(1, batch_size * 3);
     random_vectors_[thread_id]->Reshape(random_vec_shape);
@@ -283,10 +303,15 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
     src_buf.resize(src_buf_size);
     if (init_datum->encoded()) {
       vector<int> init_shape { top_shape[0], top_shape[1], init_datum_height, init_datum_width };
-      batch->data_->Reshape(init_shape);
+      if (init_shape != batch->data_->shape()) {
+        // TODO integrate these:
+        batch->data_->Reshape(init_shape);
+        ws2_[thread_id]->safe_reserve(batch->data_->sizeof_data());
+        batch->data_->set_gpu_data(ws2_[thread_id]->data());
+      }
       dst_gptr = batch->data_->template mutable_gpu_data_c<Ftype>(false);
     } else {
-      dst_gptr = tmp_batch_holder_[thread_id]->data();
+      dst_gptr = ws1_[thread_id]->data();
     }
   }
 #endif
@@ -371,13 +396,17 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
 
       CUDNN_CHECK(cudnnTransformTensor(handle,
           cudnn::one(tp<float>()), src_desc, dst_gptr,
-          cudnn::zero(tp<Ftype>()), dst_desc, tmp_batch_holder_[thread_id]->data()));
+          cudnn::zero(tp<Ftype>()), dst_desc, ws1_[thread_id]->data()));
       CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
       CUDNN_CHECK(cudnnDestroyTensorDescriptor(src_desc));
       CUDNN_CHECK(cudnnDestroyTensorDescriptor(dst_desc));
 
-      dst_gptr = tmp_batch_holder_[thread_id]->data();
-      batch->data_->Reshape(top_shape);
+      dst_gptr = ws1_[thread_id]->data();
+      if (top_shape != batch->data_->shape()) {
+        batch->data_->Reshape(top_shape);
+        ws2_[thread_id]->safe_reserve(batch->data_->sizeof_data());
+        batch->data_->set_gpu_data(ws2_[thread_id]->data());
+      }
       datum_sizeof_element = sizeof(Ftype);
     }
 
