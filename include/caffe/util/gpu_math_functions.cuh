@@ -46,6 +46,15 @@ return __half2float(a) < __half2float(b);
 }
 
 __device__ __inline__
+half hmul(half a, half b) {
+#if __CUDA_ARCH__ >= 530
+  return __hmul(a, b);
+#else
+  return float2half_clip(__half2float(a) * __half2float(b));
+#endif
+}
+
+__device__ __inline__
 half2 hmul2(half2 a, half2 b) {
 #if __CUDA_ARCH__ >= 530
   return __hmul2(a, b);
@@ -72,6 +81,15 @@ half2 hge2(half2 a, half2 b) {
   af.y = (af.y >= bf.y) ? 1.f : 0.f;
 
   return float22half2_clip(af);
+#endif
+}
+
+__device__ __inline__
+half hadd(half a, half b) {
+#if __CUDA_ARCH__ >= 530
+  return __hadd(a, b);
+#else
+  return float2half_clip(__half2float(a) + __half2float(b));
 #endif
 }
 

@@ -42,15 +42,15 @@ class Tensor {
     return type_;
   }
 
-  size_t size_of() const {
-    return tsize(type_) * count_;
+  size_t size_of(bool allocated = false) const {
+    return tsize(type_) * (allocated ? alloc_count_ : count_);
   }
 
   void set(float value);
   void scale(float new_scale, void* handle = nullptr);
   void invalidate_others();
   void convert(Type new_type);
-  void Reshape(int count);
+  void Reshape(int count, bool safe_reshape = false);
   float asum() const;
   const shared_ptr<SyncedMemory>& synced_mem() const;
   shared_ptr<SyncedMemory>& mutable_synced_mem(bool flush = true);
@@ -85,6 +85,8 @@ class Tensor {
   shared_ptr<vector<shared_ptr<SyncedMemory>>> synced_arrays_;
   // number of entries - comes from Blob via Reshape
   int count_;
+  // number of entries allocated (useful when avoiding deallocations is needed)
+  int alloc_count_;
 
   DISABLE_COPY_MOVE_AND_ASSIGN(Tensor);
 };  // class Tensor

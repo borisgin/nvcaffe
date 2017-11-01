@@ -50,8 +50,8 @@ void Blob::Reshape(const vector<int>& shape) {
     shape_[i] = shape[i];
     shape_data[i] = shape[i];
   }
-  data_tensor_->Reshape(count_);
-  diff_tensor_->Reshape(count_);
+  data_tensor_->Reshape(count_, safe_reshape_mode_);
+  diff_tensor_->Reshape(count_, safe_reshape_mode_);
   CHECK(is_current_data_valid());
   CHECK(is_current_diff_valid());
 }
@@ -202,11 +202,11 @@ void Blob::gpu_axpy(int count, Type dtype, float alpha, const void* X, void* Y) 
     caffe_gpu_axpy(count, alpha, static_cast<const float*>(X),
         static_cast<float*>(Y));
   } else if (is_type<float16>(dtype)) {
-    caffe_gpu_axpy_extfp16(count, alpha,
-        static_cast<const float16*>(X), static_cast<float16*>(Y));
+    caffe_gpu_axpy(count, static_cast<float16>(alpha), static_cast<const float16*>(X),
+        static_cast<float16*>(Y));
   } else if (is_type<double>(dtype)) {
-    caffe_gpu_axpy(count, static_cast<double>(alpha),
-        static_cast<const double*>(X), static_cast<double*>(Y));
+    caffe_gpu_axpy(count, static_cast<double>(alpha), static_cast<const double*>(X),
+        static_cast<double*>(Y));
   } else {
     LOG(FATAL) << "Unsupported data type: " << Type_Name(dtype);
   }
@@ -284,17 +284,20 @@ void Blob::CopyFrom(const Blob& source, bool copy_diff, bool reshape,
   Type src_type = copy_diff ? source.diff_type() : source.data_type();
   Type dst_type = copy_diff ? diff_type() : data_type();
   const bool is_gpu = Caffe::mode() == Caffe::GPU;
+#ifndef CPU_ONLY
   if ((src_packing == dst_packing && src_type == dst_type)
       || !is_gpu || shape().size() != 4 || source.shape().size() != 4) {
     if (srct == dstt) {
       return;
     }
+#endif
     Tensor::copy_helper(is_gpu, count_,
         is_gpu ? src->gpu_data() : src->cpu_data(),
         src_type,
         is_gpu ? dst->mutable_gpu_data(false) : dst->mutable_cpu_data(false),
         dst_type);
     dst->validate();
+#ifndef CPU_ONLY
   } else {
     CHECK(srct != dstt);
     cudnnHandle_t handle = Caffe::cudnn_handle();
@@ -311,6 +314,7 @@ void Blob::CopyFrom(const Blob& source, bool copy_diff, bool reshape,
     CUDNN_CHECK(cudnnDestroyTensorDescriptor(src_desc));
     CUDNN_CHECK(cudnnDestroyTensorDescriptor(dst_desc));
   }
+#endif
 }
 
 void Blob::FromProto(const BlobProto& proto, bool reshape) {

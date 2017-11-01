@@ -55,7 +55,9 @@ class Batch {
 
   Batch(Type data_type, Type diff_type)
       : data_(Blob::create(data_type, diff_type)), label_(Blob::create(data_type, diff_type)),
-        id_((size_t) -1), data_packing_(NCHW) {}
+        id_((size_t) -1), data_packing_(NCHW) {
+    data_->safe_reshape_mode(true);
+  }
 
   size_t id() const {
     return id_;
@@ -64,7 +66,7 @@ class Batch {
     id_ = id;
   }
   size_t bytes() const {
-    return data_->size_of(true) + label_->size_of(true);
+    return data_->sizeof_data(true) + label_->sizeof_data(true);
   }
   Packing data_packing() const {
     return data_packing_;
@@ -113,9 +115,9 @@ class BasePrefetchingDataLayer : public BaseDataLayer<Ftype, Btype>, public Inte
  protected:
   void InternalThreadEntry() override;
   void InternalThreadEntryN(size_t thread_id) override;
-  void ResizeQueues();
   void AllocatePrefetch();
 
+  virtual void ResizeQueues();
   virtual void InitializePrefetch();
   virtual void load_batch(Batch* batch, int thread_id, size_t queue_id) = 0;
   virtual void start_reading() = 0;

@@ -163,40 +163,14 @@ void axpy_kernel(const int N, const Mtype alpha, const Dtype* x, Dtype* y) {
 
 template<>
 __global__
-void axpy_kernel<half2, half2>(const int N, const half2 alpha, const half2* x, half2* y) {
+void axpy_kernel<half, half>(const int N, const half alpha, const half* x, half* y) {
 #if __CUDA_ARCH__ >= 530
   CUDA_KERNEL_LOOP(idx, N) {
-    y[idx] = __hfma2(alpha, x[idx], y[idx]);
+    y[idx] = __hfma(alpha, x[idx], y[idx]);
   }
 #else
-  float2 a = __half22float2(alpha);
-  float2 x2, y2;
   CUDA_KERNEL_LOOP(idx, N) {
-    x2 = __half22float2(x[idx]);
-    y2 = __half22float2(y[idx]);
-    y2.x += a.x * x2.x;
-    y2.y += a.y * x2.y;
-    y[idx] = float22half2_clip(y2);
-  }
-#endif
-}
-
-template<>
-__global__
-void axpy_kernel<half2, float>(const int N, const float alpha, const half2* x, half2* y) {
-#if __CUDA_ARCH__ >= 530
-  half2 a = __float2half2_rn(alpha);
-  CUDA_KERNEL_LOOP(idx, N) {
-    y[idx] = __hfma2(a, x[idx], y[idx]);
-  }
-#else
-  float2 x2, y2;
-  CUDA_KERNEL_LOOP(idx, N) {
-    x2 = __half22float2(x[idx]);
-    y2 = __half22float2(y[idx]);
-    y2.x += alpha * x2.x;
-    y2.y += alpha * x2.y;
-    y[idx] = float22half2_clip(y2);
+    y[idx] = float2half_clip(__half2float(y[idx]) + __half2float(alpha) * __half2float(x[idx]));
   }
 #endif
 }
@@ -208,20 +182,11 @@ void caffe_gpu_axpy<float16>(const int N, const float16 alpha, const float16* x,
       handle == nullptr ? Caffe::cublas_handle() : reinterpret_cast<cublasHandle_t>(handle);
   cudaStream_t stream;
   CUBLAS_CHECK(cublasGetStream(cublas_handle, &stream));
-  const unsigned int n2 = even(N) / 2;
+  half ha;
+  ha.setx(alpha.getx());
   // NOLINT_NEXT_LINE(whitespace/operators)
-  axpy_kernel <<<CAFFE_GET_BLOCKS_HALF(n2), CAFFE_CUDA_NUM_THREADS_HALF, 0, stream>>>
-      (n2, (float)alpha, reinterpret_cast<const half2*>(x), reinterpret_cast<half2*>(y));
-  CUDA_POST_KERNEL_CHECK;
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-}
-
-void caffe_gpu_axpy_extfp16(const int N, const float alpha, const float16* x, float16* y) {
-  cudaStream_t stream = Caffe::thread_stream();
-  const unsigned int n2 = even(N) / 2;
-  // NOLINT_NEXT_LINE(whitespace/operators)
-  axpy_kernel <<<CAFFE_GET_BLOCKS_HALF(n2), CAFFE_CUDA_NUM_THREADS_HALF, 0, stream>>>
-      (n2, alpha, reinterpret_cast<const half2*>(x), reinterpret_cast<half2*>(y));
+  axpy_kernel<<<CAFFE_GET_BLOCKS_HALF(N), CAFFE_CUDA_NUM_THREADS_HALF, 0, stream>>>
+      (N, ha, reinterpret_cast<const half*>(x), reinterpret_cast<half*>(y));
   CUDA_POST_KERNEL_CHECK;
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }
@@ -231,6 +196,13 @@ void caffe_gpu_memcpy(const size_t N, const void* X, void* Y) {
     cudaStream_t stream = Caffe::thread_stream();
     CUDA_CHECK(cudaMemcpyAsync(Y, X, N, cudaMemcpyDefault, stream));
     CUDA_CHECK(cudaStreamSynchronize(stream));
+  }
+}
+
+__global__
+void scale_in_place_kernel(const int n, const half alpha, half* x) {
+  CUDA_KERNEL_LOOP(idx, n) {
+    x[idx] = hmul(alpha, x[idx]);
   }
 }
 
@@ -254,6 +226,21 @@ void caffe_gpu_scal<double>(const int N, const double alpha, double* X,
 }
 
 template<>
+void caffe_gpu_scal<float16>(const int n, const float16 alpha, float16* x,
+    cublasHandle_t cublas_handle) {
+  if (alpha.getx() == 0x3c00U) { return; }
+  cudaStream_t stream;
+  CUBLAS_CHECK(cublasGetStream(cublas_handle, &stream));
+  half ha;
+  ha.setx(alpha.getx());
+  // use cublasHscal when it will become available
+  scale_in_place_kernel <<<CAFFE_GET_BLOCKS_HALF(n), CAFFE_CUDA_NUM_THREADS_HALF, 0, stream>>>
+      (n, ha, reinterpret_cast<half*>(x));
+  CUDA_POST_KERNEL_CHECK;
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+}
+
+template<>
 void caffe_gpu_scal<float>(const int N, const float alpha, float* X) {
   caffe_gpu_scal(N, alpha, X, Caffe::cublas_handle());
 }
@@ -263,63 +250,9 @@ void caffe_gpu_scal<double>(const int N, const double alpha, double* X) {
   caffe_gpu_scal(N, alpha, X, Caffe::cublas_handle());
 }
 
-__global__
-void scale_in_place_kernel(const int n, const half2 alpha, half2* x) {
-  CUDA_KERNEL_LOOP(idx, n) {
-    x[idx] = hmul2(alpha, x[idx]);
-  }
-}
-
-// local helper
-void caffe_gpu_scal_float16(const int n, const float16 alpha, float16* x, cudaStream_t stream) {
-  if (alpha == 1.F) { return; }
-  const unsigned int n2 = even(n) / 2;
-  half ha;
-  ha.setx(alpha.getx());
-  half2 alpha2(ha, ha);
-  // NOLINT_NEXT_LINE(whitespace/operators)
-  scale_in_place_kernel <<<CAFFE_GET_BLOCKS_HALF(n2), CAFFE_CUDA_NUM_THREADS_HALF, 0, stream>>>
-      (n2, alpha2, reinterpret_cast<half2*>(x));
-  CUDA_POST_KERNEL_CHECK;
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-}
-
 template<>
-void caffe_gpu_scal<float16>(const int n, const float16 alpha, float16* x) {
-  caffe_gpu_scal_float16(n, alpha, x, Caffe::thread_stream());
-}
-
-template<>
-void caffe_gpu_scal<float16>(const int n, const float16 alpha, float16* x,
-    cublasHandle_t cublas_handle) {
-  cudaStream_t stream;
-  CUBLAS_CHECK(cublasGetStream(cublas_handle, &stream));
-  // use cublasHscal when it will become available
-  caffe_gpu_scal_float16(n, alpha, x, stream);
-}
-
-
-// alpha might be big:
-__global__
-void scale_in_place_kernel_fp16(const int n, const float alpha, half2* x) {
-  CUDA_KERNEL_LOOP(idx, n) {
-    float2 x2 = __half22float2(x[idx]);
-    x2.x *= alpha;
-    x2.y *= alpha;
-    x[idx] = float22half2_clip(x2);
-  }
-}
-
-void caffe_gpu_scal_fp16(const int n, const float alpha, float16* x, cublasHandle_t cublas_handle) {
-  if (alpha == 1.F) { return; }
-  const unsigned int n2 = even(n) / 2;
-  cudaStream_t stream;
-  CUBLAS_CHECK(cublasGetStream(cublas_handle, &stream));
-  // NOLINT_NEXT_LINE(whitespace/operators)
-  scale_in_place_kernel_fp16<<<CAFFE_GET_BLOCKS_HALF(n2), CAFFE_CUDA_NUM_THREADS_HALF, 0, stream>>>
-      (n2, alpha, reinterpret_cast<half2*>(x));
-  CUDA_POST_KERNEL_CHECK;
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+void caffe_gpu_scal<float16>(const int N, const float16 alpha, float16* X) {
+  caffe_gpu_scal(N, alpha, X, Caffe::cublas_handle());
 }
 
 template<>
@@ -459,23 +392,20 @@ void caffe_gpu_scale<float>(const int n, const float alpha, const float* x,
 }
 
 __global__
-void scale_kernel(const int n, const half2 alpha, const half2* x, half2* y) {
+void scale_kernel(const int n, const half alpha, const half* x, half* y) {
   CUDA_KERNEL_LOOP(idx, n) {
-    y[idx] = hmul2(alpha, x[idx]);
+    y[idx] = hmul(alpha, x[idx]);
   }
 }
 
 template<>
-void caffe_gpu_scale<float16>(const int n, const float16 alpha,
-    const float16* x, float16* y) {
+void caffe_gpu_scale<float16>(const int n, const float16 alpha, const float16* x, float16* y) {
   cudaStream_t stream = Caffe::thread_stream();
-  const unsigned int n2 = even(n) / 2;
   half ha;
   ha.setx(alpha.getx());
-  half2 alpha2(ha, ha);
   // NOLINT_NEXT_LINE(whitespace/operators)
-  scale_kernel <<<CAFFE_GET_BLOCKS_HALF(n2), CAFFE_CUDA_NUM_THREADS_HALF, 0, stream>>>
-      (n2, alpha2, reinterpret_cast<const half2*>(x), reinterpret_cast<half2*>(y));
+  scale_kernel <<<CAFFE_GET_BLOCKS_HALF(n), CAFFE_CUDA_NUM_THREADS_HALF, 0, stream>>>
+      (n, ha, reinterpret_cast<const half*>(x), reinterpret_cast<half*>(y));
   CUDA_POST_KERNEL_CHECK;
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }
@@ -549,10 +479,11 @@ __global__ void add_kernel(const int n, const Dtype* a, const Dtype* b, Dtype* y
     y[index] = a[index] + b[index];
   }
 }
+
 template<>
-__global__ void add_kernel<half2>(const int n, const half2* a, const half2* b, half2* y) {
+__global__ void add_kernel<half>(const int n, const half* a, const half* b, half* y) {
   CUDA_KERNEL_LOOP(index, n) {
-    y[index] = hadd2(a[index], b[index]);
+    y[index] = hadd(a[index], b[index]);
   }
 }
 
@@ -577,11 +508,10 @@ void caffe_gpu_add<double>(const int N, const double* a, const double* b, double
 template<>
 void caffe_gpu_add<float16>(const int N, const float16* a, const float16* b, float16* y) {
   cudaStream_t stream = Caffe::thread_stream();
-  const unsigned int n2 = even(N) / 2;
   // NOLINT_NEXT_LINE(whitespace/operators)
-  add_kernel<<<CAFFE_GET_BLOCKS_HALF(n2), CAFFE_CUDA_NUM_THREADS_HALF, 0, stream>>>
-      (n2, reinterpret_cast<const half2*>(a), reinterpret_cast<const half2*>(b),
-       reinterpret_cast<half2*>(y));
+  add_kernel<<<CAFFE_GET_BLOCKS_HALF(N), CAFFE_CUDA_NUM_THREADS_HALF, 0, stream>>>
+      (N, reinterpret_cast<const half*>(a), reinterpret_cast<const half*>(b),
+       reinterpret_cast<half*>(y));
   CUDA_POST_KERNEL_CHECK;
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }
@@ -594,9 +524,9 @@ __global__ void incr_kernel(const int n, const Dtype* a, Dtype* b) {
 }
 
 template<>
-__global__ void incr_kernel<half2>(const int n, const half2* a, half2* b) {
+__global__ void incr_kernel<half>(const int n, const half* a, half* b) {
   CUDA_KERNEL_LOOP(index, n) {
-    b[index] = hadd2(a[index], b[index]);
+    b[index] = hadd(a[index], b[index]);
   }
 }
 
@@ -621,10 +551,9 @@ void caffe_gpu_incr<double>(const int N, const double* a, double* b) {
 template<>
 void caffe_gpu_incr<float16>(const int N, const float16* a, float16* b) {
   cudaStream_t stream = Caffe::thread_stream();
-  const unsigned int n2 = even(N) / 2;
   // NOLINT_NEXT_LINE(whitespace/operators)
-  incr_kernel<<<CAFFE_GET_BLOCKS_HALF(n2), CAFFE_CUDA_NUM_THREADS_HALF, 0, stream>>>
-      (n2, reinterpret_cast<const half2*>(a), reinterpret_cast<half2*>(b));
+  incr_kernel<<<CAFFE_GET_BLOCKS_HALF(N), CAFFE_CUDA_NUM_THREADS_HALF, 0, stream>>>
+      (N, reinterpret_cast<const half*>(a), reinterpret_cast<half*>(b));
   CUDA_POST_KERNEL_CHECK;
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }

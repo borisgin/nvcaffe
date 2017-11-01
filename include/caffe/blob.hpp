@@ -37,8 +37,6 @@ class TBlob;
 class Blob {
  public:
   void Swap(Blob& other) noexcept {
-    CHECK_EQ(data_tensor_->type(), other.data_tensor_->type());
-    CHECK_EQ(diff_tensor_->type(), other.diff_tensor_->type());
     std::swap(data_tensor_, other.data_tensor_);
     std::swap(diff_tensor_, other.diff_tensor_);
     std::swap(shape_data_, other.shape_data_);
@@ -50,7 +48,7 @@ class Blob {
   Blob(Type data_type, Type diff_type)
       : data_tensor_(make_shared<Tensor>(data_type)),
         diff_tensor_(make_shared<Tensor>(diff_type)),
-        count_(0) {}
+        count_(0), safe_reshape_mode_(false) {}
   explicit Blob(Type dtype)
       : Blob(dtype, dtype) {}
 
@@ -208,8 +206,16 @@ class Blob {
     return count_;
   }
 
-  size_t size_of(bool of_data) const {
-    return of_data ? data_tensor_->size_of() : diff_tensor_->size_of();
+  size_t sizeof_data(bool allocated = false) const {
+    return data_tensor_->size_of(allocated);
+  }
+
+  size_t sizeof_diff(bool allocated = false) const {
+    return diff_tensor_->size_of(allocated);
+  }
+
+  void safe_reshape_mode(bool mode) {
+    safe_reshape_mode_ = mode;
   }
 
   /**
@@ -541,6 +547,7 @@ class Blob {
   shared_ptr<SyncedMemory> shape_data_;
   vector<int> shape_;
   int count_;
+  bool safe_reshape_mode_;  // if true, reshape never shrinks
 
   bool is_current_data_valid() const {
     return data_tensor_->is_current_valid();

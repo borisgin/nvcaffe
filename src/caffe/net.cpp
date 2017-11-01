@@ -894,7 +894,7 @@ void Net::ReduceAndUpdate(int type_id) {
     }
 #else
     if (param_id == END_OF_ITERATION) {
-      solver_->iteration_complete_signal();
+      solver_->iteration_complete_signal(type_id);
     }
 #endif
   }
