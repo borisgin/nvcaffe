@@ -50,8 +50,8 @@ void Blob::Reshape(const vector<int>& shape) {
     shape_[i] = shape[i];
     shape_data[i] = shape[i];
   }
-  data_tensor_->Reshape(count_);
-  diff_tensor_->Reshape(count_);
+  data_tensor_->Reshape(count_, safe_reshape_mode_);
+  diff_tensor_->Reshape(count_, safe_reshape_mode_);
   CHECK(is_current_data_valid());
   CHECK(is_current_diff_valid());
 }

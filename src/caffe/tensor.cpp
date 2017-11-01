@@ -8,7 +8,7 @@ namespace caffe {
 Tensor::Tensor(Type dtype)
     : type_(dtype),
       synced_arrays_(make_shared<vector<shared_ptr<SyncedMemory>>>(Type_ARRAYSIZE)),
-      count_(0) {
+      count_(0), alloc_count_(0) {
 #ifdef DEBUG
   frozen_ = false;
 #endif
@@ -45,12 +45,11 @@ void Tensor::invalidate_others() {
   }
 }
 
-void Tensor::Reshape(int count) {
+void Tensor::Reshape(int count, bool safe_reshape) {
   shared_ptr<SyncedMemory>& mem = mutable_synced_mem(false);
-  const std::size_t cur_size = even(count_) * tsize(type_);
-  const std::size_t new_size = even(count) * tsize(type_);
-  if (!mem || new_size > cur_size) {
-    mem = make_shared<SyncedMemory>(new_size);
+  if (!mem || count > (safe_reshape ? alloc_count_ : count_)) {
+    mem = make_shared<SyncedMemory>(even(count) * tsize(type_));
+    alloc_count_ = count;
   }
   count_ = count;
 }

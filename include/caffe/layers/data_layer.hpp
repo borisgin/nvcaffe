@@ -57,7 +57,7 @@ class DataLayer : public BasePrefetchingDataLayer<Ftype, Btype> {
   shared_ptr<DataReader> sample_reader_, reader_;
 
 #ifndef CPU_ONLY
-  vector<shared_ptr<GPUMemory::Workspace>> ws1_, ws2_;
+  vector<shared_ptr<GPUMemory::Workspace>> tmp_holder_;
 #endif
 
   // stored random numbers for this batch

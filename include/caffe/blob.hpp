@@ -48,7 +48,7 @@ class Blob {
   Blob(Type data_type, Type diff_type)
       : data_tensor_(make_shared<Tensor>(data_type)),
         diff_tensor_(make_shared<Tensor>(diff_type)),
-        count_(0) {}
+        count_(0), safe_reshape_mode_(false) {}
   explicit Blob(Type dtype)
       : Blob(dtype, dtype) {}
 
@@ -212,6 +212,10 @@ class Blob {
 
   size_t sizeof_diff(bool of_data) const {
     return diff_tensor_->size_of();
+  }
+
+  void safe_reshape_mode(bool mode) {
+    safe_reshape_mode_ = mode;
   }
 
   /**
@@ -543,6 +547,7 @@ class Blob {
   shared_ptr<SyncedMemory> shape_data_;
   vector<int> shape_;
   int count_;
+  bool safe_reshape_mode_;  // if true, reshape never shrinks
 
   bool is_current_data_valid() const {
     return data_tensor_->is_current_valid();
