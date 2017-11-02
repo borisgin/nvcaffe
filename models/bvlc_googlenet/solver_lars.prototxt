@@ -1,25 +1,30 @@
 net: "models/bvlc_googlenet/train_val_lars.prototxt"
 
 test_iter:     1562         # 50000/32
-test_interval: 5000    
+test_interval: 150    
 test_initialization: false
 
-display: 500
+display: 50
 
-max_iter: 500000 	# 100 epoch
-#iter_size: 4
+max_iter: 15600 	# 100 epoch
+iter_size: 8
  
-base_lr:   4.00 	# B=256
+base_lr:   6.00 	# B=256
 
 local_lr_auto: true
 local_gw_ratio: 0.001
 
-#rampup_lr: 1.0
-#rampup_interval: 10000
+rampup_lr: 0.2
+rampup_interval: 2000
 
 lr_policy: "poly"
 power: 2.0
+
 momentum: 0.9
+#momentum: 0.8
+#momentum_policy: "poly"
+#max_momentum: 0.92
+
 weight_decay: 1e-4
 
 snapshot: 1000000

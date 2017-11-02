@@ -41,7 +41,7 @@ def get_train_loss(log):
 def get_epochs(log):
     gpus = re.findall(r' GPU (\d*):', log)
     num_gpus = len(gpus)
-    print num_gpus
+    #print num_gpus
     max_iter = re.findall(r'max_iter: (\d*)', log)
     iter_size = re.findall(r'iter_size: (\d*)', log)
     batch_size = re.findall(r'batch_size: (\d*)',log)
