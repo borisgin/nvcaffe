@@ -750,14 +750,14 @@ layer {
     }
   }
 }
-layer {
-  name: "loss1/loss"
-  type: "SoftmaxWithLoss"
-  bottom: "loss1/classifier"
-  bottom: "label"
-  top: "loss1/loss1"
-  loss_weight: 0.3
-}
+#layer {
+#  name: "loss1/loss"
+#  type: "SoftmaxWithLoss"
+#  bottom: "loss1/classifier"
+#  bottom: "label"
+#  top: "loss1/loss1"
+#  loss_weight: 0.3
+#}
 layer {
   name: "loss1/top-1"
   type: "Accuracy"
@@ -1339,14 +1339,14 @@ layer {
     }
   }
 }
-layer {
-  name: "loss2/loss"
-  type: "SoftmaxWithLoss"
-  bottom: "loss2/classifier"
-  bottom: "label"
-  top: "loss2/loss1"
-  loss_weight: 0.3
-}
+#layer {
+#  name: "loss2/loss"
+#  type: "SoftmaxWithLoss"
+#  bottom: "loss2/classifier"
+#  bottom: "label"
+#  top: "loss2/loss1"
+#  loss_weight: 0.3
+#}
 layer {
   name: "loss2/top-1"
   type: "Accuracy"
