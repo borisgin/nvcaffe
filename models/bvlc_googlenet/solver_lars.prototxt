@@ -1,21 +1,21 @@
-net: "models/bvlc_googlenet/train_val_lars.prototxt"
+net: "models/bvlc_googlenet/train_val_lars2.prototxt"
 
 test_iter:     1562         # 50000/32
-test_interval: 150    
+test_interval: 1250    
 test_initialization: false
 
-display: 50
+display: 250
 
-max_iter: 15600 	# 100 epoch
-iter_size: 8
+max_iter: 12500 	# 100 epoch
+#iter_size: 8
  
-base_lr:   6.00 	# B=256
+base_lr:   9.00 	# B=1K
 
 local_lr_auto: true
 local_gw_ratio: 0.001
 
 rampup_lr: 0.2
-rampup_interval: 2000
+rampup_interval: 12500
 
 lr_policy: "poly"
 power: 2.0
