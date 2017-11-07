@@ -65,7 +65,6 @@ class DataLayer : public BasePrefetchingDataLayer<Ftype, Btype> {
   mutable vector<size_t> parser_offsets_, queue_ids_;
   Flag layer_inititialized_flag_;
   std::atomic_bool sample_only_;
-  mutable std::mutex mutex_setup_, mutex_prefetch_;
   const bool cache_, shuffle_;
   bool datum_encoded_;
 };
