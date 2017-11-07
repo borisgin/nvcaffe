@@ -774,7 +774,7 @@ layer {
   name: "inception_4b/1x1"
   type: "Convolution"
   bottom: "inception_4a/output"
-    propagate_down: false
+  propagate_down: false
 
   top: "inception_4b/1x1"
   convolution_param {
@@ -1265,7 +1265,6 @@ layer {
   name: "loss2/ave_pool"
   type: "Pooling"
   bottom: "inception_4d/output"
-    propagate_down: false
   top: "loss2/ave_pool"
   pooling_param {
     pool: AVE
@@ -1491,9 +1490,8 @@ layer {
 layer {
   name: "inception_4e/pool"
   type: "Pooling"
- bottom: "inception_4d/output"
-    propagate_down: false
-
+  bottom: "inception_4d/output"
+  propagate_down: false
   top: "inception_4e/pool"
   pooling_param {
     pool: MAX
