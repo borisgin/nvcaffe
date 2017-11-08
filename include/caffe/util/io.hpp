@@ -171,7 +171,7 @@ inline bool ReadImageToDatum(const string& filename, const int label,
 
 cv::Mat ReadImageToCVMat(const string& filename,
     int height, int width, bool is_color,
-    int min_height = 0, int min_width = 0);
+    int short_side = 0);
 
 cv::Mat ReadImageToCVMat(const string& filename,
     const int height, const int width);
@@ -220,7 +220,7 @@ void FloatCVMatToBuf(const cv::Mat& cv_img, size_t buf_len, Dtype* buf, bool rep
   CHECK_GT(img_height, 0UL);
   CHECK_GT(img_width, 0UL);
   const size_t img_size = img_channels * img_height * img_width;
-  CHECK_LE(img_size, buf_len);
+  CHECK_EQ(img_size, buf_len);
   // TODO This is the place where we fill top blob
   if (repack) {
     // Here we might leave HWC as is for faster convolutions

@@ -189,11 +189,45 @@ void DataTransformer::apply_mean_scale_mirror(const cv::Mat& src, cv::Mat& dst) 
     }
   }
 
+//  LOG(INFO) << src;
+
   const bool do_mirror = param_.mirror() && Rand(2) > 0;
   src.convertTo(tmp_, CVFC<float>(ch), scale);  // scale & convert
   dst = tmp_;
   if (has_mean_file || has_mean_values) {
+
+
+
+
+//      cv::Mat im;
+//  im.create(img_height, img_width, CVFC<float>(img_channels));
+//  chw2hwc(img_channels, img_width, img_height, buf, im.ptr<float>(0));
+//  cv::Mat dsp;
+////  im.convertTo(dsp, CV_32F);
+//  cv::normalize(im, dsp, 0, 1, cv::NORM_MINMAX);
+//    cv::imshow("test", tmp_);
+//    cv::waitKey(0);
+
+//    LOG(INFO) << mean_mat_orig_;
+//
+//    LOG(INFO) << mean_mat_;
+//
+//
+//    LOG(INFO) << tmp_;
+
     cv::subtract(tmp_, mean_mat_, dst, cv::noArray(), CVFC<float>(ch));  // src-mean -> dst
+//
+//    LOG(INFO) << dst;
+//
+//      cv::Mat dsp;
+//////  im.convertTo(dsp, CV_32F);
+//  cv::normalize(dst, dsp, 0, 1, cv::NORM_MINMAX);
+////    cv::imshow("test", tmp_);
+////    cv::waitKey(0);
+//
+//    cv::imshow("testd", dsp);
+//    cv::waitKey(0);
+//
     if (do_mirror) {
       tmp_ = dst;
     }

@@ -1119,9 +1119,6 @@ void Net::CopyTrainedLayersFrom(const NetParameter& param) {
         std::swap(target_blobs[3], target_blobs[4]);
         LOG(INFO) << "BN Transforming to new format completed.";
       }
-      for (int j = 0; j < target_blobs.size(); ++j) {
-        DLOG(INFO) << target_blobs[j]->count();
-      }
     } else {
       for (int j = 0; j < target_blobs.size(); ++j) {
         if (!target_blobs[j]->ShapeEquals(source_layer.blobs(j))) {

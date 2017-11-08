@@ -428,7 +428,7 @@ void Blob::ToProto(BlobProto* proto, bool store_in_old_format, bool write_diff) 
   }
   CHECK(is_current_data_valid());
   CHECK(is_current_diff_valid());
-  const Type dt = data_type();
+  Type dt = data_type();
   proto->clear_shape();
   for (int i = 0; i < shape_.size(); ++i) {
     proto->mutable_shape()->add_dim(shape_[i]);
@@ -437,6 +437,7 @@ void Blob::ToProto(BlobProto* proto, bool store_in_old_format, bool write_diff) 
   proto->set_raw_data_type(dt);
   proto->set_raw_data(pdata, count_ * tsize(dt));
   if (write_diff) {
+    dt = diff_type();
     const void* pdiff = current_diff_memory(false);
     proto->set_raw_diff_type(dt);
     proto->set_raw_diff(pdiff, count_ * tsize(dt));

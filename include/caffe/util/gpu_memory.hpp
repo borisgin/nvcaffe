@@ -81,8 +81,8 @@ struct GPUMemory {
     }
 
     void* data() const {
-      CHECK(ptr_ != nullptr) << "(device_: " << device_
-          << ", current device: " << Caffe::current_device() << ")";
+//      CHECK(ptr_ != nullptr) << "(device_: " << device_
+//          << ", current device: " << Caffe::current_device() << ")";
       return ptr_;
     }
 

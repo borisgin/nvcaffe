@@ -898,8 +898,18 @@ void atomic_minimum(std::atomic<Dtype>& min_val, Dtype const& new_val) noexcept 
 }
 
 template <typename Dtype>
-float gb_round2(Dtype val) {
-  return std::round(val * 1.e-7) * 0.01F;
+std::string mem_fmt(Dtype val) {
+  ostringstream os;
+  if (val >= 1.e7) {
+    os << std::round(val * 1.e-7) * 0.01F << "G";
+  } else if (val >= 1.e4) {
+    os << std::round(val * 1.e-4) * 0.01F << "M";
+  } else if (val >= 1.e1) {
+    os << std::round(val * 1.e-1) * 0.01F << "K";
+  } else {
+    os << val;
+  }
+  return os.str();
 }
 
 template <typename Dtype>

@@ -11,6 +11,12 @@
 #include "caffe/util/blocking_queue.hpp"
 #include "caffe/util/io.hpp"
 
+
+
+
+#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/highgui/highgui.hpp>
+
 namespace caffe {
 
 /**
@@ -98,7 +104,14 @@ class DataTransformer {
   void Transform(const cv::Mat& src, Dtype* buf, size_t buf_len, bool repack = true) {
     cv::Mat tmp, dst;
 
+//    LOG(INFO) << src;
+
     image_random_resize(src, tmp);
+
+  //  LOG(INFO) << tmp;
+
+//    cv::imshow("test", tmp);
+//    cv::waitKey(0);
 
     if (image_random_crop_enabled()) {
       image_random_crop(param_.crop_size(), param_.crop_size(), tmp);  // TODO
@@ -106,6 +119,21 @@ class DataTransformer {
       image_center_crop(param_.crop_size(), param_.crop_size(), tmp);
     }
     apply_mean_scale_mirror(tmp, dst);
+
+
+
+//      cv::Mat im;
+//  im.create(img_height, img_width, CVFC<float>(img_channels));
+//  chw2hwc(img_channels, img_width, img_height, buf, im.ptr<float>(0));
+//  cv::Mat dsp;
+////  im.convertTo(dsp, CV_32F);
+//  cv::normalize(im, dsp, 0, 1, cv::NORM_MINMAX);
+//    cv::imshow("testCR", dst);
+//    cv::waitKey(0);
+
+
+
+
     FloatCVMatToBuf<Dtype>(dst, buf_len, buf, repack);
   }
 

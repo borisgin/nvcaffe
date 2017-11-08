@@ -48,7 +48,7 @@ BatchNormLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bottom, const vect
     this->blobs_[1]->set_data(0.);
     this->blobs_[2] = Blob::create(btype, btype);  // variance correction
     this->blobs_[2]->Reshape(shape1);
-    this->blobs_[2]->set_data(0.);
+    this->blobs_[2]->set_data(1.);
     if (scale_bias_) {
       this->blobs_[3] = Blob::create(btype, btype);  // scale
       this->blobs_[3]->Reshape(shape);
