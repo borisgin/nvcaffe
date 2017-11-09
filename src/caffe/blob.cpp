@@ -296,7 +296,6 @@ void Blob::CopyFrom(const Blob& source, bool copy_diff, bool reshape,
         src_type,
         is_gpu ? dst->mutable_gpu_data(false) : dst->mutable_cpu_data(false),
         dst_type);
-    dst->validate();
 #ifndef CPU_ONLY
   } else {
     CHECK(srct != dstt);
@@ -315,6 +314,7 @@ void Blob::CopyFrom(const Blob& source, bool copy_diff, bool reshape,
     CUDNN_CHECK(cudnnDestroyTensorDescriptor(dst_desc));
   }
 #endif
+  dst->validate();
 }
 
 void Blob::FromProto(const BlobProto& proto, bool reshape) {

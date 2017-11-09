@@ -147,7 +147,7 @@ void ImageDataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_
     timer.Start();
     // Apply transformations (mirror, crop...) to the image
     int offset = batch->data_->offset(item_id);
-    this->dt(0)->Transform(cv_img, prefetch_data + offset, buf_len);
+    this->dt(0)->Transform(cv_img, prefetch_data + offset, buf_len, false);
     trans_time += timer.MicroSeconds();
 
     prefetch_label[item_id] = lines_[lines_id_].second;
@@ -170,6 +170,7 @@ void ImageDataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_
   DLOG(INFO) << this->print_current_device()
              << "Transform time: " << trans_time / 1000 << " ms.";
 
+  batch->set_data_packing(NHWC);
   batch->set_id(this->batch_id(thread_id));
 }
 

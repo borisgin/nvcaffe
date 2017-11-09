@@ -167,10 +167,13 @@ void DataTransformer::apply_mean_scale_mirror(const cv::Mat& src, cv::Mat& dst) 
   if (has_mean_file) {
     CHECK_EQ(ch, mean_mat_orig_.channels());
     if (src.rows != mean_mat_.rows || src.cols != mean_mat_.cols) {
-      mean_mat_ = mean_mat_orig_;
-      image_center_crop(src.cols, src.rows, mean_mat_);
-      // scale & convert in place
-      mean_mat_.convertTo(mean_mat_, CVFC<float>(ch), scale);
+      cv::Mat tmp;
+      cv::resize(
+          mean_mat_orig_, tmp,
+          cv::Size(src.cols, src.rows),
+          0., 0.,
+          (int)param_.interpolation_algo_down());
+      tmp.convertTo(mean_mat_, CVFC<float>(ch), scale);
     }
   } else if (has_mean_values) {
     CHECK(mean_values_.size() == 1 || mean_values_.size() == ch)
@@ -188,46 +191,11 @@ void DataTransformer::apply_mean_scale_mirror(const cv::Mat& src, cv::Mat& dst) 
       }
     }
   }
-
-//  LOG(INFO) << src;
-
   const bool do_mirror = param_.mirror() && Rand(2) > 0;
   src.convertTo(tmp_, CVFC<float>(ch), scale);  // scale & convert
   dst = tmp_;
   if (has_mean_file || has_mean_values) {
-
-
-
-
-//      cv::Mat im;
-//  im.create(img_height, img_width, CVFC<float>(img_channels));
-//  chw2hwc(img_channels, img_width, img_height, buf, im.ptr<float>(0));
-//  cv::Mat dsp;
-////  im.convertTo(dsp, CV_32F);
-//  cv::normalize(im, dsp, 0, 1, cv::NORM_MINMAX);
-//    cv::imshow("test", tmp_);
-//    cv::waitKey(0);
-
-//    LOG(INFO) << mean_mat_orig_;
-//
-//    LOG(INFO) << mean_mat_;
-//
-//
-//    LOG(INFO) << tmp_;
-
     cv::subtract(tmp_, mean_mat_, dst, cv::noArray(), CVFC<float>(ch));  // src-mean -> dst
-//
-//    LOG(INFO) << dst;
-//
-//      cv::Mat dsp;
-//////  im.convertTo(dsp, CV_32F);
-//  cv::normalize(dst, dsp, 0, 1, cv::NORM_MINMAX);
-////    cv::imshow("test", tmp_);
-////    cv::waitKey(0);
-//
-//    cv::imshow("testd", dsp);
-//    cv::waitKey(0);
-//
     if (do_mirror) {
       tmp_ = dst;
     }
