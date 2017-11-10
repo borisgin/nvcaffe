@@ -106,7 +106,7 @@ class DataTransformer {
       image_center_crop(param_.crop_size(), param_.crop_size(), tmp);
     }
     apply_mean_scale_mirror(tmp, dst);
-    FloatCVMatToBuf<Dtype>(dst, buf_len, buf);
+    FloatCVMatToBuf<Dtype>(dst, buf_len, buf, repack);
   }
 
   /**

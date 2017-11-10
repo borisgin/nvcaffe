@@ -16,6 +16,8 @@
 
 namespace caffe {
 
+class Blob;
+
 inline
 bool is_pow2(unsigned int x) {
   return ((x & (x - 1)) == 0);
@@ -99,14 +101,17 @@ unsigned int caffe_rng_rand();
 template <typename Dtype>
 Dtype caffe_nextafter(const Dtype b);
 
-template <typename Dtype>
-void caffe_rng_uniform(int n, float a, float b, Dtype* r);
+template <typename Ftype>
+void caffe_rng_uniform(int n, Ftype a, Ftype b, Blob* blob);
 
-template <>
-void caffe_rng_uniform<int>(int n, float a, float b, int* r);
+template <typename Ftype>
+void caffe_rng_uniform(int n, Ftype a, Ftype b, Ftype* r);
 
-template <typename Dtype>
-void caffe_rng_gaussian(int n, float mu, float sigma, Dtype* r);
+template <typename Ftype>
+void caffe_rng_gaussian(int n, Ftype a, Ftype b, Blob* blob);
+
+template <typename Ftype>
+void caffe_rng_gaussian(int n, Ftype a, Ftype b, Ftype* r);
 
 template <typename Dtype>
 void caffe_rng_bernoulli(const int n, const Dtype p, int* r);

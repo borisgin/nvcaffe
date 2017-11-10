@@ -539,6 +539,27 @@ class Blob {
   }
 #endif
 
+  // Element-wise mutator. Might be slow due to syncing from GPU to CPU.
+  template<typename Dtype>
+  void set_value_at(bool set_data, int idx, Dtype val) {
+    void* ptr = set_data ? current_mutable_data_memory(false) : current_mutable_diff_memory(false);
+    CHECK_NOTNULL(ptr);
+    const Type dtype = set_data ? data_type() : diff_type();
+    if (is_type<float>(dtype)) {
+      static_cast<float*>(ptr)[idx] = static_cast<float>(val);
+    }
+#ifndef CPU_ONLY
+    else if (is_type<float16>(dtype)) {
+      static_cast<float16*>(ptr)[idx] = static_cast<float16>(val);
+    }
+#endif
+    else if (is_type<double>(dtype)) {
+      static_cast<double*>(ptr)[idx] = static_cast<double>(val);
+    } else {
+      LOG(FATAL) << "Unknown data or diff: " << Type_Name(dtype);
+    }
+  }
+
   DISABLE_COPY_MOVE_AND_ASSIGN(Blob);
 
  protected:
@@ -578,29 +599,6 @@ class Blob {
     CHECK_EQ(current_type, new_type)
       << "Attempt to change TBlob native " << (do_data ? "data" : "diff")
       << " type from " << Type_Name(current_type) << " to " << Type_Name(new_type);
-  }
-
- private:
-  // Element-wise mutator. Might be slow due to syncing from GPU to CPU.
-  // Currently it's used in copying from proto only.
-  template<typename Dtype>
-  void set_value_at(bool set_data, int idx, Dtype val) {
-    void* ptr = set_data ? current_mutable_data_memory(false) : current_mutable_diff_memory(false);
-    CHECK_NOTNULL(ptr);
-    Type dtype = set_data ? data_type() : diff_type();
-    if (is_type<float>(dtype)) {
-      static_cast<float*>(ptr)[idx] = val;
-    }
-#ifndef CPU_ONLY
-    else if (is_type<float16>(dtype)) {
-      static_cast<float16*>(ptr)[idx] = val;
-    }
-#endif
-    else if (is_type<double>(dtype)) {
-      static_cast<double*>(ptr)[idx] = val;
-    } else {
-      LOG(FATAL) << "Unknown data or diff: " << Type_Name(dtype);
-    }
   }
 };  // class Blob
 
