@@ -110,9 +110,9 @@ void Net::Init(const NetParameter& in_param) {
     LOG(INFO) << "Using " << Type_Name(default_bmath) << " as default backward math type";
   }
 
-  global_grad_scale_ = 1.F;
+  global_grad_scales_[0] = global_grad_scales_[1] = 1.F;
   if (in_param.has_global_grad_scale()) {
-    global_grad_scale_ = in_param.global_grad_scale();
+    global_grad_scales_[0] = global_grad_scales_[1] = in_param.global_grad_scale();
   }
 
   for (int layer_id = 0; layer_id < param.layer_size(); ++layer_id) {
@@ -849,7 +849,7 @@ void Net::ReduceAndUpdate(int type_id) {
         NO_GPU;
 #endif
       } else {
-        this->learnable_params()[param_id]->scale_diff(1.F / global_grad_scale_, handle);
+        this->learnable_params()[param_id]->scale_diff(1.F / global_grad_scale(), handle);
         solver_->ApplyUpdate(param_id, handle, clear_grads);
         continue;
       }
@@ -890,6 +890,8 @@ void Net::ReduceAndUpdate(int type_id) {
     }
     if (param_id == END_OF_ITERATION) {
       CHECK(au_ids.empty());
+      global_grad_scales_[type_id] = solver_->wgrad_sq_combined_[type_id];
+      solver_->wgrad_sq_combined_[type_id] = 0.F;
       solver_->iteration_complete_signal(type_id);
     }
 #else
@@ -914,7 +916,7 @@ void Net::Reduce(int type_id, int param_id) {
     cb->allreduce(type_id, param_id);
     cb->reduce_barrier(type_id);
   }
-  this->learnable_params()[param_id]->scale_diff(1.F / (Caffe::solver_count() * global_grad_scale_),
+  this->learnable_params()[param_id]->scale_diff(1.F / (Caffe::solver_count() * global_grad_scale()),
       Caffe::cublas_handle());
   // Also need to barrier to make sure lock isn't undone
   // until all have completed, but the current nature of
@@ -934,7 +936,7 @@ void Net::ReduceBucket(int type_id, size_t count, Type bucket_type, void* bucket
     cb->allreduce_bucket(type_id, count, bucket, bucket_type);
     cb->reduce_barrier(type_id);
   }
-  Tensor::gpu_scal(count, bucket_type, bucket, 1.F / (Caffe::solver_count() * global_grad_scale_),
+  Tensor::gpu_scal(count, bucket_type, bucket, 1.F / (Caffe::solver_count() * global_grad_scale()),
       Caffe::cublas_handle());
 }
 #endif
@@ -1407,21 +1409,23 @@ void Net::InitializeLearnableDiffSpace(int type_id) {
   }
 }
 
-vector<int> Net::learnable_types() {
-  learnable_types_.clear();
-  int type0 = -1;
-  int type1 = -1;
-  for (shared_ptr<Blob> lp : learnable_params_) {
-    Type t = lp->diff_type();
-    if (type0 < 0) {
-      type0 = (int) t;
-      learnable_types_.push_back(type0);
-    } else if (type1 < 0 && type0 != (int) t) {
-      type1 = (int) t;
-      learnable_types_.push_back(type1);
+const vector<Type>& Net::learnable_types(bool reset) {
+  if (reset || learnable_types_.empty()) {
+    learnable_types_.clear();
+    int type0 = -1;
+    int type1 = -1;
+    for (shared_ptr<Blob> lp : learnable_params_) {
+      Type t = lp->diff_type();
+      if (type0 < 0) {
+        type0 = (int) t;
+        learnable_types_.push_back(t);
+      } else if (type1 < 0 && type0 != (int) t) {
+        type1 = (int) t;
+        learnable_types_.push_back(t);
+      }
     }
+    CHECK_LE(learnable_types_.size(), 2);
   }
-  CHECK_LE(learnable_types_.size(), 2);
   return learnable_types_;
 }
 

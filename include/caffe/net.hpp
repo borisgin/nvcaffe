@@ -195,7 +195,7 @@ class Net {
     lars_learnable_params_[param_id]->CopyDiffFrom(*learnable_params_[param_id], true);
     return lars_learnable_params_[param_id];
   }
-  vector<int> learnable_types();
+  const vector<Type>& learnable_types(bool reset = false);
 
   /// @brief returns the learnable parameter learning rate multipliers
   const vector<float>& params_lr() const { return params_lr_; }
@@ -278,7 +278,7 @@ class Net {
   }
 
   float global_grad_scale() {
-    return global_grad_scale_;
+    return std::sqrt(global_grad_scales_[0] + global_grad_scales_[1]);
   }
 
   size_t infer_count() const {
@@ -378,7 +378,7 @@ class Net {
   vector<shared_ptr<TBlob<float>>> lars_learnable_params_;
   bool trained_layers_shared_;
 
-  vector<int> learnable_types_;
+  vector<Type> learnable_types_;
   vector<void*> learnable_params_ptrs_[2];
 #ifndef CPU_ONLY
   GPUMemory::Workspace learnable_space_[2];
@@ -425,7 +425,7 @@ class Net {
   NetParameter net_param_;
 
   size_t infer_count_;
-  float global_grad_scale_;
+  float global_grad_scales_[2];
 
   static constexpr int END_OF_ITERATION = -1;
   static constexpr int END_OF_TRAIN = -2;

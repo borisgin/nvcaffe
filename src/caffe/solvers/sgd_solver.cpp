@@ -269,11 +269,18 @@ float SGDSolver<Dtype>::GetLocalRate(int param_id) const {
   const vector<float>& net_params_lr = this->net_->params_lr();
   float local_lr = net_params_lr[param_id];
 
+  const vector<Type>& ltypes = net_->learnable_types();
+  const int type_id = ltypes[0] == this->net_->learnable_params()[param_id]->diff_type() ? 0 : 1;
+
   if (this->param_.local_lr_auto()) {
     shared_ptr<Blob> param = is_precise<Dtype>() ?
         this->net_->learnable_params()[param_id] : this->net_->lars_learnable_param(param_id);
     const float w_norm = std::sqrt(param->sumsq_data());
-    const float wgrad_norm = std::sqrt(param->sumsq_diff());
+
+    const float wgrad_sq = param->sumsq_diff();
+    const float wgrad_norm = std::sqrt(wgrad_sq);
+    wgrad_sq_combined_[type_id] += wgrad_sq;
+
     const float gw_ratio = this->param_.local_gw_ratio();
     float rate = 1.F;
 
