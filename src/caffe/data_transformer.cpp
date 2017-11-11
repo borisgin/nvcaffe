@@ -167,13 +167,10 @@ void DataTransformer::apply_mean_scale_mirror(const cv::Mat& src, cv::Mat& dst) 
   if (has_mean_file) {
     CHECK_EQ(ch, mean_mat_orig_.channels());
     if (src.rows != mean_mat_.rows || src.cols != mean_mat_.cols) {
-      cv::Mat tmp;
-      cv::resize(
-          mean_mat_orig_, tmp,
-          cv::Size(src.cols, src.rows),
-          0., 0.,
-          (int)param_.interpolation_algo_down());
-      tmp.convertTo(mean_mat_, CVFC<float>(ch), scale);
+      mean_mat_ = mean_mat_orig_;
+      image_center_crop(src.cols, src.rows, mean_mat_);
+      // scale & convert in place
+      mean_mat_.convertTo(mean_mat_, CVFC<float>(ch), scale);
     }
   } else if (has_mean_values) {
     CHECK(mean_values_.size() == 1 || mean_values_.size() == ch)
