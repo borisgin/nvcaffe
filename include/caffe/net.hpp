@@ -278,7 +278,7 @@ class Net {
   }
 
   float global_grad_scale() {
-    return std::sqrt(global_grad_scales_[0] + global_grad_scales_[1]);
+    return global_grad_scales_[0] + global_grad_scales_[1];
   }
 
   size_t infer_count() const {

@@ -136,7 +136,8 @@ void SGDSolver<Dtype>::PrintRate(float rate) {
       rate = GetLearningRate();
     }
      float moment = GetMomentum();
-     LOG(INFO) << "Iteration " << this->iter_ << ", lr = " << rate << ", m = " << moment;
+     LOG(INFO) << "Iteration " << this->iter_ << ", lr = " << rate << ", m = " << moment
+               << ", gs = " << f_round2(net_->global_grad_scale());
   }
 }
 
