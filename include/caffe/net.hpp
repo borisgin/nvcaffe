@@ -278,7 +278,7 @@ class Net {
   }
 
   float global_grad_scale() {
-    return std::sqrt((global_grad_scales_[0] + global_grad_scales_[1]) * learnable_params().size());
+    return std::sqrt(global_grad_scales_[0] + global_grad_scales_[1]) * global_grad_scale_;
   }
 
   size_t infer_count() const {
@@ -426,6 +426,7 @@ class Net {
 
   size_t infer_count_;
   float global_grad_scales_[2];
+  float global_grad_scale_, global_grad_scale_param_;
 
   static constexpr int END_OF_ITERATION = -1;
   static constexpr int END_OF_TRAIN = -2;
