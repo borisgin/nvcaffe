@@ -271,7 +271,10 @@ float SGDSolver<Dtype>::GetLocalRate(int param_id) const {
   float local_lr = net_params_lr[param_id];
 
   if (this->net_->global_grad_scale_enabled() || this->param_.local_lr_auto()) {
-    shared_ptr<Blob> param = this->net_->learnable_params()[param_id];
+//    shared_ptr<Blob> param = this->net_->learnable_params()[param_id];
+    shared_ptr<Blob> param = is_precise<Dtype>() ?
+                             this->net_->learnable_params()[param_id] : this->net_->lars_learnable_param(param_id);
+
     const vector<Type> &ltypes = net_->learnable_types();
     const int type_id = ltypes[0] == param->diff_type() ? 0 : 1;
     const float wgrad_sq = param->sumsq_diff(type_id);

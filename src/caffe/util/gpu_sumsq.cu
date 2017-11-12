@@ -234,10 +234,14 @@ void caffe_gpu_sumsq(const int n, const Dtype* x, Mtype* s, int group) {
   gpu_sumsq_t(n, x, s, group);
 }
 
-template
-void caffe_gpu_sumsq<float, float>(const int n, const float* x, float* s, int group);
+template<>
+void caffe_gpu_sumsq<float, float>(const int n, const float* x, float* s, int) {
+  caffe_gpu_dot(n, x, x, s);
+}
 
-template
-void caffe_gpu_sumsq<double, float>(const int n, const double* x, float* s, int group);
+template<>
+void caffe_gpu_sumsq<double, float>(const int n, const double* x, float* s, int group) {
+  caffe_gpu_dot(n, x, x, s);
+}
 
 }  // namespace caffe
