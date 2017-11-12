@@ -270,12 +270,14 @@ class Net {
 
   float global_grad_scale() {
     float r = global_grad_scale_param_ > 0.F ?
-           std::sqrt(global_grad_scales_[0] + global_grad_scales_[1]) * global_grad_scale_coeff_ :
+           std::sqrt(global_grad_scales_[0].load(std::memory_order_relaxed) +
+               global_grad_scales_[1].load(std::memory_order_relaxed)) * global_grad_scale_coeff_ :
            1.F;
     if (isnanf(r)) {
-      LOG(ERROR) << "NAN " << global_grad_scales_[0]
-                 << " " << global_grad_scales_[1]
+      LOG(ERROR) << "NAN " << global_grad_scales_[0].load(std::memory_order_relaxed)
+                 << " " << global_grad_scales_[1].load(std::memory_order_relaxed)
                  << " " << global_grad_scale_coeff_;
+      r = 1.F;
     }
     return r;
   }
@@ -427,7 +429,7 @@ class Net {
   NetParameter net_param_;
 
   size_t infer_count_;
-  float global_grad_scales_[2];
+  std::atomic<float> global_grad_scales_[2];
   float global_grad_scale_coeff_, global_grad_scale_param_;
 
   static constexpr int END_OF_ITERATION = -1;

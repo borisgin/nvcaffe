@@ -110,8 +110,8 @@ void Net::Init(const NetParameter& in_param) {
     LOG(INFO) << "Using " << Type_Name(default_bmath) << " as default backward math type";
   }
 
-  global_grad_scales_[0] = 1.F;
-  global_grad_scales_[1] = 0.F;
+  global_grad_scales_[0].store(1.F, std::memory_order_relaxed);
+  global_grad_scales_[1].store(0.F, std::memory_order_relaxed);
   global_grad_scale_coeff_ = 1.F;
   global_grad_scale_param_ = in_param.global_grad_scale();
 
@@ -890,9 +890,11 @@ void Net::ReduceAndUpdate(int type_id) {
     }
     if (param_id == END_OF_ITERATION) {
       CHECK(au_ids.empty());
-      global_grad_scales_[type_id] = solver_->wgrad_sq_combined_[type_id];
+      global_grad_scales_[type_id].store(solver_->
+              wgrad_sq_combined_[type_id].load(std::memory_order_relaxed),
+          std::memory_order_relaxed);
       global_grad_scale_coeff_ = global_grad_scale_param_;
-      solver_->wgrad_sq_combined_[type_id] = 0.F;
+      solver_->wgrad_sq_combined_[type_id].store(0.F, std::memory_order_relaxed);
       solver_->iteration_complete_signal(type_id);
     }
 #else
