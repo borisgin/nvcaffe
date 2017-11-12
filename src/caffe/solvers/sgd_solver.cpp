@@ -1,4 +1,3 @@
-#include <atomic>
 #include "caffe/sgd_solvers.hpp"
 #include "caffe/util/hdf5.hpp"
 #include "caffe/util/io.hpp"
@@ -275,13 +274,12 @@ float SGDSolver<Dtype>::GetLocalRate(int param_id) const {
     shared_ptr<Blob> param = this->net_->learnable_params()[param_id];
     const vector<Type> &ltypes = net_->learnable_types();
     const int type_id = ltypes[0] == param->diff_type() ? 0 : 1;
-    const float wgrad_sq = param->sumsq_diff();
-    wgrad_sq_combined_[type_id].store(wgrad_sq_combined_[type_id].load(std::memory_order_relaxed)
-                                      + wgrad_sq, std::memory_order_relaxed);
+    const float wgrad_sq = param->sumsq_diff(type_id);
+    wgrad_sq_combined_[type_id] += wgrad_sq;
 
     if (this->param_.local_lr_auto()) {
       const float wgrad_norm = std::sqrt(wgrad_sq);
-      const float w_norm = std::sqrt(param->sumsq_data());
+      const float w_norm = std::sqrt(param->sumsq_data(type_id));
       const float gw_ratio = this->param_.local_gw_ratio();
       float rate = 1.F;
       float weight_decay = this->param_.weight_decay();
