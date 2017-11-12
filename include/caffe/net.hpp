@@ -269,15 +269,9 @@ class Net {
   }
 
   float global_grad_scale() {
-    float r = global_grad_scale_param_ > 0.F ?
+    return global_grad_scale_param_ > 0.F ?
            std::sqrt(global_grad_scales_[0] + global_grad_scales_[1]) * global_grad_scale_coeff_ :
            1.F;
-    if (isnanf(r)) {
-      LOG(ERROR) << "NAN " << global_grad_scales_[0]
-                 << " " << global_grad_scales_[1]
-                 << " " << global_grad_scale_coeff_;
-    }
-    return r;
   }
 
   size_t infer_count() const {

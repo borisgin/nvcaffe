@@ -184,7 +184,7 @@ void gpu_asum_t(const int n, const T* x, TR* sum) {
   const int threadsPerCta = CAFFE_CUDA_NUM_THREADS_HALF;
   const int nbrCtas = CAFFE_GET_BLOCKS_HALF(n);
   const int reduction_size_sum = (nbrCtas + 1) * sizeof(TR);
-  TR* dev_ptr_sum = reinterpret_cast<TR*>(GPUMemory::pinned_buffer(reduction_size_sum));
+  TR* dev_ptr_sum = reinterpret_cast<TR*>(GPUMemory::thread_pinned_buffer(reduction_size_sum));
   if (po2 && n > CAFFE_CUDA_NUM_THREADS_HALF) {
     // NOLINT_NEXT_LINE(whitespace/operators)
     asum_reduce_kernel<CAFFE_CUDA_NUM_THREADS_HALF, true><<<nbrCtas, threadsPerCta,

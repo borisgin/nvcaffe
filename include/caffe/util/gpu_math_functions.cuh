@@ -24,9 +24,11 @@ __device__ __inline__ half float2half_clip(float a) {
 #ifdef OLD_CUDA_HALF_IMPL
   half h;
   h.setx(__float2half_rn(a));
-  return inf_clip(h);
+//  return inf_clip(h);
+  return h;
 #else
-  return inf_clip(__float2half_rn(a));
+//  return inf_clip(__float2half_rn(a));
+  return __float2half_rn(a);
 #endif
 }
 
