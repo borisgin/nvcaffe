@@ -9,14 +9,14 @@
 #include "caffe/util/half.cuh"
 
 __device__ __inline__ half inf_clip(half h) {
-//  const int isi = __hisinf(h);
-//  if (isi > 0) {
-//    // Exponent all ones except LSB (0x1e), mantissa is all ones (0x3ff)
-//    h.setx(0x7bffU);
-//  } else if (isi < 0) {
-//    // As above, negated
-//    h.setx(0x7bffU ^ 0x8000U);
-//  }
+  const int isi = __hisinf(h);
+  if (isi > 0) {
+    // Exponent all ones except LSB (0x1e), mantissa is all ones (0x3ff)
+    h.setx(0x7bffU);
+  } else if (isi < 0) {
+    // As above, negated
+    h.setx(0x7bffU ^ 0x8000U);
+  }
   return h;
 }
 
@@ -24,11 +24,9 @@ __device__ __inline__ half float2half_clip(float a) {
 #ifdef OLD_CUDA_HALF_IMPL
   half h;
   h.setx(__float2half_rn(a));
-//  return inf_clip(h);
-  return h;
+  return inf_clip(h);
 #else
-//  return inf_clip(__float2half_rn(a));
-  return __float2half_rn(a);
+  return inf_clip(__float2half_rn(a));
 #endif
 }
 
