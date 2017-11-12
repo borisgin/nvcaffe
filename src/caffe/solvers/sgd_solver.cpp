@@ -270,39 +270,37 @@ float SGDSolver<Dtype>::GetLocalRate(int param_id) const {
   const vector<float>& net_params_lr = this->net_->params_lr();
   float local_lr = net_params_lr[param_id];
 
-  const vector<Type>& ltypes = net_->learnable_types();
-  const int type_id = ltypes[0] == this->net_->learnable_params()[param_id]->diff_type() ? 0 : 1;
-
-  if (this->param_.local_lr_auto()) {
-    shared_ptr<Blob> param = is_precise<Dtype>() ?
-        this->net_->learnable_params()[param_id] : this->net_->lars_learnable_param(param_id);
-    const float w_norm = std::sqrt(param->sumsq_data());
-
+  if (this->net_->global_grad_scale_enabled() || this->param_.local_lr_auto()) {
+    shared_ptr<Blob> param = this->net_->learnable_params()[param_id];
+    const vector<Type> &ltypes = net_->learnable_types();
+    const int type_id = ltypes[0] == param->diff_type() ? 0 : 1;
     const float wgrad_sq = param->sumsq_diff();
-    const float wgrad_norm = std::sqrt(wgrad_sq);
     wgrad_sq_combined_[type_id] += wgrad_sq;
 
-    const float gw_ratio = this->param_.local_gw_ratio();
-    float rate = 1.F;
-
-    float weight_decay = this->param_.weight_decay();
-    if (w_norm > 0.F && wgrad_norm >  0.F) {
-      rate = gw_ratio * w_norm / (wgrad_norm + weight_decay * w_norm);
-    }
-    if (local_lr > 0.) {
-      local_lr = rate;
-    }
+    if (this->param_.local_lr_auto()) {
+      const float wgrad_norm = std::sqrt(wgrad_sq);
+      const float w_norm = std::sqrt(param->sumsq_data());
+      const float gw_ratio = this->param_.local_gw_ratio();
+      float rate = 1.F;
+      float weight_decay = this->param_.weight_decay();
+      if (w_norm > 0.F && wgrad_norm > 0.F) {
+        rate = gw_ratio * w_norm / (wgrad_norm + weight_decay * w_norm);
+      }
+      if (local_lr > 0.) {
+        local_lr = rate;
+      }
 #ifdef DEBUG
-    if (Caffe::root_solver()
-        && this->param_.display()
-        && (this->iter_ % this->param_.display() == 0)) {
-      const int layer_id = this->net_->param_layer_indices(param_id).first;
-      const string& layer_name = this->net_->layer_names()[layer_id];
-      const int blob_id  = this->net_->param_layer_indices(param_id).second;
-      LOG(INFO) << layer_name <<"."<< blob_id << " lr=" << local_lr
-                << " " << "\t  w=" << w_norm << "\t dw=" << wgrad_norm;
-    }
+      if (Caffe::root_solver()
+          && this->param_.display()
+          && (this->iter_ % this->param_.display() == 0)) {
+        const int layer_id = this->net_->param_layer_indices(param_id).first;
+        const string &layer_name = this->net_->layer_names()[layer_id];
+        const int blob_id = this->net_->param_layer_indices(param_id).second;
+        LOG(INFO) << layer_name << "." << blob_id << " lr=" << local_lr
+                  << " " << "\t  w=" << w_norm << "\t dw=" << wgrad_norm;
+      }
 #endif
+    }
   }
   return local_lr;
 }

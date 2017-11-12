@@ -143,6 +143,9 @@ template <typename Dtype>
 float caffe_cpu_asum(const int n, const Dtype* x);
 
 template <typename Dtype>
+float caffe_cpu_sumsq(const int n, const Dtype* x);
+
+template <typename Dtype>
 Dtype caffe_cpu_amax(const int n, const Dtype* x);
 
 // the branchless, type-safe version from
@@ -285,6 +288,9 @@ void caffe_gpu_dot(const int n, const Dtype* x, const Dtype* y, Mtype* out);
 
 template <typename Dtype, typename Mtype>
 void caffe_gpu_asum(const int n, const Dtype* x, Mtype* y);
+
+template <typename Dtype, typename Mtype>
+void caffe_gpu_sumsq(const int n, const Dtype* x, Mtype* s);
 
 template <typename Dtype>
 void caffe_gpu_amax(const int n, const Dtype* x, float* y);

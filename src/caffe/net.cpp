@@ -112,7 +112,7 @@ void Net::Init(const NetParameter& in_param) {
 
   global_grad_scales_[0] = 1.F;
   global_grad_scales_[1] = 0.F;
-  global_grad_scale_ = 1.F;
+  global_grad_scale_coeff_ = 1.F;
   global_grad_scale_param_ = in_param.global_grad_scale();
 
   for (int layer_id = 0; layer_id < param.layer_size(); ++layer_id) {
@@ -891,7 +891,7 @@ void Net::ReduceAndUpdate(int type_id) {
     if (param_id == END_OF_ITERATION) {
       CHECK(au_ids.empty());
       global_grad_scales_[type_id] = solver_->wgrad_sq_combined_[type_id];
-      global_grad_scale_ = global_grad_scale_param_;
+      global_grad_scale_coeff_ = global_grad_scale_param_;
       solver_->wgrad_sq_combined_[type_id] = 0.F;
       solver_->iteration_complete_signal(type_id);
     }

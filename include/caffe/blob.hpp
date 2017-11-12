@@ -406,10 +406,14 @@ class Blob {
   }
 
   /// @brief Compute the sum of squares (L2 norm squared) of the data.
-  float sumsq_data() const;
+  float sumsq_data() const {
+    return data_tensor_->sumsq();
+  }
 
   /// @brief Compute the sum of squares (L2 norm squared) of the diff.
-  float sumsq_diff() const;
+  float sumsq_diff() const {
+    return diff_tensor_->sumsq();
+  }
 
   /// @brief Scale the blob data by a constant factor.
   void scale_data(float scale, void* handle = nullptr) {
@@ -587,11 +591,9 @@ class Blob {
   }
 
   static float at(int offset, Type dtype, const void* data);
-  static float cpu_sumsq(int count, Type dtype, const void* data);
   static void cpu_axpy(int count, Type dtype, float alpha, const void* X, void* Y);
 
 #ifndef CPU_ONLY
-  static float gpu_sumsq(int count, Type dtype, const void* data);
   static void gpu_axpy(int count, Type dtype, float alpha, const void* X, void* Y);
 #endif
 

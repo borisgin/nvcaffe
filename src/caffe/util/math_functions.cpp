@@ -685,6 +685,28 @@ float caffe_cpu_asum<float16>(const int n, const float16 *x) {
 #endif
 
 template <>
+float caffe_cpu_sumsq<float>(const int n, const float* x) {
+  const float nrm2 = cblas_snrm2(n, x, 1);
+  return nrm2 * nrm2;
+}
+template <>
+float caffe_cpu_sumsq<double>(const int n, const double* x) {
+  const double nrm2 = cblas_dnrm2(n, x, 1);
+  return nrm2 * nrm2;
+}
+
+#ifndef CPU_ONLY
+template <>
+float caffe_cpu_sumsq<float16>(const int n, const float16 *x) {
+  float sum = 0.0f;
+  for (int i = 0; i < n; ++i) {
+    sum += x[i] * x[i];
+  }
+  return sum;
+}
+#endif
+
+template <>
 void caffe_cpu_scale<float>(const int n, const float alpha, const float *x,
                             float* y) {
   cblas_scopy(n, x, 1, y, 1);

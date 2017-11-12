@@ -306,6 +306,29 @@ double tmax<half2, double>(half2 a, half2 b) {
 
 template<typename T, typename TR>
 __device__ __inline__
+TR tsumsq(T a, T b) {
+  return TR(a * a + b * b);
+}
+template<>
+__device__ __inline__
+half2 tsumsq<half2, half2>(half2 a, half2 b) {
+  return hadd2(hmul2(a, a), hmul2(b, b));
+}
+template<>
+__device__ __inline__
+float tsumsq<half2, float>(half2 a, half2 b) {
+  half2 h = hadd2(hmul2(a, a), hmul2(b, b));
+  float2 f = __half22float2(h);
+  return f.x + f.y;
+}
+template<>
+__device__ __inline__
+double tsumsq<half2, double>(half2 a, half2 b) {
+  return tsumsq<half2, float>(a, b);
+}
+
+template<typename T, typename TR>
+__device__ __inline__
 TR tsum(T a, T b) {
   return TR(a + b);
 }
@@ -387,6 +410,29 @@ __device__ __inline__
 void tsum_replace<half2, double>(volatile double *a, half2 b) {
   float2 f = __half22float2(b);
   *a += f.x + f.y;
+}
+
+template<typename T, typename TR>
+__device__ __inline__
+void tsumsq_replace(volatile TR *a, T b) {
+  *a += b * b;
+}
+template<>
+__device__ __inline__
+void tsumsq_replace<half2, half2>(volatile half2 *a, half2 b) {
+  *const_cast<half2*>(a) = hadd2(*const_cast<half2*>(a), hmul2(b, b));
+}
+template<>
+__device__ __inline__
+void tsumsq_replace<half2, float>(volatile float *a, half2 b) {
+  float2 f = __half22float2(b);
+  *a += f.x * f.x + f.y * f.y;
+}
+template<>
+__device__ __inline__
+void tsumsq_replace<half2, double>(volatile double *a, half2 b) {
+  float2 f = __half22float2(b);
+  *a += f.x * f.x + f.y * f.y;
 }
 
 #endif  // INCLUDE_CAFFE_GPU_MATH_FUNCTIONS_H_
