@@ -406,13 +406,13 @@ class Blob {
   }
 
   /// @brief Compute the sum of squares (L2 norm squared) of the data.
-  float sumsq_data() const {
-    return data_tensor_->sumsq();
+  float sumsq_data(int group = 0) const {
+    return data_tensor_->sumsq(group);
   }
 
   /// @brief Compute the sum of squares (L2 norm squared) of the diff.
-  float sumsq_diff() const {
-    return diff_tensor_->sumsq();
+  float sumsq_diff(int group = 0) const {
+    return diff_tensor_->sumsq(group);
   }
 
   /// @brief Scale the blob data by a constant factor.

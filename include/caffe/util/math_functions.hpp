@@ -286,11 +286,12 @@ void caffe_gpu_dot(const int n, const Dtype* x, const Dtype* y, Mtype* out);
 //uint32_t caffe_gpu_hamming_distance(const int n, const Dtype* x,
 //                                    const Dtype* y);
 
+// TODO group
 template <typename Dtype, typename Mtype>
 void caffe_gpu_asum(const int n, const Dtype* x, Mtype* y);
 
 template <typename Dtype, typename Mtype>
-void caffe_gpu_sumsq(const int n, const Dtype* x, Mtype* s);
+void caffe_gpu_sumsq(const int n, const Dtype* x, Mtype* s, int group = 0);
 
 template <typename Dtype>
 void caffe_gpu_amax(const int n, const Dtype* x, float* y);

@@ -175,7 +175,7 @@ __global__ void sumsq_reduce_kernel(unsigned int n, const T *in, TR *out) {
 }
 
 template<typename T, typename TR>
-void gpu_sumsq_t(const int n, const T* x, TR* sum) {
+void gpu_sumsq_t(const int n, const T* x, TR* sum, int group) {
   cudaStream_t stream = Caffe::thread_stream();
   const bool po2 = is_pow2(n);
   // See kernel for details
@@ -184,7 +184,7 @@ void gpu_sumsq_t(const int n, const T* x, TR* sum) {
   const int threadsPerCta = CAFFE_CUDA_NUM_THREADS_HALF;
   const int nbrCtas = CAFFE_GET_BLOCKS_HALF(n);
   const int reduction_size_sum = (nbrCtas + 1) * sizeof(TR);
-  TR* dev_ptr_sum = reinterpret_cast<TR*>(GPUMemory::pinned_buffer(reduction_size_sum));
+  TR* dev_ptr_sum = reinterpret_cast<TR*>(GPUMemory::pinned_buffer(reduction_size_sum, group));
   if (po2 && n > CAFFE_CUDA_NUM_THREADS_HALF) {
     // NOLINT_NEXT_LINE(whitespace/operators)
     sumsq_reduce_kernel<CAFFE_CUDA_NUM_THREADS_HALF, true><<<nbrCtas, threadsPerCta,
@@ -202,7 +202,7 @@ void gpu_sumsq_t(const int n, const T* x, TR* sum) {
 }
 
 template<>
-void caffe_gpu_sumsq<float16, float>(const int n, const float16* x, float* sum) {
+void caffe_gpu_sumsq<float16, float>(const int n, const float16* x, float* sum, int group) {
   // For odd counts we allocate extra element to speed up kernels.
   // We have to keep it clean.
   cudaStream_t stream = Caffe::thread_stream();
@@ -212,30 +212,30 @@ void caffe_gpu_sumsq<float16, float>(const int n, const float16* x, float* sum) 
   const int n2 = even(n) / 2;
   static cudaError_t status = set_sumsq_blocks_count<half2>(0U);  // needed just 1 time
   CUDA_CHECK(status);
-  gpu_sumsq_t(n2, reinterpret_cast<const half2*>(x), sum);
+  gpu_sumsq_t(n2, reinterpret_cast<const half2*>(x), sum, group);
 }
 template<>
-void caffe_gpu_sumsq<float16, double>(const int n, const float16* x, double* sum) {
+void caffe_gpu_sumsq<float16, double>(const int n, const float16* x, double* sum, int group) {
   float sf;
-  caffe_gpu_sumsq(n, x, &sf);
+  caffe_gpu_sumsq(n, x, &sf, group);
   *sum = sf;
 }
 template<>
-void caffe_gpu_sumsq<float16, float16>(const int n, const float16* x, float16* sum) {
+void caffe_gpu_sumsq<float16, float16>(const int n, const float16* x, float16* sum, int group) {
   float sf;
-  caffe_gpu_sumsq(n, x, &sf);
+  caffe_gpu_sumsq(n, x, &sf, group);
   *sum = sf;
 }
 
 template <typename Dtype, typename Mtype>
-void caffe_gpu_sumsq(const int n, const Dtype* x, Mtype* s) {
-  gpu_sumsq_t(n, x, s);
+void caffe_gpu_sumsq(const int n, const Dtype* x, Mtype* s, int group) {
+  gpu_sumsq_t(n, x, s, group);
 }
 
 template
-void caffe_gpu_sumsq<float, float>(const int n, const float* x, float* s);
+void caffe_gpu_sumsq<float, float>(const int n, const float* x, float* s, int group);
 
 template
-void caffe_gpu_sumsq<double, float>(const int n, const double* x, float* s);
+void caffe_gpu_sumsq<double, float>(const int n, const double* x, float* s, int group);
 
 }  // namespace caffe
