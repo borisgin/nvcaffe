@@ -229,6 +229,8 @@ void caffe_gpu_sumsq<float16, float16>(const int n, const float16* x, float16* s
 
 template <typename Dtype, typename Mtype>
 void caffe_gpu_sumsq(const int n, const Dtype* x, Mtype* s, int group) {
+  static cudaError_t status = set_sumsq_blocks_count<Dtype>(0U);  // needed just 1 time
+  CUDA_CHECK(status);
   gpu_sumsq_t(n, x, s, group);
 }
 

@@ -121,8 +121,8 @@ TYPED_TEST(DummyDataLayerTest, TestThreeTopConstantGaussianConstant) {
   data_filler_param_a->set_value(7);
   FillerParameter* data_filler_param_b = dummy_data_param->add_data_filler();
   data_filler_param_b->set_type("gaussian");
-  TypeParam gaussian_mean = 3.0;
-  TypeParam gaussian_std = 0.01;
+  TypeParam gaussian_mean = 0.01;
+  TypeParam gaussian_std = 3.0;
   data_filler_param_b->set_mean(gaussian_mean);
   data_filler_param_b->set_std(gaussian_std);
   FillerParameter* data_filler_param_c = dummy_data_param->add_data_filler();
