@@ -30,7 +30,7 @@ float SGDSolver<Dtype>::GetLearningRate() {
     if (this->param_.has_rampup_lr()) {
       rampup_lr = this->param_.rampup_lr();
     }
-    rate = rampup_lr + (this->param_.base_lr() - rampup_lr) * alpha;
+    rate = rampup_lr + (this->param_.base_lr() - rampup_lr) * alpha * alpha;
   } else if (lr_policy == "fixed") {
     rate = this->param_.base_lr();
   } else if (lr_policy == "step") {
