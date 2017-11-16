@@ -195,6 +195,7 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
   vector<int> top_shape = this->dt(0)->template Transform<Btype>(sample_datum.get(),
       nullptr, 0, packing);
   top_shape[0] = batch_size;
+  top[0]->safe_reshape_mode(true);
   top[0]->Reshape(top_shape);
 
   vector<int> random_vec_shape(1, batch_size * 3);

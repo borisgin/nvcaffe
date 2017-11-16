@@ -192,6 +192,7 @@ BaseConvolutionLayer<Ftype, Btype>::Reshape(const vector<Blob*>& bottom, const v
     top_shape.push_back(output_shape_[i]);
   }
   for (int top_id = 0; top_id < top.size(); ++top_id) {
+    top[top_id]->safe_reshape_mode(true);
     top[top_id]->Reshape(top_shape);
   }
   if (reverse_dimensions()) {
@@ -224,6 +225,7 @@ BaseConvolutionLayer<Ftype, Btype>::Reshape(const vector<Blob*>& bottom, const v
       col_buffer_shape_.push_back(output_shape_[i]);
     }
   }
+  col_buffer_.safe_reshape_mode(true);
   col_buffer_.Reshape(col_buffer_shape_);
   bottom_dim_ = bottom[0]->count(channel_axis_);
   top_dim_ = top[0]->count(channel_axis_);
@@ -233,6 +235,7 @@ BaseConvolutionLayer<Ftype, Btype>::Reshape(const vector<Blob*>& bottom, const v
   out_spatial_dim_ = top[0]->count(first_spatial_axis);
   if (bias_term_) {
     vector<int> bias_multiplier_shape(1, out_spatial_dim_);
+    bias_multiplier_.safe_reshape_mode(true);
     bias_multiplier_.Reshape(bias_multiplier_shape);
     bias_multiplier_.set_data(1.F);
   }

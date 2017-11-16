@@ -67,6 +67,7 @@ void CuDNNPoolingLayer<Ftype, Btype>::Reshape(const vector<Blob*>& bottom,
       if (!private_top_[i]) {
         private_top_[i] = Blob::create<Btype>(top[i]->shape());
       } else {
+        private_top_[i]->safe_reshape_mode(true);
         private_top_[i]->ReshapeLike(top[i]);
       }
     }

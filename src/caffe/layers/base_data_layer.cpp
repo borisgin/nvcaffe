@@ -231,6 +231,7 @@ void BasePrefetchingDataLayer<Ftype, Btype>::Forward_cpu(const vector<Blob*>& bo
       && top[0]->shape() == batch->data_->shape()) {
     top[0]->Swap(*batch->data_);
   } else {
+    top[0]->safe_reshape_mode(true);
     top[0]->CopyDataFrom(*batch->data_, true);
   }
   if (this->output_labels_) {
