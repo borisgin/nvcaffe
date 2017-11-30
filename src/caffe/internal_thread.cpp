@@ -92,13 +92,15 @@ void InternalThread::entry(int thread_id, int device, Caffe::Brew mode, uint64_t
   }
 }
 
-void InternalThread::StopInternalThread() {
+void InternalThread::StopInternalThread(bool wait_all) {
   for (size_t id = 0; id < threads_.size(); ++id) {
     if (is_started(id)) {
       threads_[id].interrupt();
     }
   }
-  WaitAll();
+  if (wait_all) {
+    WaitAll();
+  }
 }
 
 void InternalThread::WaitAll() {

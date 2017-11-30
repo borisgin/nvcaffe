@@ -86,14 +86,9 @@ void P2PManager::Run(const vector<int>& gpus) {
 
 void P2PManager::EarlyCancel(P2PSync* killed) {
   for (int i = 0; i < syncs_.size(); ++i) {
-    if (killed != syncs_[i].get()) {
-      syncs_[i]->solver_->request_early_exit();
-      syncs_[i]->StopInternalThread();
-    }
+    syncs_[i]->solver_->request_early_exit();
+    syncs_[i]->StopInternalThread(false);
   }
-#ifndef CPU_ONLY
-  GPUMemory::Finalize();
-#endif
 }
 
 P2PSync::P2PSync(P2PManager* mgr, shared_ptr<Solver> root_solver,

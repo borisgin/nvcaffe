@@ -117,14 +117,31 @@ class Solver {
   void iteration_wait(int ltype) {
     iter_flag_[ltype].wait();
   }
+  void iteration_cancel(int ltype) {
+    iter_flag_[ltype].disarm();
+  }
+  void stop_reducing(int ltype) const {
+    if (ltype == 0) {
+      return reduce_thread0_->interrupt();
+    }
+    return reduce_thread1_->interrupt();
+  }
+  bool stop_reducing_requested(int ltype) const {
+    if (ltype == 0) {
+      return reduce_thread0_->interruption_requested();
+    }
+    return reduce_thread1_->interruption_requested();
+  }
 
   void CheckSnapshotWritePermissions();
   void Finalize();
 
   void request_early_exit() {
     requested_early_exit_ = true;
-    iteration_complete_signal(0);
-    iteration_complete_signal(1);
+    for (int type_id = 0; type_id < net_->learnable_types().size(); ++type_id) {
+      stop_reducing(type_id);
+      iteration_complete_signal(type_id);
+    }
   }
 
   bool display() const {
@@ -144,9 +161,7 @@ class Solver {
    */
   virtual const char* type() const { return ""; }
   virtual void PrintRate(float rate = 0) {}
-  virtual void ApplyUpdate(int param_id, void* handle, bool clear_grads) = 0;
-
-  mutable float wgrad_sq_combined_[2];
+  virtual float ApplyUpdate(int param_id, void* handle, bool clear_grads) = 0;
 
 protected:
   string SnapshotFilename(const string extension);

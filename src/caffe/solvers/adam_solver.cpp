@@ -24,10 +24,18 @@ void adam_reg_update_and_clear_gpu(int N,
 #endif
 
 template <typename Dtype>
-void AdamSolver<Dtype>::ComputeUpdateValue(int param_id, void* handle, float rate,
+float AdamSolver<Dtype>::ComputeUpdateValue(int param_id, void* handle, float rate,
     bool clear_grads) {
   const vector<shared_ptr<Blob>>& net_params = this->net_->learnable_params();
   shared_ptr<Blob> param = net_params[param_id];
+
+  float wgrad_sq = 0.F;
+  if (this->net_->global_grad_scale_enabled()) {
+    const int type_id = this->net_->learnable_types()[0] == param->diff_type() ? 0 : 1;
+    wgrad_sq = param->sumsq_diff(type_id);
+    CHECK_GE(wgrad_sq, 0.F) << " [" << Caffe::current_device() << "] " << param_id;
+  }
+
   const vector<float>& net_params_lr = this->net_->params_lr();
   float local_rate = rate * net_params_lr[param_id];
   const float beta1 = this->param_.momentum();
@@ -105,6 +113,7 @@ void AdamSolver<Dtype>::ComputeUpdateValue(int param_id, void* handle, float rat
   } else {
     LOG(FATAL) << "Unknown caffe mode: " << Caffe::mode();
   }
+  return wgrad_sq;
 }
 
 INSTANTIATE_CLASS(AdamSolver);

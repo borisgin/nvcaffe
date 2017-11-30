@@ -395,6 +395,16 @@ class Blob {
 
   void Update();
 
+  /// @brief Compute the maximum of absolute values (L_\infinity norm) of the data.
+  float amax_data() const {
+    return data_tensor_->amax();
+  }
+
+  /// @brief Compute the maximum of absolute values (L_\infinity norm) of the diff.
+  float amax_diff() const {
+    return diff_tensor_->amax();
+  }
+
   /// @brief Compute the sum of absolute values (L1 norm) of the data.
   float asum_data() const {
     return data_tensor_->asum();

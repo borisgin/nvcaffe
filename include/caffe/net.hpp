@@ -277,10 +277,8 @@ class Net {
     }
   }
 
-  float global_grad_scale() {
-    return global_grad_scale_param_ > 0.F ?
-           std::sqrt(global_grad_scales_[0] + global_grad_scales_[1]) * global_grad_scale_coeff_ :
-           1.F;
+  float global_grad_scale() const {
+    return global_grad_scale_coeff_;
   }
 
   size_t infer_count() const {
@@ -290,6 +288,8 @@ class Net {
   bool global_grad_scale_enabled() const {
     return global_grad_scale_param_ > 0.F;
   }
+
+  void update_grad_scale();
 
   std::string print_current_device() const {
 #ifndef CPU_ONLY
@@ -338,6 +338,9 @@ class Net {
   size_t lp_size(int id) const {
     return tsize(learnable_params_[id]->diff_type());
   }
+
+  void add_wgrad_sq(int type_id, float wgrad_sq);
+  float wgrad_sq(int type_id);
 
   /// @brief The network name
   string name_;
@@ -431,8 +434,11 @@ class Net {
   NetParameter net_param_;
 
   size_t infer_count_;
-  float global_grad_scales_[2];
+  std::atomic_llong wgrad_sq_[2];
   float global_grad_scale_coeff_, global_grad_scale_param_;
+  bool global_grad_scale_adaptive_;
+
+  static constexpr float GRAD_FACTOR = 1.E9F;
 
   static constexpr int END_OF_ITERATION = -1;
   static constexpr int END_OF_TRAIN = -2;

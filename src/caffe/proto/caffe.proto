@@ -176,9 +176,15 @@ message NetParameter {
   optional Type default_backward_math = 14 [default = FLOAT];
   
   // Global gradient scaling coefficient K (default - no scaling)
+  //
+  // Scenario 1: global_grad_scale_adaptive: true
   // If positive, gradients scaled by K*L where L is L_2 norm of all gradients in a Net.
   // This helps to improve accuracy of reduced precision training.
-  optional float global_grad_scale = 15 [default = 0.];
+  //
+  // Scenario 2: global_grad_scale_adaptive: false
+  // If positive, gradients scaled by K.
+  optional float global_grad_scale = 15 [default = 1.];
+  optional bool global_grad_scale_adaptive = 16 [default = false];
 
   // Sets the default "conv_algos_override" value for every convolution layer
   optional string default_conv_algos_override = 17 [default = "-1,-1,-1"];

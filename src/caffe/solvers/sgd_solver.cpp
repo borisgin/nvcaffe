@@ -143,12 +143,12 @@ void SGDSolver<Dtype>::PrintRate(float rate) {
 
 // Note: this is asynchronous call
 template<typename Dtype>
-void SGDSolver<Dtype>::ApplyUpdate(int param_id, void* handle, bool clear_grads) {
+float SGDSolver<Dtype>::ApplyUpdate(int param_id, void* handle, bool clear_grads) {
   float rate = GetLearningRate();  // TODO take it out
   ClipGradients(handle);
   Normalize(param_id, handle);
   Regularize(param_id, handle);
-  ComputeUpdateValue(param_id, handle, rate, clear_grads);
+  return ComputeUpdateValue(param_id, handle, rate, clear_grads);
 }
 
 template<typename Dtype>
@@ -204,15 +204,16 @@ void sgd_reg_update_all_and_clear_gpu(int N,
 
 
 template<typename Dtype>
-void
-SGDSolver<Dtype>::ComputeUpdateValue(int param_id, void* handle, float rate, bool clear_grads) {
+float SGDSolver<Dtype>::ComputeUpdateValue(int param_id, void* handle, float rate,
+    bool clear_grads) {
   if (this->param_.debug_info()) {
     PrintParams(param_id);
   }
   shared_ptr<Blob> param = this->net_->learnable_params()[param_id];
   shared_ptr<TBlob<Dtype>> history = history_[param_id];
   float momentum = GetMomentum();
-  float local_rate = rate * GetLocalRate(param_id);
+  float wgrad_sq = 0.F;
+  float local_rate = rate * GetLocalRate(param_id, wgrad_sq);
   // Compute the update to history, then copy it to the parameter diff.
   if (Caffe::mode() == Caffe::CPU) {
     caffe_cpu_axpby<Dtype>(param->count(), local_rate, param->cpu_diff<Dtype>(), momentum,
@@ -263,26 +264,24 @@ SGDSolver<Dtype>::ComputeUpdateValue(int param_id, void* handle, float rate, boo
   } else {
     LOG(FATAL) << "Unknown caffe mode: " << Caffe::mode();
   }
+  return wgrad_sq;
 }
 
 template<typename Dtype>
-float SGDSolver<Dtype>::GetLocalRate(int param_id) const {
+float SGDSolver<Dtype>::GetLocalRate(int param_id, float& wgrad_sq) const {
   const vector<float>& net_params_lr = this->net_->params_lr();
   float local_lr = net_params_lr[param_id];
 
   if (this->net_->global_grad_scale_enabled() || this->param_.local_lr_auto()) {
-//    shared_ptr<Blob> param = this->net_->learnable_params()[param_id];
-    shared_ptr<Blob> param = is_precise<Dtype>() ?
-                             this->net_->learnable_params()[param_id] : this->net_->lars_learnable_param(param_id);
-
-    const vector<Type> &ltypes = net_->learnable_types();
-    const int type_id = ltypes[0] == param->diff_type() ? 0 : 1;
-    const float wgrad_sq = param->sumsq_diff(type_id);
-    wgrad_sq_combined_[type_id] += wgrad_sq;
+    shared_ptr<Blob> param = this->net_->learnable_params()[param_id];
+    const int type_id = net_->learnable_types()[0] == param->diff_type() ? 0 : 1;
+    wgrad_sq = param->sumsq_diff(type_id);
+    CHECK_GE(wgrad_sq, 0.F) << " [" << Caffe::current_device() << "] " << param_id << " " <<
+          (void*)(&wgrad_sq);
 
     if (this->param_.local_lr_auto()) {
       const float wgrad_norm = std::sqrt(wgrad_sq);
-      const float w_norm = std::sqrt(param->sumsq_data(type_id));
+      const float w_norm = std::sqrt(param->sumsq_data());
       const float gw_ratio = this->param_.local_gw_ratio();
       float rate = 1.F;
       float weight_decay = this->param_.weight_decay();

@@ -52,7 +52,8 @@ class Tensor {
   void convert(Type new_type);
   void Reshape(int count, bool safe_reshape = false);
   float asum() const;
-  float sumsq(int group = 0) const;
+  float amax() const;
+  float sumsq(int group) const;
   const shared_ptr<SyncedMemory>& synced_mem() const;
   shared_ptr<SyncedMemory>& mutable_synced_mem(bool flush = true);
 

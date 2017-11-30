@@ -150,7 +150,7 @@ __global__ void amax_reduce_kernel(unsigned int n, const T *in, TR *out) {
     }
     __syncthreads();
 
-    // The last block sums the results of all other blocks
+    // The last block max-es the results of all other blocks
     if (last_amax_block) {
       int i = tid;
       TR my_max = tzero<TR>();
