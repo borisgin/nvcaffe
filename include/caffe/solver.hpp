@@ -146,7 +146,9 @@ class Solver {
   virtual void PrintRate(float rate = 0) {}
   virtual void ApplyUpdate(int param_id, void* handle, bool clear_grads) = 0;
 
- protected:
+  mutable float wgrad_sq_combined_[2];
+
+protected:
   string SnapshotFilename(const string extension);
   string SnapshotToBinaryProto();
   string SnapshotToHDF5();

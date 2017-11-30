@@ -139,46 +139,6 @@ float Blob::at(int offset, Type dtype, const void* data) {
   return 0.F;
 }
 
-float Blob::cpu_sumsq(int count, Type dtype, const void* data) {
-  if (is_type<float>(dtype)) {
-    return caffe_cpu_dot(count, static_cast<const float*>(data),
-        static_cast<const float*>(data));
-#ifndef CPU_ONLY
-  } else if (is_type<float16>(dtype)) {
-    return caffe_cpu_dot(count, static_cast<const float16*>(data),
-        static_cast<const float16*>(data));
-#endif
-  } else if (is_type<double>(dtype)) {
-    return caffe_cpu_dot(count, static_cast<const double*>(data),
-        static_cast<const double*>(data));
-  }
-  LOG(FATAL) << "Unsupported data type: " << Type_Name(dtype);
-  return 0.F;
-}
-
-#ifndef CPU_ONLY
-float Blob::gpu_sumsq(int count, Type dtype, const void* data) {
-  if (is_type<float>(dtype)) {
-    float sumsq;
-    caffe_gpu_dot(count, static_cast<const float*>(data),
-        static_cast<const float*>(data), &sumsq);
-    return sumsq;
-  } else if (is_type<float16>(dtype)) {
-    float sumsq;
-    caffe_gpu_dot(count, static_cast<const float16*>(data),
-        static_cast<const float16*>(data), &sumsq);
-    return sumsq;
-  } else if (is_type<double>(dtype)) {
-    double sumsq;
-    caffe_gpu_dot(count, static_cast<const double*>(data),
-        static_cast<const double*>(data), &sumsq);
-    return sumsq;
-  }
-  LOG(FATAL) << "Unsupported data type: " << Type_Name(dtype);
-  return 0.F;
-}
-#endif
-
 void Blob::cpu_axpy(int count, Type dtype, float alpha, const void* X, void* Y) {
   if (is_type<float>(dtype)) {
     caffe_axpy(count, alpha, static_cast<const float*>(X),
@@ -212,36 +172,6 @@ void Blob::gpu_axpy(int count, Type dtype, float alpha, const void* X, void* Y) 
   }
 }
 #endif
-
-float Blob::sumsq_data() const {
-  const shared_ptr<SyncedMemory>& data_mem = data_tensor_->synced_mem();
-  if (!data_mem || count_ <= 0) {
-    return 0.F;
-  }
-  if (Caffe::mode() == Caffe::GPU) {
-#ifndef CPU_ONLY
-    return gpu_sumsq(count_, data_type(), data_mem->gpu_data());
-#else
-    NO_GPU;
-#endif
-  }
-  return cpu_sumsq(count_, data_type(), data_mem->cpu_data());
-}
-
-float Blob::sumsq_diff() const {
-  const shared_ptr<SyncedMemory>& diff_mem = diff_tensor_->synced_mem();
-  if (!diff_mem || count_ <= 0) {
-    return 0.F;
-  }
-  if (Caffe::mode() == Caffe::GPU) {
-#ifndef CPU_ONLY
-    return gpu_sumsq(count_, diff_type(), diff_mem->gpu_data());
-#else
-    NO_GPU;
-#endif
-  }
-  return cpu_sumsq(count_, diff_type(), diff_mem->cpu_data());
-}
 
 bool Blob::ShapeEquals(const BlobProto& other) {
   if (other.has_num() || other.has_channels() ||
@@ -296,7 +226,6 @@ void Blob::CopyFrom(const Blob& source, bool copy_diff, bool reshape,
         src_type,
         is_gpu ? dst->mutable_gpu_data(false) : dst->mutable_cpu_data(false),
         dst_type);
-    dst->validate();
 #ifndef CPU_ONLY
   } else {
     CHECK(srct != dstt);
@@ -315,6 +244,7 @@ void Blob::CopyFrom(const Blob& source, bool copy_diff, bool reshape,
     CUDNN_CHECK(cudnnDestroyTensorDescriptor(dst_desc));
   }
 #endif
+  dst->validate();
 }
 
 void Blob::FromProto(const BlobProto& proto, bool reshape) {
@@ -428,7 +358,7 @@ void Blob::ToProto(BlobProto* proto, bool store_in_old_format, bool write_diff) 
   }
   CHECK(is_current_data_valid());
   CHECK(is_current_diff_valid());
-  const Type dt = data_type();
+  Type dt = data_type();
   proto->clear_shape();
   for (int i = 0; i < shape_.size(); ++i) {
     proto->mutable_shape()->add_dim(shape_[i]);
@@ -437,6 +367,7 @@ void Blob::ToProto(BlobProto* proto, bool store_in_old_format, bool write_diff) 
   proto->set_raw_data_type(dt);
   proto->set_raw_data(pdata, count_ * tsize(dt));
   if (write_diff) {
+    dt = diff_type();
     const void* pdiff = current_diff_memory(false);
     proto->set_raw_diff_type(dt);
     proto->set_raw_diff(pdiff, count_ * tsize(dt));

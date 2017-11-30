@@ -234,6 +234,42 @@ float Tensor::asum() const {
   return asum;
 }
 
+float Tensor::sumsq(int group) const {
+  const shared_ptr<SyncedMemory>& mem = synced_mem();
+  float sumsq = 0.F;
+  if (!mem || count_ <= 0) {
+    return sumsq;
+  }
+  if (Caffe::mode() == Caffe::GPU) {
+#ifndef CPU_ONLY
+    if (is_type<float>(type_)) {
+      caffe_gpu_sumsq(count_, static_cast<const float*>(mem->gpu_data()), &sumsq, group);
+    } else if (is_type<float16>(type_)) {
+      caffe_gpu_sumsq(count_, static_cast<const float16*>(mem->gpu_data()), &sumsq, group);
+    } else if (is_type<double>(type_)) {
+      caffe_gpu_sumsq(count_, static_cast<const double*>(mem->gpu_data()), &sumsq, group);
+    } else {
+      LOG(FATAL) << "Unknown data type: " << Type_Name(type_);
+    }
+    return sumsq;
+#else
+    NO_GPU;
+#endif
+  }
+  if (is_type<float>(type_)) {
+    sumsq = caffe_cpu_sumsq(count_, static_cast<const float*>(mem->cpu_data()));
+#ifndef CPU_ONLY
+  } else if (is_type<float16>(type_)) {
+    sumsq = caffe_cpu_sumsq(count_, static_cast<const float16*>(mem->cpu_data()));
+#endif
+  } else if (is_type<double>(type_)) {
+    sumsq = caffe_cpu_sumsq(count_, static_cast<const double*>(mem->cpu_data()));
+  } else {
+    LOG(FATAL) << "Unknown data type: " << Type_Name(type_);
+  }
+  return sumsq;
+}
+
 void Tensor::cpu_scal(int count, Type dtype, void* data, float scal) {
   if (is_type<float>(dtype)) {
     caffe_scal(count, scal, static_cast<float*>(data));

@@ -56,22 +56,22 @@ void caffe_gpu_gemm<float16>(const CBLAS_TRANSPOSE TransA,
       (TransB == CblasNoTrans) ? CUBLAS_OP_N : CUBLAS_OP_T;
 
   if (Caffe::device_capability(Caffe::current_device()) >= 503) {
-//#if CUDA_VERSION >= 9000
-//    cublasMath_t math_mode;
-//    CUBLAS_CHECK(cublasGetMathMode(handle, &math_mode));
-//    CUBLAS_CHECK(cublasSetMathMode(handle, CUBLAS_TENSOR_OP_MATH));
-//    const float alpha_fp32 = static_cast<float>(alpha);
-//    const float beta_fp32 = static_cast<float>(beta);
-//    CUBLAS_CHECK(cublasGemmEx(handle, cuTransB, cuTransA,
-//        N, M, K, &alpha_fp32, B->gethp<half>(), CUDA_R_16F, ldb,
-//        A->gethp<half>(), CUDA_R_16F, lda, &beta_fp32, C->gethp<half>(),
-//        CUDA_R_16F, N, CUDA_R_32F, CUBLAS_GEMM_DFALT_TENSOR_OP));
-//    CUBLAS_CHECK(cublasSetMathMode(handle, math_mode));
-//#else
+#if CUDA_VERSION >= 9000
+    cublasMath_t math_mode;
+    CUBLAS_CHECK(cublasGetMathMode(handle, &math_mode));
+    CUBLAS_CHECK(cublasSetMathMode(handle, CUBLAS_TENSOR_OP_MATH));
+    const float alpha_fp32 = static_cast<float>(alpha);
+    const float beta_fp32 = static_cast<float>(beta);
+    CUBLAS_CHECK(cublasGemmEx(handle, cuTransB, cuTransA,
+        N, M, K, &alpha_fp32, B->gethp<half>(), CUDA_R_16F, ldb,
+        A->gethp<half>(), CUDA_R_16F, lda, &beta_fp32, C->gethp<half>(),
+        CUDA_R_16F, N, CUDA_R_32F, CUBLAS_GEMM_DFALT_TENSOR_OP));
+    CUBLAS_CHECK(cublasSetMathMode(handle, math_mode));
+#else
     CUBLAS_CHECK(cublasHgemm(handle, cuTransB, cuTransA,
     N, M, K, alpha.gethp<half>(), B->gethp<half>(), ldb,
     A->gethp<half>(), lda, beta.gethp<half>(), C->gethp<half>(), N));
-//#endif
+#endif
   } else {
     float alpha_fp32 = static_cast<float>(alpha);
     float beta_fp32 = static_cast<float>(beta);
@@ -109,16 +109,31 @@ template<>
 void caffe_gpu_gemv<float16>(const CBLAS_TRANSPOSE TransA, const int M,
     const int N, const float16 alpha, const float16* A, const float16* x,
     const float16 beta, float16* y) {
+  cublasHandle_t handle = Caffe::cublas_handle();
   cublasOperation_t cuTransA = TransA == CblasNoTrans ? CUBLAS_OP_T : CUBLAS_OP_N;
   int m = cuTransA == CUBLAS_OP_N ? N : M;
   int k = cuTransA == CUBLAS_OP_N ? M : N;
   int LDA = cuTransA == CUBLAS_OP_N ? m : k;
   int LDC = m;
+
   if (Caffe::device_capability(Caffe::current_device()) >= 503) {
-    CUBLAS_CHECK(cublasHgemm(Caffe::cublas_handle(), cuTransA, CUBLAS_OP_N,
+#if CUDA_VERSION >= 9000
+    cublasMath_t math_mode;
+    CUBLAS_CHECK(cublasGetMathMode(handle, &math_mode));
+    CUBLAS_CHECK(cublasSetMathMode(handle, CUBLAS_TENSOR_OP_MATH));
+    const float alpha_fp32 = static_cast<float>(alpha);
+    const float beta_fp32 = static_cast<float>(beta);
+    CUBLAS_CHECK(cublasGemmEx(handle, cuTransA, CUBLAS_OP_N,
+        m, 1, k, &alpha_fp32, A->gethp<half>(), CUDA_R_16F, LDA,
+        x->gethp<half>(), CUDA_R_16F, k, &beta_fp32, y->gethp<half>(),
+        CUDA_R_16F, LDC, CUDA_R_32F, CUBLAS_GEMM_DFALT_TENSOR_OP));
+    CUBLAS_CHECK(cublasSetMathMode(handle, math_mode));
+#else
+    CUBLAS_CHECK(cublasHgemm(handle, cuTransA, CUBLAS_OP_N,
         m, 1, k, alpha.gethp<half>(), A->gethp<half>(), LDA,
         x->gethp<half>(), k, beta.gethp<half>(),
         y->gethp<half>(), LDC));
+#endif
   } else {
     float alpha_fp32 = static_cast<float>(alpha);
     float beta_fp32 = static_cast<float>(beta);
@@ -329,7 +344,7 @@ void gpu_dot_kernel(const int N, const Dtype* x, const Dtype* y, Mtype* out) {
 template<>
 void
 caffe_gpu_dot<float16, float16>(const int n, const float16* x, const float16* y, float16* out) {
-  float* res = reinterpret_cast<float*>(GPUMemory::pinned_buffer(sizeof(float)));
+  float* res = reinterpret_cast<float*>(GPUMemory::thread_pinned_buffer(sizeof(float)));
   cudaStream_t stream = Caffe::thread_stream();
   // NOLINT_NEXT_LINE(whitespace/operators)
   gpu_dot_kernel<<<1, CAFFE_CUDA_NUM_THREADS, 0, stream>>>(n, x, y, res);
@@ -340,7 +355,7 @@ caffe_gpu_dot<float16, float16>(const int n, const float16* x, const float16* y,
 
 template<>
 void caffe_gpu_dot<float16, float>(const int n, const float16* x, const float16* y, float* out) {
-  float* res = reinterpret_cast<float*>(GPUMemory::pinned_buffer(sizeof(float)));
+  float* res = reinterpret_cast<float*>(GPUMemory::thread_pinned_buffer(sizeof(float)));
   cudaStream_t stream = Caffe::thread_stream();
   // NOLINT_NEXT_LINE(whitespace/operators)
   gpu_dot_kernel<<<1, CAFFE_CUDA_NUM_THREADS, 0, stream>>>(n, x, y, res);

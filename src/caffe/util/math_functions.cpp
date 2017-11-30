@@ -1,11 +1,8 @@
 #include <boost/math/special_functions/next.hpp>
 #include <boost/random.hpp>
 
-#include <algorithm>
-#include <limits>
-#include <vector>
-
 #include "caffe/common.hpp"
+#include "caffe/blob.hpp"
 #include "caffe/util/math_functions.hpp"
 #include "caffe/util/rng.hpp"
 
@@ -408,52 +405,76 @@ float caffe_nextafter(const float b);
 template
 double caffe_nextafter(const double b);
 
-template <typename Dtype>
-void caffe_rng_uniform(int n, float a, float b, Dtype* r) {
+template <typename Ftype>
+void caffe_rng_uniform(int n, Ftype a, Ftype b, Blob* blob) {
   CHECK_GE(n, 0);
-  CHECK(r);
   CHECK_LE(a, b);
-  boost::uniform_real<float> random_distribution(a, caffe_nextafter<float>(b));
-  boost::variate_generator<caffe::rng_t*, boost::uniform_real<float> >
+  boost::uniform_real<Ftype> random_distribution(a, caffe_nextafter<Ftype>(b));
+  boost::variate_generator<caffe::rng_t*, boost::uniform_real<Ftype> >
+      variate_generator(caffe_rng(), random_distribution);
+  for (int i = 0; i < n; ++i) {
+    blob->set_value_at(true, i, variate_generator());
+  }
+}
+
+template <typename Ftype>
+void caffe_rng_uniform(int n, Ftype a, Ftype b, Ftype* r) {
+  CHECK_GE(n, 0);
+  CHECK_LE(a, b);
+  boost::uniform_real<Ftype> random_distribution(a, caffe_nextafter<Ftype>(b));
+  boost::variate_generator<caffe::rng_t*, boost::uniform_real<Ftype> >
       variate_generator(caffe_rng(), random_distribution);
   for (int i = 0; i < n; ++i) {
     r[i] = variate_generator();
   }
 }
 
-template <>
-void caffe_rng_uniform<int>(int n, float a, float b, int* r) {
-  CHECK_GE(n, 0);
-  CHECK(r);
-  CHECK_LE(a, b);
-  // NOTE: `boost::uniform_int` uses an inclusive (closed) interval.
-  const int lower = static_cast<int>(a);
-  const int upper = static_cast<int>(b);
-  boost::uniform_int<> incl_range(lower, upper);
-  boost::variate_generator<caffe::rng_t*, boost::uniform_int<> >
-       variate_generator(caffe_rng(), incl_range);
-  for (int i = 0; i < n; ++i) {
-    r[i] = variate_generator();
-  }
+template
+void caffe_rng_uniform<float>(int n, float a, float b, Blob* blob);
+template
+void caffe_rng_uniform<double>(int n, double a, double b, Blob* blob);
+#ifndef CPU_ONLY
+template<>
+void caffe_rng_uniform<float16>(int n, float16 a, float16 b, Blob* blob) {
+  caffe_rng_uniform(n, static_cast<float>(a), static_cast<float>(b), blob);
 }
+#endif
 
 template
 void caffe_rng_uniform<float>(int n, float a, float b, float* r);
-
 template
-void caffe_rng_uniform<double>(int n, float a, float b, double* r);
-
+void caffe_rng_uniform<double>(int n, double a, double b, double* r);
 #ifndef CPU_ONLY
-template
-void caffe_rng_uniform<float16>(int n, float a, float b, float16* r);
+template<>
+void caffe_rng_uniform<float16>(int n, float16 a, float16 b, float16* r) {
+  CHECK_GE(n, 0);
+  CHECK_LE(a, b);
+  boost::uniform_real<float> random_distribution(a, caffe_nextafter<float>(b));
+  boost::variate_generator<caffe::rng_t*, boost::uniform_real<float> >
+      variate_generator(caffe_rng(), random_distribution);
+  for (int i = 0; i < n; ++i) {
+    r[i] = static_cast<float16>(variate_generator());
+  }
+}
 #endif
 
-template <typename Dtype>
-void caffe_rng_gaussian(int n, float a, float sigma, Dtype* r) {
+template <typename Ftype>
+void caffe_rng_gaussian(int n, Ftype mu, Ftype sigma, Blob* blob) {
   CHECK_GE(n, 0);
-  CHECK(r);
-  CHECK_GT(sigma, 0);
-  boost::normal_distribution<float> random_distribution(a, sigma);
+  CHECK_LE(mu, sigma);
+  boost::normal_distribution<float> random_distribution(mu, sigma);
+  boost::variate_generator<caffe::rng_t*, boost::normal_distribution<float> >
+      variate_generator(caffe_rng(), random_distribution);
+  for (int i = 0; i < n; ++i) {
+    blob->set_value_at(true, i, variate_generator());
+  }
+}
+
+template <typename Ftype>
+void caffe_rng_gaussian(int n, Ftype mu, Ftype sigma, Ftype* r) {
+  CHECK_GE(n, 0);
+  CHECK_LE(mu, sigma);
+  boost::normal_distribution<float> random_distribution(mu, sigma);
   boost::variate_generator<caffe::rng_t*, boost::normal_distribution<float> >
       variate_generator(caffe_rng(), random_distribution);
   for (int i = 0; i < n; ++i) {
@@ -462,14 +483,33 @@ void caffe_rng_gaussian(int n, float a, float sigma, Dtype* r) {
 }
 
 template
-void caffe_rng_gaussian<float>(int n, float mu, float sigma, float* r);
-
+void caffe_rng_gaussian<float>(int n, float mu, float sigma, Blob* blob);
 template
-void caffe_rng_gaussian<double>(int n, float mu, float sigma, double* r);
-
+void caffe_rng_gaussian<double>(int n, double mu, double sigma, Blob* blob);
 #ifndef CPU_ONLY
+template<>
+void caffe_rng_gaussian<float16>(int n, float16 mu, float16 sigma, Blob* blob) {
+  caffe_rng_gaussian(n, static_cast<float>(mu), static_cast<float>(sigma), blob);
+}
+#endif
+
 template
-void caffe_rng_gaussian<float16>(const int n, float mu, float sigma, float16* r);
+void caffe_rng_gaussian<float>(int n, float mu, float sigma, float* r);
+template
+void caffe_rng_gaussian<double>(int n, double mu, double sigma, double* r);
+#ifndef CPU_ONLY
+template<>
+void caffe_rng_gaussian<float16>(int n, float16 mu, float16 sigma, float16* r) {
+  CHECK_GE(n, 0);
+  CHECK_LE(mu, sigma);
+  boost::normal_distribution<float> random_distribution(static_cast<float>(mu),
+      static_cast<float>(sigma));
+  boost::variate_generator<caffe::rng_t*, boost::normal_distribution<float>>
+      variate_generator(caffe_rng(), random_distribution);
+  for (int i = 0; i < n; ++i) {
+    r[i] = static_cast<float16>(variate_generator());
+  }
+}
 #endif
 
 template <typename Dtype>
@@ -639,6 +679,28 @@ float caffe_cpu_asum<float16>(const int n, const float16 *x) {
   float sum = 0.0f;
   for (int i = 0; i < n; ++i) {
     sum += fabs(x[i]);
+  }
+  return sum;
+}
+#endif
+
+template <>
+float caffe_cpu_sumsq<float>(const int n, const float* x) {
+  const float nrm2 = cblas_snrm2(n, x, 1);
+  return nrm2 * nrm2;
+}
+template <>
+float caffe_cpu_sumsq<double>(const int n, const double* x) {
+  const double nrm2 = cblas_dnrm2(n, x, 1);
+  return nrm2 * nrm2;
+}
+
+#ifndef CPU_ONLY
+template <>
+float caffe_cpu_sumsq<float16>(const int n, const float16 *x) {
+  float sum = 0.0f;
+  for (int i = 0; i < n; ++i) {
+    sum += x[i] * x[i];
   }
   return sum;
 }

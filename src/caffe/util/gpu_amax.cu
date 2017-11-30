@@ -179,7 +179,7 @@ void gpu_amax_t(const int n, const T* x, TR* result) {
   const int threadsPerCta = CAFFE_CUDA_NUM_THREADS_HALF;
   const int nbrCtas = CAFFE_GET_BLOCKS_HALF(n);
   const int reductionSize = (nbrCtas + 1) * sizeof(TR);
-  TR* devPtrT = reinterpret_cast<TR*>(GPUMemory::pinned_buffer(reductionSize));
+  TR* devPtrT = reinterpret_cast<TR*>(GPUMemory::thread_pinned_buffer(reductionSize));
   if (po2 && n > CAFFE_CUDA_NUM_THREADS_HALF) {
     // NOLINT_NEXT_LINE(whitespace/operators)
     amax_reduce_kernel<CAFFE_CUDA_NUM_THREADS_HALF, true><<<nbrCtas, threadsPerCta,

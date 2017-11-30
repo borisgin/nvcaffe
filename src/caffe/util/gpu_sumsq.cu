@@ -6,10 +6,10 @@
 
 namespace caffe {
 
-///////////////////////////////////// ASUM REDUCTION ///////////////////////////////////
+///////////////////////////////////// SUMSQ REDUCTION ///////////////////////////////////
 
 template<unsigned int BlockSize, typename TR>
-__device__ void asum_reduce_block(volatile TR *sdata, TR my_sum, unsigned int tid) {
+__device__ void sumsq_reduce_block(volatile TR *sdata, TR my_sum, unsigned int tid) {
   volatile TR* st = sdata + tid;
   tassign(st, my_sum);
   __syncthreads();
@@ -42,69 +42,69 @@ __device__ void asum_reduce_block(volatile TR *sdata, TR my_sum, unsigned int ti
 
 
 // Global variable used by amax_reduce_kernel to count how many blocks have finished
-__device__ unsigned int asum_blocks_count_f = 0;
-__device__ unsigned int asum_blocks_count_d = 0;
-__device__ unsigned int asum_blocks_count_h = 0;
+__device__ unsigned int sumsq_blocks_count_f = 0;
+__device__ unsigned int sumsq_blocks_count_d = 0;
+__device__ unsigned int sumsq_blocks_count_h = 0;
 
 template<typename T>
 __device__ __inline__
-unsigned int* asum_blocks_count_ptr();
+unsigned int* sumsq_blocks_count_ptr();
 template<>
 __device__ __inline__
-unsigned int* asum_blocks_count_ptr<float>() {
-  return &asum_blocks_count_f;
+unsigned int* sumsq_blocks_count_ptr<float>() {
+  return &sumsq_blocks_count_f;
 }
 template<>
 __device__ __inline__
-unsigned int* asum_blocks_count_ptr<double>() {
-  return &asum_blocks_count_d;
+unsigned int* sumsq_blocks_count_ptr<double>() {
+  return &sumsq_blocks_count_d;
 }
 template<>
 __device__ __inline__
-unsigned int* asum_blocks_count_ptr<half2>() {
-  return &asum_blocks_count_h;
+unsigned int* sumsq_blocks_count_ptr<half2>() {
+  return &sumsq_blocks_count_h;
 }
 
 template<typename T>
-cudaError_t set_asum_blocks_count(unsigned int cnt);
+cudaError_t set_sumsq_blocks_count(unsigned int cnt);
 template<>
-cudaError_t set_asum_blocks_count<float>(unsigned int cnt) {
-  return cudaMemcpyToSymbolAsync(asum_blocks_count_f, &cnt, sizeof(unsigned int), 0,
+cudaError_t set_sumsq_blocks_count<float>(unsigned int cnt) {
+  return cudaMemcpyToSymbolAsync(sumsq_blocks_count_f, &cnt, sizeof(unsigned int), 0,
       cudaMemcpyHostToDevice, Caffe::thread_stream());
 }
 template<>
-cudaError_t set_asum_blocks_count<double>(unsigned int cnt) {
-  return cudaMemcpyToSymbolAsync(asum_blocks_count_d, &cnt, sizeof(unsigned int), 0,
+cudaError_t set_sumsq_blocks_count<double>(unsigned int cnt) {
+  return cudaMemcpyToSymbolAsync(sumsq_blocks_count_d, &cnt, sizeof(unsigned int), 0,
       cudaMemcpyHostToDevice, Caffe::thread_stream());
 }
 template<>
-cudaError_t set_asum_blocks_count<half2>(unsigned int cnt) {
-  return cudaMemcpyToSymbolAsync(asum_blocks_count_h, &cnt, sizeof(unsigned int), 0,
+cudaError_t set_sumsq_blocks_count<half2>(unsigned int cnt) {
+  return cudaMemcpyToSymbolAsync(sumsq_blocks_count_h, &cnt, sizeof(unsigned int), 0,
       cudaMemcpyHostToDevice, Caffe::thread_stream());
 }
 
 template<typename T>
 __device__ __inline__
-void reset_asum_blocks_count();
+void reset_sumsq_blocks_count();
 template<>
-void reset_asum_blocks_count<float>() {
-  asum_blocks_count_f = 0;
+void reset_sumsq_blocks_count<float>() {
+  sumsq_blocks_count_f = 0;
 }
 template<>
 __device__ __inline__
-void reset_asum_blocks_count<double>() {
-  asum_blocks_count_d = 0;
+void reset_sumsq_blocks_count<double>() {
+  sumsq_blocks_count_d = 0;
 }
 template<>
 __device__ __inline__
-void reset_asum_blocks_count<half2>() {
-  asum_blocks_count_h = 0;
+void reset_sumsq_blocks_count<half2>() {
+  sumsq_blocks_count_h = 0;
 }
 
 template<unsigned int BlockSize, bool IsPow2, typename T, typename TR>
-__device__ void asum_reduce_blocks(const T *in, TR *out, unsigned int n) {
-  struct __dyn_shmem__<n_bytes<sizeof(TR)>> asum_blocks_shmem;
-  TR* partial_asum = reinterpret_cast<TR*>(asum_blocks_shmem.getPtr());
+__device__ void sumsq_reduce_blocks(const T *in, TR *out, unsigned int n) {
+  struct __dyn_shmem__<n_bytes<sizeof(TR)>> sumsq_blocks_shmem;
+  TR* partial_sumsq = reinterpret_cast<TR*>(sumsq_blocks_shmem.getPtr());
 
   // first level of reduction:
   // reading from global memory, writing to shared memory
@@ -117,46 +117,46 @@ __device__ void asum_reduce_blocks(const T *in, TR *out, unsigned int n) {
   // number of active thread blocks (via gridDim). More blocks will result
   // in a larger gridSize and therefore fewer elements per thread.
   while (i < n) {
-    t1 = tabs(in[i]);
+    t1 = in[i];
     if (IsPow2 || i + BlockSize < n) {
-      t2 = tabs(in[i + BlockSize]);
-      tsum_replace(&my_sum, tsum<T, TR>(t1, t2));
+      t2 = in[i + BlockSize];
+      tsum_replace(&my_sum, tsumsq<T, TR>(t1, t2));
     } else {
-      tsum_replace(&my_sum, t1);
+      tsumsq_replace(&my_sum, t1);
     }
     i += gridSize;
   }
 
   // do reduction in shared mem
-  asum_reduce_block<BlockSize>(partial_asum, my_sum, tid);
+  sumsq_reduce_block<BlockSize>(partial_sumsq, my_sum, tid);
   // write result for this block to global mem
   if (tid == 0) {
-    out[blockIdx.x] = partial_asum[0];
+    out[blockIdx.x] = partial_sumsq[0];
   }
 }
 
 template<unsigned int BlockSize, bool IsPow2, typename T, typename TR>
-__global__ void asum_reduce_kernel(unsigned int n, const T *in, TR *out) {
-  asum_reduce_blocks<BlockSize, IsPow2>(in, out, n);
+__global__ void sumsq_reduce_kernel(unsigned int n, const T *in, TR *out) {
+  sumsq_reduce_blocks<BlockSize, IsPow2>(in, out, n);
 
   if (gridDim.x > 1) {
     const unsigned int tid = threadIdx.x;
-    struct __dyn_shmem__<n_bytes<sizeof(TR)>> asum_reduce_shmem;
-    TR* partial_asum = reinterpret_cast<TR*>(asum_reduce_shmem.getPtr());
-    __shared__ bool last_asum_reduce_block;
+    struct __dyn_shmem__<n_bytes<sizeof(TR)>> sumsq_reduce_shmem;
+    TR* partial_sumsq = reinterpret_cast<TR*>(sumsq_reduce_shmem.getPtr());
+    __shared__ bool last_sumsq_reduce_block;
 
     // wait until all outstanding memory instructions in this thread are finished
     __threadfence();
 
     // Thread 0 takes a ticket
     if (tid == 0) {
-      unsigned int ticket = atomicInc(asum_blocks_count_ptr<T>(), gridDim.x);
-      last_asum_reduce_block = (ticket == gridDim.x - 1);
+      unsigned int ticket = atomicInc(sumsq_blocks_count_ptr<T>(), gridDim.x);
+      last_sumsq_reduce_block = (ticket == gridDim.x - 1);
     }
     __syncthreads();
 
     // The last block sums the results of all other blocks
-    if (last_asum_reduce_block) {
+    if (last_sumsq_reduce_block) {
       int i = tid;
       TR my_sum = tzero<TR>();
 
@@ -164,18 +164,18 @@ __global__ void asum_reduce_kernel(unsigned int n, const T *in, TR *out) {
         tsum_replace(&my_sum, out[i]);
         i += BlockSize;
       }
-      asum_reduce_block<BlockSize>(partial_asum, my_sum, tid);
+      sumsq_reduce_block<BlockSize>(partial_sumsq, my_sum, tid);
       if (tid == 0) {
-        out[0] = partial_asum[0];
+        out[0] = partial_sumsq[0];
         // reset blocks count so that next run succeeds
-        reset_asum_blocks_count<T>();
+        reset_sumsq_blocks_count<T>();
       }
     }
   }
 }
 
 template<typename T, typename TR>
-void gpu_asum_t(const int n, const T* x, TR* sum) {
+void gpu_sumsq_t(const int n, const T* x, TR* sum, int group) {
   cudaStream_t stream = Caffe::thread_stream();
   const bool po2 = is_pow2(n);
   // See kernel for details
@@ -184,15 +184,15 @@ void gpu_asum_t(const int n, const T* x, TR* sum) {
   const int threadsPerCta = CAFFE_CUDA_NUM_THREADS_HALF;
   const int nbrCtas = CAFFE_GET_BLOCKS_HALF(n);
   const int reduction_size_sum = (nbrCtas + 1) * sizeof(TR);
-  TR* dev_ptr_sum = reinterpret_cast<TR*>(GPUMemory::thread_pinned_buffer(reduction_size_sum));
+  TR* dev_ptr_sum = reinterpret_cast<TR*>(GPUMemory::thread_pinned_buffer(reduction_size_sum, group));
   if (po2 && n > CAFFE_CUDA_NUM_THREADS_HALF) {
     // NOLINT_NEXT_LINE(whitespace/operators)
-    asum_reduce_kernel<CAFFE_CUDA_NUM_THREADS_HALF, true><<<nbrCtas, threadsPerCta,
+    sumsq_reduce_kernel<CAFFE_CUDA_NUM_THREADS_HALF, true><<<nbrCtas, threadsPerCta,
         threadsPerCta * sizeof(TR) + sizeof(bool), stream>>>
             ((unsigned int)n, x, dev_ptr_sum);
   } else {
     // NOLINT_NEXT_LINE(whitespace/operators)
-    asum_reduce_kernel<CAFFE_CUDA_NUM_THREADS_HALF, false><<<nbrCtas, threadsPerCta,
+    sumsq_reduce_kernel<CAFFE_CUDA_NUM_THREADS_HALF, false><<<nbrCtas, threadsPerCta,
         threadsPerCta * sizeof(TR) + sizeof(bool), stream>>>
             ((unsigned int)n, x, dev_ptr_sum);
   }
@@ -202,7 +202,7 @@ void gpu_asum_t(const int n, const T* x, TR* sum) {
 }
 
 template<>
-void caffe_gpu_asum<float16, float>(const int n, const float16* x, float* sum) {
+void caffe_gpu_sumsq<float16, float>(const int n, const float16* x, float* sum, int group) {
   // For odd counts we allocate extra element to speed up kernels.
   // We have to keep it clean.
   cudaStream_t stream = Caffe::thread_stream();
@@ -210,22 +210,38 @@ void caffe_gpu_asum<float16, float>(const int n, const float16* x, float* sum) {
     clean_last_element(const_cast<float16*>(x) + n, stream);
   }
   const int n2 = even(n) / 2;
-  static cudaError_t status = set_asum_blocks_count<half2>(0U);  // needed just 1 time
+  static cudaError_t status = set_sumsq_blocks_count<half2>(0U);  // needed just 1 time
   CUDA_CHECK(status);
-  gpu_asum_t(n2, reinterpret_cast<const half2*>(x), sum);
+  gpu_sumsq_t(n2, reinterpret_cast<const half2*>(x), sum, group);
 }
 template<>
-void caffe_gpu_asum<float16, double>(const int n, const float16* x, double* sum) {
+void caffe_gpu_sumsq<float16, double>(const int n, const float16* x, double* sum, int group) {
   float sf;
-  caffe_gpu_asum(n, x, &sf);
+  caffe_gpu_sumsq(n, x, &sf, group);
   *sum = sf;
 }
 template<>
-void caffe_gpu_asum<float16, float16>(const int n, const float16* x, float16* sum) {
+void caffe_gpu_sumsq<float16, float16>(const int n, const float16* x, float16* sum, int group) {
   float sf;
-  caffe_gpu_asum(n, x, &sf);
+  caffe_gpu_sumsq(n, x, &sf, group);
   *sum = sf;
 }
 
+template <typename Dtype, typename Mtype>
+void caffe_gpu_sumsq(const int n, const Dtype* x, Mtype* s, int group) {
+  static cudaError_t status = set_sumsq_blocks_count<Dtype>(0U);  // needed just 1 time
+  CUDA_CHECK(status);
+  gpu_sumsq_t(n, x, s, group);
+}
+
+template<>
+void caffe_gpu_sumsq<float, float>(const int n, const float* x, float* s, int) {
+  caffe_gpu_dot(n, x, x, s);
+}
+
+template<>
+void caffe_gpu_sumsq<double, float>(const int n, const double* x, float* s, int group) {
+  caffe_gpu_dot(n, x, x, s);
+}
 
 }  // namespace caffe

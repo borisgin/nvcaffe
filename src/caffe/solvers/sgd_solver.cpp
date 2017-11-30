@@ -30,7 +30,7 @@ float SGDSolver<Dtype>::GetLearningRate() {
     if (this->param_.has_rampup_lr()) {
       rampup_lr = this->param_.rampup_lr();
     }
-    rate = rampup_lr + (this->param_.base_lr() - rampup_lr) * alpha;
+    rate = rampup_lr + (this->param_.base_lr() - rampup_lr) * alpha * alpha;
   } else if (lr_policy == "fixed") {
     rate = this->param_.base_lr();
   } else if (lr_policy == "step") {
@@ -136,7 +136,8 @@ void SGDSolver<Dtype>::PrintRate(float rate) {
       rate = GetLearningRate();
     }
      float moment = GetMomentum();
-     LOG(INFO) << "Iteration " << this->iter_ << ", lr = " << rate << ", m = " << moment;
+     LOG(INFO) << "Iteration " << this->iter_ << ", lr = " << rate << ", m = " << moment
+               << ", gs = " << f_round2(net_->global_grad_scale());
   }
 }
 
@@ -269,32 +270,40 @@ float SGDSolver<Dtype>::GetLocalRate(int param_id) const {
   const vector<float>& net_params_lr = this->net_->params_lr();
   float local_lr = net_params_lr[param_id];
 
-  if (this->param_.local_lr_auto()) {
+  if (this->net_->global_grad_scale_enabled() || this->param_.local_lr_auto()) {
+//    shared_ptr<Blob> param = this->net_->learnable_params()[param_id];
     shared_ptr<Blob> param = is_precise<Dtype>() ?
-        this->net_->learnable_params()[param_id] : this->net_->lars_learnable_param(param_id);
-    const float w_norm = std::sqrt(param->sumsq_data());
-    const float wgrad_norm = std::sqrt(param->sumsq_diff());
-    const float gw_ratio = this->param_.local_gw_ratio();
-    float rate = 1.F;
+                             this->net_->learnable_params()[param_id] : this->net_->lars_learnable_param(param_id);
 
-    float weight_decay = this->param_.weight_decay();
-    if (w_norm > 0.F && wgrad_norm >  0.F) {
-      rate = gw_ratio * w_norm / (wgrad_norm + weight_decay * w_norm);
-    }
-    if (local_lr > 0.) {
-      local_lr = rate;
-    }
+    const vector<Type> &ltypes = net_->learnable_types();
+    const int type_id = ltypes[0] == param->diff_type() ? 0 : 1;
+    const float wgrad_sq = param->sumsq_diff(type_id);
+    wgrad_sq_combined_[type_id] += wgrad_sq;
+
+    if (this->param_.local_lr_auto()) {
+      const float wgrad_norm = std::sqrt(wgrad_sq);
+      const float w_norm = std::sqrt(param->sumsq_data(type_id));
+      const float gw_ratio = this->param_.local_gw_ratio();
+      float rate = 1.F;
+      float weight_decay = this->param_.weight_decay();
+      if (w_norm > 0.F && wgrad_norm > 0.F) {
+        rate = gw_ratio * w_norm / (wgrad_norm + weight_decay * w_norm);
+      }
+      if (local_lr > 0.) {
+        local_lr = rate;
+      }
 #ifdef DEBUG
-    if (Caffe::root_solver()
-        && this->param_.display()
-        && (this->iter_ % this->param_.display() == 0)) {
-      const int layer_id = this->net_->param_layer_indices(param_id).first;
-      const string& layer_name = this->net_->layer_names()[layer_id];
-      const int blob_id  = this->net_->param_layer_indices(param_id).second;
-      LOG(INFO) << layer_name <<"."<< blob_id << " lr=" << local_lr
-                << " " << "\t  w=" << w_norm << "\t dw=" << wgrad_norm;
-    }
+      if (Caffe::root_solver()
+          && this->param_.display()
+          && (this->iter_ % this->param_.display() == 0)) {
+        const int layer_id = this->net_->param_layer_indices(param_id).first;
+        const string &layer_name = this->net_->layer_names()[layer_id];
+        const int blob_id = this->net_->param_layer_indices(param_id).second;
+        LOG(INFO) << layer_name << "." << blob_id << " lr=" << local_lr
+                  << " " << "\t  w=" << w_norm << "\t dw=" << wgrad_norm;
+      }
 #endif
+    }
   }
   return local_lr;
 }
@@ -351,10 +360,7 @@ void SGDSolver<Dtype>::SnapshotSolverStateToBinaryProto(const string& model_file
   state.clear_history();
   for (int i = 0; i < history_.size(); ++i) {
     // Add history
-    BlobProto* history_blob = state.add_history();
-    TBlob<Dtype> history;
-    history.CopyDataFrom(*history_[i], true);
-    history.ToProto(history_blob, param().store_blobs_in_old_format());
+    history_[i]->ToProto(state.add_history(), param().store_blobs_in_old_format());
   }
   string snapshot_filename = Solver::SnapshotFilename(".solverstate");
   LOG(INFO) << "Snapshotting solver state to binary proto file " << snapshot_filename;

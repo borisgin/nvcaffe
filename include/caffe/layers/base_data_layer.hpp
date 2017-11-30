@@ -57,6 +57,7 @@ class Batch {
       : data_(Blob::create(data_type, diff_type)), label_(Blob::create(data_type, diff_type)),
         id_((size_t) -1), data_packing_(NCHW) {
     data_->safe_reshape_mode(true);
+    label_->safe_reshape_mode(true);
   }
 
   size_t id() const {

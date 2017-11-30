@@ -16,6 +16,8 @@
 
 namespace caffe {
 
+class Blob;
+
 inline
 bool is_pow2(unsigned int x) {
   return ((x & (x - 1)) == 0);
@@ -99,14 +101,17 @@ unsigned int caffe_rng_rand();
 template <typename Dtype>
 Dtype caffe_nextafter(const Dtype b);
 
-template <typename Dtype>
-void caffe_rng_uniform(int n, float a, float b, Dtype* r);
+template <typename Ftype>
+void caffe_rng_uniform(int n, Ftype a, Ftype b, Blob* blob);
 
-template <>
-void caffe_rng_uniform<int>(int n, float a, float b, int* r);
+template <typename Ftype>
+void caffe_rng_uniform(int n, Ftype a, Ftype b, Ftype* r);
 
-template <typename Dtype>
-void caffe_rng_gaussian(int n, float mu, float sigma, Dtype* r);
+template <typename Ftype>
+void caffe_rng_gaussian(int n, Ftype a, Ftype b, Blob* blob);
+
+template <typename Ftype>
+void caffe_rng_gaussian(int n, Ftype a, Ftype b, Ftype* r);
 
 template <typename Dtype>
 void caffe_rng_bernoulli(const int n, const Dtype p, int* r);
@@ -136,6 +141,9 @@ int caffe_cpu_hamming_distance(const int n, const Dtype* x, const Dtype* y);
 // Returns the sum of the absolute values of the elements of vector x
 template <typename Dtype>
 float caffe_cpu_asum(const int n, const Dtype* x);
+
+template <typename Dtype>
+float caffe_cpu_sumsq(const int n, const Dtype* x);
 
 template <typename Dtype>
 Dtype caffe_cpu_amax(const int n, const Dtype* x);
@@ -278,8 +286,12 @@ void caffe_gpu_dot(const int n, const Dtype* x, const Dtype* y, Mtype* out);
 //uint32_t caffe_gpu_hamming_distance(const int n, const Dtype* x,
 //                                    const Dtype* y);
 
+// TODO group
 template <typename Dtype, typename Mtype>
 void caffe_gpu_asum(const int n, const Dtype* x, Mtype* y);
+
+template <typename Dtype, typename Mtype>
+void caffe_gpu_sumsq(const int n, const Dtype* x, Mtype* s, int group = 0);
 
 template <typename Dtype>
 void caffe_gpu_amax(const int n, const Dtype* x, float* y);

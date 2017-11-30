@@ -30,6 +30,8 @@ Solver::Solver(const SolverParameter& param, size_t rank, const Solver* root_sol
       callback_(nullptr), root_solver_(root_solver), rank_(rank), requested_early_exit_(false),
       iteration_timer_(make_shared<Timer>()), test_timer_(make_shared<Timer>()),
       iterations_last_(0), iterations_restored_(0) {
+  wgrad_sq_combined_[0] = 0.F;
+  wgrad_sq_combined_[1] = 0.F;
   Init();
 }
 
@@ -203,7 +205,7 @@ void Solver::Step(int iters) {
 
 #ifndef CPU_ONLY
 
-  vector<int> ltypes = net_->learnable_types();
+  const vector<Type>& ltypes = net_->learnable_types(true);
   for (int type_id = 0; type_id < ltypes.size(); ++type_id) {
     net_->InitializeLearnableDiffSpace(type_id);
   }

@@ -188,7 +188,6 @@ void DataTransformer::apply_mean_scale_mirror(const cv::Mat& src, cv::Mat& dst) 
       }
     }
   }
-
   const bool do_mirror = param_.mirror() && Rand(2) > 0;
   src.convertTo(tmp_, CVFC<float>(ch), scale);  // scale & convert
   dst = tmp_;

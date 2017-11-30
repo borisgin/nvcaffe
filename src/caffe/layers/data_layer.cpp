@@ -58,7 +58,6 @@ DataLayer<Ftype, Btype>::~DataLayer() {
 template<typename Ftype, typename Btype>
 void
 DataLayer<Ftype, Btype>::InitializePrefetch() {
-  std::lock_guard<std::mutex> lock(mutex_prefetch_);
   if (layer_inititialized_flag_.is_set()) {
     return;
   }
@@ -140,7 +139,6 @@ size_t DataLayer<Ftype, Btype>::queue_id(size_t thread_id) const {
 template<typename Ftype, typename Btype>
 void
 DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vector<Blob*>& top) {
-  std::lock_guard<std::mutex> lock(mutex_setup_);
   const LayerParameter& param = this->layer_param();
   const int batch_size = param.data_param().batch_size();
   const bool use_gpu_transform = this->is_gpu_transform();
@@ -197,6 +195,7 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
   vector<int> top_shape = this->dt(0)->template Transform<Btype>(sample_datum.get(),
       nullptr, 0, packing);
   top_shape[0] = batch_size;
+  top[0]->safe_reshape_mode(true);
   top[0]->Reshape(top_shape);
 
   vector<int> random_vec_shape(1, batch_size * 3);

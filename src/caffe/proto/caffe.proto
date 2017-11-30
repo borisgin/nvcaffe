@@ -175,8 +175,10 @@ message NetParameter {
   optional Type default_forward_math  = 13 [default = FLOAT];
   optional Type default_backward_math = 14 [default = FLOAT];
   
-  
-  optional float global_grad_scale = 15 [default = 1.];
+  // Global gradient scaling coefficient K (default - no scaling)
+  // If positive, gradients scaled by K*L where L is L_2 norm of all gradients in a Net.
+  // This helps to improve accuracy of reduced precision training.
+  optional float global_grad_scale = 15 [default = 0.];
 
   // Sets the default "conv_algos_override" value for every convolution layer
   optional string default_conv_algos_override = 17 [default = "-1,-1,-1"];
@@ -1127,6 +1129,9 @@ message ImageDataParameter {
   // data.
   optional bool mirror = 6 [default = false];
   optional string root_folder = 12 [default = ""];
+  // Resize while reading to adjust images by short side.
+  // Has priority over new_height and new_width.
+  optional uint32 short_side = 13 [default = 0];
 }
 
 message InfogainLossParameter {

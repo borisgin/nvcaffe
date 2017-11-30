@@ -136,6 +136,7 @@ void* GPUMemory::thread_pinned_buffer(size_t size, int group) {
     sizes.resize(group + 1U);
   }
   if (size > sizes[group]) {
+    shared_lock<shared_mutex> lock(GPUMemory::read_write_mutex());
     void* hptr;
     void* dptr;
     CUDA_CHECK(cudaHostAlloc(&hptr, size, cudaHostAllocMapped));

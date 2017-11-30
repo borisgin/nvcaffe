@@ -489,7 +489,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
         // Winner needs half less - release the rest
         LOG(INFO) << this->print_current_device()
                   << " Layer '" << this->name() << "' reallocating workspace "
-                  << gb_round2(ws->size()) << "G to " << gb_round2(mem_req) << "G";
+                  << mem_fmt(ws->size()) << " to " << mem_fmt(mem_req);
         // TRAIN only
         ws->release();
         ws->reserve(mem_req);
@@ -862,7 +862,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
     os << this->print_current_device()
         << (this->phase_ == TRAIN ? " Conv Algos (F,BD,BF): '" : " Conv Algo (F): '")
         << this->name() << "' with space "
-        << gb_round2(ws->size()) << "G " << this->channels_ << "/" << this->group_
+        << mem_fmt(ws->size()) << " " << this->channels_ << "/" << this->group_
         << (use_v7grouping() ? "." : "")
 #ifdef DEBUG
         << " -> [" << workspace_fwd_sizes_[i]
@@ -888,10 +888,10 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
           << (user_algos_override_[2] >= 0 ? "u " : (bwd_filter_pseudo ? "p " : " "));
     }
 
-    os << "\t(avail " << gb_round2(available_memory) << "G, req "
-        << gb_round2(this->phase_ == TRAIN ?
+    os << "\t(avail " << mem_fmt(available_memory) << ", req "
+        << mem_fmt(this->phase_ == TRAIN ?
             train_mem_req_all_grps_[dev] : test_mem_req_all_grps_[dev])
-        << "G)\tt: " << f_round2(ftime);
+        << ")\tt: " << f_round2(ftime);
 
     if (this->phase_ == TRAIN) {
       os << " " << f_round2(bdtime) << " " << f_round2(bftime);

@@ -105,13 +105,16 @@ void PoolingLayer<Ftype, Btype>::Reshape(const vector<Blob*>& bottom,
     CHECK_LT((pooled_height_ - 1) * stride_h_, height_ + pad_h_);
     CHECK_LT((pooled_width_ - 1) * stride_w_, width_ + pad_w_);
   }
+  top[0]->safe_reshape_mode(true);
   top[0]->Reshape(bottom[0]->num(), channels_, pooled_height_,
       pooled_width_);
   if (top.size() > 1) {
+    top[1]->safe_reshape_mode(true);
     top[1]->ReshapeLike(*top[0]);
   }
   // If max pooling, we will initialize the vector index part.
   if (is_max_pooling_ && top.size() == 1) {
+    max_idx_.safe_reshape_mode(true);
     max_idx_.Reshape(bottom[0]->num(), channels_, pooled_height_,
         pooled_width_);
   }

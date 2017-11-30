@@ -170,7 +170,7 @@ void DecodeDatumToSignedBuf(const Datum& datum, int color_mode,
 }
 
 cv::Mat ReadImageToCVMat(const string& filename,
-    int height, int width, bool is_color, int min_height, int min_width) {
+    int height, int width, bool is_color, int short_side) {
   cv::Mat cv_img;
   int cv_read_flag = (is_color ? CV_LOAD_IMAGE_COLOR :
     CV_LOAD_IMAGE_GRAYSCALE);
@@ -179,11 +179,14 @@ cv::Mat ReadImageToCVMat(const string& filename,
     LOG(ERROR) << "Could not open or find file " << filename;
     return cv_img_origin;
   }
-  if (min_height > 0) {
-    height = std::max(min_height, height);
-  }
-  if (min_width > 0) {
-    width = std::max(min_width, width);
+  if (short_side > 0) {
+    if (cv_img_origin.rows > cv_img_origin.cols) {
+      width = short_side;
+      height = cv_img_origin.rows * short_side / cv_img_origin.cols;
+    } else {
+      height = short_side;
+      width = cv_img_origin.cols * short_side / cv_img_origin.rows;
+    }
   }
   if (height > 0 && width > 0) {
     cv::resize(cv_img_origin, cv_img, cv::Size(width, height));

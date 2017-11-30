@@ -243,7 +243,7 @@ TYPED_TEST(GPUMathFunctionsTest, TestExtFP16) {
   blob2.Reshape(11, 17, 19, 23);
   float* data = blob.mutable_cpu_data();
   int n = blob.count();
-  caffe_rng_gaussian(n, 100.F, 10.F, data);
+  caffe_rng_gaussian(n, 10.F, 100.F, data);
   const float* xgpu = blob.gpu_data();
 
   TBlob<float16> blob16;
@@ -255,14 +255,14 @@ TYPED_TEST(GPUMathFunctionsTest, TestExtFP16) {
   const float* xcpu = blob.cpu_data();
   const float16* fp16cpu = blob16.cpu_data();
   for (int i = 0; i < n; ++i) {
-    EXPECT_NEAR(xcpu[i], static_cast<float>(fp16cpu[i]), 1.e-1);
+    EXPECT_NEAR(xcpu[i], static_cast<float>(fp16cpu[i]), 2.e-1);
   }
 
   float* x2gpu = blob2.mutable_gpu_data();
   caffe_gpu_convert(n, fp16gpu, x2gpu);
   const float* x2cpu = blob2.cpu_data();
   for (int i = 0; i < n; ++i) {
-    EXPECT_NEAR(xcpu[i], x2cpu[i], 1.e-1);
+    EXPECT_NEAR(xcpu[i], x2cpu[i], 2.e-1);
   }
 }
 
