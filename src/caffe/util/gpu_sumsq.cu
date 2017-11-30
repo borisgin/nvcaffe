@@ -45,7 +45,7 @@ __device__ void sumsq_reduce_block(volatile TR *sdata, TR my_sum, unsigned int t
 }
 
 // Global variable used by sumsq_reduce_kernel to count how many blocks have finished
-__device__ unsigned int sumsq_blocks_count[REGRESSION_GROUPS_MAX ];
+__device__ unsigned int sumsq_blocks_count[REGRESSION_GROUPS_MAX];
 
 cudaError_t set_sumsq_blocks_count(unsigned int cnt, int group) {
   return cudaMemcpyToSymbol(sumsq_blocks_count, &cnt, sizeof(unsigned int),

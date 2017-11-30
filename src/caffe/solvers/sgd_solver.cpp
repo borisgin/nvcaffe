@@ -281,7 +281,7 @@ float SGDSolver<Dtype>::GetLocalRate(int param_id, float& wgrad_sq) const {
 
     if (this->param_.local_lr_auto()) {
       const float wgrad_norm = std::sqrt(wgrad_sq);
-      const float w_norm = std::sqrt(param->sumsq_data());
+      const float w_norm = std::sqrt(param->sumsq_data(type_id));
       const float gw_ratio = this->param_.local_gw_ratio();
       float rate = 1.F;
       float weight_decay = this->param_.weight_decay();

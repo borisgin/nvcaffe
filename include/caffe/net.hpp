@@ -339,8 +339,8 @@ class Net {
     return tsize(learnable_params_[id]->diff_type());
   }
 
-  void add_wgrad_sq(int type_id, float wgrad_sq);
-  float wgrad_sq(int type_id);
+  void add_wgrad_sq(float wgrad_sq);
+  float wgrad_sq();
 
   /// @brief The network name
   string name_;
@@ -434,7 +434,7 @@ class Net {
   NetParameter net_param_;
 
   size_t infer_count_;
-  std::atomic_llong wgrad_sq_[2];
+  std::atomic_llong wgrad_sq_;
   float global_grad_scale_coeff_, global_grad_scale_param_;
   bool global_grad_scale_adaptive_;
 

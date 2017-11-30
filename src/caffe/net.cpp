@@ -110,8 +110,7 @@ void Net::Init(const NetParameter& in_param) {
     LOG(INFO) << "Using " << Type_Name(default_bmath) << " as default backward math type";
   }
 
-  wgrad_sq_[0].store(0LL);
-  wgrad_sq_[1].store(0LL);
+  wgrad_sq_.store(0LL);
   global_grad_scale_coeff_ = 1.F;
   global_grad_scale_param_ = in_param.global_grad_scale();
   global_grad_scale_adaptive_ = in_param.global_grad_scale_adaptive();
@@ -846,7 +845,7 @@ void Net::ReduceAndUpdate(int type_id) {
           if (solver_->stop_reducing_requested(type_id)) {
             break;
           }
-          add_wgrad_sq(type_id, solver_->ApplyUpdate(param_id, handle, clear_grads));
+          add_wgrad_sq(solver_->ApplyUpdate(param_id, handle, clear_grads));
           continue;
         }
 #else
@@ -854,7 +853,7 @@ void Net::ReduceAndUpdate(int type_id) {
 #endif
       } else {
         this->learnable_params()[param_id]->scale_diff(1.F / global_grad_scale(), handle);
-        add_wgrad_sq(type_id, solver_->ApplyUpdate(param_id, handle, clear_grads));
+        add_wgrad_sq(solver_->ApplyUpdate(param_id, handle, clear_grads));
         continue;
       }
     }
@@ -886,7 +885,7 @@ void Net::ReduceAndUpdate(int type_id) {
           }
 
           for (int i : au_ids) {
-            add_wgrad_sq(type_id, solver_->ApplyUpdate(i, handle, clear_grads));
+            add_wgrad_sq(solver_->ApplyUpdate(i, handle, clear_grads));
           }
           au_ids.erase(au_ids.find(id_from), au_ids.end());
         }
@@ -910,20 +909,20 @@ void Net::ReduceAndUpdate(int type_id) {
   DLOG(INFO) << "[" << Caffe::current_device() << "] Leaving ReduceAndUpdate thread";
 }
 
-void Net::add_wgrad_sq(int type_id, float wgrad_sq) {
+void Net::add_wgrad_sq(float wgrad_sq) {
   CHECK_GE(wgrad_sq, 0.F);
-  wgrad_sq_[type_id].fetch_add(std::llround(wgrad_sq * GRAD_FACTOR));
+  wgrad_sq_.fetch_add(std::llround(wgrad_sq * GRAD_FACTOR));
 }
 
-float Net::wgrad_sq(int type_id) {
-  return wgrad_sq_[type_id].exchange(0LL) / GRAD_FACTOR;
+float Net::wgrad_sq() {
+  return wgrad_sq_.exchange(0LL) / GRAD_FACTOR;
 }
 
 void Net::update_grad_scale() {
   global_grad_scale_coeff_ = 1.F;
   if (global_grad_scale_enabled()) {
     if (global_grad_scale_adaptive_) {
-      float wgsq = wgrad_sq(0) + wgrad_sq(1);
+      const float wgsq = wgrad_sq();
       CHECK_GE(wgsq, 0.F);
       global_grad_scale_coeff_ = std::sqrt(wgsq) * global_grad_scale_param_;
     } else {
