@@ -271,14 +271,13 @@ template<typename Dtype>
 float SGDSolver<Dtype>::GetLocalRate(int param_id, float& wgrad_sq) const {
   const vector<float>& net_params_lr = this->net_->params_lr();
   float local_lr = net_params_lr[param_id];
-
   if (this->net_->global_grad_scale_enabled() || this->param_.local_lr_auto()) {
     shared_ptr<Blob> param = this->net_->learnable_params()[param_id];
     const int type_id = net_->learnable_types()[0] == param->diff_type() ? 0 : 1;
     wgrad_sq = param->sumsq_diff(type_id);
-    CHECK_GE(wgrad_sq, 0.F) << " [" << Caffe::current_device() << "] " << param_id << " " <<
-          (void*)(&wgrad_sq);
-
+    if (std::isnan(wgrad_sq)) {
+      wgrad_sq = 0.F;  // skip this
+    }
     if (this->param_.local_lr_auto()) {
       const float wgrad_norm = std::sqrt(wgrad_sq);
       const float w_norm = std::sqrt(param->sumsq_data(type_id));

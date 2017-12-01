@@ -438,7 +438,7 @@ class Net {
   float global_grad_scale_coeff_, global_grad_scale_param_;
   bool global_grad_scale_adaptive_;
 
-  static constexpr float GRAD_FACTOR = 1.E9F;
+  static constexpr float GRAD_FACTOR = 1.E6F;
 
   static constexpr int END_OF_ITERATION = -1;
   static constexpr int END_OF_TRAIN = -2;

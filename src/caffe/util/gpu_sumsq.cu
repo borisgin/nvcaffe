@@ -47,9 +47,9 @@ __device__ void sumsq_reduce_block(volatile TR *sdata, TR my_sum, unsigned int t
 // Global variable used by sumsq_reduce_kernel to count how many blocks have finished
 __device__ unsigned int sumsq_blocks_count[REGRESSION_GROUPS_MAX];
 
-cudaError_t set_sumsq_blocks_count(unsigned int cnt, int group) {
-  return cudaMemcpyToSymbol(sumsq_blocks_count, &cnt, sizeof(unsigned int),
-      group * sizeof(unsigned int), cudaMemcpyHostToDevice);
+void set_sumsq_blocks_count(unsigned int cnt, int group, cudaStream_t stream) {
+  CUDA_CHECK_ARG(cudaMemcpyToSymbolAsync(sumsq_blocks_count, &cnt, sizeof(unsigned int),
+      group * sizeof(unsigned int), cudaMemcpyHostToDevice, stream), Caffe::current_device());
 }
 
 template<unsigned int BlockSize, bool IsPow2, typename T, typename TR>
@@ -114,6 +114,7 @@ __global__ void sumsq_reduce_kernel(unsigned int n, const T *in, TR *out, int gr
       sumsq_reduce_block<BlockSize>(partial_sumsq, my_sum, tid);
       if (tid == 0) {
         out[0] = partial_sumsq[0];
+        // reset blocks count so that next run succeeds
         sumsq_blocks_count[group] = 0U;
       }
     }
@@ -133,7 +134,7 @@ void gpu_sumsq_t(const int n, const T* x, TR* sum, int group) {
   const int reduction_size = (nbrCtas + 1) * sizeof(TR);
   GPUMemory::Workspace ws(reduction_size);
   TR* dev_ptr_sq = reinterpret_cast<TR*>(ws.data());
-  CUDA_CHECK_ARG(set_sumsq_blocks_count(0U, group), Caffe::current_device());
+  set_sumsq_blocks_count(0U, group, stream);
   if (po2 && n > CAFFE_CUDA_NUM_THREADS_HALF) {
     // NOLINT_NEXT_LINE(whitespace/operators)
     sumsq_reduce_kernel<CAFFE_CUDA_NUM_THREADS_HALF, true><<<nbrCtas, threadsPerCta,

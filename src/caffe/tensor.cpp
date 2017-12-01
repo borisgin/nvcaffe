@@ -198,7 +198,7 @@ void Tensor::set(float value) {
   }
 }
 
-float Tensor::asum() const {
+float Tensor::asum(int group) const {
   const shared_ptr<SyncedMemory>& mem = synced_mem();
   float asum = 0.F;
   if (!mem || count_ <= 0) {
@@ -207,11 +207,11 @@ float Tensor::asum() const {
   if (Caffe::mode() == Caffe::GPU) {
 #ifndef CPU_ONLY
     if (is_type<float>(type_)) {
-      caffe_gpu_asum(count_, static_cast<const float*>(mem->gpu_data()), &asum);
+      caffe_gpu_asum(count_, static_cast<const float*>(mem->gpu_data()), &asum, group);
     } else if (is_type<float16>(type_)) {
-      caffe_gpu_asum(count_, static_cast<const float16*>(mem->gpu_data()), &asum);
+      caffe_gpu_asum(count_, static_cast<const float16*>(mem->gpu_data()), &asum, group);
     } else if (is_type<double>(type_)) {
-      caffe_gpu_asum(count_, static_cast<const double*>(mem->gpu_data()), &asum);
+      caffe_gpu_asum(count_, static_cast<const double*>(mem->gpu_data()), &asum, group);
     } else {
       LOG(FATAL) << "Unknown data type: " << Type_Name(type_);
     }
@@ -234,7 +234,7 @@ float Tensor::asum() const {
   return asum;
 }
 
-float Tensor::amax() const {
+float Tensor::amax(int group) const {
   const shared_ptr<SyncedMemory>& mem = synced_mem();
   float amax = 0.F;
   if (!mem || count_ <= 0) {
@@ -243,11 +243,11 @@ float Tensor::amax() const {
   if (Caffe::mode() == Caffe::GPU) {
 #ifndef CPU_ONLY
     if (is_type<float>(type_)) {
-      caffe_gpu_amax(count_, static_cast<const float*>(mem->gpu_data()), &amax);
+      caffe_gpu_amax(count_, static_cast<const float*>(mem->gpu_data()), &amax, group);
     } else if (is_type<float16>(type_)) {
-      caffe_gpu_amax(count_, static_cast<const float16*>(mem->gpu_data()), &amax);
+      caffe_gpu_amax(count_, static_cast<const float16*>(mem->gpu_data()), &amax, group);
     } else if (is_type<double>(type_)) {
-      caffe_gpu_amax(count_, static_cast<const double*>(mem->gpu_data()), &amax);
+      caffe_gpu_amax(count_, static_cast<const double*>(mem->gpu_data()), &amax, group);
     } else {
       LOG(FATAL) << "Unknown data type: " << Type_Name(type_);
     }
@@ -365,7 +365,7 @@ std::string Tensor::to_string(int indent) const {  // debug helper
       os << synced_arrays_->at(i)->to_string(indent + 2, (Type) i);
 
       if (synced_arrays_->at(i)->is_valid()) {
-        os << idt << "ASUM: " << asum() << std::endl;
+        os << idt << "ASUM: " << asum(0) << std::endl;
       } else {
         os << idt << "NOT VALID" << std::endl;
       }

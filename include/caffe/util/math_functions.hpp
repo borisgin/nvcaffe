@@ -288,13 +288,13 @@ void caffe_gpu_dot(const int n, const Dtype* x, const Dtype* y, Mtype* out);
 
 // TODO group
 template <typename Dtype, typename Mtype>
-void caffe_gpu_asum(const int n, const Dtype* x, Mtype* y);
+void caffe_gpu_asum(const int n, const Dtype* x, Mtype* y, int group = 0);
 
 template <typename Dtype, typename Mtype>
 void caffe_gpu_sumsq(const int n, const Dtype* x, Mtype* s, int group = 0);
 
 template <typename Dtype>
-void caffe_gpu_amax(const int n, const Dtype* x, float* y);
+void caffe_gpu_amax(const int n, const Dtype* x, float* y, int group = 0);
 
 template<typename Dtype>
 void caffe_gpu_sign(const int n, const Dtype* x, Dtype* y, void* handle = nullptr);
