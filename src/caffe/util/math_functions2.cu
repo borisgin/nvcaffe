@@ -1,9 +1,8 @@
 #include <algorithm>
 #include <device_launch_parameters.h>
 
-#include "caffe/common.hpp"
-#include "caffe/util/gpu_math_functions.cuh"
 #include "caffe/util/math_functions.hpp"
+#include "caffe/util/gpu_math_functions.cuh"
 
 namespace caffe {
 

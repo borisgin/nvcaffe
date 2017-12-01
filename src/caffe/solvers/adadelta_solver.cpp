@@ -25,10 +25,18 @@ adadelta_reg_update_and_clear_gpu(int N,
 #endif
 
 template <typename Dtype>
-void AdaDeltaSolver<Dtype>::ComputeUpdateValue(int param_id, void* handle, float rate,
+float AdaDeltaSolver<Dtype>::ComputeUpdateValue(int param_id, void* handle, float rate,
     bool clear_grads) {
   const vector<shared_ptr<Blob>>& net_params = this->net_->learnable_params();
   shared_ptr<Blob> param = net_params[param_id];
+
+  float wgrad_sq = 0.F;
+  if (this->net_->global_grad_scale_enabled()) {
+    const int type_id = this->net_->learnable_types()[0] == param->diff_type() ? 0 : 1;
+    wgrad_sq = param->sumsq_diff(type_id);
+    CHECK_GE(wgrad_sq, 0.F) << " [" << Caffe::current_device() << "] " << param_id;
+  }
+
   shared_ptr<TBlob<Dtype>> history = this->history_[param_id];
   shared_ptr<TBlob<Dtype>> update = this->update_[param_id];
   shared_ptr<TBlob<Dtype>> temp = this->temp_[param_id];
@@ -117,6 +125,7 @@ void AdaDeltaSolver<Dtype>::ComputeUpdateValue(int param_id, void* handle, float
   } else {
     LOG(FATAL) << "Unknown caffe mode: " << Caffe::mode();
   }
+  return wgrad_sq;
 }
 
 INSTANTIATE_CLASS(AdaDeltaSolver);

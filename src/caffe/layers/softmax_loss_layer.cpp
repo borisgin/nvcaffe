@@ -149,8 +149,8 @@ void SoftmaxWithLossLayer<Ftype, Btype>::Backward_cpu(const vector<Blob*>& top,
     // Scale gradient
     Btype loss_weight = top[0]->cpu_diff<Btype>()[0] / get_normalizer(normalization_, count);
     if (this->parent_net() != NULL) {
-     float fp16_global_grad_scale = this->parent_net()->global_grad_scale();
-     loss_weight = loss_weight * fp16_global_grad_scale;
+      float fp16_global_grad_scale = this->parent_net()->global_grad_scale();
+      loss_weight *= fp16_global_grad_scale;
     }
     caffe_scal(prob_->count(), loss_weight, bottom_diff);
   }

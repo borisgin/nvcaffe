@@ -30,8 +30,6 @@ Solver::Solver(const SolverParameter& param, size_t rank, const Solver* root_sol
       callback_(nullptr), root_solver_(root_solver), rank_(rank), requested_early_exit_(false),
       iteration_timer_(make_shared<Timer>()), test_timer_(make_shared<Timer>()),
       iterations_last_(0), iterations_restored_(0) {
-  wgrad_sq_combined_[0] = 0.F;
-  wgrad_sq_combined_[1] = 0.F;
   Init();
 }
 
@@ -311,15 +309,21 @@ void Solver::Step(int iters) {
 #ifndef CPU_ONLY
     for (int type_id = 0; type_id < ltypes.size(); ++type_id) {
       iteration_wait(type_id);
+      if (requested_early_exit_) {
+        for (int id = 0; id < ltypes.size(); ++id) {
+          iteration_cancel(id);
+        }
+        break;
+      }
     }
-#else
-    iteration_wait(0);
-#endif
 
     if (requested_early_exit_) {
       total_lapse_ += iteration_timer_->Seconds();
       break;
     }
+#else
+    iteration_wait(0);
+#endif
 
     // average the loss across iterations for smoothed reporting
     UpdateSmoothedLoss(loss, start_iter, average_loss);
@@ -377,6 +381,7 @@ void Solver::Step(int iters) {
       // Break out of training loop.
       break;
     }
+    net_->update_grad_scale();
   }
   Finalize();
 }
@@ -442,7 +447,7 @@ bool Solver::Solve(const char* resume_file) {
   iterations_restored_ = 0;
   iterations_last_ = 0;
   if (requested_early_exit_) {
-    LOG(INFO) << "Optimization stopped early.";
+    LOG(INFO) << net_->print_current_device() << " Optimization stopped early.";
     return true;
   }
   // After the optimization is done, run an additional train and test pass to

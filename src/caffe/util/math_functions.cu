@@ -2,8 +2,10 @@
 #include <device_launch_parameters.h>
 
 #include "caffe/util/half.cuh"
+//#include "caffe/common.hpp"
 #include "caffe/util/math_functions.hpp"
 #include "caffe/util/gpu_math_functions.cuh"
+#include "caffe/type.hpp"
 
 namespace caffe {
 
@@ -340,50 +342,53 @@ void gpu_dot_kernel(const int N, const Dtype* x, const Dtype* y, Mtype* out) {
   if (tidx == 0) *out = cache[tidx];
 }
 
-// TODO unit test
 template<>
 void
 caffe_gpu_dot<float16, float16>(const int n, const float16* x, const float16* y, float16* out) {
-  float* res = reinterpret_cast<float*>(GPUMemory::thread_pinned_buffer(sizeof(float)));
+  float fres;
+  GPUMemory::Workspace ws(sizeof(float));
+  float* res = reinterpret_cast<float*>(ws.data());
   cudaStream_t stream = Caffe::thread_stream();
   // NOLINT_NEXT_LINE(whitespace/operators)
   gpu_dot_kernel<<<1, CAFFE_CUDA_NUM_THREADS, 0, stream>>>(n, x, y, res);
   CUDA_POST_KERNEL_CHECK;
+  CUDA_CHECK(cudaMemcpyAsync(&fres, res, ws.size(), cudaMemcpyDeviceToHost, stream));
   CUDA_CHECK(cudaStreamSynchronize(stream));
-  *out = static_cast<float16>(*res);
+  *out = static_cast<float16>(fres);
 }
 
 template<>
 void caffe_gpu_dot<float16, float>(const int n, const float16* x, const float16* y, float* out) {
-  float* res = reinterpret_cast<float*>(GPUMemory::thread_pinned_buffer(sizeof(float)));
+  GPUMemory::Workspace ws(sizeof(float));
+  float* res = reinterpret_cast<float*>(ws.data());
   cudaStream_t stream = Caffe::thread_stream();
   // NOLINT_NEXT_LINE(whitespace/operators)
   gpu_dot_kernel<<<1, CAFFE_CUDA_NUM_THREADS, 0, stream>>>(n, x, y, res);
   CUDA_POST_KERNEL_CHECK;
+  CUDA_CHECK(cudaMemcpyAsync(out, res, ws.size(), cudaMemcpyDeviceToHost, stream));
   CUDA_CHECK(cudaStreamSynchronize(stream));
-  *out = *res;
 }
 
 template<>
-void caffe_gpu_asum<float, float>(const int n, const float* x, float* y) {
+void caffe_gpu_asum<float, float>(const int n, const float* x, float* y, int) {
   CUBLAS_CHECK(cublasSasum(Caffe::cublas_handle(), n, x, 1, y));
   CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
 }
 
 template<>
-void caffe_gpu_asum<float, double>(const int n, const float* x, double* y) {
+void caffe_gpu_asum<float, double>(const int n, const float* x, double* y, int) {
   float yf;
   CUBLAS_CHECK(cublasSasum(Caffe::cublas_handle(), n, x, 1, &yf));
   CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
   *y = yf;
 }
 template<>
-void caffe_gpu_asum<double, double>(const int n, const double* x, double* y) {
+void caffe_gpu_asum<double, double>(const int n, const double* x, double* y, int) {
   CUBLAS_CHECK(cublasDasum(Caffe::cublas_handle(), n, x, 1, y));
   CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
 }
 template<>
-void caffe_gpu_asum<double, float>(const int n, const double* x, float* y) {
+void caffe_gpu_asum<double, float>(const int n, const double* x, float* y, int) {
   double yd;
   CUBLAS_CHECK(cublasDasum(Caffe::cublas_handle(), n, x, 1, &yd));
   CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));

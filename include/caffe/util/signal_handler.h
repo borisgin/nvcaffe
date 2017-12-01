@@ -12,7 +12,7 @@ class SignalHandler {
   SignalHandler(SolverAction::Enum SIGINT_action,
                 SolverAction::Enum SIGHUP_action);
   ~SignalHandler();
-  ActionCallback GetActionFunction();
+  ActionCallback GetActionFunction() const;
  private:
   SolverAction::Enum CheckForSignals() const;
   SolverAction::Enum SIGINT_action_;

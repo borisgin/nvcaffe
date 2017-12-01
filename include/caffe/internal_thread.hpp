@@ -37,7 +37,7 @@ class InternalThread {
       uint64_t random_seed = Caffe::next_seed());
 
   /** Will not return until the internal thread has exited. */
-  void StopInternalThread();
+  void StopInternalThread(bool wait_all = true);
   void WaitAll();
 
   bool is_started(int id = 0) const {

@@ -110,10 +110,10 @@ void Net::Init(const NetParameter& in_param) {
     LOG(INFO) << "Using " << Type_Name(default_bmath) << " as default backward math type";
   }
 
-  global_grad_scales_[0] = 1.F;
-  global_grad_scales_[1] = 0.F;
+  wgrad_sq_.store(0LL);
   global_grad_scale_coeff_ = 1.F;
   global_grad_scale_param_ = in_param.global_grad_scale();
+  global_grad_scale_adaptive_ = in_param.global_grad_scale_adaptive();
 
   for (int layer_id = 0; layer_id < param.layer_size(); ++layer_id) {
     // For non-root solvers, whether this layer is shared from root_net_.
@@ -827,7 +827,7 @@ void Net::ReduceAndUpdate(int type_id) {
 #endif
 
   const bool clear_grads = !solver_->param().snapshot_diff();
-  while (true) {
+  while (!solver_->stop_reducing_requested(type_id)) {
     const int param_id = reduction_queue_[type_id].pop();
     SolverAction::Enum request = solver_->GetRequestedAction();
     if (SolverAction::STOP == request) {
@@ -842,7 +842,10 @@ void Net::ReduceAndUpdate(int type_id) {
 #ifndef CPU_ONLY
         if (reduce_buckets_ == 0) {  // no bucketing
           Reduce(type_id, param_id);
-          solver_->ApplyUpdate(param_id, handle, clear_grads);
+          if (solver_->stop_reducing_requested(type_id)) {
+            break;
+          }
+          add_wgrad_sq(solver_->ApplyUpdate(param_id, handle, clear_grads));
           continue;
         }
 #else
@@ -850,7 +853,7 @@ void Net::ReduceAndUpdate(int type_id) {
 #endif
       } else {
         this->learnable_params()[param_id]->scale_diff(1.F / global_grad_scale(), handle);
-        solver_->ApplyUpdate(param_id, handle, clear_grads);
+        add_wgrad_sq(solver_->ApplyUpdate(param_id, handle, clear_grads));
         continue;
       }
     }
@@ -877,9 +880,12 @@ void Net::ReduceAndUpdate(int type_id) {
           CHECK_EQ((int) learnable_params_[id_from]->diff_type(), learnable_types_[type_id]);
           ReduceBucket(type_id, received_count, learnable_params_[id_from]->diff_type(),
               learnable_params_ptrs_[type_id][id_from]);
+          if (solver_->stop_reducing_requested(type_id)) {
+            break;
+          }
 
           for (int i : au_ids) {
-            solver_->ApplyUpdate(i, handle, clear_grads);
+            add_wgrad_sq(solver_->ApplyUpdate(i, handle, clear_grads));
           }
           au_ids.erase(au_ids.find(id_from), au_ids.end());
         }
@@ -890,9 +896,6 @@ void Net::ReduceAndUpdate(int type_id) {
     }
     if (param_id == END_OF_ITERATION) {
       CHECK(au_ids.empty());
-      global_grad_scales_[type_id] = solver_->wgrad_sq_combined_[type_id];
-      global_grad_scale_coeff_ = global_grad_scale_param_;
-      solver_->wgrad_sq_combined_[type_id] = 0.F;
       solver_->iteration_complete_signal(type_id);
     }
 #else
@@ -902,6 +905,28 @@ void Net::ReduceAndUpdate(int type_id) {
 #endif
   }
   DLOG(INFO) << "[" << Caffe::current_device() << "] Leaving ReduceAndUpdate thread";
+}
+
+void Net::add_wgrad_sq(float wgrad_sq) {
+  CHECK_GE(wgrad_sq, 0.F);
+  wgrad_sq_.fetch_add(std::llround(wgrad_sq * GRAD_FACTOR));
+}
+
+float Net::wgrad_sq() {
+  return wgrad_sq_.exchange(0LL) / GRAD_FACTOR;
+}
+
+void Net::update_grad_scale() {
+  global_grad_scale_coeff_ = 1.F;
+  if (global_grad_scale_enabled()) {
+    if (global_grad_scale_adaptive_) {
+      const float wgsq = wgrad_sq();
+      CHECK_GE(wgsq, 0.F);
+      global_grad_scale_coeff_ = std::sqrt(wgsq) * global_grad_scale_param_;
+    } else {
+      global_grad_scale_coeff_ = global_grad_scale_param_;
+    }
+  }
 }
 
 #ifndef CPU_ONLY

@@ -108,7 +108,7 @@ SolverAction::Enum SignalHandler::CheckForSignals() const {
 
 // Return the function that the solver can use to find out if a snapshot or
 // early exit is being requested.
-ActionCallback SignalHandler::GetActionFunction() {
+ActionCallback SignalHandler::GetActionFunction() const {
   return boost::bind(&SignalHandler::CheckForSignals, this);
 }
 

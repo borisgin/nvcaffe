@@ -221,6 +221,33 @@ TYPED_TEST_CASE(GPUMathFunctionsTest, TestDtypes);
   //  EXPECT_EQ(reference_distance, computed_distance);
   //  }
 
+TYPED_TEST(GPUMathFunctionsTest, TestAmax) {
+  int n = this->blob_bottom_->count();
+  const TypeParam* x = this->blob_bottom_->cpu_data();
+  double std_amax = 0., pmax;
+  for (int i = 0; i < n; ++i) {
+    pmax = std::fabs(x[i]);
+    if (std_amax < pmax) {
+      std_amax = pmax;
+    }
+  }
+  float gpu_amax;
+  caffe_gpu_amax(n, this->blob_bottom_->gpu_data(), &gpu_amax);
+  EXPECT_LT((gpu_amax - std_amax) / std_amax, 1e-5);
+
+  // pow 2
+  n = 65536;
+  std_amax = 0.;
+  for (int i = 0; i < n; ++i) {
+    pmax = std::fabs(x[i]);
+    if (std_amax < pmax) {
+      std_amax = pmax;
+    }
+  }
+  caffe_gpu_amax(n, this->blob_bottom_->gpu_data(), &gpu_amax);
+  EXPECT_LT((gpu_amax - std_amax) / std_amax, 1e-5);
+}
+
 TYPED_TEST(GPUMathFunctionsTest, TestAsum) {
   int n = this->blob_bottom_->count();
   const TypeParam* x = this->blob_bottom_->cpu_data();
@@ -231,6 +258,19 @@ TYPED_TEST(GPUMathFunctionsTest, TestAsum) {
   TypeParam gpu_asum;
   caffe_gpu_asum(n, this->blob_bottom_->gpu_data(), &gpu_asum);
   EXPECT_LT((gpu_asum - std_asum) / std_asum, 1e-2);
+}
+
+TYPED_TEST(GPUMathFunctionsTest, TestDot) {
+  int n = this->blob_bottom_->count();
+  const TypeParam* x = this->blob_bottom_->cpu_data();
+  const TypeParam* y = this->blob_top_->cpu_data();
+  double std_dot = 0.;
+  for (int i = 0; i < n; ++i) {
+    std_dot += x[i] * y[i];
+  }
+  TypeParam gpu_dot;
+  caffe_gpu_dot(n, this->blob_bottom_->gpu_data(), this->blob_top_->gpu_data(), &gpu_dot);
+  EXPECT_LT((gpu_dot - std_dot) / std_dot, 1e-2);
 }
 
 TYPED_TEST(GPUMathFunctionsTest, TestExtFP16) {

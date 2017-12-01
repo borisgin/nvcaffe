@@ -121,7 +121,7 @@ class BlobMathTest : public MultiDeviceTest<TypeParam> {
 
   virtual ~BlobMathTest() { delete blob_; }
   TBlob<Dtype>* const blob_;
-  Dtype epsilon_;
+  float epsilon_;
 };
 
 TYPED_TEST_CASE(BlobMathTest, TestDtypesAndDevices);
@@ -131,165 +131,125 @@ TYPED_TEST(BlobMathTest, TestSumOfSquares) {
   // Uninitialized TBlob should have sum of squares == 0.
   EXPECT_FLOAT_EQ(0.F, this->blob_->sumsq_data());
   EXPECT_FLOAT_EQ(0.F, this->blob_->sumsq_diff());
-  FillerParameter filler_param;
-  filler_param.set_min(-3);
-  filler_param.set_max(3);
-  UniformFiller<Dtype> filler(filler_param);
-  filler.Fill(this->blob_);
-  float expected_sumsq = 0, psum = 0;
-  const Dtype* data = this->blob_->cpu_data();
-  for (int i = 0; i < this->blob_->count(); ++i) {
-    psum += data[i] * data[i];
-    if (i > 0 && i % 10 == 0) {
-      expected_sumsq += psum;
-      psum = 0;
+
+  for (int i = 0; i < 2; ++i) {
+    FillerParameter filler_param;
+    filler_param.set_min(-3000);
+    filler_param.set_max(3000);
+    UniformFiller<Dtype> filler(filler_param);
+    filler.Fill(this->blob_);
+    float expected_sumsq = 0, psum = 0;
+    const Dtype *data = this->blob_->cpu_data();
+    for (int i = 0; i < this->blob_->count(); ++i) {
+      psum += data[i] * data[i];
+      if (i > 0 && i % 10 == 0) {
+        expected_sumsq += psum;
+        psum = 0;
+      }
     }
-  }
-  expected_sumsq += psum;
+    expected_sumsq += psum;
 
-  // Do a mutable access on the current device,
-  // so that the sumsq computation is done on that device.
-  // (Otherwise, this would only check the CPU sumsq implementation.)
-  switch (TypeParam::device) {
-  case Caffe::CPU:
-    this->blob_->mutable_cpu_data();
-    break;
-  case Caffe::GPU:
-#ifndef CPU_ONLY
-    this->blob_->mutable_gpu_data();
-#else
-    NO_GPU;
-#endif
-    break;
-  default:
-    LOG(FATAL) << "Unknown device: " << TypeParam::device;
-  }
-  EXPECT_NEAR(expected_sumsq, this->blob_->sumsq_data(),
-              this->epsilon_ * expected_sumsq);
-  EXPECT_FLOAT_EQ(0.F, this->blob_->sumsq_diff());
+    EXPECT_NEAR(expected_sumsq, this->blob_->sumsq_data(),
+        this->epsilon_ * expected_sumsq);
+    EXPECT_FLOAT_EQ(0.F, this->blob_->sumsq_diff());
 
-  // Check sumsq_diff too.
-  const Dtype kDiffScaleFactor = 7;
-  caffe_cpu_scale<Dtype>(this->blob_->count(), kDiffScaleFactor, data,
-                  this->blob_->mutable_cpu_diff());
-  switch (TypeParam::device) {
-  case Caffe::CPU:
-    this->blob_->mutable_cpu_diff();
-    break;
-  case Caffe::GPU:
-#ifndef CPU_ONLY
-    this->blob_->mutable_gpu_diff();
-#else
-    NO_GPU;
-#endif
-    break;
-  default:
-    LOG(FATAL) << "Unknown device: " << TypeParam::device;
+    // Check sumsq_diff too.
+    const Dtype kDiffScaleFactor = 7;
+    caffe_cpu_scale<Dtype>(this->blob_->count(), kDiffScaleFactor, data,
+        this->blob_->mutable_cpu_diff());
+
+    EXPECT_NEAR(expected_sumsq, this->blob_->sumsq_data(),
+        this->epsilon_ * expected_sumsq);
+    const Dtype expected_sumsq_diff =
+        expected_sumsq * kDiffScaleFactor * kDiffScaleFactor;
+    EXPECT_NEAR(expected_sumsq_diff, this->blob_->sumsq_diff(),
+        this->epsilon_ * expected_sumsq_diff);
+
+    this->blob_->Reshape(4, 4, 4, 4);  // pow(2) case
   }
-  EXPECT_NEAR(expected_sumsq, this->blob_->sumsq_data(),
-              this->epsilon_ * expected_sumsq);
-  const Dtype expected_sumsq_diff =
-      expected_sumsq * kDiffScaleFactor * kDiffScaleFactor;
-  EXPECT_NEAR(expected_sumsq_diff, this->blob_->sumsq_diff(),
-              this->epsilon_ * expected_sumsq_diff);
 }
 
 TYPED_TEST(BlobMathTest, TestAsum) {
   typedef typename TypeParam::Dtype Dtype;
-
   // Uninitialized TBlob should have asum == 0.
   EXPECT_FLOAT_EQ(0.F, this->blob_->asum_data());
   EXPECT_FLOAT_EQ(0.F, this->blob_->asum_diff());
-  FillerParameter filler_param;
-  filler_param.set_min(-3);
-  filler_param.set_max(3);
-  UniformFiller<Dtype> filler(filler_param);
-  filler.Fill(this->blob_);
-  Dtype expected_asum = 0, psum = 0;
-  const Dtype* data = this->blob_->cpu_data();
-  for (int i = 0; i < this->blob_->count(); ++i) {
-    psum += std::fabs(data[i]);
-    if (i > 0 && i % 10 == 0) {
-      expected_asum += psum;
-      psum = 0;
+  for (int i = 0; i < 2; ++i) {
+    FillerParameter filler_param;
+    filler_param.set_min(-30);
+    filler_param.set_max(30);
+    UniformFiller<Dtype> filler(filler_param);
+    filler.Fill(this->blob_);
+    Dtype expected_asum = 0, psum = 0;
+    const Dtype* data = this->blob_->cpu_data();
+    for (int i = 0; i < this->blob_->count(); ++i) {
+      psum += std::fabs(data[i]);
+      if (i > 0 && i % 10 == 0) {
+        expected_asum += psum;
+        psum = 0;
+      }
     }
-  }
-  expected_asum += psum;
+    expected_asum += psum;
+    EXPECT_NEAR(expected_asum, this->blob_->asum_data(),
+                this->epsilon_ * expected_asum);
+    EXPECT_FLOAT_EQ(0.F, this->blob_->asum_diff());
 
-  // Do a mutable access on the current device,
-  // so that the asum computation is done on that device.
-  // (Otherwise, this would only check the CPU asum implementation.)
-  switch (TypeParam::device) {
-  case Caffe::CPU:
-    this->blob_->mutable_cpu_data();
-    break;
-  case Caffe::GPU:
-#ifndef CPU_ONLY
-    this->blob_->mutable_gpu_data();
-#else
-    NO_GPU;
-#endif
-    break;
-  default:
-    LOG(FATAL) << "Unknown device: " << TypeParam::device;
+    // Check asum_diff too.
+    const Dtype kDiffScaleFactor = 7;
+    caffe_cpu_scale<Dtype>(this->blob_->count(), kDiffScaleFactor, data,
+                    this->blob_->mutable_cpu_diff());
+    EXPECT_NEAR(expected_asum, this->blob_->asum_data(), this->epsilon_ * expected_asum);
+    const Dtype expected_diff_asum = expected_asum * kDiffScaleFactor;
+    EXPECT_NEAR(expected_diff_asum, this->blob_->asum_diff(),
+        this->epsilon_ * expected_diff_asum);
+    this->blob_->Reshape(4, 4, 4, 4);  // pow(2) case
   }
-  EXPECT_NEAR(expected_asum, this->blob_->asum_data(),
-              this->epsilon_ * expected_asum);
-  EXPECT_FLOAT_EQ(0.F, this->blob_->asum_diff());
+}
 
-  // Check asum_diff too.
-  const Dtype kDiffScaleFactor = 7;
-  caffe_cpu_scale<Dtype>(this->blob_->count(), kDiffScaleFactor, data,
-                  this->blob_->mutable_cpu_diff());
-  switch (TypeParam::device) {
-  case Caffe::CPU:
-    this->blob_->mutable_cpu_diff();
-    break;
-  case Caffe::GPU:
-#ifndef CPU_ONLY
-    this->blob_->mutable_gpu_diff();
-#else
-    NO_GPU;
-#endif
-    break;
-  default:
-    LOG(FATAL) << "Unknown device: " << TypeParam::device;
+TYPED_TEST(BlobMathTest, TestAmax) {
+  typedef typename TypeParam::Dtype Dtype;
+  // Uninitialized TBlob should have amax == 0.
+  EXPECT_FLOAT_EQ(0.F, this->blob_->amax_data());
+  EXPECT_FLOAT_EQ(0.F, this->blob_->amax_diff());
+  for (int i = 0; i < 2; ++i) {
+    FillerParameter filler_param;
+    filler_param.set_min(-300);
+    filler_param.set_max(300);
+    UniformFiller<Dtype> filler(filler_param);
+    filler.Fill(this->blob_);
+    Dtype expected_amax = 0, pmax = 0;
+    const Dtype* data = this->blob_->cpu_data();
+    for (int i = 0; i < this->blob_->count(); ++i) {
+      pmax = std::fabs(data[i]);
+      if (expected_amax < pmax) {
+        expected_amax = pmax;
+      }
+    }
+    EXPECT_NEAR(expected_amax, this->blob_->amax_data(), this->epsilon_ * expected_amax) << i;
+
+    EXPECT_FLOAT_EQ(0.F, this->blob_->amax_diff());
+    // Check amax_diff too.
+    const Dtype kDiffScaleFactor = 7;
+    caffe_cpu_scale<Dtype>(this->blob_->count(), kDiffScaleFactor, data,
+        this->blob_->mutable_cpu_diff());
+    EXPECT_NEAR(expected_amax, this->blob_->amax_data(), this->epsilon_ * expected_amax) << i;
+    const Dtype expected_diff_amax = expected_amax * kDiffScaleFactor;
+    EXPECT_NEAR(expected_diff_amax, this->blob_->amax_diff(), this->epsilon_ * expected_diff_amax);
+    this->blob_->Reshape(4, 4, 4, 4);  // pow(2) case
   }
-  EXPECT_NEAR(expected_asum, this->blob_->asum_data(),
-              this->epsilon_ * expected_asum);
-  const Dtype expected_diff_asum = expected_asum * kDiffScaleFactor;
-  EXPECT_NEAR(expected_diff_asum, this->blob_->asum_diff(),
-      this->epsilon_ * expected_diff_asum);
 }
 
 TYPED_TEST(BlobMathTest, TestScaleData) {
   typedef typename TypeParam::Dtype Dtype;
-
   EXPECT_FLOAT_EQ(0.F, this->blob_->asum_data());
   EXPECT_FLOAT_EQ(0.F, this->blob_->asum_diff());
   FillerParameter filler_param;
-  filler_param.set_min(-3);
-  filler_param.set_max(3);
+  filler_param.set_min(-30);
+  filler_param.set_max(30);
   UniformFiller<Dtype> filler(filler_param);
   filler.Fill(this->blob_);
   const Dtype asum_before_scale = this->blob_->asum_data();
-  // Do a mutable access on the current device,
-  // so that the asum computation is done on that device.
-  // (Otherwise, this would only check the CPU asum implementation.)
-  switch (TypeParam::device) {
-  case Caffe::CPU:
-    this->blob_->mutable_cpu_data();
-    break;
-  case Caffe::GPU:
-#ifndef CPU_ONLY
-    this->blob_->mutable_gpu_data();
-#else
-    NO_GPU;
-#endif
-    break;
-  default:
-    LOG(FATAL) << "Unknown device: " << TypeParam::device;
-  }
+
   const Dtype kDataScaleFactor = 3;
   this->blob_->scale_data(kDataScaleFactor);
   EXPECT_NEAR(asum_before_scale * kDataScaleFactor, this->blob_->asum_data(),
@@ -308,20 +268,7 @@ TYPED_TEST(BlobMathTest, TestScaleData) {
       asum_before_scale * kDataScaleFactor * kDataToDiffScaleFactor;
   EXPECT_NEAR(expected_diff_asum_before_scale, this->blob_->asum_diff(),
       this->epsilon_ * expected_diff_asum_before_scale);
-  switch (TypeParam::device) {
-  case Caffe::CPU:
-    this->blob_->mutable_cpu_diff();
-    break;
-  case Caffe::GPU:
-#ifndef CPU_ONLY
-    this->blob_->mutable_gpu_diff();
-#else
-    NO_GPU;
-#endif
-    break;
-  default:
-    LOG(FATAL) << "Unknown device: " << TypeParam::device;
-  }
+
   const Dtype kDiffScaleFactor = 3;
   this->blob_->scale_diff(kDiffScaleFactor);
   EXPECT_NEAR(asum_before_scale * kDataScaleFactor, this->blob_->asum_data(),

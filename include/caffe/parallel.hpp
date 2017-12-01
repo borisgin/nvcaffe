@@ -52,19 +52,15 @@ class P2PManager {
   void EarlyCancel(P2PSync* killed);
 
   static void dl_bar_wait() {
-    CHECK(dl_bar);
     dl_bar->wait();
   }
   static void bar_wait() {
-    CHECK(bar);
     bar->wait();
   }
   static void rbar_wait(int type_id) {
     if (type_id == 0) {
-      CHECK(rbar0);
       rbar0->wait();
     } else {
-      CHECK(rbar1);
       rbar1->wait();
     }
   }
