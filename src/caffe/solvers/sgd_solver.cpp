@@ -30,7 +30,7 @@ float SGDSolver<Dtype>::GetLearningRate() {
     if (this->param_.has_rampup_lr()) {
       rampup_lr = this->param_.rampup_lr();
     }
-    rate = rampup_lr + (this->param_.base_lr() - rampup_lr) * alpha;
+    rate = rampup_lr + (this->param_.base_lr() - rampup_lr) * alpha * alpha;
   } else if (lr_policy == "fixed") {
     rate = this->param_.base_lr();
   } else if (lr_policy == "step") {
@@ -211,7 +211,8 @@ SGDSolver<Dtype>::ComputeUpdateValue(int param_id, void* handle, float rate, boo
   shared_ptr<Blob> param = this->net_->learnable_params()[param_id];
   shared_ptr<TBlob<Dtype>> history = history_[param_id];
   float momentum = GetMomentum();
-  float local_rate = rate * GetLocalRate(param_id);
+  // float local_rate = rate * GetLocalRate(param_id);
+  float local_rate = std::min(rate, GetLocalRate(param_id));
   // Compute the update to history, then copy it to the parameter diff.
   if (Caffe::mode() == Caffe::CPU) {
     caffe_cpu_axpby<Dtype>(param->count(), local_rate, param->cpu_diff<Dtype>(), momentum,
@@ -279,22 +280,23 @@ float SGDSolver<Dtype>::GetLocalRate(int param_id) const {
 
     float weight_decay = this->param_.weight_decay();
     if (w_norm > 0.F && wgrad_norm >  0.F) {
-      rate = gw_ratio * w_norm / (wgrad_norm + weight_decay * w_norm);
+ //     rate = gw_ratio * w_norm / (wgrad_norm + weight_decay * w_norm);
+        rate = gw_ratio * w_norm / wgrad_norm ;
     }
     if (local_lr > 0.) {
       local_lr = rate;
     }
-#ifdef DEBUG
+//#ifdef DEBUG
     if (Caffe::root_solver()
         && this->param_.display()
         && (this->iter_ % this->param_.display() == 0)) {
       const int layer_id = this->net_->param_layer_indices(param_id).first;
       const string& layer_name = this->net_->layer_names()[layer_id];
       const int blob_id  = this->net_->param_layer_indices(param_id).second;
-      LOG(INFO) << layer_name <<"."<< blob_id << " lr=" << local_lr
+      LOG(INFO) << layer_name <<"."<< blob_id << " local lr=" << local_lr
                 << " " << "\t  w=" << w_norm << "\t dw=" << wgrad_norm;
     }
-#endif
+//#endif
   }
   return local_lr;
 }
