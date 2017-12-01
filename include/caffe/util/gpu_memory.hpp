@@ -26,12 +26,6 @@ struct GPUMemory {
     return device;
   }
 
-  static void* pinned_buffer(size_t size, int group = 0) {
-    return mgr_.pinned_buffer(size, current_device(), group);
-  }
-
-  static void* thread_pinned_buffer(size_t size, int group = 0);
-
   template <class Any>
   static void allocate(Any** ptr, shared_ptr<CudaStream>& pstream,
       size_t size, int device = current_device(), int group = 0) {
@@ -133,7 +127,6 @@ struct GPUMemory {
         size_t size, int device, int group = 0);
     void init(const std::vector<int>&, bool);
     void reset();
-    void* pinned_buffer(size_t size, int device, int group);
     std::string report_dev_info(int device);
 
     bool debug_;
@@ -149,14 +142,10 @@ struct GPUMemory {
     };
 
     void update_dev_info(int device);
-    bool resize_buffers(int device, int group);
 
     vector<DevInfo> dev_info_;
     bool initialized_;
     std::unique_ptr<cub::CachingDeviceAllocator> cub_allocator_;
-    vector<vector<void*>> pinned_host_buffers_;
-    vector<vector<void*>> pinned_device_buffers_;
-    vector<vector<size_t>> pinned_buffer_sizes_;
     vector<size_t> update_thresholds_;
 
     static const unsigned int BIN_GROWTH;  ///< Geometric growth factor

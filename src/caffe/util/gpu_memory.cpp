@@ -94,79 +94,10 @@ bool GPUMemory::Workspace::try_reserve(size_t size, int device) {
 GPUMemory::Manager::Manager() : debug_(false), initialized_(false) {
   int count;
   CUDA_CHECK(cudaGetDeviceCount(&count));
-  pinned_host_buffers_.resize(count);
-  pinned_device_buffers_.resize(count);
-  pinned_buffer_sizes_.resize(count);
   dev_info_.resize(count);
   update_thresholds_.resize(count);
 }
 
-bool GPUMemory::Manager::resize_buffers(int device, int group) {
-  CHECK_GE(device, 0);
-  CHECK_GE(group, 0);
-  bool resized = false;
-  if (device + 1 > pinned_buffer_sizes_.size()) {
-    pinned_host_buffers_.resize(device + 1);
-    pinned_device_buffers_.resize(device + 1);
-    pinned_buffer_sizes_.resize(device + 1);
-    resized = true;
-  }
-  if (group + 1 > pinned_buffer_sizes_[device].size()) {
-    pinned_host_buffers_[device].resize(group + 1);
-    pinned_device_buffers_[device].resize(group + 1);
-    pinned_buffer_sizes_[device].resize(group + 1);
-    resized = true;
-  }
-  return resized;
-}
-
-void* GPUMemory::thread_pinned_buffer(size_t size, int group) {
-  CHECK_GT(size, 0);
-  auto host_buffer_cleaner = [&](void* buffer) {
-    shared_lock<shared_mutex> lock(GPUMemory::read_write_mutex());
-    CUDA_CHECK(cudaFreeHost(buffer));
-  };
-  auto device_buffer_cleaner = [&](void* buffer) {};
-  static thread_local
-  unordered_map<int, unique_ptr<void, decltype(host_buffer_cleaner)>> host_buffers;
-  static thread_local
-  unordered_map<int, unique_ptr<void, decltype(device_buffer_cleaner)>> device_buffers;
-  static thread_local vector<size_t> sizes;
-  if (group + 1U > sizes.size()) {
-    sizes.resize(group + 1U);
-  }
-  if (size > sizes[group]) {
-    shared_lock<shared_mutex> lock(GPUMemory::read_write_mutex());
-    void* hptr;
-    void* dptr;
-    CUDA_CHECK(cudaHostAlloc(&hptr, size, cudaHostAllocMapped));
-    CUDA_CHECK(cudaHostGetDevicePointer(&dptr, hptr, 0));
-    host_buffers.emplace(std::make_pair(group,
-        unique_ptr<void, decltype(host_buffer_cleaner)>(hptr, host_buffer_cleaner)));
-    device_buffers.emplace(std::make_pair(group,
-        unique_ptr<void, decltype(device_buffer_cleaner)>(dptr, device_buffer_cleaner)));
-    sizes[group] = size;
-  }
-  return device_buffers.find(group)->second.get();
-}
-
-void* GPUMemory::Manager::pinned_buffer(size_t size, int device, int group) {
-  const bool resized = resize_buffers(device, group);
-  size = std::max(size, INITIAL_PINNED_BYTES);
-  size_t current_size = pinned_buffer_sizes_[device][group];
-  if (size > current_size || resized) {
-    // wait for "writers" like NCCL and potentially others...
-    shared_lock<shared_mutex> lock(GPUMemory::read_write_mutex());
-    if (!resized) {
-      cudaFreeHost(pinned_host_buffers_[device][group]);
-    }
-    CUDA_CHECK(cudaHostAlloc(&pinned_host_buffers_[device][group], size, cudaHostAllocMapped));
-    CUDA_CHECK(cudaHostGetDevicePointer(&pinned_device_buffers_[device][group],
-        pinned_host_buffers_[device][group], 0));
-    pinned_buffer_sizes_[device][group] = size;
-  }
-  return pinned_device_buffers_[device][group];
-}
 
 void GPUMemory::Manager::init(const vector<int>& gpus, bool debug) {
   if (initialized_) {
@@ -201,11 +132,6 @@ void GPUMemory::Manager::reset() {
 }
 
 GPUMemory::Manager::~Manager() {
-  for (vector<void*>& buffers_group : pinned_host_buffers_) {
-    for (void* buffer : buffers_group) {
-      cudaFreeHost(buffer);
-    }
-  }
 }
 
 void GPUMemory::Manager::lazy_init(int device) {

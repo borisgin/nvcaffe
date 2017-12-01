@@ -896,8 +896,6 @@ void Net::ReduceAndUpdate(int type_id) {
     }
     if (param_id == END_OF_ITERATION) {
       CHECK(au_ids.empty());
-      global_grad_scales_[type_id] = solver_->wgrad_sq_combined_[type_id].load(std::memory_order_relaxed);
-      solver_->callback()->reduce_barrier(type_id);
       solver_->iteration_complete_signal(type_id);
     }
 #else
