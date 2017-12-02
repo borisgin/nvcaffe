@@ -50,7 +50,7 @@ __device__ void amax_reduce_block(volatile T *sdata, T my_max, unsigned int tid)
 // Global variable used by amax_reduce_kernel to count how many blocks have finished
 __device__ unsigned int amax_blocks_count[REGRESSION_GROUPS_MAX];
 
-cudaError_t set_amax_blocks_count(unsigned int cnt, int group, cudaStream_t stream) {
+void set_amax_blocks_count(unsigned int cnt, int group, cudaStream_t stream) {
   CUDA_CHECK_ARG(cudaMemcpyToSymbolAsync(amax_blocks_count, &cnt, sizeof(unsigned int),
       group * sizeof(unsigned int), cudaMemcpyHostToDevice, stream), Caffe::current_device());
 }
