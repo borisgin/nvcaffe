@@ -212,7 +212,8 @@ SGDSolver<Dtype>::ComputeUpdateValue(int param_id, void* handle, float rate, boo
   shared_ptr<TBlob<Dtype>> history = history_[param_id];
   float momentum = GetMomentum();
   // float local_rate = rate * GetLocalRate(param_id);
-  float local_rate = std::min(rate, GetLocalRate(param_id));
+  // float local_rate = std::min(rate, GetLocalRate(param_id));
+  float local_rate = GetLocalRate(param_id);
   // Compute the update to history, then copy it to the parameter diff.
   if (Caffe::mode() == Caffe::CPU) {
     caffe_cpu_axpby<Dtype>(param->count(), local_rate, param->cpu_diff<Dtype>(), momentum,
