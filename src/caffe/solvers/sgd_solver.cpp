@@ -278,10 +278,14 @@ float SGDSolver<Dtype>::GetLocalRate(int param_id) const {
     const float gw_ratio = this->param_.local_gw_ratio();
     float rate = 1.F;
 
-    float weight_decay = this->param_.weight_decay();
+ //   float weight_decay = this->param_.weight_decay();
     if (w_norm > 0.F && wgrad_norm >  0.F) {
  //     rate = gw_ratio * w_norm / (wgrad_norm + weight_decay * w_norm);
         rate = gw_ratio * w_norm / wgrad_norm ;
+
+        float power = this->param_.power();
+        float maxiter = this->param_.max_iter() > 0 ? float(this->param_.max_iter()) : 1.F;
+        rate = rate * pow(1.F - (float(this->iter_) / maxiter), power);
     }
     if (local_lr > 0.) {
       local_lr = rate;
