@@ -283,7 +283,9 @@ float SGDSolver<Dtype>::GetLocalRate(int param_id) const {
     if (w_norm > 0.F && wgrad_norm >  0.F) {
  //     rate = gw_ratio * w_norm / (wgrad_norm + weight_decay * w_norm);
         rate = gw_ratio * w_norm / wgrad_norm ;
-
+    }
+    const string& lr_policy = this->param_.lr_policy();
+    if (lr_policy == "poly") {
         float power = this->param_.power();
         float maxiter = this->param_.max_iter() > 0 ? float(this->param_.max_iter()) : 1.F;
         rate = rate * pow(1.F - (float(this->iter_) / maxiter), power);
