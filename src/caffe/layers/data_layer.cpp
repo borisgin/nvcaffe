@@ -364,35 +364,42 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
     reader->free_push(qid, datum);
   }
 
+//  if (packing == NHWC && this->transform_param_.forward_packing() == NCHW) {
+//    needs_repack = true;
+//  }
+
   if (use_gpu_transform) {
 #ifndef CPU_ONLY
     if (src_buf_pos > 0) {
       CUDA_CHECK(cudaMemcpyAsync(
-          static_cast<char*>(dst_gptr) + last_item_id * datum_size,
+          static_cast<char *>(dst_gptr) + last_item_id * datum_size,
           src_buf.data(), src_buf_pos * datum_size, cudaMemcpyHostToDevice, stream));
       CUDA_CHECK(cudaStreamSynchronize(stream));
     }
+//  }
 
-    if (needs_repack) {
-      cudnnHandle_t handle = Caffe::cudnn_handle();
-      cudnnTensorDescriptor_t src_desc, dst_desc;
-      CUDNN_CHECK(cudnnCreateTensorDescriptor(&src_desc));
-      CUDNN_CHECK(cudnnCreateTensorDescriptor(&dst_desc));
-      cudnn::setTensor4dDesc(&src_desc, CUDNN_DATA_INT8, NHWC, batch->data_->shape());
-      cudnn::setTensor4dDesc(&dst_desc, tp<Ftype>(), NCHW, batch->data_->shape());
+  if (needs_repack) {
+    cudnnHandle_t handle = Caffe::cudnn_handle();
+    cudnnTensorDescriptor_t src_desc, dst_desc;
+    CUDNN_CHECK(cudnnCreateTensorDescriptor(&src_desc));
+    CUDNN_CHECK(cudnnCreateTensorDescriptor(&dst_desc));
+    cudnn::setTensor4dDesc(&src_desc, CUDNN_DATA_INT8, NHWC, batch->data_->shape());
+    cudnn::setTensor4dDesc(&dst_desc, tp<Ftype>(), NCHW, batch->data_->shape());
 
-      CUDNN_CHECK(cudnnTransformTensor(handle,
-          cudnn::one(tp<float>()), src_desc, dst_gptr,
-          cudnn::zero(tp<Ftype>()), dst_desc, tmp_holder_[thread_id]->data()));
-      CUDA_CHECK(cudaStreamSynchronize(stream));
-      CUDNN_CHECK(cudnnDestroyTensorDescriptor(src_desc));
-      CUDNN_CHECK(cudnnDestroyTensorDescriptor(dst_desc));
+    CUDNN_CHECK(cudnnTransformTensor(handle,
+        cudnn::one(tp<float>()), src_desc, dst_gptr,
+        cudnn::zero(tp<Ftype>()), dst_desc, tmp_holder_[thread_id]->data()));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+    CUDNN_CHECK(cudnnDestroyTensorDescriptor(src_desc));
+    CUDNN_CHECK(cudnnDestroyTensorDescriptor(dst_desc));
 
-      dst_gptr = tmp_holder_[thread_id]->data();
-      batch->data_->Reshape(top_shape);
-      datum_sizeof_element = sizeof(Ftype);
-    }
+    dst_gptr = tmp_holder_[thread_id]->data();
+    batch->data_->Reshape(top_shape);
+    datum_sizeof_element = sizeof(Ftype);
+    packing = NCHW;
+  }
 
+//  if (use_gpu_transform) {
     this->dt(thread_id)->TransformGPU(top_shape[0], top_shape[1],
         init_datum_height,  // non-crop
         init_datum_width,  // non-crop

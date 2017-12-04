@@ -59,9 +59,11 @@ class DataTransformer {
     bool v1_path = false;
     if (datum->encoded()) {
       shape = DecodeDatumToCVMat(*datum, color_mode, img, shape_only, false);
+      out_packing = NHWC;
     } else {
       if (image_random_resize_enabled() || buf == nullptr || buf_len == 0UL) {
         shape = DatumToCVMat(*datum, img, shape_only);
+        out_packing = NHWC;
       } else {
         // here we can use fast V1 path
         TransformV1(*datum, buf, buf_len);

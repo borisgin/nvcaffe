@@ -538,7 +538,7 @@ class Blob {
   }
 
   void async_gpu_push() {
-    data_tensor_->mutable_synced_mem()->async_gpu_push();
+    data_tensor_->mutable_synced_mem(false)->async_gpu_push();
   }
 
   const int* gpu_shape() const;
