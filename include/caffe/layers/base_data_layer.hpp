@@ -158,6 +158,8 @@ class BasePrefetchingDataLayer : public BaseDataLayer<Ftype, Btype>, public Inte
   std::vector<Blob*> bottom_init_;
   std::vector<Blob*> top_init_;
 
+  unique_ptr<boost::barrier> qbar_;
+
   vector<shared_ptr<DataTransformer>> data_transformers_;
 };
 

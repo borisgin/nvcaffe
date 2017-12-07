@@ -11,19 +11,19 @@ namespace caffe {
 using std::vector;
 
 const int GPUMemory::INVALID_DEVICE = cub::CachingDeviceAllocator::INVALID_DEVICE_ORDINAL;
+const int GPUMemory::WS_INITIAL_SIZE = 16;
 const unsigned int GPUMemory::Manager::BIN_GROWTH = 2;
 const unsigned int GPUMemory::Manager::MIN_BIN = 6;
 const unsigned int GPUMemory::Manager::MAX_BIN = 22;
 const size_t GPUMemory::Manager::MAX_CACHED_BYTES = (size_t) -1;
 const size_t GPUMemory::Manager::MAX_CACHED_SIZE = (1 << GPUMemory::Manager::MAX_BIN);  // 4M
-const size_t GPUMemory::Manager::INITIAL_PINNED_BYTES = 64;
 shared_mutex GPUMemory::mutex_;
 mutex GPUMemory::ws_mutex_init_;
 
 GPUMemory::Manager GPUMemory::mgr_;
 
-vector<shared_ptr<GPUMemory::Workspace>> GPUMemory::workspace_;
-vector<shared_ptr<GPUMemory::Workspace>> GPUMemory::weights_workspace_;
+vector<shared_ptr<GPUMemory::Workspace>> GPUMemory::workspace_(GPUMemory::WS_INITIAL_SIZE);
+vector<shared_ptr<GPUMemory::Workspace>> GPUMemory::weights_workspace_(GPUMemory::WS_INITIAL_SIZE);
 
 // To be called for every device
 void GPUMemory::Init() {
@@ -33,13 +33,13 @@ void GPUMemory::Init() {
     workspace_.resize(device + 1);
   }
   if (!workspace_[device]) {
-    workspace_[device] = make_shared<Workspace>();
+    workspace_[device] = make_shared<Workspace>(0, device);
   }
   if (device + 1 > weights_workspace_.size()) {
     weights_workspace_.resize(device + 1);
   }
   if (!weights_workspace_[device]) {
-    weights_workspace_[device] = make_shared<Workspace>();
+    weights_workspace_[device] = make_shared<Workspace>(0, device);
   }
 }
 

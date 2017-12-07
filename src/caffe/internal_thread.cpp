@@ -49,6 +49,7 @@ void InternalThread::RestartAllThreads(size_t new_threads, bool delayed, bool se
   delay_flags_.resize(new_threads);
   try {
     for (size_t id = 0; id < new_threads; ++id) {
+      CHECK(!is_started(id));
       delay_flags_[id] = make_shared<Flag>(!delayed);
       threads_[id] = boost::thread(&InternalThread::entry, this, id,
           target_device_, mode, random_seed, solver_count, rank_, set_cpu_affinity);

@@ -177,22 +177,22 @@ void* SyncedMemory::mutable_gpu_data(bool copy_from_cpu) {
 #endif
 }
 
-#ifndef CPU_ONLY
-void SyncedMemory::async_gpu_push() {
-  if (gpu_ptr_ == NULL) {
-    CUDA_CHECK(cudaGetDevice(&device_));
-    GPUMemory::allocate(&gpu_ptr_, pstream_, size_, device_, 0);
-    own_gpu_data_ = true;
-  }
-  CHECK_EQ(Caffe::current_device(), device_);
-  const cudaMemcpyKind put = cudaMemcpyHostToDevice;
-  CUDA_CHECK(cudaMemcpyAsync(gpu_ptr_, cpu_ptr_, size_, put,
-      Caffe::th_stream_aux(Caffe::STREAM_ID_ASYNC_PUSH)));
-  // Assume caller will synchronize on the stream before use
-  validate();
-  head_ = SYNCED;
-}
-#endif
+//#ifndef CPU_ONLY
+//void SyncedMemory::async_gpu_push() {
+//  if (gpu_ptr_ == NULL) {
+//    CUDA_CHECK(cudaGetDevice(&device_));
+//    GPUMemory::allocate(&gpu_ptr_, pstream_, size_, device_, 0);
+//    own_gpu_data_ = true;
+//  }
+//  CHECK_EQ(Caffe::current_device(), device_);
+//  const cudaMemcpyKind put = cudaMemcpyHostToDevice;
+//  CUDA_CHECK(cudaMemcpyAsync(gpu_ptr_, cpu_ptr_, size_, put,
+//      Caffe::th_stream_aux(Caffe::STREAM_ID_ASYNC_PUSH)));
+//  // Assume caller will synchronize on the stream before use
+//  validate();
+//  head_ = SYNCED;
+//}
+//#endif
 
 std::string SyncedMemory::to_string(int indent, Type type) {  // debug helper
   const std::string idt(indent, ' ');

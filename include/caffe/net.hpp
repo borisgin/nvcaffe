@@ -15,6 +15,7 @@
 #include "caffe/proto/caffe.pb.h"
 #include "caffe/util/blocking_queue.hpp"
 #include "caffe/util/thread_pool.hpp"
+#include "caffe/layers/data_layer.hpp"
 
 namespace caffe {
 
@@ -303,6 +304,46 @@ class Net {
 #endif
   }
 
+  template <typename Ftype, typename Btype>
+  size_t prefetch_bytes() {
+    size_t bytes = 0UL;
+    for (const shared_ptr<LayerBase>& layer : layers_) {
+      if (typeid(*layer) == typeid(DataLayer<Ftype, Btype>)) {
+        bytes += reinterpret_cast<DataLayer<Ftype, Btype>*>(layer.get())->prefetch_bytes();
+      }
+    }
+    return bytes;
+  }
+
+  template <typename Ftype, typename Btype>
+  size_t data_layers_count() {
+    size_t count = 0UL;
+    for (const shared_ptr<LayerBase>& layer : layers_) {
+      if (typeid(*layer) == typeid(DataLayer<Ftype, Btype>)) {
+        ++count;
+      }
+    }
+    return count;
+  }
+
+  void reset_mins() {
+    min_parsers_.store((size_t)-1L);
+    min_transformers_.store((size_t)-1L);
+  }
+
+  void set_mins(size_t min_parsers, size_t min_transformers) {
+    atomic_minimum(min_parsers_, min_parsers);
+    atomic_minimum(min_transformers_, min_transformers);
+  }
+
+  size_t min_parsers() const {
+    return min_parsers_.load();
+  }
+
+  size_t min_transformers() const {
+    return min_transformers_.load();
+  }
+
  protected:
   // Helpers for Init.
   /// @brief Append a new top blob to the net.
@@ -437,6 +478,8 @@ class Net {
   std::atomic_llong wgrad_sq_;
   float global_grad_scale_coeff_, global_grad_scale_param_;
   bool global_grad_scale_adaptive_;
+  std::atomic<size_t> min_parsers_;
+  std::atomic<size_t> min_transformers_;
 
   static constexpr float GRAD_FACTOR = 1.E6F;
 

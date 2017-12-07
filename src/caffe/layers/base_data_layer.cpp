@@ -107,23 +107,32 @@ void BasePrefetchingDataLayer<Ftype, Btype>::InternalThreadEntryN(size_t thread_
   }
   try {
 #ifndef CPU_ONLY
-    const bool use_gpu_transform = this->is_gpu_transform();
+//    const bool use_gpu_transform = this->is_gpu_transform();
 #endif
     while (!must_stop(thread_id)) {
       const size_t qid = this->queue_id(thread_id);
 #ifndef CPU_ONLY
       shared_ptr<Batch> batch = prefetches_free_[qid]->pop();
 
+      if (this->qbar_) {
+        this->qbar_->wait();
+      }
+
+
       CHECK_EQ((size_t) -1, batch->id());
       load_batch(batch.get(), thread_id, qid);
-      if (Caffe::mode() == Caffe::GPU) {
-        if (!use_gpu_transform) {
-          batch->data_->async_gpu_push();
-        }
-        if (this->output_labels_) {
-          batch->label_->async_gpu_push();
-        }
-        CUDA_CHECK(cudaStreamSynchronize(Caffe::th_stream_aux(Caffe::STREAM_ID_ASYNC_PUSH)));
+//      if (Caffe::mode() == Caffe::GPU) {
+//        if (!use_gpu_transform) {
+//          batch->data_->async_gpu_push();
+//        }
+//        if (this->output_labels_) {
+//          batch->label_->async_gpu_push();
+//        }
+//        CUDA_CHECK(cudaStreamSynchronize(Caffe::th_stream_aux(Caffe::STREAM_ID_ASYNC_PUSH)));
+//      }
+
+      if (must_stop(thread_id)) {
+        break;
       }
 
       prefetches_full_[qid]->push(batch);
@@ -196,17 +205,17 @@ void BasePrefetchingDataLayer<Ftype, Btype>::InitializePrefetch() {
 template<typename Ftype, typename Btype>
 void BasePrefetchingDataLayer<Ftype, Btype>::AllocatePrefetch() {
 #ifndef CPU_ONLY
-//  if (Caffe::mode() == Caffe::GPU) {
-//    for (int i = 0; i < prefetch_.size(); ++i) {
-//      Ftype* tdata = prefetch_[i]->data_->template mutable_gpu_data_c<Ftype>(false);
-//      (void) tdata;
-//      if (this->output_labels_) {
-//        tdata = prefetch_[i]->label_->template mutable_gpu_data_c<Ftype>(false);
-//        (void) tdata;
-//      }
-//    }
-//  }
-//  LOG(INFO) << this->print_current_device() << " Prefetch allocated.";
+  if (Caffe::mode() == Caffe::GPU) {
+    for (int i = 0; i < prefetch_.size(); ++i) {
+      const Ftype* tdata = prefetch_[i]->data_->template gpu_data<Ftype>();
+      (void) tdata;
+      if (this->output_labels_) {
+        tdata = prefetch_[i]->label_->template gpu_data<Ftype>();
+        (void) tdata;
+      }
+    }
+  }
+  LOG(INFO) << this->print_current_device() << " Prefetch allocated.";
 #else
   if (Caffe::mode() == Caffe::CPU) {
     for (int i = 0; i < prefetch_.size(); ++i) {

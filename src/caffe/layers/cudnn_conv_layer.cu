@@ -36,6 +36,14 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& botto
   } else {
     // "old" path
     for (int i = 0; i < bottom.size(); ++i) {
+
+//      if (this->phase_==caffe::TRAIN) {
+//        LOG(INFO) << this->print_current_device()
+//            << "  \n" << bottom[i]->to_string();
+//      }
+
+
+
       const Ftype* bottom_data = bottom[i]->gpu_data<Ftype>();
       Ftype* top_data = top[i]->mutable_gpu_data<Ftype>();
       // Forward through cuDNN in parallel over groups.

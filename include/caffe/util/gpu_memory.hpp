@@ -61,9 +61,9 @@ struct GPUMemory {
 
   struct Workspace {
     Workspace()
-      : ptr_(nullptr), size_(0), device_(current_device()) {}
+      : ptr_(nullptr), size_(0), device_(-1) {}
 
-    Workspace(size_t size, int device = current_device())
+    Workspace(size_t size, int device)
       : ptr_(nullptr), size_(size), device_(device) {
       reserve(size_, device);
     }
@@ -153,7 +153,6 @@ struct GPUMemory {
     static const unsigned int MAX_BIN;  ///< Maximum bin
     static const size_t MAX_CACHED_BYTES;  ///< Maximum aggregate cached bytes
     static const size_t MAX_CACHED_SIZE;  ///< 2^MAX_BIN
-    static const size_t INITIAL_PINNED_BYTES;
   };
 
   static shared_mutex mutex_;
@@ -171,6 +170,8 @@ struct GPUMemory {
 
   static void Init();
   static void Finalize();
+
+  static const int WS_INITIAL_SIZE;
 };
 
 }  // namespace caffe

@@ -414,6 +414,7 @@ void Net::Init(const NetParameter& in_param) {
 #endif
   debug_info_ = param.debug_info();
   trained_layers_shared_ = false;
+  reset_mins();
   LOG_IF(INFO, Caffe::root_solver()) << "Network initialization done.";
 }
 

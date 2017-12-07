@@ -478,7 +478,7 @@ class Caffe {
     return thread_count_;
   }
 
-  static constexpr int STREAM_ID_ASYNC_PUSH = 0;
+//  static constexpr int STREAM_ID_ASYNC_PUSH = 0;
   static constexpr uint64_t SEED_NOT_SET = static_cast<uint64_t>(-1);
 
  protected:

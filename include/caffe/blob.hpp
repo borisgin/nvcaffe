@@ -537,9 +537,9 @@ class Blob {
     return mutable_gpu_diff_c<Dtype>(true);
   }
 
-  void async_gpu_push() {
-    data_tensor_->mutable_synced_mem(false)->async_gpu_push();
-  }
+//  void async_gpu_push() {
+//    data_tensor_->mutable_synced_mem(false)->async_gpu_push();
+//  }
 
   const int* gpu_shape() const;
 #endif

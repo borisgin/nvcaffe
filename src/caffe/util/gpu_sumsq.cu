@@ -132,7 +132,7 @@ void gpu_sumsq_t(const int n, const T* x, TR* sum, int group) {
   const int threadsPerCta = CAFFE_CUDA_NUM_THREADS_HALF;
   const int nbrCtas = CAFFE_GET_BLOCKS_HALF(n);
   const int reduction_size = (nbrCtas + 1) * sizeof(TR);
-  GPUMemory::Workspace ws(reduction_size);
+  GPUMemory::Workspace ws(reduction_size, Caffe::current_device());
   TR* dev_ptr_sq = reinterpret_cast<TR*>(ws.data());
   set_sumsq_blocks_count(0U, group, stream);
   if (po2 && n > CAFFE_CUDA_NUM_THREADS_HALF) {
