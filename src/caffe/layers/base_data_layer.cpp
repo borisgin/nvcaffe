@@ -65,11 +65,11 @@ BasePrefetchingDataLayer<Ftype, Btype>::BasePrefetchingDataLayer(const LayerPara
       qbar_(new boost::barrier(transf_num_)),
       lbar_(new boost::barrier(transf_num_)) {
   CHECK_EQ(transf_num_, threads_num());
-  for (size_t i = 0UL; i < 3UL; ++i) {  // TODO
-    shared_ptr<Batch> batch = make_shared<Batch>(tp<Ftype>(), tp<Ftype>());
-    prefetch_.push_back(batch);
-    pfree_.push(batch);
-  }
+//  for (size_t i = 0UL; i < 3UL; ++i) {  // TODO
+//    shared_ptr<Batch> batch = make_shared<Batch>(tp<Ftype>(), tp<Ftype>());
+//    prefetch_.push_back(batch);
+//    pfree_.push(batch);
+//  }
 
   ResizeQueues();
 }
@@ -112,7 +112,7 @@ void BasePrefetchingDataLayer<Ftype, Btype>::InternalThreadEntryN(size_t thread_
     start_reading();
     iter0 = false;
   }
-  this->qbar_->wait();
+//  this->qbar_->wait();
 
   try {
 #ifndef CPU_ONLY
@@ -121,18 +121,18 @@ void BasePrefetchingDataLayer<Ftype, Btype>::InternalThreadEntryN(size_t thread_
     while (!must_stop(thread_id)) {
       const size_t qid = this->queue_id(thread_id);
 #ifndef CPU_ONLY
-//      shared_ptr<Batch> batch = prefetches_free_[qid]->pop();
-      shared_ptr<Batch> batch = pfree_.peek();
+      shared_ptr<Batch> batch = prefetches_free_[qid]->pop();
+//      shared_ptr<Batch> batch = pfree_.peek();
 
-      this->qbar_->wait();
-
-      if (thread_id == 0) {
-        shared_ptr<Batch> pbatch = pfree_.pop();
-        CHECK_EQ(batch, pbatch);
+//      this->qbar_->wait();
+//
+//      if (thread_id == 0) {
+//        shared_ptr<Batch> pbatch = pfree_.pop();
+//        CHECK_EQ(batch, pbatch);
         CHECK_EQ((size_t) -1, batch->id());
-      }
-
-      this->qbar_->wait();
+//      }
+//
+//      this->qbar_->wait();
 
 //  LOG(INFO) << this->print_current_device() << " ***** " << this << " " << thread_id << " " <<
 // qid;
@@ -153,17 +153,17 @@ void BasePrefetchingDataLayer<Ftype, Btype>::InternalThreadEntryN(size_t thread_
         break;
       }
 
-      this->qbar_->wait();
+//      this->qbar_->wait();
 
 
-//      prefetches_full_[qid]->push(batch);
-      if (thread_id == 0) {
-        pfull_.push(batch);
-      }
-      this->qbar_->wait();
+      prefetches_full_[qid]->push(batch);
+//      if (thread_id == 0) {
+//        pfull_.push(batch);
+//      }
+//      this->qbar_->wait();
 
 #else
-      shared_ptr<Batch> batch =  pfree_.peek();//prefetches_free_[qid]->pop();
+      shared_ptr<Batch> batch = prefetches_free_[qid]->pop();
       load_batch(batch.get(), thread_id, qid);
       prefetches_full_[qid]->push(batch);
 #endif
@@ -190,22 +190,22 @@ void BasePrefetchingDataLayer<Ftype, Btype>::InternalThreadEntryN(size_t thread_
 
 template<typename Ftype, typename Btype>
 void BasePrefetchingDataLayer<Ftype, Btype>::ResizeQueues() {
-//  size_t size = prefetches_free_.size();
-//  if (queues_num_ > size) {
-//    prefetches_free_.resize(queues_num_);
-//    prefetches_full_.resize(queues_num_);
-//    for (size_t i = size; i < queues_num_; ++i) {
-//      shared_ptr<Batch> batch = make_shared<Batch>(tp<Ftype>(), tp<Ftype>());
-//      prefetch_.push_back(batch);
-//      prefetches_free_[i] = make_shared<BlockingQueue<shared_ptr<Batch>>>();
-//      prefetches_full_[i] = make_shared<BlockingQueue<shared_ptr<Batch>>>();
-//      prefetches_free_[i]->push(batch);
-//    }
-//  }
+  size_t size = prefetches_free_.size();
+  if (queues_num_ > size) {
+    prefetches_free_.resize(queues_num_);
+    prefetches_full_.resize(queues_num_);
+    for (size_t i = size; i < queues_num_; ++i) {
+      shared_ptr<Batch> batch = make_shared<Batch>(tp<Ftype>(), tp<Ftype>());
+      prefetch_.push_back(batch);
+      prefetches_free_[i] = make_shared<BlockingQueue<shared_ptr<Batch>>>();
+      prefetches_full_[i] = make_shared<BlockingQueue<shared_ptr<Batch>>>();
+      prefetches_free_[i]->push(batch);
+    }
+  }
 
 
 
-  size_t size = batch_ids_.size();
+  size = batch_ids_.size();
   if (transf_num_ > size) {
     batch_ids_.resize(transf_num_);
     for (size_t i = size; i < transf_num_; ++i) {
@@ -235,17 +235,17 @@ void BasePrefetchingDataLayer<Ftype, Btype>::InitializePrefetch() {
 template<typename Ftype, typename Btype>
 void BasePrefetchingDataLayer<Ftype, Btype>::AllocatePrefetch() {
 #ifndef CPU_ONLY
-  if (Caffe::mode() == Caffe::GPU) {
-    for (int i = 0; i < prefetch_.size(); ++i) {
-      const Ftype* tdata = prefetch_[i]->data_->template gpu_data<Ftype>();
-      (void) tdata;
-      if (this->output_labels_) {
-        tdata = prefetch_[i]->label_->template gpu_data<Ftype>();
-        (void) tdata;
-      }
-    }
-  }
-  LOG(INFO) << this->print_current_device() << " Prefetch allocated.";
+//  if (Caffe::mode() == Caffe::GPU) {
+//    for (int i = 0; i < prefetch_.size(); ++i) {
+//      const Ftype* tdata = prefetch_[i]->data_->template gpu_data<Ftype>();
+//      (void) tdata;
+//      if (this->output_labels_) {
+//        tdata = prefetch_[i]->label_->template gpu_data<Ftype>();
+//        (void) tdata;
+//      }
+//    }
+//  }
+//  LOG(INFO) << this->print_current_device() << " Prefetch allocated.";
 #else
   if (Caffe::mode() == Caffe::CPU) {
     for (int i = 0; i < prefetch_.size(); ++i) {
@@ -264,8 +264,8 @@ template<typename Ftype, typename Btype>
 void BasePrefetchingDataLayer<Ftype, Btype>::Forward_cpu(const vector<Blob*>& bottom,
     const vector<Blob*>& top) {
   // Note: this function runs in one thread per object and one object per one Solver thread
-//  shared_ptr<Batch> batch = prefetches_full_[next_batch_queue_]->pop(
-  shared_ptr<Batch> batch = pfull_.pop("Data layer prefetch queue empty");
+  shared_ptr<Batch> batch = prefetches_full_[next_batch_queue_]->pop("Data layer prefetch queue empty");
+//  shared_ptr<Batch> batch = pfull_.pop("Data layer prefetch queue empty");
   if (top[0]->data_type() == batch->data_->data_type()
       && top[0]->shape() == batch->data_->shape()) {
     top[0]->Swap(*batch->data_);
@@ -282,8 +282,8 @@ void BasePrefetchingDataLayer<Ftype, Btype>::Forward_cpu(const vector<Blob*>& bo
     }
   }
   batch->set_id((size_t) -1L);
-//  prefetches_free_[next_batch_queue_]->push(batch);
-  pfree_.push(batch);
+  prefetches_free_[next_batch_queue_]->push(batch);
+//  pfree_.push(batch);
   next_batch_queue();
 }
 

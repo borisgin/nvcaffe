@@ -59,7 +59,7 @@ class DataLayer : public BasePrefetchingDataLayer<Ftype, Btype> {
 
   shared_ptr<DataReader> sample_reader_, reader_;
 
-  static thread_local vector<vector<Btype>> tmp_cpu_holder_;
+//  static thread_local vector<vector<Btype>> tmp_cpu_holder_;
 //#ifndef CPU_ONLY
 //  static thread_local vector<shared_ptr<GPUMemory::Workspace>> tmp_gpu_holder_;
 //#endif
@@ -79,8 +79,8 @@ class DataLayer : public BasePrefetchingDataLayer<Ftype, Btype> {
 
 template<typename Ftype, typename Btype>
 std::mutex DataLayer<Ftype, Btype>::mutex_init_;
-template<typename Ftype, typename Btype>
-thread_local vector<vector<Btype>> DataLayer<Ftype, Btype>::tmp_cpu_holder_;
+//template<typename Ftype, typename Btype>
+//thread_local vector<vector<Btype>> DataLayer<Ftype, Btype>::tmp_cpu_holder_;
 //template<typename Ftype, typename Btype>
 //thread_local vector<shared_ptr<GPUMemory::Workspace>> DataLayer<Ftype, Btype>::tmp_gpu_holder_;
 

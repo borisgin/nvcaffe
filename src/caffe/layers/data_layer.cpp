@@ -40,15 +40,15 @@ template<typename Ftype, typename Btype>
 void
 DataLayer<Ftype, Btype>::ResizeQueues() {
   BasePrefetchingDataLayer<Ftype, Btype>::ResizeQueues();
-#ifndef CPU_ONLY
-  tmp_cpu_holder_.resize(this->transf_num_);
-//  tmp_gpu_holder_.resize(this->transf_num_);
-//  for (size_t i = 0; i < this->transf_num_; ++i) {
-//    if (!tmp_gpu_holder_[i]) {
-//      tmp_gpu_holder_[i] = make_shared<GPUMemory::Workspace>();
-//    }
-//  }
-#endif
+//#ifndef CPU_ONLY
+//  tmp_cpu_holder_.resize(this->transf_num_);
+////  tmp_gpu_holder_.resize(this->transf_num_);
+////  for (size_t i = 0; i < this->transf_num_; ++i) {
+////    if (!tmp_gpu_holder_[i]) {
+////      tmp_gpu_holder_[i] = make_shared<GPUMemory::Workspace>();
+////    }
+////  }
+//#endif
 }
 
 template<typename Ftype, typename Btype>
@@ -124,10 +124,10 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
 //    LOG(INFO) << this->print_current_device() << " ********** " << current_parsers_num
 //    << " " << current_transf_num << " " << pnet->min_parsers() << " " <<pnet->min_transformers();
 
-    P2PManager::dl_bar_wait();
+//    P2PManager::dl_bar_wait();
     {
       std::lock_guard<std::mutex> lock(mutex_init_);
-      if (!layer_inititialized_flag_.is_set()) {
+//      if (!layer_inititialized_flag_.is_set()) {
         current_parsers_num = pnet->min_parsers();
         current_transf_num = pnet->min_transformers();
 
@@ -151,8 +151,7 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
           parser_offsets_[0]++;  // same as above
         }
         this->go();  // kick off new threads if any
-        layer_inititialized_flag_.set();
-      }
+//      }
     }
 //    P2PManager::dl_bar_wait();
   }
@@ -168,6 +167,8 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
       << this->parsers_num_ << (this->auto_mode_ ? " (auto)" : "");
   LOG(INFO) << this->print_current_device() << " Transformer threads: "
       << this->transf_num_ << (this->auto_mode_ ? " (auto)" : "");
+
+  layer_inititialized_flag_.set();
 }
 
 template<typename Ftype, typename Btype>
@@ -277,10 +278,9 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
 template<typename Ftype, typename Btype>
 void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t queue_id) {
 
-
-  if (tmp_cpu_holder_.size() <= thread_id) {
-    ResizeQueues();
-  }
+//  if (tmp_cpu_holder_.size() <= thread_id) {
+//    ResizeQueues();
+//  }
   const bool sample_only = sample_only_.load();
   // Reshape according to the first datum of each batch
   // on single input batches allows for inputs of varying dimension.
@@ -288,13 +288,13 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
 
   const size_t qid = sample_only ? 0UL : queue_id;
   DataReader* reader = sample_only ? sample_reader_.get() : reader_.get();
-//  shared_ptr<Datum> init_datum = reader->full_peek(qid);
-  shared_ptr<Datum> init_datum = reader->full_peek(0UL);
+  shared_ptr<Datum> init_datum = reader->full_peek(qid);
+//  shared_ptr<Datum> init_datum = reader->full_peek(0UL);
   CHECK(init_datum);
 
 
-  LOG(INFO) << this->print_current_device() << " +++++++ " << this
-      << " " << thread_id << " " << queue_id;
+//  LOG(INFO) << this->print_current_device() << " +++++++ " << this
+//      << " " << thread_id << " " << queue_id;
 
 
 
@@ -324,7 +324,7 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
   size_t src_buf_size = 0UL;
   vector<char> src_buf;
   cv::Mat img;
-//  if (use_gpu_transform) {
+  if (use_gpu_transform) {
     if (init_datum->encoded()) {
       DecodeDatumToCVMat(*init_datum, color_mode, img, false, false);
       datum_len = img.channels() * img.rows * img.cols;
@@ -358,7 +358,7 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
 //      dst_gptr = batch->data_->template mutable_gpu_data_c<Ftype>(false);
 //    }
 //    dst_gptr = tmp_gpu_holder_[thread_id]->data();
-//  }
+  }
   size_t last_item_id = 0UL;
 
 //if (Caffe::current_device() == 0)
@@ -373,37 +373,42 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
 
 
 #endif
-  size_t holder_size = //init_datum->encoded() ? sizeof(Btype) *
-//      top_shape[0] * top_shape[1] * init_datum_height * init_datum_width :
-      sizeof(Btype) * batch->data_->count();
+//  size_t holder_size = //init_datum->encoded() ? sizeof(Btype) *
+////      top_shape[0] * top_shape[1] * init_datum_height * init_datum_width :
+//      sizeof(Btype) * batch->data_->count();
+//
+//  // todo?
+////  if (!use_gpu_transform && tmp_cpu_holder_[thread_id].size() < holder_size) {
+////    tmp_cpu_holder_[thread_id].resize(holder_size);
+////  }
+//
+//  if (thread_id == 0) {
+//    top_->at(0)->Reshape(top_shape);
+//    top_->at(0)->mutable_gpu_data_c<Btype>(false);
+////    tmp_gpu_holder_[thread_id]->safe_reserve(holder_size);
+//    if (this->output_labels_) {
+//      batch->label_->Reshape(vector<int>(1, batch_size));
+//      batch->label_->template mutable_cpu_data_c<Ftype>(false);
+//    }
+//    batch->data_->template mutable_gpu_data_c<Ftype>(false);
+//  }
 
-  // todo?
-  if (!use_gpu_transform && tmp_cpu_holder_[thread_id].size() < holder_size) {
-    tmp_cpu_holder_[thread_id].resize(holder_size);
-  }
-
-  if (thread_id == 0) {
-    top_->at(0)->Reshape(top_shape);
-    top_->at(0)->mutable_gpu_data_c<Btype>(false);
-//    tmp_gpu_holder_[thread_id]->safe_reserve(holder_size);
-    if (this->output_labels_) {
-      batch->label_->Reshape(vector<int>(1, batch_size));
-      batch->label_->template mutable_cpu_data_c<Ftype>(false);
-    }
-    batch->data_->template mutable_gpu_data_c<Ftype>(false);
-  }
-
-   LOG(INFO) << this->print_current_device() << " ######## " << this
-      << " " << thread_id << " " << qid;
+//   LOG(INFO) << this->print_current_device() << " ######## " << this
+//      << " " << thread_id << " " << qid;
 
 
-  this->lbar_->wait();
+//  this->lbar_->wait();
 
   Ftype* top_label = this->output_labels_ ?
       batch->label_->template mutable_cpu_data_c<Ftype>(false) : nullptr;
-  void* dst_gptr = top_->at(0)->mutable_gpu_data_c<Btype>(false);
+//
+  Btype* dst_gptr = use_gpu_transform ? batch->data_->mutable_gpu_data_c<Btype>(false) : nullptr;
+
 //  void* dst_gptr = use_gpu_transform ? tmp_gpu_holder_[thread_id]->data() : nullptr;
-  Btype* dst_cptr = use_gpu_transform ? nullptr : &tmp_cpu_holder_[thread_id].front();
+  Btype* dst_cptr =batch->data_->template mutable_cpu_data_c<Btype>(false);
+      //use_gpu_transform ? nullptr : &tmp_cpu_holder_[thread_id].front();
+
+
   size_t current_batch_id = 0UL;
   const size_t buf_len = batch->data_->offset(1);
   for (size_t entry = 0; entry < batch_size; ++entry) {
@@ -414,16 +419,17 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
 //    size_t b = i / this->queues_num_;
 //    size_t item_id = b + qid;
 
-if (Caffe::current_device() == 0)
-        LOG(INFO) << this->print_current_device() << " ********** "
-            << datum->record_id()  << " qn=" << this->queues_num_
-            << " thread=" << thread_id  << " qid=" << qid
-////            << " " << i << " " << b
-            << " " << item_id;
+////if (Caffe::current_device() == 0)
+//        LOG(INFO) << this->print_current_device() << " ********** "
+//            << datum->record_id()  << " qn=" << this->queues_num_
+//            << " thread=" << thread_id  << " qid=" << qid
+////////            << " " << i << " " << b
+//            << " " << item_id;
 
 
 
-    if (thread_id == 0 && item_id == 0UL) {
+    if (item_id == 0UL) {
+//      if (thread_id == 0 && item_id == 0UL) {
       current_batch_id = datum->record_id() / batch_size;
     }
     // Copy label.
@@ -448,7 +454,7 @@ if (Caffe::current_device() == 0)
       if (src_buf_pos == src_buf_items) {
         src_buf_pos = 0;
         CUDA_CHECK(cudaMemcpyAsync(
-            static_cast<char*>(dst_gptr) + last_item_id * datum_size,
+            reinterpret_cast<char*>(dst_gptr) + last_item_id * datum_size,
             src_buf.data(), src_buf_size, cudaMemcpyHostToDevice, stream));
 //        CUDA_CHECK(cudaStreamSynchronize(stream));
         last_item_id = item_id + 1;
@@ -476,53 +482,54 @@ if (Caffe::current_device() == 0)
 #ifndef CPU_ONLY
     if (src_buf_pos > 0) {
       CUDA_CHECK(cudaMemcpyAsync(
-          static_cast<char*>(dst_gptr) + last_item_id * datum_size,
+          reinterpret_cast<char*>(dst_gptr) + last_item_id * datum_size,
           src_buf.data(), src_buf_pos * datum_size, cudaMemcpyHostToDevice, stream));
 //      CUDA_CHECK(cudaStreamSynchronize(stream));
     }
-  } else {
-    const size_t gpu_holder_size = sizeof(Btype) *
-        top_shape[0] * top_shape[1] * top_shape[2] * top_shape[3];
-
-   // LOG(INFO) << this->print_current_device() << " ********** " << top_->at(0)->to_string();
-
-//    tmp_gpu_holder_[thread_id]->safe_reserve(gpu_holder_size);
-//    //tmp_cpu_holder_[thread_id].size());
-//    dst_gptr = tmp_gpu_holder_[thread_id]->data();
-
-    CUDA_CHECK(cudaMemcpyAsync(dst_gptr, dst_cptr, gpu_holder_size,
-        cudaMemcpyHostToDevice, stream));
-    //batch->data_->template mutable_gpu_data_c<Btype>(false);
   }
-
-//  if (needs_repack) {
-//  void* repack_dst_gptr =
-    cudnnHandle_t handle = Caffe::cudnn_handle();
-    cudnnTensorDescriptor_t src_desc, dst_desc;
-    CUDNN_CHECK(cudnnCreateTensorDescriptor(&src_desc));
-    CUDNN_CHECK(cudnnCreateTensorDescriptor(&dst_desc));
-    cudnn::setTensor4dDesc(&src_desc,
-        use_gpu_transform ? CUDNN_DATA_INT8 : cudnn_dt<Btype>(),
-        packing, batch->data_->shape());
-    cudnn::setTensor4dDesc(&dst_desc, cudnn_dt<Ftype>(), this->transform_param_.forward_packing(),
-        batch->data_->shape());
-
-    CUDNN_CHECK(cudnnTransformTensor(handle,
-        cudnn::one(tp<float>()),
-        src_desc, dst_gptr,
-        cudnn::zero(tp<Ftype>()),
-        dst_desc, batch->data_->template mutable_gpu_data_c<Ftype>(false)));
-        //tmp_gpu_holder_[thread_id]->data()));
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    CUDNN_CHECK(cudnnDestroyTensorDescriptor(src_desc));
-    CUDNN_CHECK(cudnnDestroyTensorDescriptor(dst_desc));
-
-//    dst_gptr = tmp_gpu_holder_[thread_id]->data();
-//    batch->data_->Reshape(top_shape);
-//    datum_sizeof_element = sizeof(Ftype);
-
-    packing = this->transform_param_.forward_packing();
+//  else {
+//    const size_t gpu_holder_size = sizeof(Btype) *
+//        top_shape[0] * top_shape[1] * top_shape[2] * top_shape[3];
+//
+//   // LOG(INFO) << this->print_current_device() << " ********** " << top_->at(0)->to_string();
+//
+////    tmp_gpu_holder_[thread_id]->safe_reserve(gpu_holder_size);
+////    //tmp_cpu_holder_[thread_id].size());
+////    dst_gptr = tmp_gpu_holder_[thread_id]->data();
+//
+//    CUDA_CHECK(cudaMemcpyAsync(dst_gptr, dst_cptr, gpu_holder_size,
+//        cudaMemcpyHostToDevice, stream));
+//    //batch->data_->template mutable_gpu_data_c<Btype>(false);
 //  }
+
+////  if (needs_repack) {
+////  void* repack_dst_gptr =
+//    cudnnHandle_t handle = Caffe::cudnn_handle();
+//    cudnnTensorDescriptor_t src_desc, dst_desc;
+//    CUDNN_CHECK(cudnnCreateTensorDescriptor(&src_desc));
+//    CUDNN_CHECK(cudnnCreateTensorDescriptor(&dst_desc));
+//    cudnn::setTensor4dDesc(&src_desc,
+//        use_gpu_transform ? CUDNN_DATA_INT8 : cudnn_dt<Btype>(),
+//        packing, batch->data_->shape());
+//    cudnn::setTensor4dDesc(&dst_desc, cudnn_dt<Ftype>(), this->transform_param_.forward_packing(),
+//        batch->data_->shape());
+//
+//    CUDNN_CHECK(cudnnTransformTensor(handle,
+//        cudnn::one(tp<float>()),
+//        src_desc, dst_gptr,
+//        cudnn::zero(tp<Ftype>()),
+//        dst_desc, batch->data_->template mutable_gpu_data_c<Ftype>(false)));
+//        //tmp_gpu_holder_[thread_id]->data()));
+//    CUDA_CHECK(cudaStreamSynchronize(stream));
+//    CUDNN_CHECK(cudnnDestroyTensorDescriptor(src_desc));
+//    CUDNN_CHECK(cudnnDestroyTensorDescriptor(dst_desc));
+//
+////    dst_gptr = tmp_gpu_holder_[thread_id]->data();
+////    batch->data_->Reshape(top_shape);
+////    datum_sizeof_element = sizeof(Ftype);
+//
+//    packing = this->transform_param_.forward_packing();
+////  }
 
   if (use_gpu_transform) {
     this->dt(thread_id)->TransformGPU(top_shape[0], top_shape[1],
@@ -533,7 +540,7 @@ if (Caffe::current_device() == 0)
         batch->data_->template mutable_gpu_data_c<Ftype>(false),
         random_vectors_[thread_id]->gpu_data(), true); //needs_repack);
     CUDA_CHECK(cudaStreamSynchronize(stream));
-//    packing = NCHW;
+    packing = NCHW;
 #else
     NO_GPU;
 #endif
