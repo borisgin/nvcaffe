@@ -47,7 +47,6 @@ class DataLayer : public BasePrefetchingDataLayer<Ftype, Btype> {
   }
 
  protected:
-  void ResizeQueues() override;
   void InitializePrefetch() override;
   void load_batch(Batch* batch, int thread_id, size_t queue_id = 0UL) override;
   size_t queue_id(size_t thread_id) const override;
@@ -71,7 +70,7 @@ class DataLayer : public BasePrefetchingDataLayer<Ftype, Btype> {
   std::atomic_bool sample_only_;
   const bool cache_, shuffle_;
   bool datum_encoded_;
-  const vector<Blob*>* top_;
+//  const vector<Blob*>* top_;
 //  const vector<Blob*>* bottom_;
 
   static mutex mutex_init_;

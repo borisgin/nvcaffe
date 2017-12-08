@@ -14,8 +14,6 @@ DataLayer<Ftype, Btype>::DataLayer(const LayerParameter& param)
   sample_only_.store(this->auto_mode_ && this->phase_ == TRAIN);
   init_offsets();
   datum_encoded_ = false;
-  top_ = nullptr;
-//  bottom_ = nullptr;
 }
 
 template<typename Ftype, typename Btype>
@@ -37,25 +35,8 @@ DataLayer<Ftype, Btype>::init_offsets() {
 }
 
 template<typename Ftype, typename Btype>
-void
-DataLayer<Ftype, Btype>::ResizeQueues() {
-  BasePrefetchingDataLayer<Ftype, Btype>::ResizeQueues();
-//#ifndef CPU_ONLY
-//  tmp_cpu_holder_.resize(this->transf_num_);
-////  tmp_gpu_holder_.resize(this->transf_num_);
-////  for (size_t i = 0; i < this->transf_num_; ++i) {
-////    if (!tmp_gpu_holder_[i]) {
-////      tmp_gpu_holder_[i] = make_shared<GPUMemory::Workspace>();
-////    }
-////  }
-//#endif
-}
-
-template<typename Ftype, typename Btype>
 DataLayer<Ftype, Btype>::~DataLayer() {
-//  if (layer_inititialized_flag_.is_set()) {
-    this->StopInternalThread();
-//  }
+  this->StopInternalThread();
 }
 
 template<typename Ftype, typename Btype>
@@ -64,7 +45,6 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
   if (layer_inititialized_flag_.is_set()) {
     return;
   }
-//  BasePrefetchingDataLayer<Ftype, Btype>::InitializePrefetch();
   if (this->auto_mode()) {
     this->AllocatePrefetch();
 //    P2PManager::dl_bar_wait();
@@ -76,17 +56,13 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
 #ifndef CPU_ONLY
     Net* pnet = this->parent_net();
     const size_t batch_bytes = pnet->prefetch_bytes<Ftype, Btype>();
-//    const size_t dlc = pnet->data_layers_count<Ftype, Btype>();
     size_t gpu_bytes = Caffe::min_avail_device_memory();
     size_t batches_fit = gpu_bytes / batch_bytes;
-//    if (batches_fit > 2UL) {
-//      batches_fit /= 2UL;
-//    }
 #else
     size_t batches_fit = this->queues_num_;
 #endif
     size_t max_parsers_num = 2;
-    const size_t max_transf_num = 3;
+    const size_t max_transf_num = 4;
     float ratio = datum_encoded_ ? 3.F : 4.F;
     if (pnet != nullptr) {
       Solver* psolver = pnet->parent_solver();
@@ -105,69 +81,42 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
                 << current_parsers_num << " to 1 because cache is used";
       current_parsers_num = 1UL;
     }
-//    if (dlc > 1 && current_parsers_num > 1UL) {
-//      LOG(INFO) << this->print_current_device() << " Reduced parser threads count from "
-//          << current_parsers_num << " to 1 because more than one DataLayer is used";
-//      current_parsers_num = 1UL;
-//    }
     current_transf_num = std::min(max_transf_num, std::max(current_transf_num,
         static_cast<size_t>(std::lround(fit / current_parsers_num))));
     if (current_parsers_num > 1 && current_transf_num == max_transf_num - 1) {
       current_parsers_num = 1;
       current_transf_num = max_transf_num;
     }
-//    if (dlc > 1UL && current_transf_num == max_transf_num) {
-//      --current_transf_num;
-//    }
-
     pnet->set_mins(current_parsers_num, current_transf_num);
-//    LOG(INFO) << this->print_current_device() << " ********** " << current_parsers_num
-//    << " " << current_transf_num << " " << pnet->min_parsers() << " " <<pnet->min_transformers();
-
-//    P2PManager::dl_bar_wait();
     {
       std::lock_guard<std::mutex> lock(mutex_init_);
-//      if (!layer_inititialized_flag_.is_set()) {
-        current_parsers_num = pnet->min_parsers();
-        current_transf_num = pnet->min_transformers();
+      current_parsers_num = pnet->min_parsers();
+      current_transf_num = pnet->min_transformers();
 
-        this->RestartAllThreads(current_transf_num, true, false, Caffe::next_seed());
-        this->transf_num_ = this->threads_num();
-        this->parsers_num_ = current_parsers_num;
-        this->queues_num_ = this->transf_num_ * this->parsers_num_;
+      this->RestartAllThreads(current_transf_num, true, false, Caffe::next_seed());
+      this->transf_num_ = this->threads_num();
+      this->parsers_num_ = current_parsers_num;
+      this->queues_num_ = this->transf_num_ * this->parsers_num_;
 
-//        if (this->queues_num_ > 1UL) {
-          this->qbar_.reset(new boost::barrier(this->transf_num_));
-        this->lbar_.reset(new boost::barrier(this->transf_num_));
-//        }
-//        unique_ptr<boost::barrier> qbar_;
+//      this->qbar_.reset(new boost::barrier(this->transf_num_));
+//      this->lbar_.reset(new boost::barrier(this->transf_num_));
 
-
-        BasePrefetchingDataLayer<Ftype, Btype>::InitializePrefetch();
-        if (current_transf_num > 1) {
-          this->next_batch_queue();  // 0th already processed
-        }
-        if (this->parsers_num_ > 1) {
-          parser_offsets_[0]++;  // same as above
-        }
-        this->go();  // kick off new threads if any
-//      }
+      BasePrefetchingDataLayer<Ftype, Btype>::InitializePrefetch();
+      if (current_transf_num > 1) {
+        this->next_batch_queue();  // 0th already processed
+      }
+      if (this->parsers_num_ > 1) {
+        parser_offsets_[0]++;  // same as above
+      }
+      this->go();  // kick off new threads if any
     }
-//    P2PManager::dl_bar_wait();
   }
-//  else {
-//    Net* pnet = this->parent_net();
-//    if (pnet != nullptr) {
-//      LOG(INFO) << " ***************** " << pnet->infer_count();
-//    }
-//  }
 
   CHECK_EQ(this->threads_num(), this->transf_num_);
   LOG(INFO) << this->print_current_device() << " Parser threads: "
       << this->parsers_num_ << (this->auto_mode_ ? " (auto)" : "");
   LOG(INFO) << this->print_current_device() << " Transformer threads: "
       << this->transf_num_ << (this->auto_mode_ ? " (auto)" : "");
-
   layer_inititialized_flag_.set();
 }
 
@@ -185,9 +134,6 @@ size_t DataLayer<Ftype, Btype>::queue_id(size_t thread_id) const {
 template<typename Ftype, typename Btype>
 void
 DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vector<Blob*>& top) {
-  top_ = &top;
-  (*top_)[0]->safe_reshape_mode(true);
-  //bottom_ = &bottom;
   const LayerParameter& param = this->layer_param();
   const int batch_size = param.data_param().batch_size();
   const bool use_gpu_transform = this->is_gpu_transform();
@@ -234,7 +180,7 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
   // Read a data point, and use it to initialize the top blob.
   shared_ptr<Datum> sample_datum = sample_only_ ? sample_reader_->sample() : reader_->sample();
   datum_encoded_ = sample_datum->encoded();
-  ResizeQueues();
+  this->ResizeQueues();
   init_offsets();
 
   // Reshape top[0] and prefetch_data according to the batch_size.
@@ -277,10 +223,6 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
 
 template<typename Ftype, typename Btype>
 void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t queue_id) {
-
-//  if (tmp_cpu_holder_.size() <= thread_id) {
-//    ResizeQueues();
-//  }
   const bool sample_only = sample_only_.load();
   // Reshape according to the first datum of each batch
   // on single input batches allows for inputs of varying dimension.
@@ -289,16 +231,7 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
   const size_t qid = sample_only ? 0UL : queue_id;
   DataReader* reader = sample_only ? sample_reader_.get() : reader_.get();
   shared_ptr<Datum> init_datum = reader->full_peek(qid);
-//  shared_ptr<Datum> init_datum = reader->full_peek(0UL);
   CHECK(init_datum);
-
-
-//  LOG(INFO) << this->print_current_device() << " +++++++ " << this
-//      << " " << thread_id << " " << queue_id;
-
-
-
-
   const bool use_gpu_transform = this->is_gpu_transform();
   Packing packing = NHWC;  // OpenCV
   // Use data_transformer to infer the expected blob shape from datum.
