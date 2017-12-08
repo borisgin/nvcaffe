@@ -8,8 +8,8 @@ template<typename Ftype, typename Btype>
 void BasePrefetchingDataLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom,
     const vector<Blob*>& top) {
   // Note: this function runs in one thread per object and one object per one Solver thread
-  shared_ptr<Batch> batch =
-      prefetches_full_[next_batch_queue_]->pop("Data layer prefetch queue empty");
+  shared_ptr<Batch> batch = pfull_.pop("Data layer prefetch queue empty");
+//  prefetches_full_[next_batch_queue_]->pop("Data layer prefetch queue empty");
   if (batch->data_packing() == this->transform_param_.forward_packing()
       && top[0]->shape() == batch->data_->shape()) {
     top[0]->Swap(*batch->data_);
@@ -21,8 +21,13 @@ void BasePrefetchingDataLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bo
   if (this->output_labels_) {
     top[1]->Swap(*batch->label_);
   }
-  batch->set_id((size_t) -1);
-  prefetches_free_[next_batch_queue_]->push(batch);
+
+
+  LOG(INFO) << this->print_current_device() << " &&&&&& " << this << " " << batch->id();
+
+      batch->set_id((size_t) -1L);
+  pfree_.push(batch);
+//  prefetches_free_[next_batch_queue_]->push(batch);
   next_batch_queue();
 }
 

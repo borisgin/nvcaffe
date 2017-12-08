@@ -42,12 +42,12 @@ DataLayer<Ftype, Btype>::ResizeQueues() {
   BasePrefetchingDataLayer<Ftype, Btype>::ResizeQueues();
 #ifndef CPU_ONLY
   tmp_cpu_holder_.resize(this->transf_num_);
-  tmp_gpu_holder_.resize(this->transf_num_);
-  for (size_t i = 0; i < this->transf_num_; ++i) {
-    if (!tmp_gpu_holder_[i]) {
-      tmp_gpu_holder_[i] = make_shared<GPUMemory::Workspace>();
-    }
-  }
+//  tmp_gpu_holder_.resize(this->transf_num_);
+//  for (size_t i = 0; i < this->transf_num_; ++i) {
+//    if (!tmp_gpu_holder_[i]) {
+//      tmp_gpu_holder_[i] = make_shared<GPUMemory::Workspace>();
+//    }
+//  }
 #endif
 }
 
@@ -86,7 +86,7 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
     size_t batches_fit = this->queues_num_;
 #endif
     size_t max_parsers_num = 2;
-    const size_t max_transf_num = 2;
+    const size_t max_transf_num = 3;
     float ratio = datum_encoded_ ? 3.F : 4.F;
     if (pnet != nullptr) {
       Solver* psolver = pnet->parent_solver();
@@ -136,9 +136,10 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
         this->parsers_num_ = current_parsers_num;
         this->queues_num_ = this->transf_num_ * this->parsers_num_;
 
-        if (this->queues_num_ > 1UL) {
-          this->qbar_.reset(new boost::barrier(this->queues_num_));
-        }
+//        if (this->queues_num_ > 1UL) {
+          this->qbar_.reset(new boost::barrier(this->transf_num_));
+        this->lbar_.reset(new boost::barrier(this->transf_num_));
+//        }
 //        unique_ptr<boost::barrier> qbar_;
 
 
@@ -275,6 +276,8 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
 
 template<typename Ftype, typename Btype>
 void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t queue_id) {
+
+
   if (tmp_cpu_holder_.size() <= thread_id) {
     ResizeQueues();
   }
@@ -285,8 +288,17 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
 
   const size_t qid = sample_only ? 0UL : queue_id;
   DataReader* reader = sample_only ? sample_reader_.get() : reader_.get();
-  shared_ptr<Datum> init_datum = reader->full_peek(qid);
+//  shared_ptr<Datum> init_datum = reader->full_peek(qid);
+  shared_ptr<Datum> init_datum = reader->full_peek(0UL);
   CHECK(init_datum);
+
+
+  LOG(INFO) << this->print_current_device() << " +++++++ " << this
+      << " " << thread_id << " " << queue_id;
+
+
+
+
   const bool use_gpu_transform = this->is_gpu_transform();
   Packing packing = NHWC;  // OpenCV
   // Use data_transformer to infer the expected blob shape from datum.
@@ -349,11 +361,11 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
 //  }
   size_t last_item_id = 0UL;
 
-
-//  LOG(INFO) << this->print_current_device() << " ********** " << top_->size()
+//if (Caffe::current_device() == 0)
+//  LOG(INFO) << this->print_current_device() << " ######## " << top_->size()
 //      << " " << (*top_)[0]->count() << " " << (*top_)[1]->count();
-////      << " bottom " << bottom_->size()
-////      << " " << (*bottom_)[0]->count() << " " << (*bottom_)[1]->count();
+//////      << " bottom " << bottom_->size()
+//////      << " " << (*bottom_)[0]->count() << " " << (*bottom_)[1]->count();
 
 
 
@@ -364,36 +376,54 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
   size_t holder_size = //init_datum->encoded() ? sizeof(Btype) *
 //      top_shape[0] * top_shape[1] * init_datum_height * init_datum_width :
       sizeof(Btype) * batch->data_->count();
+
+  // todo?
   if (!use_gpu_transform && tmp_cpu_holder_[thread_id].size() < holder_size) {
     tmp_cpu_holder_[thread_id].resize(holder_size);
   }
-  if (use_gpu_transform) {
-    tmp_gpu_holder_[thread_id]->safe_reserve(holder_size);
+
+  if (thread_id == 0) {
+    top_->at(0)->Reshape(top_shape);
+    top_->at(0)->mutable_gpu_data_c<Btype>(false);
+//    tmp_gpu_holder_[thread_id]->safe_reserve(holder_size);
+    if (this->output_labels_) {
+      batch->label_->Reshape(vector<int>(1, batch_size));
+      batch->label_->template mutable_cpu_data_c<Ftype>(false);
+    }
+    batch->data_->template mutable_gpu_data_c<Ftype>(false);
   }
-  void* dst_gptr = use_gpu_transform ? tmp_gpu_holder_[thread_id]->data() : nullptr;
+
+   LOG(INFO) << this->print_current_device() << " ######## " << this
+      << " " << thread_id << " " << qid;
+
+
+  this->lbar_->wait();
+
+  Ftype* top_label = this->output_labels_ ?
+      batch->label_->template mutable_cpu_data_c<Ftype>(false) : nullptr;
+  void* dst_gptr = top_->at(0)->mutable_gpu_data_c<Btype>(false);
+//  void* dst_gptr = use_gpu_transform ? tmp_gpu_holder_[thread_id]->data() : nullptr;
   Btype* dst_cptr = use_gpu_transform ? nullptr : &tmp_cpu_holder_[thread_id].front();
-  Ftype* top_label = nullptr;
-  if (this->output_labels_) {
-    batch->label_->Reshape(vector<int>(1, batch_size));
-    top_label = batch->label_->template mutable_cpu_data_c<Ftype>(false);
-  }
   size_t current_batch_id = 0UL;
   const size_t buf_len = batch->data_->offset(1);
   for (size_t entry = 0; entry < batch_size; ++entry) {
     shared_ptr<Datum> datum = reader->full_pop(qid, "Waiting for datum");
-//    size_t item_id = datum->record_id() % batch_size;
+    size_t item_id = datum->record_id() % batch_size;
 
-    size_t i = datum->record_id() % batch_size;
-    size_t b = i / this->queues_num_;
-    size_t item_id = b + qid;
+//    size_t i = datum->record_id() % batch_size;
+//    size_t b = i / this->queues_num_;
+//    size_t item_id = b + qid;
 
+if (Caffe::current_device() == 0)
         LOG(INFO) << this->print_current_device() << " ********** "
-            << datum->record_id()  << " " << this->queues_num_
-            << " " << i << " " << b << " " << item_id;
+            << datum->record_id()  << " qn=" << this->queues_num_
+            << " thread=" << thread_id  << " qid=" << qid
+////            << " " << i << " " << b
+            << " " << item_id;
 
 
 
-    if (item_id == 0UL) {
+    if (thread_id == 0 && item_id == 0UL) {
       current_batch_id = datum->record_id() / batch_size;
     }
     // Copy label.
@@ -456,9 +486,9 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
 
    // LOG(INFO) << this->print_current_device() << " ********** " << top_->at(0)->to_string();
 
-    tmp_gpu_holder_[thread_id]->safe_reserve(gpu_holder_size);
-    //tmp_cpu_holder_[thread_id].size());
-    dst_gptr = tmp_gpu_holder_[thread_id]->data();
+//    tmp_gpu_holder_[thread_id]->safe_reserve(gpu_holder_size);
+//    //tmp_cpu_holder_[thread_id].size());
+//    dst_gptr = tmp_gpu_holder_[thread_id]->data();
 
     CUDA_CHECK(cudaMemcpyAsync(dst_gptr, dst_cptr, gpu_holder_size,
         cudaMemcpyHostToDevice, stream));

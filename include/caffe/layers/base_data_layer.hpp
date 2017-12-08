@@ -148,17 +148,19 @@ class BasePrefetchingDataLayer : public BaseDataLayer<Ftype, Btype>, public Inte
   static bool auto_mode(const LayerParameter& param);
 
   std::vector<size_t> batch_ids_;
-  std::vector<shared_ptr<Batch>> prefetch_;
+  std::vector<boost::shared_ptr<Batch>> prefetch_;
   const bool auto_mode_;
   size_t parsers_num_, transf_num_, queues_num_;
-  std::vector<shared_ptr<BlockingQueue<shared_ptr<Batch>>>> prefetches_full_;
-  std::vector<shared_ptr<BlockingQueue<shared_ptr<Batch>>>> prefetches_free_;
+//  std::vector<shared_ptr<BlockingQueue<shared_ptr<Batch>>>> prefetches_full_;
+//  std::vector<shared_ptr<BlockingQueue<shared_ptr<Batch>>>> prefetches_free_;
+  BlockingQueue<boost::shared_ptr<Batch>> pfull_;
+  BlockingQueue<boost::shared_ptr<Batch>> pfree_;
   size_t next_batch_queue_;
   // These two are for delayed init only
   std::vector<Blob*> bottom_init_;
   std::vector<Blob*> top_init_;
 
-  unique_ptr<boost::barrier> qbar_;
+  unique_ptr<boost::barrier> qbar_, lbar_;
 
   vector<shared_ptr<DataTransformer>> data_transformers_;
 };
