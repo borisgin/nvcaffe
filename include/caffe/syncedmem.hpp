@@ -25,10 +25,12 @@ class SyncedMemory {
   ~SyncedMemory();
   const void* cpu_data();
   const void* gpu_data();
+  const void* current_data(bool prefer_gpu);
   void set_cpu_data(void* data);
   void set_gpu_data(void* data);
   void* mutable_cpu_data(bool copy_from_gpu = true);
   void* mutable_gpu_data(bool copy_from_cpu = true);
+  void* mutable_current_data(bool prefer_gpu);
 
   enum SyncedHead { UNINITIALIZED, HEAD_AT_CPU, HEAD_AT_GPU, SYNCED };
 

@@ -7,6 +7,7 @@
 #include "caffe/common.hpp"
 #include "caffe/blob.hpp"
 #include "caffe/data_transformer.hpp"
+#include "caffe/batch_transformer.hpp"
 #include "caffe/internal_thread.hpp"
 #include "caffe/layer.hpp"
 #include "caffe/proto/caffe.pb.h"
@@ -46,40 +47,6 @@ class BaseDataLayer : public Layer<Ftype, Btype> {
  protected:
   TransformationParameter transform_param_;
   bool output_labels_;
-};
-
-class Batch {
- public:
-  shared_ptr<Blob> data_;
-  shared_ptr<Blob> label_;
-
-  Batch(Type data_type, Type diff_type)
-      : data_(Blob::create(data_type, diff_type)), label_(Blob::create(data_type, diff_type)),
-        id_((size_t) -1), data_packing_(NCHW) {
-    data_->safe_reshape_mode(true);
-    label_->safe_reshape_mode(true);
-  }
-
-  size_t id() const {
-    return id_;
-  }
-  void set_id(size_t id) {
-    id_ = id;
-  }
-  size_t bytes() const {
-    return data_->sizeof_data(true) + label_->sizeof_data(true);
-  }
-  Packing data_packing() const {
-    return data_packing_;
-  }
-  void set_data_packing(Packing packing) {
-    data_packing_ = packing;
-  }
-
-  DISABLE_COPY_MOVE_AND_ASSIGN(Batch);
- private:
-  size_t id_;
-  Packing data_packing_;
 };
 
 template<typename Ftype, typename Btype>
@@ -135,26 +102,23 @@ class BasePrefetchingDataLayer : public BaseDataLayer<Ftype, Btype>, public Inte
     return id;
   }
 
-  void next_batch_queue() {
-    // spinning the wheel to the next queue:
-    ++next_batch_queue_;
-    if (next_batch_queue_ >= queues_num_) {
-      next_batch_queue_ = 0;
-    }
-  }
-
+//  void next_batch_queue() {
+//    // spinning the wheel to the next queue:
+//    ++next_batch_queue_;
+//    if (next_batch_queue_ >= queues_num_) {
+//      next_batch_queue_ = 0;
+//    }
+//  }
+//
   static size_t threads(const LayerParameter& param);
   static size_t parser_threads(const LayerParameter& param);
   static bool auto_mode(const LayerParameter& param);
 
   std::vector<size_t> batch_ids_;
-  std::vector<boost::shared_ptr<Batch>> prefetch_;
+//  std::vector<boost::shared_ptr<Batch>> prefetch_;
   const bool auto_mode_;
   size_t parsers_num_, transf_num_, queues_num_;
-  std::vector<shared_ptr<BlockingQueue<shared_ptr<Batch>>>> prefetches_full_;
-  std::vector<shared_ptr<BlockingQueue<shared_ptr<Batch>>>> prefetches_free_;
-//  BlockingQueue<boost::shared_ptr<Batch>> pfull_;
-//  BlockingQueue<boost::shared_ptr<Batch>> pfree_;
+
   size_t next_batch_queue_;
   // These two are for delayed init only
   std::vector<Blob*> bottom_init_;
@@ -164,7 +128,11 @@ class BasePrefetchingDataLayer : public BaseDataLayer<Ftype, Btype>, public Inte
 
   vector<shared_ptr<DataTransformer>> data_transformers_;
 
-  TBlob<Btype> tmp_;
+//  std::vector<boost::shared_ptr<BlockingQueue<boost::shared_ptr<Batch>>>> prefetches_full_;
+//  std::vector<boost::shared_ptr<BlockingQueue<boost::shared_ptr<Batch>>>> prefetches_free_;
+  boost::shared_ptr<BatchTransformer<Ftype, Btype>> batch_transformer_;
+
+//  TBlob<Btype> tmp_;
 };
 
 }  // namespace caffe

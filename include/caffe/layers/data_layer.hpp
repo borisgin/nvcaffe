@@ -8,6 +8,7 @@
 #include "caffe/blob.hpp"
 #include "caffe/data_reader.hpp"
 #include "caffe/data_transformer.hpp"
+#include "caffe/batch_transformer.hpp"
 #include "caffe/internal_thread.hpp"
 #include "caffe/layer.hpp"
 #include "caffe/layers/base_data_layer.hpp"
@@ -43,7 +44,7 @@ class DataLayer : public BasePrefetchingDataLayer<Ftype, Btype> {
     return this->phase_ == TRAIN ? &layer_inititialized_flag_ : nullptr;
   }
   size_t prefetch_bytes() {
-    return this->prefetch_[0]->bytes();
+    return this->batch_transformer_->prefetch_bytes();
   }
 
  protected:

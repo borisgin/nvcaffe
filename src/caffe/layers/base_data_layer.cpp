@@ -61,15 +61,18 @@ BasePrefetchingDataLayer<Ftype, Btype>::BasePrefetchingDataLayer(const LayerPara
       parsers_num_(parser_threads(param)),
       transf_num_(threads(param)),
       queues_num_(transf_num_ * parsers_num_),
-      next_batch_queue_(0UL) {
+      next_batch_queue_(0UL),
+      batch_transformer_(make_shared<BatchTransformer<Ftype, Btype>>(Caffe::current_device(),
+          this->solver_rank_, queues_num_, param.transform_param())) {
   CHECK_EQ(transf_num_, threads_num());
-  tmp_.safe_reshape_mode(true);
+//  tmp_.safe_reshape_mode(true);
   // We begin with minimum required
   ResizeQueues();
 }
 
 template<typename Ftype, typename Btype>
 BasePrefetchingDataLayer<Ftype, Btype>::~BasePrefetchingDataLayer() {
+  batch_transformer_->StopInternalThread();
 }
 
 template<typename Ftype, typename Btype>
@@ -113,10 +116,11 @@ void BasePrefetchingDataLayer<Ftype, Btype>::InternalThreadEntryN(size_t thread_
     while (!must_stop(thread_id)) {
       const size_t qid = this->queue_id(thread_id);
 #ifndef CPU_ONLY
-      shared_ptr<Batch> batch = prefetches_free_[qid]->pop();
+      shared_ptr<Batch> batch = batch_transformer_->prefetched_pop_free(qid);
 
       CHECK_EQ((size_t) -1L, batch->id());
       load_batch(batch.get(), thread_id, qid);
+
 //      if (Caffe::mode() == Caffe::GPU) {
 //        if (!use_gpu_transform) {
 //          batch->data_->async_gpu_push();
@@ -131,7 +135,9 @@ void BasePrefetchingDataLayer<Ftype, Btype>::InternalThreadEntryN(size_t thread_
         break;
       }
 
-      prefetches_full_[qid]->push(batch);
+//      prefetches_full_[qid]->push(batch);
+      batch_transformer_->prefetched_push_full(qid, batch);
+
 #else
       shared_ptr<Batch> batch = prefetches_free_[qid]->pop();
       load_batch(batch.get(), thread_id, qid);
@@ -159,6 +165,7 @@ void BasePrefetchingDataLayer<Ftype, Btype>::InternalThreadEntryN(size_t thread_
 
 template<typename Ftype, typename Btype>
 void BasePrefetchingDataLayer<Ftype, Btype>::ResizeQueues() {
+/*
   size_t size = prefetches_free_.size();
   if (queues_num_ > size) {
     prefetches_free_.resize(queues_num_);
@@ -171,7 +178,8 @@ void BasePrefetchingDataLayer<Ftype, Btype>::ResizeQueues() {
       prefetches_free_[i]->push(batch);
     }
   }
-  size = batch_ids_.size();
+*/
+  size_t size = batch_ids_.size();
   if (transf_num_ > size) {
     batch_ids_.resize(transf_num_);
     for (size_t i = size; i < transf_num_; ++i) {
@@ -230,26 +238,26 @@ template<typename Ftype, typename Btype>
 void BasePrefetchingDataLayer<Ftype, Btype>::Forward_cpu(const vector<Blob*>& bottom,
     const vector<Blob*>& top) {
   // Note: this function runs in one thread per object and one object per one Solver thread
-  shared_ptr<Batch> batch = prefetches_full_[next_batch_queue_]->pop(
-      "Data layer prefetch queue empty");
-  if (top[0]->data_type() == batch->data_->data_type()
-      && top[0]->shape() == batch->data_->shape()) {
-    top[0]->Swap(*batch->data_);
-  } else {
-    top[0]->safe_reshape_mode(true);
-    top[0]->CopyDataFrom(*batch->data_, true);
-  }
-  if (this->output_labels_) {
-    if (top[1]->data_type() == batch->label_->data_type()
-        && top[1]->shape() == batch->label_->shape()) {
-      top[1]->Swap(*batch->label_);
-    } else {
-      top[1]->CopyDataFrom(*batch->label_, true);
-    }
-  }
-  batch->set_id((size_t) -1L);
-  prefetches_free_[next_batch_queue_]->push(batch);
-  next_batch_queue();
+//  shared_ptr<Batch> batch = prefetches_full_[next_batch_queue_]->pop(
+//      "Data layer prefetch queue empty");
+//  if (top[0]->data_type() == batch->data_->data_type()
+//      && top[0]->shape() == batch->data_->shape()) {
+//    top[0]->Swap(*batch->data_);
+//  } else {
+//    top[0]->safe_reshape_mode(true);
+//    top[0]->CopyDataFrom(*batch->data_, true);
+//  }
+//  if (this->output_labels_) {
+//    if (top[1]->data_type() == batch->label_->data_type()
+//        && top[1]->shape() == batch->label_->shape()) {
+//      top[1]->Swap(*batch->label_);
+//    } else {
+//      top[1]->CopyDataFrom(*batch->label_, true);
+//    }
+//  }
+//  batch->set_id((size_t) -1L);
+//  prefetches_free_[next_batch_queue_]->push(batch);
+//  next_batch_queue();
 }
 
 #ifdef CPU_ONLY

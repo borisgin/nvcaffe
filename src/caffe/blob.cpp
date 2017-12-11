@@ -222,10 +222,8 @@ void Blob::CopyFrom(const Blob& source, bool copy_diff, bool reshape,
     }
 #endif
     Tensor::copy_helper(is_gpu, count_,
-        is_gpu ? src->gpu_data() : src->cpu_data(),
-        src_type,
-        is_gpu ? dst->mutable_gpu_data(false) : dst->mutable_cpu_data(false),
-        dst_type);
+        src->current_data(true), src_type,
+        dst->mutable_current_data(true), dst_type);
 #ifndef CPU_ONLY
   } else {
     CHECK(srct != dstt);

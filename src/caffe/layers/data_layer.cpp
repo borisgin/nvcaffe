@@ -98,12 +98,16 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
       this->parsers_num_ = current_parsers_num;
       this->queues_num_ = this->transf_num_ * this->parsers_num_;
 
+      this->batch_transformer_->StopInternalThread();
+      this->batch_transformer_ = make_shared<BatchTransformer<Ftype, Btype>>(Caffe::current_device(),
+          this->solver_rank_, this->queues_num_, this->transform_param_);
+
 //      this->qbar_.reset(new boost::barrier(this->transf_num_));
 //      this->lbar_.reset(new boost::barrier(this->transf_num_));
 
       BasePrefetchingDataLayer<Ftype, Btype>::InitializePrefetch();
       if (current_transf_num > 1) {
-        this->next_batch_queue();  // 0th already processed
+        this->batch_transformer_->next_batch_queue();  // 0th already processed
       }
       if (this->parsers_num_ > 1) {
         parser_offsets_[0]++;  // same as above
@@ -193,15 +197,15 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
   top[0]->safe_reshape_mode(true);
   top[0]->Reshape(top_shape);
 
-  vector<int> random_vec_shape(1, batch_size * 3);
-  LOG(INFO) << this->print_current_device() << " ReshapePrefetch "
-      << top_shape[0] << ", "
-      << top_shape[1] << ", "
-      << top_shape[2] << ", "
-      << top_shape[3];
-  for (int i = 0; i < this->prefetch_.size(); ++i) {
-    this->prefetch_[i]->data_->Reshape(top_shape);
-  }
+//  vector<int> random_vec_shape(1, batch_size * 3);
+//  LOG(INFO) << this->print_current_device() << " ReshapePrefetch "
+//      << top_shape[0] << ", "
+//      << top_shape[1] << ", "
+//      << top_shape[2] << ", "
+//      << top_shape[3];
+//  for (int i = 0; i < this->prefetch_.size(); ++i) {
+//    this->prefetch_[i]->data_->Reshape(top_shape);
+//  }
   if (use_gpu_transform) {
     LOG(INFO) << this->print_current_device() << " Transform on GPU enabled";
   }
@@ -210,9 +214,9 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
   if (this->output_labels_) {
     vector<int> label_shape(1, batch_size);
     top[1]->Reshape(label_shape);
-    for (int i = 0; i < this->prefetch_.size(); ++i) {
-      this->prefetch_[i]->label_->Reshape(label_shape);
-    }
+//    for (int i = 0; i < this->prefetch_.size(); ++i) {
+//      this->prefetch_[i]->label_->Reshape(label_shape);
+//    }
   }
   LOG(INFO) << this->print_current_device() << " Output data size: "
       << top[0]->num() << ", "
@@ -319,10 +323,10 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
 //    top_->at(0)->Reshape(top_shape);
 //    top_->at(0)->mutable_gpu_data_c<Btype>(false);
 ////    tmp_gpu_holder_[thread_id]->safe_reserve(holder_size);
-//    if (this->output_labels_) {
-//      batch->label_->Reshape(vector<int>(1, batch_size));
+    if (this->output_labels_) {
+      batch->label_->Reshape(vector<int>(1, batch_size));
 //      batch->label_->template mutable_cpu_data_c<Ftype>(false);
-//    }
+    }
 //    batch->data_->template mutable_gpu_data_c<Ftype>(false);
 //  }
 
