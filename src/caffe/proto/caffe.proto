@@ -202,7 +202,7 @@ message NetParameter {
 // NOTE
 // Update the next available ID when you add a new SolverParameter field.
 //
-// SolverParameter next available ID: 50 (last added: local_gw_ratio)
+// SolverParameter next available ID: 54 (last added: weight_decay_power )
 message SolverParameter {
   //////////////////////////////////////////////////////////////////////////////
   // Specifying the train and test networks
@@ -285,13 +285,17 @@ message SolverParameter {
   optional float momentum = 11; // The momentum value.
     
   optional string momentum_policy = 46 [default = "fixed"];  
-  optional float max_momentum     = 47 [default = 0.99];
-  optional float momentum_power   = 48 [default = 1.];
+  optional float max_momentum     = 47 [default = 0.98];
+  optional float momentum_power   = 48 [default = 2.];
   
-  optional bool  local_lr_auto = 49 [default = false]; 
-  optional float local_gw_ratio = 50 [default = 0.001];   
+  optional bool larc = 49 [default = false]; // LARC - Layer-wise Adaptive Rate Control
+  optional string larc_policy = 50 [default = "clip"];
+  optional float  larc_eta = 51    [default = 0.001];
   
-  optional float weight_decay = 12; // The weight decay.
+  optional float  weight_decay = 12; // The weight decay.
+  optional string weight_decay_policy = 52 [default = "fixed"]; 
+  optional float  weight_decay_power  = 53 [default = 2.];
+     
   // regularization types supported: L1 and L2
   // controlled by weight_decay
   optional string regularization_type = 29 [default = "L2"];

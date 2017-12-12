@@ -72,7 +72,6 @@ float SGDSolver<Dtype>::GetMomentum() {
   float moment;
   float base_momentum = this->param_.momentum();
   const string& momentum_policy = this->param_.momentum_policy();
-
   if (momentum_policy == "fixed") {
      moment = base_momentum;
   } else if (momentum_policy == "poly") {
@@ -164,20 +163,21 @@ template<typename Dtype>
 void SGDSolver<Dtype>::Regularize(int param_id, void* handle) {
   if (Caffe::mode() == Caffe::CPU) {
     const vector<shared_ptr<Blob>>& net_params = this->net_->learnable_params();
-    const vector<float>& net_params_weight_decay = this->net_->params_weight_decay();
-    float weight_decay = this->param_.weight_decay();
     string regularization_type = this->param_.regularization_type();
-    float local_decay = weight_decay * net_params_weight_decay[param_id];
-    if (local_decay) {
+//    const vector<float>& net_params_weight_decay = this->net_->params_weight_decay();
+//    float weight_decay = this->param_.weight_decay();
+//    float local_decay = weight_decay * net_params_weight_decay[param_id];
+    float weight_decay = local_decay(param_id);
+    if (weight_decay) {
       if (regularization_type == "L2") {
         // add weight decay
-        caffe_axpy<Dtype>(net_params[param_id]->count(), local_decay,
+        caffe_axpy<Dtype>(net_params[param_id]->count(), weight_decay,
             net_params[param_id]->cpu_data<Dtype>(),
             net_params[param_id]->mutable_cpu_diff<Dtype>());
       } else if (regularization_type == "L1") {
         caffe_cpu_sign<Dtype>(net_params[param_id]->count(),
             net_params[param_id]->cpu_data<Dtype>(), temp_[param_id]->mutable_cpu_data());
-        caffe_axpy<Dtype>(net_params[param_id]->count(), local_decay, temp_[param_id]->cpu_data(),
+        caffe_axpy<Dtype>(net_params[param_id]->count(), weight_decay, temp_[param_id]->cpu_data(),
             net_params[param_id]->mutable_cpu_diff<Dtype>());
       } else {
         LOG(FATAL) << "Unknown regularization type: " << regularization_type;
@@ -213,7 +213,18 @@ float SGDSolver<Dtype>::ComputeUpdateValue(int param_id, void* handle, float rat
   shared_ptr<TBlob<Dtype>> history = history_[param_id];
   float momentum = GetMomentum();
   float wgrad_sq = 0.F;
-  float local_rate = rate * GetLocalRate(param_id, wgrad_sq);
+  const bool larc =this->param_.larc();
+  const string& larc_policy = this->param_.larc_policy();
+  float local_rate = GetLocalRate(param_id, wgrad_sq);
+  if (larc) {
+	if (larc_policy == "scale") {
+      local_rate = rate * local_rate;
+    } else if (larc_policy == "clip") {
+   	  local_rate = std::min(rate, local_rate);
+    } else {
+      LOG(FATAL) << "Unknown larc policy: " << larc_policy;
+    }
+  }
   // Compute the update to history, then copy it to the parameter diff.
   if (Caffe::mode() == Caffe::CPU) {
     caffe_cpu_axpby<Dtype>(param->count(), local_rate, param->cpu_diff<Dtype>(), momentum,
@@ -271,21 +282,22 @@ template<typename Dtype>
 float SGDSolver<Dtype>::GetLocalRate(int param_id, float& wgrad_sq) const {
   const vector<float>& net_params_lr = this->net_->params_lr();
   float local_lr = net_params_lr[param_id];
-  if (this->net_->global_grad_scale_enabled() || this->param_.local_lr_auto()) {
+  if (this->net_->global_grad_scale_enabled() || this->param_.larc()) {
     shared_ptr<Blob> param = this->net_->learnable_params()[param_id];
     const int type_id = net_->learnable_types()[0] == param->diff_type() ? 0 : 1;
     wgrad_sq = param->sumsq_diff(type_id);
     if (std::isnan(wgrad_sq)) {
       wgrad_sq = 0.F;  // skip this
     }
-    if (this->param_.local_lr_auto()) {
+    if (this->param_.larc()) {
       const float wgrad_norm = std::sqrt(wgrad_sq);
       const float w_norm = std::sqrt(param->sumsq_data(type_id));
-      const float gw_ratio = this->param_.local_gw_ratio();
+      const float gw_ratio = this->param_.larc_eta();
       float rate = 1.F;
-      float weight_decay = this->param_.weight_decay();
+ //     float weight_decay = this->param_.weight_decay();
       if (w_norm > 0.F && wgrad_norm > 0.F) {
-        rate = gw_ratio * w_norm / (wgrad_norm + weight_decay * w_norm);
+        //rate = gw_ratio * w_norm / (wgrad_norm + weight_decay * w_norm);
+        rate = gw_ratio * w_norm / wgrad_norm ;
       }
       if (local_lr > 0.) {
         local_lr = rate;
@@ -310,6 +322,14 @@ template<typename Dtype>
 float SGDSolver<Dtype>::local_decay(int param_id) const {
   const vector<float>& net_params_weight_decay = this->net_->params_weight_decay();
   float weight_decay = this->param_.weight_decay() * net_params_weight_decay[param_id];
+  const string& wd_policy = this->param_.weight_decay_policy();
+  if  (wd_policy == "poly") {
+    float power = this->param_.weight_decay_power();
+    weight_decay *= pow(1.F - float(this->iter_)/float(this->param_.max_iter()), power);
+  }
+  return weight_decay;
+
+
   return weight_decay;
 }
 
