@@ -473,12 +473,12 @@ class Blob {
   std::string to_string(int indent = 0) const;  // debug helper
 
   // These ones are to be used with care: they don't convert.
-  void* current_mutable_data_memory(bool is_gpu) {
-    return data_tensor_->current_mutable_memory(is_gpu);
+  void* current_mutable_data_memory(bool is_gpu, bool flush = true) {
+    return data_tensor_->current_mutable_memory(is_gpu, flush);
   }
 
-  void* current_mutable_diff_memory(bool is_gpu) {
-    return diff_tensor_->current_mutable_memory(is_gpu);
+  void* current_mutable_diff_memory(bool is_gpu, bool flush = true) {
+    return diff_tensor_->current_mutable_memory(is_gpu, flush);
   }
 
   const void* current_data_memory(bool is_gpu) const {
@@ -556,7 +556,8 @@ class Blob {
   // Element-wise mutator. Might be slow due to syncing from GPU to CPU.
   template<typename Dtype>
   void set_value_at(bool set_data, int idx, Dtype val) {
-    void* ptr = set_data ? current_mutable_data_memory(false) : current_mutable_diff_memory(false);
+    void* ptr = set_data ? current_mutable_data_memory(false, false) :
+                current_mutable_diff_memory(false, false);
     CHECK_NOTNULL(ptr);
     const Type dtype = set_data ? data_type() : diff_type();
     if (is_type<float>(dtype)) {

@@ -62,9 +62,9 @@ class Tensor {
     return mem && mem->is_valid();
   }
 
-  void* current_mutable_memory(bool is_gpu) {
-    shared_ptr<SyncedMemory>& mem = mutable_synced_mem();
-    return is_gpu ? mem->mutable_gpu_data() : mem->mutable_cpu_data();
+  void* current_mutable_memory(bool is_gpu, bool flush) {
+    shared_ptr<SyncedMemory>& mem = mutable_synced_mem(flush);
+    return is_gpu ? mem->mutable_gpu_data(flush) : mem->mutable_cpu_data(flush);
   }
 
   const void* current_memory(bool is_gpu) {

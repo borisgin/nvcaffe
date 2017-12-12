@@ -286,7 +286,7 @@ class Net {
   }
 
   bool global_grad_scale_enabled() const {
-    return global_grad_scale_param_ > 0.F;
+    return global_grad_scale_param_ > 1.F;
   }
 
   void update_grad_scale();
