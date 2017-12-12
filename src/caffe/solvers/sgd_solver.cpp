@@ -290,7 +290,7 @@ float SGDSolver<Dtype>::GetLocalRate(int param_id, float& wgrad_sq) const {
       if (local_lr > 0.) {
         local_lr = rate;
       }
-#ifdef DEBUG
+//#ifdef DEBUG
       if (Caffe::root_solver()
           && this->param_.display()
           && (this->iter_ % this->param_.display() == 0)) {
@@ -300,7 +300,7 @@ float SGDSolver<Dtype>::GetLocalRate(int param_id, float& wgrad_sq) const {
         LOG(INFO) << layer_name << "." << blob_id << " lr=" << local_lr
                   << " " << "\t  w=" << w_norm << "\t dw=" << wgrad_norm;
       }
-#endif
+//#endif
     }
   }
   return local_lr;
