@@ -33,6 +33,7 @@ class SGDSolver : public Solver {
   void PreSolve();
   float GetLearningRate();
   float GetMomentum();
+  float GetWeightDecay() const;
   float GetLocalRate(int param_id, float& wgrad_sq) const;
   float local_decay(int param_id) const;
 

@@ -93,6 +93,28 @@ float SGDSolver<Dtype>::GetMomentum() {
 }
 
 template<typename Dtype>
+float SGDSolver<Dtype>::GetWeightDecay() const {
+  float wd = this->param_.weight_decay();
+  const string& wd_policy = this->param_.weight_decay_policy();
+  float weight_decay = wd;
+  if (wd_policy == "poly") {
+	float power = this->param_.weight_decay_power();
+	weight_decay = wd * pow(1.F - float(this->iter_)/this->param_.max_iter(), power);
+  }
+  return weight_decay;
+}
+
+template<typename Dtype>
+float SGDSolver<Dtype>::local_decay(int param_id) const {
+  const vector<float>& net_params_weight_decay = this->net_->params_weight_decay();
+  float weight_decay = GetWeightDecay();
+  weight_decay *= net_params_weight_decay[param_id];
+  return weight_decay;
+}
+
+
+
+template<typename Dtype>
 void SGDSolver<Dtype>::PreSolve() {
   // Initialize the history
   const vector<shared_ptr<Blob>>& net_params = this->net_->learnable_params();
@@ -134,9 +156,10 @@ void SGDSolver<Dtype>::PrintRate(float rate) {
     if (rate == 0.F) {
       rate = GetLearningRate();
     }
-     float moment = GetMomentum();
-     LOG(INFO) << "Iteration " << this->iter_ << ", lr = " << rate << ", m = " << moment
-               << ", gs = " << f_round2(net_->global_grad_scale());
+    float moment = GetMomentum();
+    float wd = GetWeightDecay();
+    LOG(INFO) << "Iteration " << this->iter_ << ", lr = " << rate << ", m = " << moment
+    		  << ", wd = " << wd  << ", gs = " << f_round2(net_->global_grad_scale());
   }
 }
 
@@ -316,19 +339,6 @@ float SGDSolver<Dtype>::GetLocalRate(int param_id, float& wgrad_sq) const {
     }
   }
   return local_lr;
-}
-
-template<typename Dtype>
-float SGDSolver<Dtype>::local_decay(int param_id) const {
-  const vector<float>& net_params_weight_decay = this->net_->params_weight_decay();
-  float wd = this->param_.weight_decay() * net_params_weight_decay[param_id];
-  const string& wd_policy = this->param_.weight_decay_policy();
-  float weight_decay = wd;
-  if (wd_policy == "poly") {
-    float power = this->param_.weight_decay_power();
-    weight_decay = wd * pow(1.F - float(this->iter_)/this->param_.max_iter(), power);
-  }
-  return weight_decay;
 }
 
 template<typename Dtype>
