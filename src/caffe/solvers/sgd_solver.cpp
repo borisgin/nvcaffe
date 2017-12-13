@@ -327,7 +327,7 @@ float SGDSolver<Dtype>::local_decay(int param_id) const {
   float weight_decay;
   const string& wd_policy = this->param_.weight_decay_policy();
   if (wd_policy == "fixed") {
-	weight_decay = wd;
+    weight_decay = wd;
   } else if (wd_policy == "poly") {
     float power = this->param_.weight_decay_power();
     float maxiter = this->param_.max_iter() > 0 ? float(this->param_.max_iter()) : 1.F;
