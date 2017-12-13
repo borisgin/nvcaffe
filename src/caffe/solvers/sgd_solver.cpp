@@ -321,15 +321,15 @@ float SGDSolver<Dtype>::GetLocalRate(int param_id, float& wgrad_sq) const {
 template<typename Dtype>
 float SGDSolver<Dtype>::local_decay(int param_id) const {
   const vector<float>& net_params_weight_decay = this->net_->params_weight_decay();
-  float weight_decay = this->param_.weight_decay() * net_params_weight_decay[param_id];
+  float wd = this->param_.weight_decay() * net_params_weight_decay[param_id];
   const string& wd_policy = this->param_.weight_decay_policy();
-  if  (wd_policy == "poly") {
+  float weight_decay=wd;
+  if (wd_policy == "fixed") {
+    weight_decay = wd;
+  } else if (wd_policy == "poly") {
     float power = this->param_.weight_decay_power();
-    weight_decay *= pow(1.F - float(this->iter_)/float(this->param_.max_iter()), power);
+    weight_decay = wd* pow(1.F - float(this->iter_)/float(this->param_.max_iter()), power);
   }
-  return weight_decay;
-
-
   return weight_decay;
 }
 
