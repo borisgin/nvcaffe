@@ -247,6 +247,8 @@ float SGDSolver<Dtype>::ComputeUpdateValue(int param_id, void* handle, float rat
     } else {
       LOG(FATAL) << "Unknown larc policy: " << larc_policy;
     }
+  } else {
+    local_rate = rate * local_rate;
   }
   // Compute the update to history, then copy it to the parameter diff.
   if (Caffe::mode() == Caffe::CPU) {
