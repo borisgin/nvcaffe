@@ -293,6 +293,7 @@ message SolverParameter {
   optional float  larc_eta = 51    [default = 0.001];
   
   optional float  weight_decay = 12; // The weight decay.
+  
   optional string weight_decay_policy = 52 [default = "fixed"]; 
   optional float  weight_decay_power  = 53 [default = 2.];
      
