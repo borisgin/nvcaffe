@@ -61,7 +61,7 @@ BasePrefetchingDataLayer<Ftype, Btype>::BasePrefetchingDataLayer(const LayerPara
       parsers_num_(parser_threads(param)),
       transf_num_(threads(param)),
       queues_num_(transf_num_ * parsers_num_),
-      next_batch_queue_(0UL),
+//      next_batch_queue_(0UL),
       batch_transformer_(make_shared<BatchTransformer<Ftype, Btype>>(Caffe::current_device(),
           this->solver_rank_, queues_num_, param.transform_param())) {
   CHECK_EQ(transf_num_, threads_num());

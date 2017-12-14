@@ -119,7 +119,7 @@ class BasePrefetchingDataLayer : public BaseDataLayer<Ftype, Btype>, public Inte
   const bool auto_mode_;
   size_t parsers_num_, transf_num_, queues_num_;
 
-  size_t next_batch_queue_;
+//  size_t next_batch_queue_;
   // These two are for delayed init only
   std::vector<Blob*> bottom_init_;
   std::vector<Blob*> top_init_;

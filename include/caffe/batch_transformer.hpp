@@ -78,13 +78,7 @@ class BatchTransformer : public InternalThread {
     return this->prefetch_[0]->bytes();
   }
 
-  void next_batch_queue() {
-    // spinning the wheel to the next queue:
-    ++next_batch_queue_;
-    if (next_batch_queue_ >= queues_num_) {
-      next_batch_queue_ = 0;
-    }
-  }
+  void ResizeQueues(size_t queues_num);
 
  protected:
   void InternalThreadEntry() override;
@@ -95,6 +89,14 @@ class BatchTransformer : public InternalThread {
   std::vector<boost::shared_ptr<Batch>> prefetch_;
   std::vector<boost::shared_ptr<BBQ>> prefetches_full_;
   std::vector<boost::shared_ptr<BBQ>> prefetches_free_;
+
+  void next_batch_queue() {
+    // spinning the wheel to the next queue:
+    ++next_batch_queue_;
+    if (next_batch_queue_ >= queues_num_) {
+      next_batch_queue_ = 0;
+    }
+  }
 
  private:
   BBQ processed_full_;

@@ -23,9 +23,25 @@ BatchTransformer<Ftype, Btype>::BatchTransformer(int target_device, size_t rank_
   StartInternalThread();
 }
 
-
-
-
+template<typename Ftype, typename Btype>
+void BatchTransformer<Ftype, Btype>::ResizeQueues(size_t queues_num) {
+  StopInternalThread();
+  queues_num_ = queues_num;
+  size_t size = prefetches_free_.size();
+  if (queues_num_ > size) {
+    prefetches_free_.resize(queues_num_);
+    prefetches_full_.resize(queues_num_);
+    for (size_t i = size; i < queues_num_; ++i) {
+      shared_ptr<Batch> batch = make_shared<Batch>(tp<Ftype>(), tp<Ftype>());
+      prefetch_.push_back(batch);
+      prefetches_free_[i] = make_shared<BlockingQueue<shared_ptr<Batch>>>();
+      prefetches_full_[i] = make_shared<BlockingQueue<shared_ptr<Batch>>>();
+      prefetches_free_[i]->push(batch);
+    }
+    next_batch_queue();  // 0th already processed
+  }
+  StartInternalThread();
+}
 
 template<typename Ftype, typename Btype>
 void BatchTransformer<Ftype, Btype>::InternalThreadEntry() {
@@ -69,17 +85,17 @@ void BatchTransformer<Ftype, Btype>::InternalThreadEntry() {
     while (!must_stop(0)) {
       shared_ptr<Batch> batch =
           prefetches_full_[next_batch_queue_]->pop("Data layer prefetch queue empty");
-      if (must_stop(0)) {
-        break;
-      }
+//      if (must_stop(0)) {
+//        break;
+//      }
 
       tmp_.Reshape(batch->data_->shape());
       tmp_.set_cpu_data(batch->data_->template mutable_cpu_data<Btype>());
 
       boost::shared_ptr<Batch> top = processed_free_.pop();
-      if (must_stop(0)) {
-        break;
-      }
+//      if (must_stop(0)) {
+//        break;
+//      }
 
       top->data_->CopyDataFrom(tmp_, true, batch->data_packing(), transform_param_.forward_packing());
       top->label_->Swap(*batch->label_);
