@@ -83,18 +83,18 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
     }
     current_transf_num = std::min(max_transf_num, std::max(current_transf_num,
         static_cast<size_t>(std::lround(fit / current_parsers_num))));
-    if (current_parsers_num > 1 && current_transf_num == max_transf_num - 1) {
-      current_parsers_num = 1;
-      current_transf_num = max_transf_num;
-    }
-    pnet->set_mins(current_parsers_num, current_transf_num);
-    P2PManager::dl_bar_wait();
-    {
-      std::lock_guard<std::mutex> lock(mutex_init_);
-      // preventing different number of threads on different GPUs
-      current_parsers_num = pnet->min_parsers();
-      current_transf_num = pnet->min_transformers();
-    }
+//    if (current_parsers_num > 1 && current_transf_num == max_transf_num - 1) {
+//      current_parsers_num = 1;
+//      current_transf_num = max_transf_num;
+//    }
+//    pnet->set_mins(current_parsers_num, current_transf_num);
+//    P2PManager::dl_bar_wait();
+//    {
+//      std::lock_guard<std::mutex> lock(mutex_init_);
+//      // preventing different number of threads on different GPUs
+//      current_parsers_num = pnet->min_parsers();
+//      current_transf_num = pnet->min_transformers();
+//    }
     this->RestartAllThreads(current_transf_num, true, false, Caffe::next_seed());
     this->transf_num_ = this->threads_num();
     this->parsers_num_ = current_parsers_num;
