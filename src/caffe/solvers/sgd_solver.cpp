@@ -99,7 +99,7 @@ float SGDSolver<Dtype>::GetWeightDecay() const {
   float weight_decay = wd;
   if (wd_policy == "poly") {
 	float power = this->param_.weight_decay_power();
-	weight_decay = wd * pow(1.F - float(this->iter_)/this->param_.max_iter(), power);
+	weight_decay = wd * pow(float(this->iter_)/this->param_.max_iter(), power);
   }
   return weight_decay;
 }
