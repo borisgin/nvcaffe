@@ -76,8 +76,10 @@ void Tensor::convert(Type new_type) {
     const bool data_gpu = Caffe::mode() == Caffe::GPU;
     if (current_mem->head() != SyncedMemory::UNINITIALIZED) {
       copy_helper(data_gpu, count_,
-          current_mem->current_data(true), type_,
-          new_mem->mutable_current_data(true), new_type);
+          data_gpu ? current_mem->gpu_data() : current_mem->cpu_data(),
+          type_,
+          data_gpu ? new_mem->mutable_gpu_data() : new_mem->mutable_cpu_data(),
+          new_type);
     }
   } // we just trust its current status otherwise
   type_ = new_type;
