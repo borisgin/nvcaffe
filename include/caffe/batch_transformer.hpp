@@ -98,7 +98,9 @@ class BatchTransformer : public InternalThread {
     }
   }
 
- private:
+  void resize(bool skip_to_next);
+
+private:
   BBQ processed_full_;
   BBQ processed_free_;
   TBlob<Btype> tmp_;

@@ -56,9 +56,6 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
 #ifndef CPU_ONLY
     Net* pnet = this->parent_net();
     const size_t batch_bytes = pnet->prefetch_bytes<Ftype, Btype>();
-
-    LOG(INFO) << "####### " << pnet << " " << batch_bytes;
-
     size_t gpu_bytes = Caffe::min_avail_device_memory();
     size_t batches_fit = gpu_bytes / batch_bytes;
 #else
@@ -93,30 +90,31 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
     pnet->set_mins(current_parsers_num, current_transf_num);
     {
       std::lock_guard<std::mutex> lock(mutex_init_);
+      // preventing different number of threads on different GPUs
       current_parsers_num = pnet->min_parsers();
       current_transf_num = pnet->min_transformers();
+    }
+    this->RestartAllThreads(current_transf_num, true, false, Caffe::next_seed());
+    this->transf_num_ = this->threads_num();
+    this->parsers_num_ = current_parsers_num;
+    this->queues_num_ = this->transf_num_ * this->parsers_num_;
 
-      this->RestartAllThreads(current_transf_num, true, false, Caffe::next_seed());
-      this->transf_num_ = this->threads_num();
-      this->parsers_num_ = current_parsers_num;
-      this->queues_num_ = this->transf_num_ * this->parsers_num_;
-
-      this->batch_transformer_->ResizeQueues(this->queues_num_);
+    this->batch_transformer_->ResizeQueues(this->queues_num_);
 
 //      this->qbar_.reset(new boost::barrier(this->transf_num_));
 //      this->lbar_.reset(new boost::barrier(this->transf_num_));
 
-      BasePrefetchingDataLayer<Ftype, Btype>::InitializePrefetch();
+    BasePrefetchingDataLayer<Ftype, Btype>::InitializePrefetch();
 //      if (current_transf_num > 1) {
 //        this->batch_transformer_->next_batch_queue();  // 0th already processed
 //      }
-      if (this->parsers_num_ > 1) {
-        parser_offsets_[0]++;  // same as above
-      }
-      this->go();  // kick off new threads if any
+    if (this->parsers_num_ > 1) {
+      parser_offsets_[0]++;  // 0th already processed
+    }
+    this->go();  // kick off new threads if any
 //      this->batch_transformer_ = make_shared<BatchTransformer<Ftype, Btype>>(Caffe::current_device(),
 //          this->solver_rank_, this->queues_num_, this->transform_param_);
-    }
+
   }
 
   CHECK_EQ(this->threads_num(), this->transf_num_);

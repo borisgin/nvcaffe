@@ -67,7 +67,10 @@ void Tensor::convert(Type new_type) {
 
   if (!new_mem || !new_mem->is_valid()) {
     const std::size_t new_cap = even(count_) * tsize(new_type);
-    if (!new_mem || new_mem->size() < new_cap) {
+//    const bool data_gpu = current_mem->head() == SyncedMemory::SYNCED ||
+//                          current_mem->head() == SyncedMemory::HEAD_AT_GPU;
+//    current_mem->clean_redundant_memory();
+    if (!new_mem || new_mem->size() != new_cap) {
       new_mem = make_shared<SyncedMemory>(new_cap);
     }
     const bool data_gpu = Caffe::mode() == Caffe::GPU;

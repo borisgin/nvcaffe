@@ -59,6 +59,31 @@ SyncedMemory::~SyncedMemory() {
 #endif  // CPU_ONLY
 }
 
+//void SyncedMemory::clean_redundant_memory() {
+//  switch (head_) {
+//    case HEAD_AT_CPU:
+//#ifndef CPU_ONLY
+//      if (gpu_ptr_ != nullptr && own_gpu_data_) {
+//        shared_lock<shared_mutex> lock(GPUMemory::read_write_mutex());
+//        GPUMemory::deallocate(gpu_ptr_, device_);
+//        gpu_ptr_ = nullptr;
+//        own_gpu_data_ = false;
+//      }
+//#endif
+//      break;
+//    case HEAD_AT_GPU:
+//      if (cpu_ptr_ != nullptr && own_cpu_data_) {
+//#ifndef CPU_ONLY
+//        shared_lock<shared_mutex> lock(GPUMemory::read_write_mutex());
+//#endif
+//        FreeHost(cpu_ptr_, cpu_malloc_use_cuda_);
+//        cpu_ptr_ = nullptr;
+//        own_cpu_data_ = false;
+//      }
+//      break;
+//  }
+//}
+
 void SyncedMemory::to_cpu(bool copy_from_gpu) {
   switch (head_) {
     case UNINITIALIZED:

@@ -77,6 +77,11 @@ class Tensor {
     return !mem || mem->head() == SyncedMemory::UNINITIALIZED;
   }
 
+  bool is_gpu_head() const {
+    const shared_ptr<SyncedMemory>& mem = synced_arrays_->at(type_);
+    return mem && (mem->head() == SyncedMemory::SYNCED || mem->head() == SyncedMemory::HEAD_AT_GPU);
+  }
+
 #ifndef CPU_ONLY
   size_t gpu_memory_use(bool own_only = false) const;
 #endif

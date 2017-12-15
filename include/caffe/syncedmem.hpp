@@ -31,6 +31,7 @@ class SyncedMemory {
   void* mutable_cpu_data(bool copy_from_gpu = true);
   void* mutable_gpu_data(bool copy_from_cpu = true);
   void* mutable_current_data(bool prefer_gpu);
+ // void clean_redundant_memory();
 
   enum SyncedHead { UNINITIALIZED, HEAD_AT_CPU, HEAD_AT_GPU, SYNCED };
 
