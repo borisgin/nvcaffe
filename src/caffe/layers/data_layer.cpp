@@ -88,6 +88,7 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
       current_transf_num = max_transf_num;
     }
     pnet->set_mins(current_parsers_num, current_transf_num);
+    P2PManager::dl_bar_wait();
     {
       std::lock_guard<std::mutex> lock(mutex_init_);
       // preventing different number of threads on different GPUs

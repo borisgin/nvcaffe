@@ -922,11 +922,12 @@ void Net::update_grad_scale() {
   if (global_grad_scale_enabled()) {
     if (global_grad_scale_adaptive_) {
       const float wgsq = wgrad_sq();
-      CHECK_GE(wgsq, 0.F);
-      global_grad_scale_coeff_ = std::sqrt(wgsq) * global_grad_scale_param_;
-    } else {
-      global_grad_scale_coeff_ = global_grad_scale_param_;
+      if (wgsq > 0.F) {
+        global_grad_scale_coeff_ = std::sqrt(wgsq) * global_grad_scale_param_;
+        return;
+      }
     }
+    global_grad_scale_coeff_ = global_grad_scale_param_;
   }
 }
 
