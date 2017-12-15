@@ -82,7 +82,7 @@ void ImageDataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom,
       << top[0]->width();
   // label
   vector<int> label_shape(1, batch_size);
-//  top[1]->Reshape(label_shape);
+  top[1]->Reshape(label_shape);
 //  for (int i = 0; i < this->prefetch_.size(); ++i) {
 //    this->prefetch_[i]->label_->Reshape(label_shape);
 //  }
