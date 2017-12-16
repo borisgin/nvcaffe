@@ -4,9 +4,12 @@ namespace caffe {
 
 template<typename Ftype, typename Btype>
 BatchTransformer<Ftype, Btype>::BatchTransformer(int target_device, size_t rank_,
-    size_t queues_num, const TransformationParameter& transform_param) :
+    size_t queues_num, const TransformationParameter& transform_param, bool gpu_transform) :
     InternalThread(target_device, rank_, 1, false),
-      queues_num_(queues_num), next_batch_queue_(0UL), transform_param_(transform_param) {
+    queues_num_(queues_num),
+    next_batch_queue_(0UL),
+    transform_param_(transform_param),
+    gpu_transform_(gpu_transform){
   shared_ptr<Batch> processed = make_shared<Batch>(tp<Ftype>(), tp<Ftype>());
   processed_free_.push(processed);
   resize(false);
@@ -30,8 +33,10 @@ void BatchTransformer<Ftype, Btype>::resize(bool skip_to_next) {
   prefetches_free_.resize(queues_num_);
   prefetches_full_.resize(queues_num_);
   for (size_t i = size; i < queues_num_; ++i) {
-    // prefetch is Btype, processed is Ftype
-    shared_ptr<Batch> batch = make_shared<Batch>(tp<Btype>(), tp<Btype>());
+    // prefetch is Btype (cpu transform) or Ftype (gpu_transform_), processed is Ftype
+    shared_ptr<Batch> batch = gpu_transform_ ?
+                              make_shared<Batch>(tp<Ftype>(), tp<Ftype>()) :
+                              make_shared<Batch>(tp<Btype>(), tp<Btype>());
     prefetch_.push_back(batch);
     prefetches_free_[i] = make_shared<BlockingQueue<shared_ptr<Batch>>>();
     prefetches_full_[i] = make_shared<BlockingQueue<shared_ptr<Batch>>>();

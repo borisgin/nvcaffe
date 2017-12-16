@@ -53,7 +53,7 @@ class BatchTransformer : public InternalThread {
 
  public:
   BatchTransformer(int target_device, size_t rank_, size_t queues_num,
-      const TransformationParameter& transform_param);
+      const TransformationParameter& transform_param, bool gpu_transform);
 
   shared_ptr<Batch> prefetched_pop_free(size_t qid) {
     return this->prefetches_free_[qid]->pop();
@@ -84,6 +84,7 @@ class BatchTransformer : public InternalThread {
 
   size_t queues_num_, next_batch_queue_;
   const TransformationParameter transform_param_;
+  const bool gpu_transform_;
 
   std::vector<boost::shared_ptr<Batch>> prefetch_;
   std::vector<boost::shared_ptr<BBQ>> prefetches_full_;

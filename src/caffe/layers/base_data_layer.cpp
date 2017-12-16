@@ -62,7 +62,7 @@ BasePrefetchingDataLayer<Ftype, Btype>::BasePrefetchingDataLayer(const LayerPara
       transf_num_(threads(param)),
       queues_num_(transf_num_ * parsers_num_),
       batch_transformer_(make_shared<BatchTransformer<Ftype, Btype>>(Caffe::current_device(),
-          this->solver_rank_, queues_num_, param.transform_param())) {
+          this->solver_rank_, queues_num_, param.transform_param(), is_gpu_transform())) {
   CHECK_EQ(transf_num_, threads_num());
   // We begin with minimum required
   ResizeQueues();
