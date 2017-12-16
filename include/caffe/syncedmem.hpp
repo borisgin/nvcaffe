@@ -51,10 +51,6 @@ class SyncedMemory {
     valid_ = true;
   }
 
-#ifndef CPU_ONLY
-  void async_gpu_push();
-#endif
-
   std::string to_string(int indent, Type type);  // debug helper
 
  protected:

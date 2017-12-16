@@ -165,7 +165,7 @@ void DecodeDatumToSignedBuf(const Datum& datum, int color_mode,
       LOG(ERROR) << "Could not decode datum";
     }
     CHECK_EQ(cv_img.channels() * cv_img.rows * cv_img.cols, buf_len);
-    std::memcpy(buf, cv_img.data, buf_len);
+    std::memcpy(buf, cv_img.data, buf_len);  // NOLINT(caffe/alt_fn)
   }
 }
 

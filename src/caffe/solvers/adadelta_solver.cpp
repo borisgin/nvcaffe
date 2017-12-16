@@ -30,12 +30,7 @@ float AdaDeltaSolver<Dtype>::ComputeUpdateValue(int param_id, void* handle, floa
   const vector<shared_ptr<Blob>>& net_params = this->net_->learnable_params();
   shared_ptr<Blob> param = net_params[param_id];
 
-  float wgrad_sq = 0.F;
-  if (this->net_->global_grad_scale_enabled()) {
-    const int type_id = this->net_->learnable_types()[0] == param->diff_type() ? 0 : 1;
-    wgrad_sq = param->sumsq_diff(type_id);
-    CHECK_GE(wgrad_sq, 0.F) << " [" << Caffe::current_device() << "] " << param_id;
-  }
+  float wgrad_sq = 1.F;  // stub
 
   shared_ptr<TBlob<Dtype>> history = this->history_[param_id];
   shared_ptr<TBlob<Dtype>> update = this->update_[param_id];

@@ -163,7 +163,7 @@ class Solver {
   virtual void PrintRate(float rate = 0) {}
   virtual float ApplyUpdate(int param_id, void* handle, bool clear_grads) = 0;
 
-protected:
+ protected:
   string SnapshotFilename(const string extension);
   string SnapshotToBinaryProto();
   string SnapshotToHDF5();

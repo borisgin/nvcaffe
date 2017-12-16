@@ -221,11 +221,32 @@ void Blob::CopyFrom(const Blob& source, bool copy_diff, bool reshape,
       return;
     }
 #endif
-    Tensor::copy_helper(is_gpu, count_,
-        is_gpu ? src->gpu_data() : src->cpu_data(),
-        src_type,
-        is_gpu ? dst->mutable_gpu_data(false) : dst->mutable_cpu_data(false),
-        dst_type);
+    do {
+#ifndef CPU_ONLY
+      if (src_type == dst_type) {
+        CHECK_EQ(srct->count_, dstt->count_);
+        // cross copy
+        if (srct->is_cpu_head() && dstt->is_gpu_head()) {
+          cudaStream_t stream = Caffe::thread_stream();
+          CUDA_CHECK(cudaMemcpyAsync(dst->mutable_gpu_data(), src->cpu_data(),
+              srct->count_ * tsize(src_type),
+              cudaMemcpyHostToDevice, stream));
+          CUDA_CHECK(cudaStreamSynchronize(stream));
+          break;
+        } else if (srct->is_gpu_head() && dstt->is_cpu_head()) {
+          cudaStream_t stream = Caffe::thread_stream();
+          CUDA_CHECK(cudaMemcpyAsync(dst->mutable_cpu_data(), src->gpu_data(),
+              srct->count_ * tsize(src_type),
+              cudaMemcpyDeviceToHost, stream));
+          CUDA_CHECK(cudaStreamSynchronize(stream));
+          break;
+        }
+      }
+#endif
+      Tensor::copy_helper(is_gpu, count_,
+          is_gpu ? src->gpu_data() : src->cpu_data(), src_type,
+          is_gpu ? dst->mutable_gpu_data() : dst->mutable_cpu_data(), dst_type);
+    } while (false);
 #ifndef CPU_ONLY
   } else {
     CHECK(srct != dstt);

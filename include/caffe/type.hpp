@@ -1,6 +1,10 @@
 #ifndef INCLUDE_CAFFE_TYPE_HPP_
 #define INCLUDE_CAFFE_TYPE_HPP_
 
+#ifdef USE_CUDNN
+#include <cudnn.h>
+#endif
+
 //  enum Type
 #include "caffe/proto/caffe.pb.h"
 
@@ -36,6 +40,24 @@ inline constexpr Type tp<unsigned int>() {
   return UINT;
 }
 
+#ifdef USE_CUDNN
+template <typename Dtype>
+constexpr cudnnDataType_t cudnn_dt();
+template <>
+inline constexpr cudnnDataType_t cudnn_dt<double>() {
+  return cudnnDataType_t::CUDNN_DATA_DOUBLE;
+}
+template <>
+inline constexpr cudnnDataType_t cudnn_dt<float>() {
+  return cudnnDataType_t::CUDNN_DATA_FLOAT;
+}
+#ifndef CPU_ONLY
+template <>
+inline constexpr cudnnDataType_t cudnn_dt<float16>() {
+  return cudnnDataType_t::CUDNN_DATA_HALF;
+}
+#endif
+#endif
 
 template <typename T1, typename T2>
 Type tpmax() {

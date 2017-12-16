@@ -67,7 +67,7 @@ void Tensor::convert(Type new_type) {
 
   if (!new_mem || !new_mem->is_valid()) {
     const std::size_t new_cap = even(count_) * tsize(new_type);
-    if (!new_mem || new_mem->size() < new_cap) {
+    if (!new_mem || new_mem->size() != new_cap) {
       new_mem = make_shared<SyncedMemory>(new_cap);
     }
     const bool data_gpu = Caffe::mode() == Caffe::GPU;
@@ -75,7 +75,7 @@ void Tensor::convert(Type new_type) {
       copy_helper(data_gpu, count_,
           data_gpu ? current_mem->gpu_data() : current_mem->cpu_data(),
           type_,
-          data_gpu ? new_mem->mutable_gpu_data(false) : new_mem->mutable_cpu_data(false),
+          data_gpu ? new_mem->mutable_gpu_data() : new_mem->mutable_cpu_data(),
           new_type);
     }
   } // we just trust its current status otherwise

@@ -15,6 +15,7 @@
 #include "caffe/proto/caffe.pb.h"
 #include "caffe/util/blocking_queue.hpp"
 #include "caffe/util/thread_pool.hpp"
+#include "caffe/layers/data_layer.hpp"
 
 namespace caffe {
 
@@ -301,6 +302,17 @@ class Net {
 #else
     return std::string();
 #endif
+  }
+
+  template <typename Ftype, typename Btype>
+  size_t prefetch_bytes() {
+    size_t bytes = 0UL;
+    for (const shared_ptr<LayerBase>& layer : layers_) {
+      if (typeid(*layer) == typeid(DataLayer<Ftype, Btype>)) {
+        bytes += reinterpret_cast<DataLayer<Ftype, Btype>*>(layer.get())->prefetch_bytes();
+      }
+    }
+    return bytes;
   }
 
  protected:

@@ -73,9 +73,6 @@ void ImageDataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom,
   const int crop_height = crop <= 0 ? cv_img.rows : std::min(cv_img.rows, crop);
   const int crop_width = crop <= 0 ? cv_img.cols : std::min(cv_img.cols, crop);
   vector<int> top_shape { batch_size, cv_img.channels(), crop_height, crop_width };
-  for (int i = 0; i < this->prefetch_.size(); ++i) {
-    this->prefetch_[i]->data_->Reshape(top_shape);
-  }
   top[0]->Reshape(top_shape);
   LOG(INFO) << "output data size: " << top[0]->num() << ", "
       << top[0]->channels() << ", " << top[0]->height() << ", "
@@ -83,9 +80,7 @@ void ImageDataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom,
   // label
   vector<int> label_shape(1, batch_size);
   top[1]->Reshape(label_shape);
-  for (int i = 0; i < this->prefetch_.size(); ++i) {
-    this->prefetch_[i]->label_->Reshape(label_shape);
-  }
+  this->batch_transformer_->reshape(top_shape, label_shape);
   layer_inititialized_flag_.set();
 }
 

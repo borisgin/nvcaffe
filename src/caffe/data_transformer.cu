@@ -212,8 +212,7 @@ void DataTransformer::TransformGPU(int N, int C, int H, int W,
   if (has_mean_file) {
     CHECK_EQ(datum_channels, data_mean_.channels());
     mean = data_mean_.gpu_data();
-  }
-  else if (has_mean_values) {
+  } else if (has_mean_values) {
     if (mean_values_gpu_.empty()) {
       CHECK(mean_values_.size() == 1 || mean_values_.size() == datum_channels)
           << "Specify either 1 mean_value or as many as channels: "

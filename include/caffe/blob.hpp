@@ -489,6 +489,14 @@ class Blob {
     return diff_tensor_->current_memory(is_gpu);
   }
 
+  bool is_data_on_gpu() const {
+    return data_tensor_->is_gpu_head();
+  }
+
+  bool is_diff_on_gpu() const {
+    return diff_tensor_->is_gpu_head();
+  }
+
 #ifndef CPU_ONLY
   size_t gpu_memory_data_use(bool own_only = false) const;
   size_t gpu_memory_diff_use(bool own_only = false) const;
@@ -535,10 +543,6 @@ class Blob {
   template<typename Dtype>
   Dtype* mutable_gpu_diff() {
     return mutable_gpu_diff_c<Dtype>(true);
-  }
-
-  void async_gpu_push() {
-    data_tensor_->mutable_synced_mem()->async_gpu_push();
   }
 
   const int* gpu_shape() const;

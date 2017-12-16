@@ -8,6 +8,7 @@
 #include "caffe/blob.hpp"
 #include "caffe/data_reader.hpp"
 #include "caffe/data_transformer.hpp"
+#include "caffe/batch_transformer.hpp"
 #include "caffe/internal_thread.hpp"
 #include "caffe/layer.hpp"
 #include "caffe/layers/base_data_layer.hpp"
@@ -42,9 +43,11 @@ class DataLayer : public BasePrefetchingDataLayer<Ftype, Btype> {
   Flag* layer_inititialized_flag() override {
     return this->phase_ == TRAIN ? &layer_inititialized_flag_ : nullptr;
   }
+  size_t prefetch_bytes() {
+    return this->batch_transformer_->prefetch_bytes();
+  }
 
  protected:
-  void ResizeQueues() override;
   void InitializePrefetch() override;
   void load_batch(Batch* batch, int thread_id, size_t queue_id = 0UL) override;
   size_t queue_id(size_t thread_id) const override;
@@ -57,7 +60,7 @@ class DataLayer : public BasePrefetchingDataLayer<Ftype, Btype> {
   shared_ptr<DataReader> sample_reader_, reader_;
 
 #ifndef CPU_ONLY
-  vector<shared_ptr<GPUMemory::Workspace>> tmp_holder_;
+  vector<shared_ptr<GPUMemory::Workspace>> tmp_gpu_buffer_;
 #endif
 
   // stored random numbers for this batch
