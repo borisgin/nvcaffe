@@ -63,7 +63,7 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
 #endif
     size_t max_parsers_num = 2;
     const size_t max_transf_num = 4;
-    float ratio = datum_encoded_ ? 3.F : 4.F;
+    float ratio = datum_encoded_ ? 1.5F : 3.F;
     if (pnet != nullptr) {
       Solver* psolver = pnet->parent_solver();
       if (psolver != nullptr) {
