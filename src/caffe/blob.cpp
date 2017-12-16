@@ -224,17 +224,19 @@ void Blob::CopyFrom(const Blob& source, bool copy_diff, bool reshape,
     do {
 #ifndef CPU_ONLY
       if (src_type == dst_type) {
-        CHECK_EQ(src->size(), dst->size());
+        CHECK_EQ(srct->count_, dstt->count_);
         // cross copy
-        if (!srct->is_gpu_head() && dstt->is_gpu_head()) {
+        if (srct->is_cpu_head() && dstt->is_gpu_head()) {
           cudaStream_t stream = Caffe::thread_stream();
-          CUDA_CHECK(cudaMemcpyAsync(dst->mutable_gpu_data(), src->cpu_data(), src->size(),
+          CUDA_CHECK(cudaMemcpyAsync(dst->mutable_gpu_data(), src->cpu_data(),
+              srct->count_ * tsize(src_type),
               cudaMemcpyHostToDevice, stream));
           CUDA_CHECK(cudaStreamSynchronize(stream));
           break;
-        } else if (srct->is_gpu_head() && !dstt->is_gpu_head()) {
+        } else if (srct->is_gpu_head() && dstt->is_cpu_head()) {
           cudaStream_t stream = Caffe::thread_stream();
-          CUDA_CHECK(cudaMemcpyAsync(dst->mutable_cpu_data(), src->gpu_data(), src->size(),
+          CUDA_CHECK(cudaMemcpyAsync(dst->mutable_cpu_data(), src->gpu_data(),
+              srct->count_ * tsize(src_type),
               cudaMemcpyDeviceToHost, stream));
           CUDA_CHECK(cudaStreamSynchronize(stream));
           break;
