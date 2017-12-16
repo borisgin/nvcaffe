@@ -359,8 +359,7 @@ void DataReader::CursorManager::fetch(Datum* datum) {
   } else if (!cursor_->parse(datum)) {
     LOG(ERROR) << "Database cursor failed to parse Datum record";
   }
-//  DLOG(INFO) << reader_->db_source_ << " " << cursor_->key() << " " << datum->label() << " " <<
-//      datum->encoded();
+  // DLOG(INFO) << cursor_->key() << " " << datum->label();
 }
 
 }  // namespace caffe

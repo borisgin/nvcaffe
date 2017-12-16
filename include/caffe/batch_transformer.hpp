@@ -50,7 +50,6 @@ private:
 template<typename Ftype, typename Btype>
 class BatchTransformer : public InternalThread {
   typedef BlockingQueue<boost::shared_ptr<Batch>> BBQ;
-//  typedef BlockingQueue<boost::shared_ptr<TBlob<Btype>>> TBQ;
 
  public:
   BatchTransformer(int target_device, size_t rank_, size_t queues_num,
@@ -91,7 +90,6 @@ class BatchTransformer : public InternalThread {
   std::vector<boost::shared_ptr<BBQ>> prefetches_free_;
 
   void next_batch_queue() {
-    // spinning the wheel to the next queue:
     ++next_batch_queue_;
     if (next_batch_queue_ >= queues_num_) {
       next_batch_queue_ = 0;

@@ -27,17 +27,15 @@ void BatchTransformer<Ftype, Btype>::ResizeQueues(size_t queues_num) {
 template<typename Ftype, typename Btype>
 void BatchTransformer<Ftype, Btype>::resize(bool skip_to_next) {
   size_t size = prefetches_free_.size();
-//  if (queues_num_ > size) {
-    prefetches_free_.resize(queues_num_);
-    prefetches_full_.resize(queues_num_);
-    for (size_t i = size; i < queues_num_; ++i) {
-      shared_ptr<Batch> batch = make_shared<Batch>(tp<Ftype>(), tp<Ftype>());
-      prefetch_.push_back(batch);
-      prefetches_free_[i] = make_shared<BlockingQueue<shared_ptr<Batch>>>();
-      prefetches_full_[i] = make_shared<BlockingQueue<shared_ptr<Batch>>>();
-      prefetches_free_[i]->push(batch);
-    }
-//  }
+  prefetches_free_.resize(queues_num_);
+  prefetches_full_.resize(queues_num_);
+  for (size_t i = size; i < queues_num_; ++i) {
+    shared_ptr<Batch> batch = make_shared<Batch>(tp<Ftype>(), tp<Ftype>());
+    prefetch_.push_back(batch);
+    prefetches_free_[i] = make_shared<BlockingQueue<shared_ptr<Batch>>>();
+    prefetches_full_[i] = make_shared<BlockingQueue<shared_ptr<Batch>>>();
+    prefetches_free_[i]->push(batch);
+  }
   if (skip_to_next) {
     next_batch_queue();  // 0th already processed
   }
@@ -45,42 +43,6 @@ void BatchTransformer<Ftype, Btype>::resize(bool skip_to_next) {
 
 template<typename Ftype, typename Btype>
 void BatchTransformer<Ftype, Btype>::InternalThreadEntry() {
-//  shared_ptr<Batch> batch =
-//      prefetches_full_[next_batch_queue_]->pop("Data layer prefetch queue empty");
-
-//  if (batch->data_packing() == this->transform_param_.forward_packing()
-//      && top[0]->shape() == batch->data_->shape()) {
-//    top[0]->Swap(*batch->data_);
-//  } else {
-//    top[0]->safe_reshape_mode(true);
-
-//  tmp_.Reshape(batch->data_->shape());
-//  tmp_.set_cpu_data(batch->data_->template mutable_cpu_data<Btype>());
-//  boost::shared_ptr<Batch> top = processed_free_.pop();
-//
-//  top->data_->CopyDataFrom(tmp_, true, batch->data_packing(), transform_param_.forward_packing());
-//  top->label_->Swap(*batch->label_);
-//
-//  processed_full_.push(top);
-
-//  if (this->output_labels_) {
-////    top[1]->Swap(*batch->label_);
-//    top[1]->CopyDataFrom(*batch->label_);
-//
-////    LOG(INFO) <<top[1]->to_string();
-//
-//  }
-
-//  batch->set_id((size_t) -1L);
-//  prefetches_free_[next_batch_queue_]->push(batch);
-//  next_batch_queue();
-
-
-
-
-
-
-
   try {
     while (!must_stop(0)) {
       shared_ptr<Batch> batch =
@@ -120,23 +82,6 @@ void BatchTransformer<Ftype, Btype>::reshape(const vector<int>& data_shape,
     this->prefetch_[i]->label_->Reshape(label_shape);
   }
 };
-
-
-//
-//template<typename Ftype, typename Btype>
-//void BasePrefetchingDataLayer<Ftype, Btype>::ResizeQueues() {
-//  size_t size = prefetches_free_.size();
-//  if (queues_num_ > size) {
-//    prefetches_free_.resize(queues_num_);
-//    prefetches_full_.resize(queues_num_);
-//    for (size_t i = size; i < queues_num_; ++i) {
-//      shared_ptr<Batch> batch = make_shared<Batch>(tp<Ftype>(), tp<Ftype>());
-//      prefetch_.push_back(batch);
-//      prefetches_free_[i] = make_shared<BlockingQueue<shared_ptr<Batch>>>();
-//      prefetches_full_[i] = make_shared<BlockingQueue<shared_ptr<Batch>>>();
-//      prefetches_free_[i]->push(batch);
-//    }
-//  }
 
 INSTANTIATE_CLASS_FB(BatchTransformer);
 

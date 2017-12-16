@@ -59,9 +59,8 @@ class DataLayer : public BasePrefetchingDataLayer<Ftype, Btype> {
 
   shared_ptr<DataReader> sample_reader_, reader_;
 
-//  static thread_local vector<vector<Btype>> tmp_cpu_holder_;
 #ifndef CPU_ONLY
-  vector<shared_ptr<GPUMemory::Workspace>> tmp_gpu_holder_;
+  vector<shared_ptr<GPUMemory::Workspace>> tmp_gpu_buffer_;
 #endif
 
   // stored random numbers for this batch
@@ -71,18 +70,7 @@ class DataLayer : public BasePrefetchingDataLayer<Ftype, Btype> {
   std::atomic_bool sample_only_;
   const bool cache_, shuffle_;
   bool datum_encoded_;
-//  const vector<Blob*>* top_;
-//  const vector<Blob*>* bottom_;
-
-  static mutex mutex_init_;
 };
-
-template<typename Ftype, typename Btype>
-std::mutex DataLayer<Ftype, Btype>::mutex_init_;
-//template<typename Ftype, typename Btype>
-//thread_local vector<vector<Btype>> DataLayer<Ftype, Btype>::tmp_cpu_holder_;
-//template<typename Ftype, typename Btype>
-//thread_local vector<shared_ptr<GPUMemory::Workspace>> DataLayer<Ftype, Btype>::tmp_gpu_holder_;
 
 }  // namespace caffe
 

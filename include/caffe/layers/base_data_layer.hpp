@@ -83,7 +83,6 @@ class BasePrefetchingDataLayer : public BaseDataLayer<Ftype, Btype>, public Inte
  protected:
   void InternalThreadEntry() override;
   void InternalThreadEntryN(size_t thread_id) override;
-  void AllocatePrefetch();
 
   virtual void ResizeQueues();
   virtual void InitializePrefetch();
@@ -102,37 +101,21 @@ class BasePrefetchingDataLayer : public BaseDataLayer<Ftype, Btype>, public Inte
     return id;
   }
 
-//  void next_batch_queue() {
-//    // spinning the wheel to the next queue:
-//    ++next_batch_queue_;
-//    if (next_batch_queue_ >= queues_num_) {
-//      next_batch_queue_ = 0;
-//    }
-//  }
-//
   static size_t threads(const LayerParameter& param);
   static size_t parser_threads(const LayerParameter& param);
   static bool auto_mode(const LayerParameter& param);
 
   std::vector<size_t> batch_ids_;
-//  std::vector<boost::shared_ptr<Batch>> prefetch_;
   const bool auto_mode_;
   size_t parsers_num_, transf_num_, queues_num_;
 
-//  size_t next_batch_queue_;
   // These two are for delayed init only
   std::vector<Blob*> bottom_init_;
   std::vector<Blob*> top_init_;
 
-//  unique_ptr<boost::barrier> qbar_, lbar_;
-
   vector<shared_ptr<DataTransformer>> data_transformers_;
 
-//  std::vector<boost::shared_ptr<BlockingQueue<boost::shared_ptr<Batch>>>> prefetches_full_;
-//  std::vector<boost::shared_ptr<BlockingQueue<boost::shared_ptr<Batch>>>> prefetches_free_;
   boost::shared_ptr<BatchTransformer<Ftype, Btype>> batch_transformer_;
-
-//  TBlob<Btype> tmp_;
 };
 
 }  // namespace caffe

@@ -59,7 +59,6 @@ inline constexpr cudnnDataType_t cudnn_dt<float16>() {
 #endif
 #endif
 
-
 template <typename T1, typename T2>
 Type tpmax() {
   // min because DOUBLE < FLOAT < FLOAT16

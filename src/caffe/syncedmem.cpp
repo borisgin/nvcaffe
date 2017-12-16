@@ -59,31 +59,6 @@ SyncedMemory::~SyncedMemory() {
 #endif  // CPU_ONLY
 }
 
-//void SyncedMemory::clean_redundant_memory() {
-//  switch (head_) {
-//    case HEAD_AT_CPU:
-//#ifndef CPU_ONLY
-//      if (gpu_ptr_ != nullptr && own_gpu_data_) {
-//        shared_lock<shared_mutex> lock(GPUMemory::read_write_mutex());
-//        GPUMemory::deallocate(gpu_ptr_, device_);
-//        gpu_ptr_ = nullptr;
-//        own_gpu_data_ = false;
-//      }
-//#endif
-//      break;
-//    case HEAD_AT_GPU:
-//      if (cpu_ptr_ != nullptr && own_cpu_data_) {
-//#ifndef CPU_ONLY
-//        shared_lock<shared_mutex> lock(GPUMemory::read_write_mutex());
-//#endif
-//        FreeHost(cpu_ptr_, cpu_malloc_use_cuda_);
-//        cpu_ptr_ = nullptr;
-//        own_cpu_data_ = false;
-//      }
-//      break;
-//  }
-//}
-
 void SyncedMemory::to_cpu(bool copy_from_gpu) {
   switch (head_) {
     case UNINITIALIZED:
@@ -171,13 +146,6 @@ const void* SyncedMemory::gpu_data() {
 #endif
 }
 
-//const void* SyncedMemory::current_data(bool prefer_gpu) {
-//  if (prefer_gpu) {
-//    return head_ == HEAD_AT_CPU ? cpu_data() : gpu_data();
-//  }
-//  return head_ == HEAD_AT_GPU ? gpu_data() : cpu_data();
-//}
-
 void SyncedMemory::set_gpu_data(void* data) {
 #ifndef CPU_ONLY
   CHECK(data);
@@ -208,30 +176,6 @@ void* SyncedMemory::mutable_gpu_data(bool copy_from_cpu) {
   return NULL;
 #endif
 }
-
-//void* SyncedMemory::mutable_current_data(bool prefer_gpu) {
-//  if (prefer_gpu) {
-//    return head_ == HEAD_AT_CPU ? mutable_cpu_data(false) : mutable_gpu_data(false);
-//  }
-//  return head_ == HEAD_AT_GPU ? mutable_gpu_data(false) : mutable_cpu_data(false);
-//}
-
-//#ifndef CPU_ONLY
-//void SyncedMemory::async_gpu_push() {
-//  if (gpu_ptr_ == NULL) {
-//    CUDA_CHECK(cudaGetDevice(&device_));
-//    GPUMemory::allocate(&gpu_ptr_, pstream_, size_, device_, 0);
-//    own_gpu_data_ = true;
-//  }
-//  CHECK_EQ(Caffe::current_device(), device_);
-//  const cudaMemcpyKind put = cudaMemcpyHostToDevice;
-//  CUDA_CHECK(cudaMemcpyAsync(gpu_ptr_, cpu_ptr_, size_, put,
-//      Caffe::th_stream_aux(Caffe::STREAM_ID_ASYNC_PUSH)));
-//  // Assume caller will synchronize on the stream before use
-//  validate();
-//  head_ = SYNCED;
-//}
-//#endif
 
 std::string SyncedMemory::to_string(int indent, Type type) {  // debug helper
   const std::string idt(indent, ' ');
