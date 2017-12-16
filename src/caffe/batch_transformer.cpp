@@ -30,7 +30,8 @@ void BatchTransformer<Ftype, Btype>::resize(bool skip_to_next) {
   prefetches_free_.resize(queues_num_);
   prefetches_full_.resize(queues_num_);
   for (size_t i = size; i < queues_num_; ++i) {
-    shared_ptr<Batch> batch = make_shared<Batch>(tp<Ftype>(), tp<Ftype>());
+    // prefetch is Btype, processed is Ftype
+    shared_ptr<Batch> batch = make_shared<Batch>(tp<Btype>(), tp<Btype>());
     prefetch_.push_back(batch);
     prefetches_free_[i] = make_shared<BlockingQueue<shared_ptr<Batch>>>();
     prefetches_full_[i] = make_shared<BlockingQueue<shared_ptr<Batch>>>();
