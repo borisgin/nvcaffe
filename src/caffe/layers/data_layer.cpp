@@ -316,8 +316,8 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
 
 
 #endif
-  size_t holder_size = //init_datum->encoded() ? sizeof(Btype) *
-      top_shape[0] * top_shape[1] * init_datum_height * init_datum_width;
+//  size_t holder_size = //init_datum->encoded() ? sizeof(Btype) *
+//      top_shape[0] * top_shape[1] * init_datum_height * init_datum_width;
 //      sizeof(Btype) * batch->data_->count();
 //
 //  // todo?
@@ -328,7 +328,6 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
 //  if (thread_id == 0) {
 //    top_->at(0)->Reshape(top_shape);
 //    top_->at(0)->mutable_gpu_data_c<Btype>(false);
-    tmp_gpu_holder_[thread_id]->safe_reserve(holder_size);
     if (this->output_labels_) {
       batch->label_->Reshape(vector<int>(1, batch_size));
 //      batch->label_->template mutable_cpu_data_c<Ftype>(false);
@@ -347,7 +346,14 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
 //
 //  Btype* dst_gptr = use_gpu_transform ? batch->data_->mutable_gpu_data_c<Btype>(false) : nullptr;
 
-  void* dst_gptr = use_gpu_transform ? tmp_gpu_holder_[thread_id]->data() : nullptr;
+  void* dst_gptr = nullptr;
+  if (use_gpu_transform) {
+    size_t holder_size = top_shape[0] * top_shape[1] * init_datum_height * init_datum_width;
+    tmp_gpu_holder_[thread_id]->safe_reserve(holder_size);
+    dst_gptr = tmp_gpu_holder_[thread_id]->data();
+  }
+
+
   Btype* dst_cptr =batch->data_->template mutable_cpu_data_c<Btype>(false);
       //use_gpu_transform ? nullptr : &tmp_cpu_holder_[thread_id].front();
 
