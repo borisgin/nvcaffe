@@ -171,12 +171,12 @@ const void* SyncedMemory::gpu_data() {
 #endif
 }
 
-const void* SyncedMemory::current_data(bool prefer_gpu) {
-  if (prefer_gpu) {
-    return head_ == HEAD_AT_CPU ? cpu_data() : gpu_data();
-  }
-  return head_ == HEAD_AT_GPU ? gpu_data() : cpu_data();
-}
+//const void* SyncedMemory::current_data(bool prefer_gpu) {
+//  if (prefer_gpu) {
+//    return head_ == HEAD_AT_CPU ? cpu_data() : gpu_data();
+//  }
+//  return head_ == HEAD_AT_GPU ? gpu_data() : cpu_data();
+//}
 
 void SyncedMemory::set_gpu_data(void* data) {
 #ifndef CPU_ONLY
@@ -209,12 +209,12 @@ void* SyncedMemory::mutable_gpu_data(bool copy_from_cpu) {
 #endif
 }
 
-void* SyncedMemory::mutable_current_data(bool prefer_gpu) {
-  if (prefer_gpu) {
-    return head_ == HEAD_AT_CPU ? mutable_cpu_data(false) : mutable_gpu_data(false);
-  }
-  return head_ == HEAD_AT_GPU ? mutable_gpu_data(false) : mutable_cpu_data(false);
-}
+//void* SyncedMemory::mutable_current_data(bool prefer_gpu) {
+//  if (prefer_gpu) {
+//    return head_ == HEAD_AT_CPU ? mutable_cpu_data(false) : mutable_gpu_data(false);
+//  }
+//  return head_ == HEAD_AT_GPU ? mutable_gpu_data(false) : mutable_cpu_data(false);
+//}
 
 //#ifndef CPU_ONLY
 //void SyncedMemory::async_gpu_push() {

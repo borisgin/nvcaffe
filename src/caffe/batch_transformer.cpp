@@ -90,15 +90,15 @@ void BatchTransformer<Ftype, Btype>::InternalThreadEntry() {
           batch->data_packing() == this->transform_param_.forward_packing()) {
         top->data_->Swap(*batch->data_);
       } else {
-        if (batch->data_->is_data_on_gpu()) {
+//        if (batch->data_->is_data_on_gpu()) {
           top->data_->CopyDataFrom(*batch->data_, true,
               batch->data_packing(), transform_param_.forward_packing());
-        } else {
-          tmp_.Reshape(batch->data_->shape());
-          tmp_.set_cpu_data(batch->data_->template mutable_cpu_data<Btype>());
-          top->data_->CopyDataFrom(tmp_, true,
-              batch->data_packing(), transform_param_.forward_packing());
-        }
+//        } else {
+//          tmp_.Reshape(batch->data_->shape());
+//          tmp_.set_cpu_data(batch->data_->template mutable_cpu_data<Btype>());
+//          top->data_->CopyDataFrom(tmp_, true,
+//              batch->data_packing(), transform_param_.forward_packing());
+//        }
       }
       top->label_->Swap(*batch->label_);
       processed_full_.push(top);
