@@ -13,7 +13,7 @@
 namespace caffe {
 
 class Batch {
-public:
+ public:
   shared_ptr<Blob> data_;
   shared_ptr<Blob> label_;
 
@@ -41,7 +41,8 @@ public:
   }
 
   DISABLE_COPY_MOVE_AND_ASSIGN(Batch);
-private:
+
+ private:
   size_t id_;
   Packing data_packing_;
 };
@@ -99,7 +100,7 @@ class BatchTransformer : public InternalThread {
 
   void resize(bool skip_to_next);
 
-private:
+ private:
   BBQ processed_full_;
   BBQ processed_free_;
   TBlob<Btype> tmp_;

@@ -788,7 +788,7 @@ size_t Net::received_contiguous_count(int type_id, const std::set<int>& au_ids, 
   const int top = *au_ids.rbegin();
   id_from_ret = -1;
   const std::map<size_t, std::set<int>>& ltop = ltop_[type_id];
-  for (auto lit = ltop.rbegin(); lit != ltop.rend(); ++lit) { //size_t layer_id = top_layer_id; layer_id > 0UL; --layer_id) {
+  for (auto lit = ltop.rbegin(); lit != ltop.rend(); ++lit) {
     if (lit->second.empty() || *lit->second.begin() > top) {
       continue;
     }
@@ -943,7 +943,8 @@ void Net::Reduce(int type_id, int param_id) {
     cb->allreduce(type_id, param_id);
     cb->reduce_barrier(type_id);
   }
-  this->learnable_params()[param_id]->scale_diff(1.F / (Caffe::solver_count() * global_grad_scale()),
+  this->learnable_params()[param_id]->
+      scale_diff(1.F / (Caffe::solver_count() * global_grad_scale()),
       Caffe::cublas_handle());
   // Also need to barrier to make sure lock isn't undone
   // until all have completed, but the current nature of
@@ -1436,6 +1437,8 @@ void Net::InitializeLearnableDiffSpace(int type_id) {
   }
 }
 
+#endif
+
 const vector<Type>& Net::learnable_types(bool reset) {
   if (reset || learnable_types_.empty()) {
     learnable_types_.clear();
@@ -1455,7 +1458,5 @@ const vector<Type>& Net::learnable_types(bool reset) {
   }
   return learnable_types_;
 }
-
-#endif
 
 }  // namespace caffe

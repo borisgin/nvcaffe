@@ -259,7 +259,8 @@ std::string GPUMemory::Manager::report_dev_info(int device) {
 }
 
 void GPUMemory::Manager::GetInfo(size_t* free_mem, size_t* total_mem, bool with_update) {
-  CHECK(cub_allocator_) << "Forgot to add 'caffe::GPUMemory::Scope gpu_memory_scope(gpus);' to your main()?";
+  CHECK(cub_allocator_) <<
+      "Forgot to add 'caffe::GPUMemory::Scope gpu_memory_scope(gpus);' to your main()?";
   int cur_device;
   CUDA_CHECK(cudaGetDevice(&cur_device));
   if (with_update) {

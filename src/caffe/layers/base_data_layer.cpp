@@ -110,20 +110,13 @@ void BasePrefetchingDataLayer<Ftype, Btype>::InternalThreadEntryN(size_t thread_
   try {
     while (!must_stop(thread_id)) {
       const size_t qid = this->queue_id(thread_id);
-#ifndef CPU_ONLY
       shared_ptr<Batch> batch = batch_transformer_->prefetched_pop_free(qid);
-
       CHECK_EQ((size_t) -1L, batch->id());
       load_batch(batch.get(), thread_id, qid);
       if (must_stop(thread_id)) {
         break;
       }
       batch_transformer_->prefetched_push_full(qid, batch);
-#else
-      shared_ptr<Batch> batch = prefetches_free_[qid]->pop();
-      load_batch(batch.get(), thread_id, qid);
-      prefetches_full_[qid]->push(batch);
-#endif
       if (iter0) {
         if (this->net_iteration0_flag_ != nullptr) {
           this->net_iteration0_flag_->wait();

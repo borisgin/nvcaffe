@@ -33,7 +33,7 @@ class dataType;
 
 template<>
 class dataType<float> {
-public:
+ public:
   static const cudnnDataType_t type = CUDNN_DATA_FLOAT;
   static const cudnnDataType_t conv_type = CUDNN_DATA_FLOAT;
   static float oneval, zeroval;
@@ -42,7 +42,7 @@ public:
 
 template<>
 class dataType<double> {
-public:
+ public:
   static const cudnnDataType_t type = CUDNN_DATA_DOUBLE;
   static const cudnnDataType_t conv_type = CUDNN_DATA_DOUBLE;
   static double oneval, zeroval;
@@ -53,7 +53,7 @@ public:
 
 template<>
 class dataType<float16> {
-public:
+ public:
   static const cudnnDataType_t type = CUDNN_DATA_HALF;
   static const cudnnDataType_t conv_type = CUDNN_DATA_HALF;
   static float oneval, zeroval;
@@ -168,7 +168,7 @@ inline void setTensor4dDesc(cudnnTensorDescriptor_t *desc, cudnnDataType_t type,
     stride_h = w * stride_w;
     stride_c = h * stride_h;
     stride_n = c * stride_c;
-  } else if (packing == NHWC){
+  } else if (packing == NHWC) {
     stride_c = 1;
     stride_w = c * stride_c;
     stride_h = w * stride_w;

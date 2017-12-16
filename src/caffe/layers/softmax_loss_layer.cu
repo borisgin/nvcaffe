@@ -74,6 +74,7 @@ void SoftmaxWithLossLayer<Ftype, Btype>::Forward_gpu(
         outer_num_, dim, inner_num_, has_ignore_label_, ignore_label_,
         reinterpret_cast<half*>(counts));
   } else {
+    // NOLINT_NEXT_LINE(whitespace/operators)
     SoftmaxLossForwardGPU<<<CAFFE_GET_BLOCKS(nthreads),
         CAFFE_CUDA_NUM_THREADS, 0, stream>>> (nthreads, prob_data, label, loss_data,
         outer_num_, dim, inner_num_, has_ignore_label_, ignore_label_, counts);

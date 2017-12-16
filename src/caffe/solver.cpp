@@ -295,9 +295,7 @@ void Solver::Step(int iters) {
     iteration_start_signal(0);
 #endif
     for (int i = 0; i < param_.iter_size(); ++i) {
-
       loss += net_->ForwardBackward(i + 1 == param_.iter_size());
-
       if (i == 0) {
         if (first_loop) {
           iter0_flag_.set();

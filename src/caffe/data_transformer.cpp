@@ -25,7 +25,7 @@ DataTransformer::DataTransformer(const TransformationParameter& param, Phase pha
       vertical_stretch_upper_(param_.vertical_stretch_upper()),
       horizontal_stretch_lower_(param_.horizontal_stretch_lower()),
       horizontal_stretch_upper_(param_.horizontal_stretch_upper()),
-      allow_upscale_(param_.allow_upscale()){
+      allow_upscale_(param_.allow_upscale()) {
   // check if we want to use mean_file
   if (param_.has_mean_file()) {
     CHECK_EQ(param_.mean_value_size(), 0)

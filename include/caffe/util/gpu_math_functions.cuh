@@ -400,7 +400,7 @@ struct n_bytes {  \
   char content[N];  \
 }
 
-#define SHMEMN(N,FN)                    \
+#define SHMEMN(N, FN)                    \
 template<> struct __dyn_shmem_##FN##__<n_bytes<N>> { \
   __device__ n_bytes<N>* getPtr() {           \
     extern __shared__ n_bytes<N> FN##ptr##N[];    \
@@ -409,14 +409,14 @@ template<> struct __dyn_shmem_##FN##__<n_bytes<N>> { \
 }
 
 #define CAFFE_GPU_SHMEM(FN)  \
-SHMEMN(2,FN);  \
-SHMEMN(4,FN);  \
-SHMEMN(6,FN);  \
-SHMEMN(8,FN);  \
-SHMEMN(10,FN);  \
-SHMEMN(12,FN);  \
-SHMEMN(14,FN);  \
-SHMEMN(16,FN)
+SHMEMN(2, FN);  \
+SHMEMN(4, FN);  \
+SHMEMN(6, FN);  \
+SHMEMN(8, FN);  \
+SHMEMN(10, FN);  \
+SHMEMN(12, FN);  \
+SHMEMN(14, FN);  \
+SHMEMN(16, FN)
 
 #define REDUCTION_GROUP_AMAX   0
 #define REDUCTION_GROUP_ASUM   1

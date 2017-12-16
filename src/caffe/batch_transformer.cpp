@@ -9,7 +9,7 @@ BatchTransformer<Ftype, Btype>::BatchTransformer(int target_device, size_t rank_
     queues_num_(queues_num),
     next_batch_queue_(0UL),
     transform_param_(transform_param),
-    gpu_transform_(gpu_transform){
+    gpu_transform_(gpu_transform) {
   shared_ptr<Batch> processed = make_shared<Batch>(tp<Ftype>(), tp<Ftype>());
   processed_free_.push(processed);
   resize(false);
@@ -73,11 +73,9 @@ void BatchTransformer<Ftype, Btype>::InternalThreadEntry() {
       batch->set_id((size_t) -1L);
       prefetches_free_[next_batch_queue_]->push(batch);
       next_batch_queue();
-
     }
   }catch (boost::thread_interrupted&) {
   }
-
 }
 
 template<typename Ftype, typename Btype>

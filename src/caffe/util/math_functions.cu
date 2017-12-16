@@ -251,6 +251,7 @@ void caffe_gpu_scal<float16>(const int n, const float16 alpha, float16* x,
   half ha;
   ha.setx(alpha.getx());
   // use cublasHscal when it will become available
+  // NOLINT_NEXT_LINE(whitespace/operators)
   scale_in_place_kernel <<<CAFFE_GET_BLOCKS_HALF(n), CAFFE_CUDA_NUM_THREADS_HALF, 0, stream>>>
       (n, ha, reinterpret_cast<half*>(x));
   CUDA_POST_KERNEL_CHECK;
