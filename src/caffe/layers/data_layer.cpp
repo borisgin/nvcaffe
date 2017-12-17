@@ -59,7 +59,7 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
 #endif
     size_t parsers_num = this->parsers_num_;
     size_t transf_num = this->threads_num();
-    if (batches_fit > 1) {
+    if (batches_fit > 0) {
       parsers_num = cache_ ? 1 : 2;
       transf_num = 3;
     }
