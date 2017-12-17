@@ -656,7 +656,7 @@ float Solver::perf_report(std::ostream& os, int device, int align) const {
   std::string al(align, ' ');
   float perf_ratio = total_lapse() > 0. ?
       (relative_iter() > 2 ? relative_iter() - 2 : 0) / total_lapse() : 0.F;
-  float perf = perf_ratio * net_->batch_per_solver();
+  float perf = perf_ratio * net_->batch_per_solver() * param_.iter_size();
   os << al << "Solver performance on device " << device << ": "
       << perf_ratio << " * " << net_->batch_per_solver()
       << " = " << perf << " img/sec (" << relative_iter()
