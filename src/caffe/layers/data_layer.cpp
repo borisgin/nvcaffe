@@ -49,37 +49,24 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
     // Here we try to optimize memory split between prefetching and convolution.
     // All data and parameter blobs are allocated at this moment.
     // Now let's find out what's left...
-    size_t current_parsers_num = this->parsers_num_;
-    size_t current_transf_num = this->threads_num();
 #ifndef CPU_ONLY
     Net* pnet = this->parent_net();
     const size_t batch_bytes = pnet->prefetch_bytes<Ftype, Btype>();
-    size_t gpu_bytes = Caffe::min_avail_device_memory();
-    size_t batches_fit = gpu_bytes / batch_bytes;
+    const size_t gpu_bytes = Caffe::min_avail_device_memory();
+    const size_t batches_fit = gpu_bytes / batch_bytes;
 #else
     size_t batches_fit = this->queues_num_;
 #endif
-    size_t max_parsers_num = 2;
-    const size_t max_transf_num = 4;
-    float ratio = datum_encoded_ ? 1.F : 2.F;
-    const float fit = std::min(float(max_parsers_num * max_transf_num),
-        std::floor(batches_fit / ratio));
-    current_parsers_num = std::min(max_parsers_num, std::max(1UL,
-        static_cast<size_t>(std::sqrt(fit))));
-    if (cache_ && current_parsers_num > 1UL) {
-      LOG(INFO) << this->print_current_device() << " Reduced parser threads count from "
-                << current_parsers_num << " to 1 because cache is used";
-      current_parsers_num = 1UL;
+    size_t parsers_num = this->parsers_num_;
+    size_t transf_num = this->threads_num();
+    if (batches_fit > 1) {
+      parsers_num = cache_ ? 1 : 2;
+      transf_num = 3;
     }
-    current_transf_num = std::min(max_transf_num, std::max(current_transf_num,
-        static_cast<size_t>(std::lround(fit / current_parsers_num))));
-    if (current_parsers_num > 1 && current_transf_num == max_transf_num - 1) {
-      current_parsers_num = 1;
-      current_transf_num = max_transf_num;
-    }
-    this->RestartAllThreads(current_transf_num, true, false, Caffe::next_seed());
+
+    this->RestartAllThreads(transf_num, true, false, Caffe::next_seed());
     this->transf_num_ = this->threads_num();
-    this->parsers_num_ = current_parsers_num;
+    this->parsers_num_ = parsers_num;
     this->queues_num_ = this->transf_num_ * this->parsers_num_;
     this->batch_transformer_->ResizeQueues(this->queues_num_);
     BasePrefetchingDataLayer<Ftype, Btype>::InitializePrefetch();
