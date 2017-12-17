@@ -31,8 +31,24 @@ float AdamSolver<Dtype>::ComputeUpdateValue(int param_id, void* handle, float ra
 
   float wgrad_sq = 1.F;  // stub
 
-  const vector<float>& net_params_lr = this->net_->params_lr();
-  float local_rate = rate * net_params_lr[param_id];
+//  const vector<float>& net_params_lr = this->net_->params_lr();
+//  float local_rate = rate * net_params_lr[param_id];
+
+  const bool larc =this->param_.larc();
+  const string& larc_policy = this->param_.larc_policy();
+  float local_rate = this->GetLocalRate(param_id, wgrad_sq);
+  if (larc) {
+    if (larc_policy == "scale") {
+      local_rate = rate * local_rate;
+    } else if (larc_policy == "clip") {
+      local_rate = std::min(rate, local_rate);
+    } else {
+      LOG(FATAL) << "Unknown larc policy: " << larc_policy;
+    }
+  } else {
+    local_rate = rate * local_rate;
+  }
+
   const float beta1 = this->param_.momentum();
   const float beta2 = this->param_.momentum2();
 

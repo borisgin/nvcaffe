@@ -1,0 +1,51 @@
+net: "models/resnet50/train_val_1K.prototxt"
+
+test_iter:    1562         # 1562=50000/32
+test_interval: 1250    
+test_initialization: false
+
+display: 250
+
+max_iter: 125000 	# 100 epoch 
+
+base_lr:  1.00 		
+lr_policy: "poly"
+power: 2.0
+
+#rampup_lr: 1.0
+#rampup_interval: 5000
+
+larc: true
+larc_policy: "clip"
+larc_eta: 0.002
+
+momentum: 0.9
+# momentum_policy: "poly"  
+# max_momentum:    0.95
+# momentum_power:   2.0
+
+weight_decay: 0.0005         #1e-4
+
+snapshot: 1000000
+snapshot_prefix: "models/resnet50/snapshots/resnet50"
+snapshot_after_train: false
+
+solver_mode: GPU
+random_seed: 1
+
+#solver_data_type: FLOAT16
+
+# Train dataset size = 1,281,167
+# Test dataset size  =    50,000
+
+# batch 32  --> epoch = 40,000
+# batch 64  --> epoch = 20,000 
+# batch 96  --> epoch = 15,000
+# batch 128 --> epoch = 10,000 
+# batch 256 --> epoch =  5,000  
+# batch 512 --> epoch =  2,500  
+# batch 1024--> epoch =  1,250  #
+# batch 2048--> epoch =    625
+# batch 4096--> epoch =    312
+# batch 8192--> epoch =    156
+# batch 16K --> epoch =     78
