@@ -31,7 +31,12 @@ void Blob::Reshape(const int n) {
   Reshape(shape);
 }
 
+
+std::mutex mx_;
+
 void Blob::Reshape(const vector<int>& shape) {
+  std::lock_guard<std::mutex> lock(mx_);
+
   CHECK_LE(shape.size(), kMaxBlobAxes);
   CHECK(data_tensor_);
   CHECK(diff_tensor_);
@@ -50,8 +55,8 @@ void Blob::Reshape(const vector<int>& shape) {
     shape_[i] = shape[i];
     shape_data[i] = shape[i];
   }
-  data_tensor_->Reshape(count_, safe_reshape_mode_);
-  diff_tensor_->Reshape(count_, safe_reshape_mode_);
+  data_tensor_->Reshape(count_);
+  diff_tensor_->Reshape(count_);
   CHECK(is_current_data_valid());
   CHECK(is_current_diff_valid());
 }

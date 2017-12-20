@@ -38,6 +38,9 @@ class SyncedMemory {
   size_t size() const {
     return size_;
   }
+  void resize(size_t size) {
+    size_ = size;
+  }
   size_t gpu_memory_use(bool own_only = false) const {
     return own_only ? (own_gpu_data_ ? size_ : 0UL) : size_;
   }

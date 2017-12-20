@@ -1419,9 +1419,6 @@ void Net::InitializeLearnableDiffSpace(int type_id) {
             learnable_params_[param_id]->set_gpu_diff(ptr);
             learnable_params_ptrs_[type_id][param_id] = static_cast<void *>(ptr);
             ptr += lp_aligned_count(param_id) * lp_size(param_id);
-#ifdef DEBUG
-            learnable_params_[param_id]->freeze_diff();
-#endif
             learnable_params_mapped_.push_back(learnable_params_[param_id]);
             ltop_[type_id][i].insert(param_id);
             void *p = learnable_params_[param_id]->current_mutable_data_memory(true);

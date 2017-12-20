@@ -13,7 +13,6 @@ BatchTransformer<Ftype, Btype>::BatchTransformer(int target_device, size_t rank_
   shared_ptr<Batch> processed = make_shared<Batch>(tp<Ftype>(), tp<Ftype>());
   processed_free_.push(processed);
   resize(false);
-  tmp_.safe_reshape_mode(true);
   StartInternalThread();
 }
 
@@ -62,9 +61,14 @@ void BatchTransformer<Ftype, Btype>::InternalThreadEntry() {
           top->data_->CopyDataFrom(*batch->data_, true,
               batch->data_packing(), transform_param_.forward_packing());
         } else {
-          tmp_.Reshape(batch->data_->shape());
+          if (tmp_.shape() != batch->data_->shape()) {
+            tmp_.Reshape(batch->data_->shape());
+          }
+          if (top->data_->shape() != batch->data_->shape()) {
+            top->data_->Reshape(batch->data_->shape());
+          }
           tmp_.set_cpu_data(batch->data_->template mutable_cpu_data<Btype>());
-          top->data_->CopyDataFrom(tmp_, true,
+          top->data_->CopyDataFrom(tmp_, false,
               batch->data_packing(), transform_param_.forward_packing());
         }
       }
@@ -80,12 +84,23 @@ void BatchTransformer<Ftype, Btype>::InternalThreadEntry() {
 
 template<typename Ftype, typename Btype>
 void BatchTransformer<Ftype, Btype>::reshape(const vector<int>& data_shape,
-    const vector<int>& label_shape) {
+    const vector<int>& label_shape, bool preallocate) {
   for (int i = 0; i < this->prefetch_.size(); ++i) {
-    this->prefetch_[i]->data_->Reshape(data_shape);
-    this->prefetch_[i]->label_->Reshape(label_shape);
+    prefetch_[i]->data_->Reshape(data_shape);
+    prefetch_[i]->label_->Reshape(label_shape);
+    if (preallocate) {
+      prefetch_[i]->data_->template mutable_gpu_data_c<Ftype>(false);
+      prefetch_[i]->label_->template mutable_gpu_data_c<Ftype>(false);
+    }
   }
-};
+  shared_ptr<Batch> processed_batch;
+  if (processed_free_.try_peek(&processed_batch)) {
+    processed_batch->data_->Reshape(data_shape);
+    processed_batch->label_->Reshape(label_shape);
+    processed_batch->data_->template mutable_gpu_data_c<Ftype>(false);
+    processed_batch->label_->template mutable_gpu_data_c<Ftype>(false);
+  }
+}
 
 INSTANTIATE_CLASS_FB(BatchTransformer);
 

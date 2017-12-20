@@ -9,7 +9,12 @@ void BasePrefetchingDataLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bo
     const vector<Blob*>& top) {
   // Note: this function runs in one thread per object and one object per one Solver thread
   shared_ptr<Batch> batch = this->batch_transformer_->processed_pop();
-  top[0]->Swap(*batch->data_);
+  if (batch_size_ == 1 || (last_shape_.size() > 0 && top[0]->shape() != last_shape_)) {
+    top[0]->CopyDataFrom(*batch->data_, true);
+  } else {
+    top[0]->Swap(*batch->data_);
+  }
+  last_shape_ = top[0]->shape();
   if (this->output_labels_) {
     top[1]->Swap(*batch->label_);
   }

@@ -16,7 +16,6 @@ void SplitLayer<Ftype, Btype>::Reshape(const vector<Blob*>& bottom, const vector
     // some strange effects in practice...)
     CHECK_NE(top[i], bottom[0]) << "SplitLayer " << this->type()
         << " does not allow in-place computation.";
-    top[i]->safe_reshape_mode(true);
     top[i]->ReshapeLike(*bottom[0]);
     top[i]->ShareData(*bottom[0]);
     CHECK_EQ(count_, top[i]->count());

@@ -48,7 +48,7 @@ class Blob {
   Blob(Type data_type, Type diff_type)
       : data_tensor_(make_shared<Tensor>(data_type)),
         diff_tensor_(make_shared<Tensor>(diff_type)),
-        count_(0), safe_reshape_mode_(false) {}
+        count_(0) {}
   explicit Blob(Type dtype)
       : Blob(dtype, dtype) {}
 
@@ -206,16 +206,12 @@ class Blob {
     return count_;
   }
 
-  size_t sizeof_data(bool allocated = false) const {
-    return data_tensor_->size_of(allocated);
+  size_t sizeof_data() const {
+    return data_tensor_->size_of();
   }
 
-  size_t sizeof_diff(bool allocated = false) const {
-    return diff_tensor_->size_of(allocated);
-  }
-
-  void safe_reshape_mode(bool mode) {
-    safe_reshape_mode_ = mode;
+  size_t sizeof_diff() const {
+    return diff_tensor_->size_of();
   }
 
   /**
@@ -548,15 +544,6 @@ class Blob {
   const int* gpu_shape() const;
 #endif
 
-#ifdef DEBUG
-  void freeze_data() {
-    data_tensor_->frozen_ = true;
-  }
-  void freeze_diff() {
-    diff_tensor_->frozen_ = true;
-  }
-#endif
-
   // Element-wise mutator. Might be slow due to syncing from GPU to CPU.
   template<typename Dtype>
   void set_value_at(bool set_data, int idx, Dtype val) {
@@ -587,7 +574,6 @@ class Blob {
   shared_ptr<SyncedMemory> shape_data_;
   vector<int> shape_;
   int count_;
-  bool safe_reshape_mode_;  // if true, reshape never shrinks
 
   bool is_current_data_valid() const {
     return data_tensor_->is_current_valid();

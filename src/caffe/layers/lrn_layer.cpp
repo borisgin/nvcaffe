@@ -96,7 +96,6 @@ void LRNLayer<Ftype, Btype>::Reshape(const vector<Blob*>& bottom,
   width_ = bottom[0]->width();
   switch (this->layer_param_.lrn_param().norm_region()) {
   case LRNParameter_NormRegion_ACROSS_CHANNELS:
-    top[0]->safe_reshape_mode(true);
     top[0]->Reshape(num_, channels_, height_, width_);
     scale_.Reshape(num_, channels_, height_, width_);
     break;

@@ -252,8 +252,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::AllocateFindExWorkspace() {
   shared_ptr<GPUMemory::Workspace> ws = GPUMemory::workspace_[dev];
   size_t bytes_available, bytes_total;
   GPUMemory::GetInfo(&bytes_available, &bytes_total, true);
-  bytes_available = std::min(bytes_available, bytes_total / 2UL);
-  bytes_available += ws->size();
+  bytes_available = std::min(bytes_available + ws->size(), bytes_total / 2UL);
 
   const size_t tmp_weights_size = train_tmp_weights_mem_[dev];
   if (bytes_available > tmp_weights_size) {

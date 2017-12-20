@@ -99,8 +99,8 @@ float SGDSolver<Dtype>::GetWeightDecay() const {
   const string& wd_policy = this->param_.weight_decay_policy();
   float weight_decay = wd;
   if (wd_policy == "poly") {
-	float power = this->param_.weight_decay_power();
-	weight_decay = wd * pow(float(this->iter_)/this->param_.max_iter(), power);
+    float power = this->param_.weight_decay_power();
+    weight_decay = wd * pow(float(this->iter_)/this->param_.max_iter(), power);
   }
   return weight_decay;
 }
@@ -156,10 +156,10 @@ void SGDSolver<Dtype>::PrintRate(float rate) {
     if (rate == 0.F) {
       rate = GetLearningRate();
     }
-     float moment = GetMomentum();
-     float wd = GetWeightDecay();
+    float moment = GetMomentum();
+    float wd = GetWeightDecay();
     LOG(INFO) << "Iteration " << this->iter_ << ", lr = " << rate << ", m = " << moment
-    		  << ", wd = " << wd  << ", gs = " << f_round2(net_->global_grad_scale());
+              << ", wd = " << wd  << ", gs = " << f_round2(net_->global_grad_scale());
   }
 }
 
@@ -240,13 +240,13 @@ float SGDSolver<Dtype>::ComputeUpdateValue(int param_id, void* handle, float rat
   const string& larc_policy = this->param_.larc_policy();
   float local_rate = GetLocalRate(param_id, wgrad_sq);
   if (larc) {
-	if (larc_policy == "scale") {
-      local_rate = rate * local_rate;
-    } else if (larc_policy == "clip") {
-   	  local_rate = std::min(rate, local_rate);
-    } else {
-      LOG(FATAL) << "Unknown larc policy: " << larc_policy;
-    }
+  if (larc_policy == "scale") {
+    local_rate = rate * local_rate;
+  } else if (larc_policy == "clip") {
+    local_rate = std::min(rate, local_rate);
+  } else {
+    LOG(FATAL) << "Unknown larc policy: " << larc_policy;
+  }
   } else {
     local_rate = rate * local_rate;
   }
@@ -324,7 +324,7 @@ float SGDSolver<Dtype>::GetLocalRate(int param_id, float& wgrad_sq) const {
       if (w_norm > 0.F && wgrad_norm > 0.F) {
         //float weight_decay = this->param_.weight_decay();
         //rate = gw_ratio * w_norm / (wgrad_norm + weight_decay * w_norm);
-        rate = gw_ratio * w_norm / wgrad_norm ;
+        rate = gw_ratio * w_norm / wgrad_norm;
       }
       if (local_lr > 0.) {
         local_lr = rate;

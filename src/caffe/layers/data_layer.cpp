@@ -59,9 +59,36 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
 #endif
     size_t parsers_num = this->parsers_num_;
     size_t transf_num = this->threads_num();
-    if (batches_fit > 0) {
-      parsers_num = cache_ ? 1 : 2;
-      transf_num = 3;
+    if (this->is_gpu_transform()) {
+      // in this mode memory demand is O(n) high
+      size_t max_parsers_num = 2;
+      const size_t max_transf_num = 4;
+      float ratio = datum_encoded_ ? 2.F : 3.F;
+      const float fit = std::min(float(max_parsers_num * max_transf_num),
+          std::floor(batches_fit / ratio));
+      parsers_num = std::min(max_parsers_num, std::max(1UL,
+          static_cast<size_t>(std::sqrt(fit))));
+      if (cache_ && parsers_num > 1UL) {
+        LOG(INFO) << this->print_current_device() << " Reduced parser threads count from "
+                  << parsers_num << " to 1 because cache is used";
+        parsers_num = 1UL;
+      }
+      transf_num = std::min(max_transf_num, std::max(transf_num,
+          static_cast<size_t>(std::lround(fit / parsers_num))));
+      if (parsers_num > 1 && transf_num == max_transf_num - 1) {
+        parsers_num = 1;
+        transf_num = max_transf_num;
+      }
+      if (parsers_num == 2 && transf_num == 2) {
+        parsers_num = 1;
+        transf_num = max_transf_num;
+      }
+    } else {
+      // in this mode memory demand is O(1)
+      if (batches_fit > 0) {
+        parsers_num = cache_ ? 1 : 2;
+        transf_num = 4;
+      }
     }
 
     this->RestartAllThreads(transf_num, true, false, Caffe::next_seed());
@@ -153,7 +180,6 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
   vector<int> top_shape = this->dt(0)->template Transform<Btype>(sample_datum.get(),
       nullptr, 0, packing);
   top_shape[0] = batch_size;
-  top[0]->safe_reshape_mode(true);
   top[0]->Reshape(top_shape);
 
 #ifndef CPU_ONLY
@@ -171,7 +197,7 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
     vector<int> label_shape(1, batch_size);
     top[1]->Reshape(label_shape);
   }
-  this->batch_transformer_->reshape(top_shape, label_shape);
+  this->batch_transformer_->reshape(top_shape, label_shape, this->is_gpu_transform());
   LOG(INFO) << this->print_current_device() << " Output data size: "
       << top[0]->num() << ", "
       << top[0]->channels() << ", "

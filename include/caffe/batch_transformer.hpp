@@ -19,10 +19,7 @@ class Batch {
 
   Batch(Type data_type, Type diff_type)
       : data_(Blob::create(data_type, diff_type)), label_(Blob::create(data_type, diff_type)),
-        id_((size_t) -1), data_packing_(NCHW) {
-    data_->safe_reshape_mode(true);
-    label_->safe_reshape_mode(true);
-  }
+        id_((size_t) -1), data_packing_(NCHW) {}
 
   size_t id() const {
     return id_;
@@ -31,7 +28,7 @@ class Batch {
     id_ = id;
   }
   size_t bytes() const {
-    return data_->sizeof_data(true) + label_->sizeof_data(true);
+    return data_->sizeof_data() + label_->sizeof_data();
   }
   Packing data_packing() const {
     return data_packing_;
@@ -72,7 +69,8 @@ class BatchTransformer : public InternalThread {
     return this->processed_free_.push(batch);
   }
 
-  void reshape(const vector<int>& data_shape, const vector<int>& label_shape);
+  void reshape(const vector<int>& data_shape, const vector<int>& label_shape,
+      bool preallocate = false);
 
   size_t prefetch_bytes() const {
     return this->prefetch_[0]->bytes();

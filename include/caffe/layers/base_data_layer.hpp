@@ -116,6 +116,8 @@ class BasePrefetchingDataLayer : public BaseDataLayer<Ftype, Btype>, public Inte
   vector<shared_ptr<DataTransformer>> data_transformers_;
 
   boost::shared_ptr<BatchTransformer<Ftype, Btype>> batch_transformer_;
+  std::vector<int> last_shape_;
+  int batch_size_;
 };
 
 }  // namespace caffe

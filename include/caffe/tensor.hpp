@@ -33,24 +33,20 @@ class Tensor {
 #endif
   static void cpu_scal(int count, Type dtype, void* data, float scal);
 
-#ifdef DEBUG
-  bool frozen_;
-#endif
-
  private:
   Type type() const {
     return type_;
   }
 
-  size_t size_of(bool allocated = false) const {
-    return tsize(type_) * (allocated ? alloc_count_ : count_);
+  size_t size_of() const {
+    return tsize(type_) * count_;
   }
 
   void set(float value);
   void scale(float new_scale, void* handle = nullptr);
   void invalidate_others();
   void convert(Type new_type);
-  void Reshape(int count, bool safe_reshape = false);
+  void Reshape(int count);
   float asum(int group) const;
   float amax(int group) const;
   float sumsq(int group) const;
@@ -97,8 +93,6 @@ class Tensor {
   shared_ptr<vector<shared_ptr<SyncedMemory>>> synced_arrays_;
   // number of entries - comes from Blob via Reshape
   int count_;
-  // number of entries allocated (useful when avoiding deallocations is needed)
-  int alloc_count_;
 
   DISABLE_COPY_MOVE_AND_ASSIGN(Tensor);
 };  // class Tensor
