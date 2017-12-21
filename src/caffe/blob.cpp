@@ -31,12 +31,7 @@ void Blob::Reshape(const int n) {
   Reshape(shape);
 }
 
-
-std::mutex mx_;
-
 void Blob::Reshape(const vector<int>& shape) {
-  std::lock_guard<std::mutex> lock(mx_);
-
   CHECK_LE(shape.size(), kMaxBlobAxes);
   CHECK(data_tensor_);
   CHECK(diff_tensor_);
