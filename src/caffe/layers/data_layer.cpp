@@ -306,6 +306,8 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
     }
 
     if (use_gpu_transform) {
+      // Every epoch we might shuffle
+      std::lock_guard<std::mutex> lock(DataReader::cache_mutex());
 #ifndef CPU_ONLY
       if (datum->encoded()) {
         DecodeDatumToSignedBuf(*datum, color_mode,

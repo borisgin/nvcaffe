@@ -53,6 +53,8 @@ class DataReader : public InternalThread {
   };
 
   class DataCache {
+    friend class DataReader;
+
    public:
     static DataCache* data_cache_inst(size_t threads, bool shuffle) {
       if (!data_cache_inst_) {
@@ -159,7 +161,11 @@ class DataReader : public InternalThread {
     data_cache_->just_cached();
   }
 
- protected:
+  static std::mutex& cache_mutex() {
+    return DataCache::cache_mutex_;
+  }
+
+protected:
   void InternalThreadEntry() override;
   void InternalThreadEntryN(size_t thread_id) override;
 
