@@ -314,7 +314,12 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
         CHECK_EQ(datum_len, datum->channels() * datum->height() * datum->width())
           << "Datum size can't vary in the same batch";
         // Every epoch we might shuffle
-        std::lock_guard<std::mutex> lock(reader_->shuffle_mutex());
+        std::unique_ptr<std::lock_guard<std::mutex>> lock;
+        if (reader_) {
+          lock.reset(new std::lock_guard<std::mutex>(reader_->shuffle_mutex()));
+        } else if (sample_reader_) {
+          lock.reset(new std::lock_guard<std::mutex>(sample_reader_->shuffle_mutex()));
+        }
         src_ptr = datum->data().size() > 0 ?
                   &datum->data().front() :
                   reinterpret_cast<const char*>(&datum->float_data().Get(0));
