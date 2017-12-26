@@ -63,9 +63,9 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
       // in this mode memory demand is O(n) high
       size_t max_parsers_num = 2;
       const size_t max_transf_num = 4;
-      float ratio = datum_encoded_ ? 2.F : 3.F;
+      float ratio = datum_encoded_ ? 3.F : 4.F;
       const float fit = std::min(float(max_parsers_num * max_transf_num),
-          std::floor(batches_fit / ratio));
+          std::floor(batches_fit / ratio) - 1.F);
       parsers_num = std::min(max_parsers_num, std::max(1UL,
           static_cast<size_t>(std::sqrt(fit))));
       if (cache_ && parsers_num > 1UL) {
@@ -234,7 +234,7 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
   size_t datum_sizeof_element = 0UL;
   int datum_len = top_shape[1] * top_shape[2] * top_shape[3];
   size_t datum_size = 0UL;
-  cudaStream_t stream = Caffe::thread_stream();
+  cudaStream_t stream = Caffe::thread_stream(2);
   const char *src_ptr = nullptr;
   size_t src_buf_pos = 0UL;
   size_t src_buf_items = 0UL;
