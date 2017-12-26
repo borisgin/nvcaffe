@@ -284,8 +284,8 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
   Btype* dst_cptr = nullptr;
   if (use_gpu_transform) {
 #ifndef CPU_ONLY
-    size_t holder_size = top_shape[0] * top_shape[1] * init_datum_height * init_datum_width;
-    tmp_gpu_buffer_[thread_id]->safe_reserve(holder_size);
+    size_t buffer_size = top_shape[0] * top_shape[1] * init_datum_height * init_datum_width;
+    tmp_gpu_buffer_[thread_id]->safe_reserve(buffer_size);
     dst_gptr = tmp_gpu_buffer_[thread_id]->data();
 #endif
   } else {
@@ -307,28 +307,23 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
 
     if (use_gpu_transform) {
 #ifndef CPU_ONLY
+      // Every epoch we might shuffle
+      shared_lock<shared_mutex> lock(DataReader::shuffle_mutex());
       if (datum->encoded()) {
         DecodeDatumToSignedBuf(*datum, color_mode,
             &src_buf[src_buf_pos * datum_size], datum_size, false);
       } else {
         CHECK_EQ(datum_len, datum->channels() * datum->height() * datum->width())
           << "Datum size can't vary in the same batch";
-        // Every epoch we might shuffle
-        std::unique_ptr<std::lock_guard<std::mutex>> lock;
-        if (reader_) {
-          lock.reset(new std::lock_guard<std::mutex>(reader_->shuffle_mutex()));
-        } else if (sample_reader_) {
-          lock.reset(new std::lock_guard<std::mutex>(sample_reader_->shuffle_mutex()));
-        }
         src_ptr = datum->data().size() > 0 ?
                   &datum->data().front() :
                   reinterpret_cast<const char*>(&datum->float_data().Get(0));
-        std::memcpy(src_buf.data() +  // NOLINT(caffe/alt_fn)
-          src_buf_pos * datum_size, src_ptr, datum_size);  // NOLINT(caffe/alt_fn)
+        // NOLINT_NEXT_LINE(caffe/alt_fn)
+        std::memcpy(&src_buf[src_buf_pos * datum_size], src_ptr, datum_size);
       }
       ++src_buf_pos;
       if (src_buf_pos == src_buf_items) {
-        src_buf_pos = 0;
+        src_buf_pos = 0UL;
         CUDA_CHECK(cudaMemcpyAsync(
             reinterpret_cast<char*>(dst_gptr) + last_item_id * datum_size,
             src_buf.data(), src_buf_size, cudaMemcpyHostToDevice, stream));

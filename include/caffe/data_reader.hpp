@@ -159,7 +159,7 @@ class DataReader : public InternalThread {
     data_cache_->just_cached();
   }
 
-  std::mutex& shuffle_mutex() {
+  static shared_mutex& shuffle_mutex() {
     return shuffle_mutex_;
   }
 
@@ -174,7 +174,7 @@ protected:
   size_t batch_size_;
   const bool skip_one_batch_;
   DataParameter_DB backend_;
-  std::mutex shuffle_mutex_;
+  static shared_mutex shuffle_mutex_;
 
   shared_ptr<BlockingQueue<shared_ptr<Datum>>> init_;
   vector<shared_ptr<BlockingQueue<shared_ptr<Datum>>>> free_;
