@@ -324,9 +324,10 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
       ++src_buf_pos;
       if (src_buf_pos == src_buf_items) {
         src_buf_pos = 0UL;
-        CUDA_CHECK(cudaMemcpyAsync(
+        CUDA_CHECK_ARG2(cudaMemcpyAsync(
             reinterpret_cast<char*>(dst_gptr) + last_item_id * datum_size,
-            src_buf.data(), src_buf_size, cudaMemcpyHostToDevice, stream));
+            src_buf.data(), src_buf_size, cudaMemcpyHostToDevice, stream),
+            last_item_id, src_buf_size);
         CUDA_CHECK(cudaStreamSynchronize(stream));
         last_item_id = item_id + 1;
       }
