@@ -122,9 +122,10 @@ class Solver {
   }
   void stop_reducing(int ltype) const {
     if (ltype == 0) {
-      return reduce_thread0_->interrupt();
+      reduce_thread0_->interrupt();
+      return;
     }
-    return reduce_thread1_->interrupt();
+    reduce_thread1_->interrupt();
   }
   bool stop_reducing_requested(int ltype) const {
     if (ltype == 0) {
@@ -154,6 +155,10 @@ class Solver {
 
   bool initialized() const {
     return init_flag_.is_set();
+  }
+
+  Type data_type() const {
+    return data_type_;
   }
 
   /**

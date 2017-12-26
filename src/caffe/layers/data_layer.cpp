@@ -306,8 +306,6 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
     }
 
     if (use_gpu_transform) {
-      // Every epoch we might shuffle
-      std::lock_guard<std::mutex> lock(DataReader::cache_mutex());
 #ifndef CPU_ONLY
       if (datum->encoded()) {
         DecodeDatumToSignedBuf(*datum, color_mode,
@@ -315,6 +313,8 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
       } else {
         CHECK_EQ(datum_len, datum->channels() * datum->height() * datum->width())
           << "Datum size can't vary in the same batch";
+        // Every epoch we might shuffle
+        std::lock_guard<std::mutex> lock(reader_->shuffle_mutex());
         src_ptr = datum->data().size() > 0 ?
                   &datum->data().front() :
                   reinterpret_cast<const char*>(&datum->float_data().Get(0));

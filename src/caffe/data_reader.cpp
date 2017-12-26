@@ -133,7 +133,7 @@ shared_ptr<Datum>& DataReader::DataCache::next_new() {
   return cache_buffer_.back();
 }
 
-shared_ptr<Datum>& DataReader::DataCache::next_cached() {
+shared_ptr<Datum>& DataReader::DataCache::next_cached(DataReader& reader) {
   if (just_cached_.load()) {
     cache_bar_.wait();
     just_cached_.store(false);
@@ -158,6 +158,8 @@ shared_ptr<Datum>& DataReader::DataCache::next_cached() {
   std::lock_guard<std::mutex> lock(cache_mutex_);
   if (shuffle_ && cache_idx_== 0UL) {
     LOG(INFO) << "Shuffling " << cache_buffer_.size() << " records...";
+    // Every epoch we might shuffle
+    std::lock_guard<std::mutex> lock(reader.shuffle_mutex());
     caffe::shuffle(cache_buffer_.begin(), cache_buffer_.end());
   }
   shared_ptr<Datum>& datum = cache_buffer_[cache_idx_++];

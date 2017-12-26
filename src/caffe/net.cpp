@@ -1451,6 +1451,9 @@ const vector<Type>& Net::learnable_types(bool reset) {
         learnable_types_.push_back(t);
       }
     }
+    if (learnable_types_.empty() && solver_ != nullptr) {
+      learnable_types_.push_back(solver_->data_type());
+    }
     CHECK_LE(learnable_types_.size(), 2);
   }
   return learnable_types_;

@@ -53,8 +53,6 @@ class DataReader : public InternalThread {
   };
 
   class DataCache {
-    friend class DataReader;
-
    public:
     static DataCache* data_cache_inst(size_t threads, bool shuffle) {
       if (!data_cache_inst_) {
@@ -67,7 +65,7 @@ class DataReader : public InternalThread {
     }
 
     shared_ptr<Datum>& next_new();
-    shared_ptr<Datum>& next_cached();
+    shared_ptr<Datum>& next_cached(DataReader& reader);
     bool check_memory();
     void check_db(const std::string& db_source) {
       std::lock_guard<std::mutex> lock(cache_mutex_);
@@ -150,7 +148,7 @@ class DataReader : public InternalThread {
   }
 
   shared_ptr<Datum>& next_cached() {
-    return data_cache_->next_cached();
+    return data_cache_->next_cached(*this);
   }
 
   bool check_memory() {
@@ -161,8 +159,8 @@ class DataReader : public InternalThread {
     data_cache_->just_cached();
   }
 
-  static std::mutex& cache_mutex() {
-    return DataCache::cache_mutex_;
+  std::mutex& shuffle_mutex() {
+    return shuffle_mutex_;
   }
 
 protected:
@@ -176,6 +174,7 @@ protected:
   size_t batch_size_;
   const bool skip_one_batch_;
   DataParameter_DB backend_;
+  std::mutex shuffle_mutex_;
 
   shared_ptr<BlockingQueue<shared_ptr<Datum>>> init_;
   vector<shared_ptr<BlockingQueue<shared_ptr<Datum>>>> free_;
