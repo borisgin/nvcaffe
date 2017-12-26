@@ -159,11 +159,7 @@ class DataReader : public InternalThread {
     data_cache_->just_cached();
   }
 
-  static shared_mutex& shuffle_mutex() {
-    return shuffle_mutex_;
-  }
-
-protected:
+ protected:
   void InternalThreadEntry() override;
   void InternalThreadEntryN(size_t thread_id) override;
 
@@ -174,7 +170,6 @@ protected:
   size_t batch_size_;
   const bool skip_one_batch_;
   DataParameter_DB backend_;
-  static shared_mutex shuffle_mutex_;
 
   shared_ptr<BlockingQueue<shared_ptr<Datum>>> init_;
   vector<shared_ptr<BlockingQueue<shared_ptr<Datum>>>> free_;

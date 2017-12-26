@@ -10,7 +10,6 @@ namespace caffe {
 
 std::mutex DataReader::DataCache::cache_mutex_;
 unique_ptr<DataReader::DataCache> DataReader::DataCache::data_cache_inst_;
-shared_mutex DataReader::shuffle_mutex_;
 
 DataReader::DataReader(const LayerParameter& param,
     size_t solver_count,
@@ -159,7 +158,6 @@ shared_ptr<Datum>& DataReader::DataCache::next_cached(DataReader& reader) {
   std::lock_guard<std::mutex> lock(cache_mutex_);
   if (shuffle_ && cache_idx_== 0UL) {
     LOG(INFO) << "Shuffling " << cache_buffer_.size() << " records...";
-    unique_lock<shared_mutex> shfllock(DataReader::shuffle_mutex());
     caffe::shuffle(cache_buffer_.begin(), cache_buffer_.end());
   }
   shared_ptr<Datum>& datum = cache_buffer_[cache_idx_++];

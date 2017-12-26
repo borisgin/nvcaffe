@@ -1,7 +1,6 @@
 #include "caffe/data_transformer.hpp"
 #include "caffe/layer.hpp"
 #include "caffe/layers/data_layer.hpp"
-#include "caffe/util/io.hpp"
 #include "caffe/parallel.hpp"
 
 namespace caffe {
@@ -307,8 +306,6 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
 
     if (use_gpu_transform) {
 #ifndef CPU_ONLY
-      // Every epoch we might shuffle
-      shared_lock<shared_mutex> lock(DataReader::shuffle_mutex());
       if (datum->encoded()) {
         DecodeDatumToSignedBuf(*datum, color_mode,
             &src_buf[src_buf_pos * datum_size], datum_size, false);
@@ -329,7 +326,7 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
             src_buf.data(), src_buf_size, cudaMemcpyHostToDevice, stream),
             last_item_id, src_buf_size);
         CUDA_CHECK(cudaStreamSynchronize(stream));
-        last_item_id = item_id + 1;
+        last_item_id = item_id;
       }
       this->dt(thread_id)->Fill3Randoms(&random_vectors_[thread_id]->
           mutable_cpu_data()[item_id * 3]);
@@ -351,10 +348,11 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
 
   if (use_gpu_transform) {
 #ifndef CPU_ONLY
-    if (src_buf_pos > 0) {
-      CUDA_CHECK(cudaMemcpyAsync(
+    if (last_item_id + 1UL < batch_size) {  // leftovers
+      CUDA_CHECK_ARG(cudaMemcpyAsync(
           reinterpret_cast<char*>(dst_gptr) + last_item_id * datum_size,
-          src_buf.data(), src_buf_pos * datum_size, cudaMemcpyHostToDevice, stream));
+          src_buf.data(), (batch_size - (last_item_id + 1UL)) * datum_size,
+          cudaMemcpyHostToDevice, stream), last_item_id);
       CUDA_CHECK(cudaStreamSynchronize(stream));
     }
     this->dt(thread_id)->TransformGPU(top_shape[0], top_shape[1],
