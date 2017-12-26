@@ -7,6 +7,10 @@ import caffe
 
 MAX_BOXES = 50
 
+try:
+    xrange
+except NameError:
+    xrange = range
 
 class ClusterGroundtruth(caffe.Layer):
     """
