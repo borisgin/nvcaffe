@@ -233,11 +233,8 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
   size_t datum_sizeof_element = 0UL;
   int datum_len = top_shape[1] * top_shape[2] * top_shape[3];
   size_t datum_size = 0UL;
-  cudaStream_t stream = Caffe::thread_stream(2);
+  cudaStream_t stream = Caffe::thread_stream(Caffe::GPU_TRANSF_GROUP);
   const char *src_ptr = nullptr;
-  size_t src_buf_pos = 0UL;
-  size_t src_buf_items = 0UL;
-  size_t src_buf_size = 0UL;
   vector<char> src_buf;
   cv::Mat img;
   if (use_gpu_transform) {
@@ -264,12 +261,8 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
     vector<int> random_vec_shape(1, batch_size * 3);
     random_vectors_[thread_id]->Reshape(random_vec_shape);
     datum_size = datum_len * datum_sizeof_element;
-    // sqrt(batch) buckets
-    src_buf_items = (size_t) std::lround(std::sqrt((double)batch_size));
-    src_buf_size = src_buf_items * datum_size;
-    src_buf.resize(src_buf_size);
+    src_buf.resize(datum_size);
   }
-  size_t last_item_id = 0UL;
 #endif
   if (this->output_labels_) {
     batch->label_->Reshape(vector<int>(1, batch_size));
@@ -307,8 +300,7 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
     if (use_gpu_transform) {
 #ifndef CPU_ONLY
       if (datum->encoded()) {
-        DecodeDatumToSignedBuf(*datum, color_mode,
-            &src_buf[src_buf_pos * datum_size], datum_size, false);
+        DecodeDatumToSignedBuf(*datum, color_mode, src_buf.data(), datum_size, false);
       } else {
         CHECK_EQ(datum_len, datum->channels() * datum->height() * datum->width())
           << "Datum size can't vary in the same batch";
@@ -316,18 +308,11 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
                   &datum->data().front() :
                   reinterpret_cast<const char*>(&datum->float_data().Get(0));
         // NOLINT_NEXT_LINE(caffe/alt_fn)
-        std::memcpy(&src_buf[src_buf_pos * datum_size], src_ptr, datum_size);
+        std::memcpy(src_buf.data(), src_ptr, datum_size);
       }
-      ++src_buf_pos;
-      if (src_buf_pos == src_buf_items) {
-        src_buf_pos = 0UL;
-        CUDA_CHECK_ARG2(cudaMemcpyAsync(
-            reinterpret_cast<char*>(dst_gptr) + last_item_id * datum_size,
-            src_buf.data(), src_buf_size, cudaMemcpyHostToDevice, stream),
-            last_item_id, src_buf_size);
-        CUDA_CHECK(cudaStreamSynchronize(stream));
-        last_item_id = item_id;
-      }
+      CUDA_CHECK(cudaMemcpyAsync(static_cast<char*>(dst_gptr) + item_id * datum_size,
+          src_buf.data(), datum_size, cudaMemcpyHostToDevice, stream));
+      CUDA_CHECK(cudaStreamSynchronize(stream));
       this->dt(thread_id)->Fill3Randoms(&random_vectors_[thread_id]->
           mutable_cpu_data()[item_id * 3]);
 #else
@@ -348,20 +333,13 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
 
   if (use_gpu_transform) {
 #ifndef CPU_ONLY
-    if (last_item_id + 1UL < batch_size) {  // leftovers
-      CUDA_CHECK_ARG(cudaMemcpyAsync(
-          reinterpret_cast<char*>(dst_gptr) + last_item_id * datum_size,
-          src_buf.data(), (batch_size - (last_item_id + 1UL)) * datum_size,
-          cudaMemcpyHostToDevice, stream), last_item_id);
-      CUDA_CHECK(cudaStreamSynchronize(stream));
-    }
     this->dt(thread_id)->TransformGPU(top_shape[0], top_shape[1],
         init_datum_height,  // non-crop
         init_datum_width,  // non-crop
         datum_sizeof_element,
         dst_gptr,
         batch->data_->template mutable_gpu_data_c<Ftype>(false),
-        random_vectors_[thread_id]->gpu_data(), true); //needs_repack);
+        random_vectors_[thread_id]->gpu_data(), true);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     packing = NCHW;
 #else

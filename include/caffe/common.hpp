@@ -479,6 +479,8 @@ class Caffe {
   }
 
   static constexpr uint64_t SEED_NOT_SET = static_cast<uint64_t>(-1);
+  static constexpr int MAX_CONV_GROUPS = 2;
+  static constexpr int GPU_TRANSF_GROUP = 2;
 
  protected:
 #ifndef CPU_ONLY
