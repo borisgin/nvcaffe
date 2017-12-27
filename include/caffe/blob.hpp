@@ -155,16 +155,16 @@ class Blob {
    *        shape if necessary
    */
   void CopyFrom(const Blob& source, bool copy_diff = false, bool reshape = false,
-      Packing pk_from = NCHW, Packing pk_to = NCHW);
+      Packing pk_from = NCHW, Packing pk_to = NCHW, int group = 0);
 
   void CopyDataFrom(const Blob& source, bool reshape = false,
-      Packing pk_from = NCHW, Packing pk_to = NCHW) {
-    CopyFrom(source, false, reshape, pk_from, pk_to);
+      Packing pk_from = NCHW, Packing pk_to = NCHW, int group = 0) {
+    CopyFrom(source, false, reshape, pk_from, pk_to, group);
   }
 
   void CopyDiffFrom(const Blob& source, bool reshape = false,
-      Packing pk_from = NCHW, Packing pk_to = NCHW) {
-    CopyFrom(source, true, reshape, pk_from, pk_to);
+      Packing pk_from = NCHW, Packing pk_to = NCHW, int group = 0) {
+    CopyFrom(source, true, reshape, pk_from, pk_to, group);
   }
 
   bool is_data_empty() const {
