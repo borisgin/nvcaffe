@@ -196,7 +196,7 @@ bool Blob::ShapeEquals(const BlobProto& other) {
 }
 
 void Blob::CopyFrom(const Blob& source, bool copy_diff, bool reshape,
-    Packing src_packing, Packing dst_packing) {
+    Packing src_packing, Packing dst_packing, int group) {
   if (source.count() != count_ || source.shape() != shape_) {
     if (reshape) {
       ReshapeLike(source);
@@ -227,14 +227,14 @@ void Blob::CopyFrom(const Blob& source, bool copy_diff, bool reshape,
         CHECK_EQ(srct->count_, dstt->count_);
         // cross copy
         if (srct->is_cpu_head() && dstt->is_gpu_head()) {
-          cudaStream_t stream = Caffe::thread_stream();
+          cudaStream_t stream = Caffe::thread_stream(group);
           CUDA_CHECK(cudaMemcpyAsync(dst->mutable_gpu_data(), src->cpu_data(),
               srct->count_ * tsize(src_type),
               cudaMemcpyHostToDevice, stream));
           CUDA_CHECK(cudaStreamSynchronize(stream));
           break;
         } else if (srct->is_gpu_head() && dstt->is_cpu_head()) {
-          cudaStream_t stream = Caffe::thread_stream();
+          cudaStream_t stream = Caffe::thread_stream(group);
           CUDA_CHECK(cudaMemcpyAsync(dst->mutable_cpu_data(), src->gpu_data(),
               srct->count_ * tsize(src_type),
               cudaMemcpyDeviceToHost, stream));
@@ -243,6 +243,7 @@ void Blob::CopyFrom(const Blob& source, bool copy_diff, bool reshape,
         }
       }
 #endif
+      // TODO use group
       Tensor::copy_helper(is_gpu, count_,
           is_gpu ? src->gpu_data() : src->cpu_data(), src_type,
           is_gpu ? dst->mutable_gpu_data() : dst->mutable_cpu_data(), dst_type);
@@ -250,7 +251,7 @@ void Blob::CopyFrom(const Blob& source, bool copy_diff, bool reshape,
 #ifndef CPU_ONLY
   } else {
     CHECK(srct != dstt);
-    cudnnHandle_t handle = Caffe::cudnn_handle();
+    cudnnHandle_t handle = Caffe::cudnn_handle(group);
     cudnnTensorDescriptor_t src_desc, dst_desc;
     CUDNN_CHECK(cudnnCreateTensorDescriptor(&src_desc));
     CUDNN_CHECK(cudnnCreateTensorDescriptor(&dst_desc));

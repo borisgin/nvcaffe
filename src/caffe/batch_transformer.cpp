@@ -59,7 +59,7 @@ void BatchTransformer<Ftype, Btype>::InternalThreadEntry() {
       } else {
         if (batch->data_->is_data_on_gpu()) {
           top->data_->CopyDataFrom(*batch->data_, true,
-              batch->data_packing(), transform_param_.forward_packing());
+              batch->data_packing(), transform_param_.forward_packing(), Caffe::GPU_TRANSF_GROUP);
         } else {
           if (tmp_.shape() != batch->data_->shape()) {
             tmp_.Reshape(batch->data_->shape());
@@ -69,7 +69,7 @@ void BatchTransformer<Ftype, Btype>::InternalThreadEntry() {
           }
           tmp_.set_cpu_data(batch->data_->template mutable_cpu_data<Btype>());
           top->data_->CopyDataFrom(tmp_, false,
-              batch->data_packing(), transform_param_.forward_packing());
+              batch->data_packing(), transform_param_.forward_packing(), Caffe::GPU_TRANSF_GROUP);
         }
       }
       top->label_->Swap(*batch->label_);
