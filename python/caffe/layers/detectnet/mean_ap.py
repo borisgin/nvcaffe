@@ -126,11 +126,11 @@ def score_det(gt_bbox_list, det_bbox_list):
 
         # Remove  zeros from detected bboxes
         cur_det_bbox = det_bbox_list[k, :, 0:4]
-        cur_det_bbox = np.asarray(filter(lambda a: a.tolist() != [0, 0, 0, 0], cur_det_bbox))
+        cur_det_bbox = np.asarray(list(filter(lambda a: a.tolist() != [0, 0, 0, 0], cur_det_bbox)))
 
         # Remove  zeros from label bboxes
         cur_gt_bbox = gt_bbox_list[k, :, 0:4]
-        cur_gt_bbox = np.asarray(filter(lambda a: a.tolist() != [0, 0, 0, 0], cur_gt_bbox))
+        cur_gt_bbox = np.asarray(list(filter(lambda a: a.tolist() != [0, 0, 0, 0], cur_gt_bbox)))
 
         gt_matched = np.zeros([cur_gt_bbox.shape[0]])
         det_matched = np.zeros([cur_det_bbox.shape[0]])
@@ -148,7 +148,7 @@ def score_det(gt_bbox_list, det_bbox_list):
 
         temp = np.append(tp, fp)
         temp = np.append(temp, tn)
-        temp = temp.reshape([temp.size/5, 5])
+        temp = temp.reshape([temp.size//5, 5])
         matched_bbox[k, 0:temp.shape[0], :] = temp
 
     return matched_bbox

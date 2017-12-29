@@ -1,8 +1,6 @@
 #ifndef DETECTNET_TRANSFORMATION_HPP
 #define DETECTNET_TRANSFORMATION_HPP
 
-#include <boost/array.hpp>
-
 #include <opencv2/core/core.hpp>
 #include <opencv2/opencv.hpp>
 

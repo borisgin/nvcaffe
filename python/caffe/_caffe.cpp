@@ -3,6 +3,7 @@
 // Produce deprecation warnings (needs to come before arrayobject.h inclusion).
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 
+#include <google/protobuf/text_format.h>
 #include <boost/make_shared.hpp>
 #include <boost/python.hpp>
 #include <boost/python/raw_function.hpp>
@@ -151,23 +152,17 @@ void CheckContiguousArray(PyArrayObject* arr, string name,
 }
 
 // Net constructor for passing phase as int
-shared_ptr<Net> Net_Init(
-    string param_file, int phase) {
+shared_ptr<Net> Net_Init(string param_file, int phase) {
   CheckFile(param_file);
-
-  shared_ptr<Net> net(new Net(param_file,
-      static_cast<Phase>(phase)));
+  shared_ptr<Net> net(new Net(param_file, static_cast<Phase>(phase)));
   return net;
 }
 
 // Net construct-and-load convenience constructor
-shared_ptr<Net> Net_Init_Load(
-    string param_file, string pretrained_param_file, int phase) {
+shared_ptr<Net> Net_Init_Load(string param_file, string pretrained_param_file, int phase) {
   CheckFile(param_file);
   CheckFile(pretrained_param_file);
-
-  shared_ptr<Net> net(new Net(param_file,
-      static_cast<Phase>(phase)));
+  shared_ptr<Net> net(new Net(param_file, static_cast<Phase>(phase)));
   net->CopyTrainedLayersFrom(pretrained_param_file);
   return net;
 }
@@ -178,8 +173,7 @@ void Net_Save(const Net& net, string filename) {
   WriteProtoToBinaryFile(net_param, filename.c_str());
 }
 
-void Net_SetInputArrays(Net* net, bp::object data_obj,
-    bp::object labels_obj) {
+void Net_SetInputArrays(Net* net, bp::object data_obj, bp::object labels_obj) {
   // check that this network has an input MemoryDataLayer
   shared_ptr<MemoryDataLayer<Dtype, Dtype> > md_layer =
     boost::dynamic_pointer_cast<MemoryDataLayer<Dtype, Dtype> >(net->layers()[0]);
@@ -189,16 +183,13 @@ void Net_SetInputArrays(Net* net, bp::object data_obj,
   }
 
   // check that we were passed appropriately-sized contiguous memory
-  PyArrayObject* data_arr =
-      reinterpret_cast<PyArrayObject*>(data_obj.ptr());
-  PyArrayObject* labels_arr =
-      reinterpret_cast<PyArrayObject*>(labels_obj.ptr());
+  PyArrayObject* data_arr = reinterpret_cast<PyArrayObject*>(data_obj.ptr());
+  PyArrayObject* labels_arr = reinterpret_cast<PyArrayObject*>(labels_obj.ptr());
   CheckContiguousArray(data_arr, "data array", md_layer->channels(),
       md_layer->height(), md_layer->width());
   CheckContiguousArray(labels_arr, "labels array", 1, 1, 1);
   if (PyArray_DIMS(data_arr)[0] != PyArray_DIMS(labels_arr)[0]) {
-    throw std::runtime_error("data and labels must have the same first"
-        " dimension");
+    throw std::runtime_error("data and labels must have the same first dimension");
   }
   if (PyArray_DIMS(data_arr)[0] % md_layer->batch_size() != 0) {
     throw std::runtime_error("first dimensions of input arrays must be a"
@@ -208,6 +199,16 @@ void Net_SetInputArrays(Net* net, bp::object data_obj,
   md_layer->Reset(static_cast<Dtype*>(PyArray_DATA(data_arr)),
       static_cast<Dtype*>(PyArray_DATA(labels_arr)),
       PyArray_DIMS(data_arr)[0]);
+}
+
+float Net_ForwardFromToNoGIL(Net* net, int start, int end) {
+  PyGILRelease gil;
+  return net->ForwardFromTo(start, end);
+}
+
+void Net_BackwardFromToNoGIL(Net* net, int start, int end) {
+  PyGILRelease gil;
+  net->BackwardFromTo(start, end);
 }
 
 Solver* GetSolverFromFile(const string& filename) {
@@ -284,6 +285,125 @@ bp::object BlobVec_add_blob(bp::tuple args, bp::dict kwargs) {
 }
 
 
+using Layer2 = Layer<Dtype, Dtype>;
+
+// Layer
+template <class T>
+vector<T> py_to_vector(bp::object pyiter) {
+  vector<T> vec;
+  for (int i = 0; i < bp::len(pyiter); ++i) {
+    vec.push_back(bp::extract<T>(pyiter[i]));
+  }
+  return vec;
+}
+
+// TODO unify those 8 functions:
+void LayerBase_SetUp(LayerBase *layer, bp::object py_bottom, bp::object py_top) {
+  vector<Blob*> bottom = py_to_vector<Blob*>(py_bottom);
+  vector<Blob*> top = py_to_vector<Blob*>(py_top);
+  PyGILRelease gil;
+  layer->SetUp(bottom, top);
+}
+
+void LayerBase_Reshape(LayerBase *layer, bp::object py_bottom, bp::object py_top) {
+  vector<Blob*> bottom = py_to_vector<Blob*>(py_bottom);
+  vector<Blob*> top = py_to_vector<Blob*>(py_top);
+  PyGILRelease gil;
+  layer->Reshape(bottom, top);
+}
+
+Dtype LayerBase_Forward(LayerBase *layer, bp::object py_bottom, bp::object py_top) {
+  vector<Blob*> bottom = py_to_vector<Blob*>(py_bottom);
+  vector<Blob*> top = py_to_vector<Blob*>(py_top);
+  PyGILRelease gil;
+  return layer->Forward(bottom, top);
+}
+
+void LayerBase_Backward(LayerBase *layer, bp::object py_top, bp::object py_propagate_down,
+    bp::object py_bottom) {
+  vector<Blob*> top = py_to_vector<Blob*>(py_top);
+  vector<bool> propagate_down = py_to_vector<bool>(py_propagate_down);
+  vector<Blob*> bottom = py_to_vector<Blob*>(py_bottom);
+  PyGILRelease gil;
+  layer->Backward(top, propagate_down, bottom);
+}
+
+void Layer_SetUp(Layer2 *layer, bp::object py_bottom, bp::object py_top) {
+  vector<Blob*> bottom = py_to_vector<Blob*>(py_bottom);
+  vector<Blob*> top = py_to_vector<Blob*>(py_top);
+  PyGILRelease gil;
+  layer->SetUp(bottom, top);
+}
+
+void Layer_Reshape(Layer2 *layer, bp::object py_bottom, bp::object py_top) {
+  vector<Blob*> bottom = py_to_vector<Blob*>(py_bottom);
+  vector<Blob*> top = py_to_vector<Blob*>(py_top);
+  PyGILRelease gil;
+  layer->Reshape(bottom, top);
+}
+
+Dtype Layer_Forward(Layer2 *layer, bp::object py_bottom, bp::object py_top) {
+  vector<Blob*> bottom = py_to_vector<Blob*>(py_bottom);
+  vector<Blob*> top = py_to_vector<Blob*>(py_top);
+  PyGILRelease gil;
+  return layer->Forward(bottom, top);
+}
+
+void Layer_Backward(Layer2 *layer, bp::object py_top, bp::object py_propagate_down,
+    bp::object py_bottom) {
+  vector<Blob*> top = py_to_vector<Blob*>(py_top);
+  vector<bool> propagate_down = py_to_vector<bool>(py_propagate_down);
+  vector<Blob*> bottom = py_to_vector<Blob*>(py_bottom);
+  PyGILRelease gil;
+  layer->Backward(top, propagate_down, bottom);
+}
+
+// LayerParameter
+shared_ptr<LayerParameter> LayerParameter_Init(bp::object py_layer_param) {
+  shared_ptr<LayerParameter> layer_param(new LayerParameter);
+  if (PyObject_HasAttrString(py_layer_param.ptr(), "SerializeToString")) {
+    string dump = bp::extract<string>(py_layer_param.attr("SerializeToString")());
+    layer_param->ParseFromString(dump);
+  } else {
+    try {
+      string dump = bp::extract<string>(py_layer_param);
+      google::protobuf::TextFormat::ParseFromString(dump, layer_param.get());
+    } catch(...) {
+      throw std::runtime_error("1st arg must be LayerPrameter or string.");
+    }
+  }
+  if (!layer_param->IsInitialized()) {
+    throw std::runtime_error("LayerParameter not initialized: Missing required fields.");
+  }
+  return layer_param;
+}
+
+void LayerParameter_FromPython(LayerParameter *layer_param, bp::object py_layer_param) {
+  shared_ptr<LayerParameter> copy = LayerParameter_Init(py_layer_param);
+  layer_param->Clear();
+  layer_param->CopyFrom(*copy);
+}
+
+bp::object LayerParameter_ToPython(const LayerParameter *layer_param, bp::object py_layer_param) {
+  string dump;
+  layer_param->SerializeToString(&dump);
+  py_layer_param.attr("ParseFromString")(bp::object(dump));
+  return py_layer_param;
+}
+
+// Create layer from caffe_pb2.LayerParameter in Python
+shared_ptr<LayerBase> create_layer(bp::object py_layer_param) {
+  shared_ptr<LayerParameter> layer_param(LayerParameter_Init(py_layer_param));
+  return LayerRegistry::CreateLayer(*layer_param);
+}
+
+// Run solver step without GIL
+void Solver_StepNoGIL(Solver* solver, int iters) {
+  PyGILRelease gil;
+  solver->Step(iters);
+}
+
+
 BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(SolveOverloads, Solve, 0, 1);
 
 BOOST_PYTHON_MODULE(_caffe) {
@@ -304,8 +424,8 @@ BOOST_PYTHON_MODULE(_caffe) {
     bp::no_init)
     .def("__init__", bp::make_constructor(&Net_Init))
     .def("__init__", bp::make_constructor(&Net_Init_Load))
-    .def("_forward", &Net::ForwardFromTo)
-    .def("_backward", &Net::BackwardFromTo)
+    .def("_forward", &Net_ForwardFromToNoGIL)
+    .def("_backward", &Net_BackwardFromToNoGIL)
     .def("reshape", &Net::Reshape)
     // The cast is to select a particular overload.
     .def("copy_from", static_cast<void (Net::*)(const string)>(
@@ -336,7 +456,7 @@ BOOST_PYTHON_MODULE(_caffe) {
   BP_REGISTER_SHARED_PTR_TO_PYTHON(Net);
 
 
-  bp::class_<Blob, shared_ptr<TBlob<Dtype> >, boost::noncopyable>(
+  bp::class_<Blob, shared_ptr<TBlob<Dtype>>, boost::noncopyable>(
     "Blob", bp::no_init)
         .add_property("shape",
             bp::make_function(
@@ -358,25 +478,38 @@ BOOST_PYTHON_MODULE(_caffe) {
   BP_REGISTER_SHARED_PTR_TO_PYTHON(Blob);
 
   bp::class_<TBlob<Dtype>, bp::bases<Blob>,
-    shared_ptr<TBlob<Dtype> >, boost::noncopyable>("TBlob", bp::no_init);
+    shared_ptr<TBlob<Dtype>>, boost::noncopyable>("TBlob", bp::no_init);
   BP_REGISTER_SHARED_PTR_TO_PYTHON(TBlob<Dtype>);
-
-  using Layer2 = Layer<Dtype, Dtype>;
 
   bp::class_<LayerBase, shared_ptr<LayerBase>, boost::noncopyable>(
     "LayerBase", bp::no_init)
+    .add_property("type", bp::make_function(&LayerBase::type))
+    .def("SetUp", &LayerBase_SetUp)
+    .def("Reshape", &LayerBase_Reshape)
+    .def("Forward", &LayerBase_Forward)
+    .def("Backward", &LayerBase_Backward)
     .add_property("blobs", bp::make_function(&LayerBase::blobs,
           bp::return_internal_reference<>()));
   BP_REGISTER_SHARED_PTR_TO_PYTHON(LayerBase);
 
   bp::class_<Layer<Dtype, Dtype>, bp::bases<LayerBase>, shared_ptr<PythonLayer<Dtype, Dtype> >,
-    boost::noncopyable>("Layer", bp::init<const LayerParameter&>())
+    boost::noncopyable>(
+    "Layer", bp::init<const LayerParameter&>())
     .def("setup", &Layer<Dtype, Dtype>::LayerSetUp)
+    .def("SetUp", &Layer_SetUp)
     .def("reshape", &Layer<Dtype, Dtype>::Reshape)
+    .def("Reshape", &Layer_Reshape)
+    .def("Forward", &Layer_Forward)
+    .def("Backward", &Layer_Backward)
     .add_property("type", bp::make_function(&Layer<Dtype, Dtype>::type));
   BP_REGISTER_SHARED_PTR_TO_PYTHON(Layer2);
 
-  bp::class_<LayerParameter>("LayerParameter", bp::no_init);
+  bp::class_<LayerParameter, shared_ptr<LayerParameter> >("LayerParameter", bp::no_init)
+    .def("__init__", bp::make_constructor(&LayerParameter_Init))
+    .def("from_python", &LayerParameter_FromPython)
+    .def("_to_python", &LayerParameter_ToPython);
+
+  bp::def("create_layer", &create_layer);
 
   bp::class_<Solver, shared_ptr<Solver>, boost::noncopyable>(
     "Solver", bp::no_init)
@@ -386,7 +519,7 @@ BOOST_PYTHON_MODULE(_caffe) {
     .add_property("iter", &Solver::iter)
     .def("solve", static_cast<bool (Solver::*)(const char*)>(
           &Solver::Solve), SolveOverloads())
-    .def("step", &Solver::Step)
+    .def("step", &Solver_StepNoGIL)
     .def("restore", &Solver::Restore)
     .def("snapshot", &Solver::Snapshot);
   BP_REGISTER_SHARED_PTR_TO_PYTHON(Solver);

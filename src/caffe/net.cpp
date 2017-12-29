@@ -2,7 +2,6 @@
 #include <map>
 #include <set>
 #include <boost/thread.hpp>
-#include <caffe/util/signal_handler.h>
 #include <hdf5.h>
 
 #include "caffe/common.hpp"
@@ -12,6 +11,7 @@
 #include "caffe/util/hdf5.hpp"
 #include "caffe/util/insert_splits.hpp"
 #include "caffe/util/math_functions.hpp"
+#include "caffe/util/signal_handler.h"
 #include "caffe/util/upgrade_proto.hpp"
 
 #include "caffe/test/test_caffe_main.hpp"

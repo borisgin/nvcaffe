@@ -222,7 +222,7 @@ ifeq ($(USE_OPENCV), 1)
 	endif
 		
 endif
-PYTHON_LIBRARIES ?= boost_python python2.7
+PYTHON_LIBRARIES ?= boost_python python2.7 boost_regex
 WARNINGS := -Wall -Wno-sign-compare
 
 ##############################

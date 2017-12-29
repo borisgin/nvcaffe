@@ -4,15 +4,27 @@
 #include <gflags/gflags.h>
 #include <glog/logging.h>
 
+#if __CUDACC_VER_MAJOR__ >= 9
+#undef __CUDACC_VER__
+#define __CUDACC_VER__ \
+  ((__CUDACC_VER_MAJOR__ * 10000) + (__CUDACC_VER_MINOR__ * 100))
+#endif
+
 #include <boost/version.hpp>
 #if BOOST_VERSION >= 106100
 // error: class "boost::common_type<long, long>" has no member "type"
-#define BOOST_NO_CXX11_VARIADIC_TEMPLATES
+#  define BOOST_NO_CXX11_VARIADIC_TEMPLATES
+#  if defined(__CUDACC_VER_MAJOR__) && defined(__CUDACC_VER_MINOR__) && defined(__CUDACC_VER_BUILD__)
+#    define BOOST_CUDA_VERSION __CUDACC_VER_MAJOR__ * 1000000 + __CUDACC_VER_MINOR__ * 10000 + __CUDACC_VER_BUILD__
+#  else
+#    define BOOST_CUDA_VERSION 8000000
+#  endif
 #endif
 
 #include <boost/thread.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/make_shared.hpp>
+#include <boost/array.hpp>
 
 #include <atomic>
 #include <condition_variable>

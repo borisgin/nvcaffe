@@ -1,8 +1,6 @@
 #ifndef CAFFE_BLOB_HPP_
 #define CAFFE_BLOB_HPP_
 
-#include <boost/make_shared.hpp>
-
 #include <algorithm>
 #include <map>
 #include <memory>

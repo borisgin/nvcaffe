@@ -57,7 +57,7 @@ class DataLayer : public BasePrefetchingDataLayer<Ftype, Btype> {
     reader_->start_reading();
   }
 
-  shared_ptr<DataReader> sample_reader_, reader_;
+  std::shared_ptr<DataReader> sample_reader_, reader_;
 
 #ifndef CPU_ONLY
   vector<shared_ptr<GPUMemory::Workspace>> tmp_gpu_buffer_;

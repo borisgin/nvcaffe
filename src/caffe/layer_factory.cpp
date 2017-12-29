@@ -2,6 +2,7 @@
 // to avoid _POSIX_C_SOURCE redefinition
 #ifdef WITH_PYTHON_LAYER
 #include <boost/python.hpp>
+#include <boost/regex.hpp>
 #endif
 #include <string>
 
@@ -37,14 +38,6 @@
 
 #ifdef WITH_PYTHON_LAYER
 #include "caffe/layers/python_layer.hpp"
-
-__attribute__((constructor)) void loadso() {
-//  PyEval_InitThreads();
-  Py_Initialize();
-}
-
-__attribute__((destructor))  void unloadso() {
-}
 #endif
 
 #pragma GCC diagnostic ignored "-Wreturn-type"
@@ -356,16 +349,21 @@ REGISTER_LAYER_CREATOR(DetectNetTransformation, GetDetectNetTransformationLayer)
 #ifdef WITH_PYTHON_LAYER
 shared_ptr<LayerBase> GetPythonLayer(const LayerParameter& param, Type, Type) {
   try {
-    std::lock_guard<std::mutex> lock(PythonLayer<float, float>::mutex());
-    bp::object module;
-    PYTHON_CALL_BEGIN
-    LOG(INFO) << "Importing Python module '" << param.python_param().module() << "'";
-    module = bp::import(param.python_param().module().c_str());
-    PYTHON_CALL_END
-    bp::object layer = module.attr(param.python_param().layer().c_str())(param);
-    shared_ptr<LayerBase> ret = bp::extract<shared_ptr<LayerBase>>(layer)();
-    CHECK(ret);
-    return ret;
+    string module_name = param.python_param().module();
+    string layer_name = param.python_param().layer();
+    // Check injection. This allows nested import.
+    boost::regex expression("[a-zA-Z_][a-zA-Z0-9_]*(\\.[a-zA-Z_][a-zA-Z0-9_]*)*");
+    CHECK(boost::regex_match(module_name, expression))
+        << "Module name is invalid: " << module_name;
+    CHECK(boost::regex_match(layer_name, expression))
+        << "Layer name is invalid: " << layer_name;
+
+    PyGILAquire gil;
+    bp::object globals = bp::import("__main__").attr("__dict__");
+    bp::exec(("import " + module_name).c_str(), globals, globals);
+    bp::object layer_class = bp::eval((module_name + "." + layer_name).c_str(), globals, globals);
+    bp::object layer = layer_class(param);
+    return bp::extract<shared_ptr<LayerBase>>(layer)();
   } catch (...) {
     PyErrFatal();
   }

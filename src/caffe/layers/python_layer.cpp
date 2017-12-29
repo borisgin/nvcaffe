@@ -4,6 +4,7 @@
 namespace caffe {
 
 void PyErrReportAndForward() {
+  PyGILAquire gil;
   PyObject *type_ptr = nullptr, *value_ptr = nullptr, *traceback_ptr = nullptr;
   PyErr_Fetch(&type_ptr, &value_ptr, &traceback_ptr);
   std::string err("Unknown Python error");

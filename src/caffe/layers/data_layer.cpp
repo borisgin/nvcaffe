@@ -131,7 +131,7 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
 
   if (this->auto_mode_) {
     if (!sample_reader_) {
-      sample_reader_ = make_shared<DataReader>(param,
+      sample_reader_ = std::make_shared<DataReader>(param,
           Caffe::solver_count(),
           this->solver_rank_,
           this->parsers_num_,
@@ -142,7 +142,7 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
           cache,
           shuffle);
     } else if (!reader_) {
-      reader_ = make_shared<DataReader>(param,
+      reader_ = std::make_shared<DataReader>(param,
           Caffe::solver_count(),
           this->solver_rank_,
           this->parsers_num_,
@@ -154,7 +154,7 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
           shuffle);
     }
   } else if (!reader_) {
-    reader_ = make_shared<DataReader>(param,
+    reader_ = std::make_shared<DataReader>(param,
         Caffe::solver_count(),
         this->solver_rank_,
         this->parsers_num_,

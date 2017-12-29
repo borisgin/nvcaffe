@@ -481,6 +481,12 @@ int main(int argc, char** argv) {
   if (argc == 2) {
 #ifdef WITH_PYTHON_LAYER
     try {
+      Py_InitializeEx(0);
+      if (!PyEval_ThreadsInitialized()) {
+        PyEval_InitThreads();
+        static PyThreadState* mainPyThread = PyEval_SaveThread();
+        (void)mainPyThread;
+      }
 #endif
       return GetBrewFunction(caffe::string(argv[1]))();
 #ifdef WITH_PYTHON_LAYER
