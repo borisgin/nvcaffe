@@ -4,7 +4,8 @@ set(Caffe_LINKER_LIBS "")
 find_package(PythonInterp ${python_version})
 
 # ---[ Boost
-find_package(Boost 1.54 REQUIRED COMPONENTS system thread filesystem regex python-py${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR} python)
+find_package(Boost 1.54 REQUIRED COMPONENTS system thread filesystem regex python-py${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR})
+set(Boost_PYTHON_FOUND ${Boost_PYTHON-PY${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR}_FOUND})
 include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 list(APPEND Caffe_LINKER_LIBS ${Boost_LIBRARIES})
 
