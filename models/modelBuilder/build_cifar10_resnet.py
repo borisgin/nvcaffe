@@ -73,7 +73,7 @@ def buildCifarResnetModel(netConfig, name):
     model = ""
     model = addHeader(model, name=name)
     model += print_netconfig(netConfig)
-    print model
+    print(model)
 
     model, last_top = addData(model, train_batch=256, test_batch=128,
                  train_file="examples/cifar10/cifar10_train_lmdb",
