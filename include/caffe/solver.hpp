@@ -129,9 +129,9 @@ class Solver {
   }
   bool stop_reducing_requested(int ltype) const {
     if (ltype == 0) {
-      return reduce_thread0_->interruption_requested();
+      return reduce_thread0_ && reduce_thread0_->interruption_requested();
     }
-    return reduce_thread1_->interruption_requested();
+    return reduce_thread1_ && reduce_thread1_->interruption_requested();
   }
 
   void CheckSnapshotWritePermissions();

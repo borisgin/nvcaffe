@@ -758,7 +758,7 @@ void Net::BackwardFromToAu(int start, int end, bool apply_update) {
       if (param_owners_[param_id] < 0) {
         const int lparam_id = learnable_param_ids_[param_id];
         int t = (int)learnable_params_[lparam_id]->diff_type();
-        for (int type_id = 0; type_id < learnable_types_.size(); ++type_id) {
+        for (int type_id = 0; type_id < learnable_types().size(); ++type_id) {
           if (t == learnable_types_[type_id]) {
             reduction_queue_[type_id].push(lparam_id);
             break;

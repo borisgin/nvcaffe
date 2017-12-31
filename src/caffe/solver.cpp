@@ -199,6 +199,9 @@ void Solver::Step(int iters) {
   if (iters <= 0) {
     iter0_flag_.set();
     init_flag_.set();
+#ifdef CPU_ONLY
+    return;
+#endif
   }
 
 #ifndef CPU_ONLY
