@@ -74,7 +74,7 @@ void Caffe::set_random_seed(uint64_t random_seed) {
     return;  // i.e. root solver was previously set to 0+ and there is no need to re-generate
   }
 #ifndef CPU_ONLY
-  {
+  if (device_count() > 0) {
     // Curand seed
     std::lock_guard<std::mutex> lock(seed_mutex_);
     if (random_seed == Caffe::SEED_NOT_SET) {
@@ -105,6 +105,14 @@ void GlobalInit(int* pargc, char*** pargv) {
   ::google::InitGoogleLogging(*(pargv)[0]);
   // Provide a backtrace on segfault.
   ::google::InstallFailureSignalHandler();
+}
+
+int Caffe::device_count() {
+  int count = 0;
+#ifndef CPU_ONLY
+  cudaGetDeviceCount(&count);
+#endif
+  return count;
 }
 
 #ifdef CPU_ONLY  // CPU-only Caffe.
@@ -451,23 +459,33 @@ const int TypedConsts<int>::zero = 0;
 const int TypedConsts<int>::one = 1;
 
 #ifndef CPU_ONLY
-CuBLASHandle::CuBLASHandle() {
-  CUBLAS_CHECK(cublasCreate(&handle_));
+CuBLASHandle::CuBLASHandle() : handle_(nullptr) {
+  if (Caffe::device_count() > 0) {
+    CUBLAS_CHECK(cublasCreate(&handle_));
+  }
 }
-CuBLASHandle::CuBLASHandle(cudaStream_t stream) {
-  CUBLAS_CHECK(cublasCreate(&handle_));
-  CUBLAS_CHECK(cublasSetStream(handle_, stream));
+CuBLASHandle::CuBLASHandle(cudaStream_t stream) : handle_(nullptr) {
+  if (Caffe::device_count() > 0) {
+    CUBLAS_CHECK(cublasCreate(&handle_));
+    CUBLAS_CHECK(cublasSetStream(handle_, stream));
+  }
 }
 CuBLASHandle::~CuBLASHandle() {
-  CUBLAS_CHECK(cublasDestroy(handle_));
+  if (Caffe::device_count() > 0) {
+    CUBLAS_CHECK(cublasDestroy(handle_));
+  }
 }
 #ifdef USE_CUDNN
-CuDNNHandle::CuDNNHandle(cudaStream_t stream) {
-  CUDNN_CHECK(cudnnCreate(&handle_));
-  CUDNN_CHECK(cudnnSetStream(handle_, stream));
+CuDNNHandle::CuDNNHandle(cudaStream_t stream) : handle_(nullptr) {
+  if (Caffe::device_count() > 0) {
+    CUDNN_CHECK(cudnnCreate(&handle_));
+    CUDNN_CHECK(cudnnSetStream(handle_, stream));
+  }
 }
 CuDNNHandle::~CuDNNHandle() {
-  CUDNN_CHECK(cudnnDestroy(handle_));
+  if (Caffe::device_count() > 0) {
+    CUDNN_CHECK(cudnnDestroy(handle_));
+  }
 }
 #endif
 #endif
@@ -479,8 +497,10 @@ Caffe::Properties::Properties() :
       main_thread_id_(std::this_thread::get_id()),
       caffe_version_(AS_STRING(CAFFE_VERSION)) {
 #ifndef CPU_ONLY
-  int count = 0;
-  CUDA_CHECK(cudaGetDeviceCount(&count));
+  const int count = Caffe::device_count();
+  if (count == 0) {
+    return;
+  }
   compute_capabilities_.resize(count);
   cudaDeviceProp device_prop;
   for (int gpu = 0; gpu < compute_capabilities_.size(); ++gpu) {

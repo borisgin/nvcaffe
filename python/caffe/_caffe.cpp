@@ -427,6 +427,7 @@ BOOST_PYTHON_MODULE(_caffe) {
     .def("_forward", &Net_ForwardFromToNoGIL)
     .def("_backward", &Net_BackwardFromToNoGIL)
     .def("reshape", &Net::Reshape)
+    .def("clear_param_diffs", &Net::ClearParamDiffs)
     // The cast is to select a particular overload.
     .def("copy_from", static_cast<void (Net::*)(const string)>(
         &Net::CopyTrainedLayersFrom))

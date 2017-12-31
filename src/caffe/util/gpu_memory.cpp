@@ -92,8 +92,7 @@ bool GPUMemory::Workspace::try_reserve(size_t size, int device) {
 }
 
 GPUMemory::Manager::Manager() : debug_(false), initialized_(false) {
-  int count;
-  CUDA_CHECK(cudaGetDeviceCount(&count));
+  const int count = Caffe::device_count();
   dev_info_.resize(count);
   update_thresholds_.resize(count);
 }

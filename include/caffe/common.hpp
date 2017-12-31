@@ -401,6 +401,10 @@ class Caffe {
   // freed in a non-pinned way, which may cause problems - I haven't verified
   // it personally but better to note it here in the header file.
   static void set_mode(Brew mode) {
+    if (mode == Caffe::GPU && device_count() == 0) {
+      LOG(ERROR) << "Cannot set GPU mode: no device detected";
+      return;
+    }
     Get().mode_ = mode;
   }
   // Next seed. It's deterministic if root seed is already set.
@@ -423,6 +427,7 @@ class Caffe {
   // Search from start_id to the highest possible device ordinal,
   // return the ordinal of the first available device.
   static int FindDevice(const int start_id = 0);
+  static int device_count();
   // Parallel training info
   static int solver_count() { return Get().solver_count_; }
   static void set_solver_count(int val) { Get().solver_count_ = val; }
@@ -471,8 +476,8 @@ class Caffe {
 
   static int current_device() {
 #ifndef CPU_ONLY
-    int device;
-    CUDA_CHECK(cudaGetDevice(&device));
+    int device = 0;
+    cudaGetDevice(&device);
     return device;
 #else
     return 0;

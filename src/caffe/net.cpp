@@ -396,21 +396,23 @@ void Net::Init(const NetParameter& in_param) {
   learnable_space_size_[0] = 0UL;
   learnable_space_size_[1] = 0UL;
   reduce_buckets_ = (size_t) in_param.reduce_buckets();
-  LOG_IF(INFO, Caffe::root_solver())
-      << "Top memory (" << Phase_Name(phase_) << ") required for data: "
-      << gpu_top_memory_data_use_ << " diff: " << gpu_top_memory_diff_use_;
-  LOG_IF(INFO, Caffe::root_solver())
-      << "Bottom memory (" << Phase_Name(phase_) << ") required for data: "
-      << gpu_btm_memory_data_use_ << " diff: " << gpu_btm_memory_diff_use_;
-  LOG_IF(INFO, Caffe::root_solver())
-      << "Shared (in-place) memory (" << Phase_Name(phase_) << ") by data: "
-      << gpu_shr_memory_data_use_ << " diff: " << gpu_shr_memory_diff_use_;
-  LOG_IF(INFO, Caffe::root_solver())
-      << "Parameters memory (" << Phase_Name(phase_) << ") required for data: "
-      << gpu_prm_memory_data_use_ << " diff: " << gpu_prm_memory_diff_use_;
-  LOG_IF(INFO, Caffe::root_solver())
-      << "Parameters shared memory (" << Phase_Name(phase_) << ") by data: "
-          << gpu_shp_memory_data_use_ << " diff: " << gpu_shp_memory_diff_use_;
+  if (Caffe::device_count() > 0) {
+    LOG_IF(INFO, Caffe::root_solver())
+        << "Top memory (" << Phase_Name(phase_) << ") required for data: "
+        << gpu_top_memory_data_use_ << " diff: " << gpu_top_memory_diff_use_;
+    LOG_IF(INFO, Caffe::root_solver())
+        << "Bottom memory (" << Phase_Name(phase_) << ") required for data: "
+        << gpu_btm_memory_data_use_ << " diff: " << gpu_btm_memory_diff_use_;
+    LOG_IF(INFO, Caffe::root_solver())
+        << "Shared (in-place) memory (" << Phase_Name(phase_) << ") by data: "
+        << gpu_shr_memory_data_use_ << " diff: " << gpu_shr_memory_diff_use_;
+    LOG_IF(INFO, Caffe::root_solver())
+        << "Parameters memory (" << Phase_Name(phase_) << ") required for data: "
+        << gpu_prm_memory_data_use_ << " diff: " << gpu_prm_memory_diff_use_;
+    LOG_IF(INFO, Caffe::root_solver())
+        << "Parameters shared memory (" << Phase_Name(phase_) << ") by data: "
+        << gpu_shp_memory_data_use_ << " diff: " << gpu_shp_memory_diff_use_;
+  }
 #endif
   debug_info_ = param.debug_info();
   trained_layers_shared_ = false;
