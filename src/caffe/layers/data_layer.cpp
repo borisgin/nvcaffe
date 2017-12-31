@@ -322,8 +322,22 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
       // Get data offset for this datum to hand off to transform thread
       const size_t offset = batch->data_->offset(item_id);
       CHECK_EQ(0, offset % buf_len);
+#if defined(USE_CUDNN)
       vector<int> shape = this->dt(thread_id)->Transform(datum.get(), dst_cptr + offset,
           buf_len, packing, false);
+#else
+      vector<Btype> tmp(top_shape[1] * top_shape[2] * top_shape[3]);
+      CHECK_EQ(buf_len, tmp.size());
+      vector<int> shape = this->dt(thread_id)->Transform(datum.get(), tmp.data(), buf_len,
+          packing, false);
+      if (packing == NHWC) {
+        hwc2chw(top_shape[1], top_shape[3], top_shape[2], tmp.data(), dst_cptr + offset);
+        packing = NCHW;
+      } else {
+        // NOLINT_NEXT_LINE(caffe/alt_fn)
+        memcpy(dst_cptr + offset, tmp.data(), buf_len * sizeof(Btype));
+      }
+#endif
       CHECK_EQ(top_shape[1], shape[1]) << "Number of channels can't vary in the same batch";
       CHECK_EQ(top_shape[2], shape[2]) << "Image height can't vary in the same batch";
       CHECK_EQ(top_shape[3], shape[3]) << "Image width can't vary in the same batch";

@@ -214,13 +214,15 @@ void Blob::CopyFrom(const Blob& source, bool copy_diff, bool reshape,
   Type src_type = copy_diff ? source.diff_type() : source.data_type();
   Type dst_type = copy_diff ? diff_type() : data_type();
   const bool is_gpu = Caffe::mode() == Caffe::GPU;
-#ifndef CPU_ONLY
+#if defined(USE_CUDNN)
   if ((src_packing == dst_packing && src_type == dst_type)
       || !is_gpu || shape().size() != 4 || source.shape().size() != 4) {
+#else
+  CHECK_EQ(src_packing, dst_packing);
+#endif
     if (srct == dstt) {
       return;
     }
-#endif
     do {
 #ifndef CPU_ONLY
       if (src_type == dst_type) {
@@ -248,7 +250,7 @@ void Blob::CopyFrom(const Blob& source, bool copy_diff, bool reshape,
           is_gpu ? src->gpu_data() : src->cpu_data(), src_type,
           is_gpu ? dst->mutable_gpu_data() : dst->mutable_cpu_data(), dst_type);
     } while (false);
-#ifndef CPU_ONLY
+#if defined(USE_CUDNN)
   } else {
     CHECK(srct != dstt);
     cudnnHandle_t handle = Caffe::cudnn_handle(group);
