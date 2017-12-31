@@ -33,8 +33,10 @@ TEST_F(CommonTest, TestBrewMode) {
   Caffe::Brew current_mode = Caffe::mode();
   Caffe::set_mode(Caffe::CPU);
   EXPECT_EQ(Caffe::mode(), Caffe::CPU);
+#ifndef CPU_ONLY
   Caffe::set_mode(Caffe::GPU);
   EXPECT_EQ(Caffe::mode(), Caffe::GPU);
+#endif
   Caffe::set_mode(current_mode);
 }
 
