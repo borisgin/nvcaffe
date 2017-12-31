@@ -13,12 +13,13 @@
 #include <boost/version.hpp>
 #if BOOST_VERSION >= 106100
 // error: class "boost::common_type<long, long>" has no member "type"
-#  define BOOST_NO_CXX11_VARIADIC_TEMPLATES
-#  if defined(__CUDACC_VER_MAJOR__) && defined(__CUDACC_VER_MINOR__) && defined(__CUDACC_VER_BUILD__)
-#    define BOOST_CUDA_VERSION __CUDACC_VER_MAJOR__ * 1000000 + __CUDACC_VER_MINOR__ * 10000 + __CUDACC_VER_BUILD__
-#  else
-#    define BOOST_CUDA_VERSION 8000000
-#  endif
+#define BOOST_NO_CXX11_VARIADIC_TEMPLATES
+#if defined(__CUDACC_VER_MAJOR__) && defined(__CUDACC_VER_MINOR__) && defined(__CUDACC_VER_BUILD__)
+#define BOOST_CUDA_VERSION \
+  __CUDACC_VER_MAJOR__ * 1000000 + __CUDACC_VER_MINOR__ * 10000 + __CUDACC_VER_BUILD__
+#else
+#define BOOST_CUDA_VERSION 8000000
+#endif
 #endif
 
 #include <boost/thread.hpp>
