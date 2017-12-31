@@ -127,6 +127,7 @@ void ImageDataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_
 
   Ftype* prefetch_data = batch->data_->mutable_cpu_data<Ftype>();
   Ftype* prefetch_label = batch->label_->mutable_cpu_data<Ftype>();
+  Packing packing = NHWC;
 
   // datum scales
   const int lines_size = lines_.size();
@@ -142,9 +143,17 @@ void ImageDataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_
     timer.Start();
     // Apply transformations (mirror, crop...) to the image
     int offset = batch->data_->offset(item_id);
-    this->dt(0)->Transform(cv_img, prefetch_data + offset, buf_len, false);
-    trans_time += timer.MicroSeconds();
 
+#if defined(USE_CUDNN)
+    this->dt(0)->Transform(cv_img, prefetch_data + offset, buf_len, false);
+#else
+    vector<Btype> tmp(top_shape[1] * top_shape[2] * top_shape[3]);
+    CHECK_EQ(buf_len, tmp.size());
+    this->dt(0)->Transform(cv_img, prefetch_data + offset, buf_len, false);
+    hwc2chw(top_shape[1], top_shape[3], top_shape[2], tmp.data(), prefetch_data + offset);
+    packing = NCHW;
+#endif
+    trans_time += timer.MicroSeconds();
     prefetch_label[item_id] = lines_[lines_id_].second;
     // go to the next iter
     lines_id_++;
@@ -165,7 +174,7 @@ void ImageDataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_
   DLOG(INFO) << this->print_current_device()
              << "Transform time: " << trans_time / 1000 << " ms.";
 
-  batch->set_data_packing(NHWC);
+  batch->set_data_packing(packing);
   batch->set_id(this->batch_id(thread_id));
 }
 
