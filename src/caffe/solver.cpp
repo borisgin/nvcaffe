@@ -391,11 +391,9 @@ void Solver::Finalize() {
   net_->Finalize();
   if (reduce_thread0_) {
     reduce_thread0_->join();
-    reduce_thread0_.reset();
   }
   if (reduce_thread1_) {
     reduce_thread1_->join();
-    reduce_thread1_.reset();
   }
 }
 
