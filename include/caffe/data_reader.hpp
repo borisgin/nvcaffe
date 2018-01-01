@@ -65,7 +65,7 @@ class DataReader : public InternalThread {
     }
 
     shared_ptr<Datum>& next_new();
-    shared_ptr<Datum>& next_cached();
+    shared_ptr<Datum>& next_cached(DataReader& reader);
     bool check_memory();
     void check_db(const std::string& db_source) {
       std::lock_guard<std::mutex> lock(cache_mutex_);
@@ -148,7 +148,7 @@ class DataReader : public InternalThread {
   }
 
   shared_ptr<Datum>& next_cached() {
-    return data_cache_->next_cached();
+    return data_cache_->next_cached(*this);
   }
 
   bool check_memory() {

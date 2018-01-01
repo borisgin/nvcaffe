@@ -71,7 +71,7 @@ class RandomNumberGeneratorTest : public ::testing::Test {
 
   void RngGaussianFill(float mu, float sigma, void* cpu_data) {
     Dtype* rng_data = static_cast<Dtype*>(cpu_data);
-    caffe_rng_gaussian(sample_size_, mu, sigma, rng_data);
+    caffe_rng_gaussian<Dtype>(sample_size_, mu, sigma, rng_data);
   }
 
   void RngGaussianChecks(const Dtype mu, const Dtype sigma,
@@ -119,7 +119,7 @@ class RandomNumberGeneratorTest : public ::testing::Test {
   void RngUniformFill(float lower, float upper, void* cpu_data) {
     CHECK_GE(upper, lower);
     Dtype* rng_data = static_cast<Dtype*>(cpu_data);
-    caffe_rng_uniform(sample_size_, lower, upper, rng_data);
+    caffe_rng_uniform<Dtype>(sample_size_, lower, upper, rng_data);
   }
 
   void RngUniformChecks(const Dtype lower, const Dtype upper,

@@ -2,39 +2,11 @@
 #define INCLUDE_CAFFE_GPU_MATH_FUNCTIONS_H_
 
 #include <cuda.h>
-#include <cuda_fp16.h>
-#include <math_functions.h>
-#include <driver_types.h>
-
+#include <glog/logging.h>
+#include "math_functions.h"
+#include "driver_types.h"
+#include "caffe/common.hpp"
 #include "caffe/util/half.cuh"
-
-__device__ __inline__ half inf_clip(half h) {
-  const int isi = __hisinf(h);
-  if (isi > 0) {
-    // Exponent all ones except LSB (0x1e), mantissa is all ones (0x3ff)
-    h.setx(0x7bffU);
-  } else if (isi < 0) {
-    // As above, negated
-    h.setx(0x7bffU ^ 0x8000U);
-  }
-  return h;
-}
-
-__device__ __inline__ half float2half_clip(float a) {
-#ifdef OLD_CUDA_HALF_IMPL
-  half h;
-  h.setx(__float2half_rn(a));
-  return inf_clip(h);
-#else
-  return inf_clip(__float2half_rn(a));
-#endif
-}
-
-__device__ __inline__
-half2 float22half2_clip(float2 a) {
-  half2 h = __float22half2_rn(a);
-  return __halves2half2(inf_clip(__low2half(h)), inf_clip(__high2half(h)));
-}
 
 __device__ __inline__
 bool hlt(half a, half b) {
@@ -42,6 +14,15 @@ bool hlt(half a, half b) {
 return __hlt(a, b);
 #else
 return __half2float(a) < __half2float(b);
+#endif
+}
+
+__device__ __inline__
+half hmul(half a, half b) {
+#if __CUDA_ARCH__ >= 530
+  return __hmul(a, b);
+#else
+  return float2half_clip(__half2float(a) * __half2float(b));
 #endif
 }
 
@@ -72,6 +53,15 @@ half2 hge2(half2 a, half2 b) {
   af.y = (af.y >= bf.y) ? 1.f : 0.f;
 
   return float22half2_clip(af);
+#endif
+}
+
+__device__ __inline__
+half hadd(half a, half b) {
+#if __CUDA_ARCH__ >= 530
+  return __hadd(a, b);
+#else
+  return float2half_clip(__half2float(a) + __half2float(b));
 #endif
 }
 
@@ -138,71 +128,6 @@ half2 h2_max(half2 a, half2 b) {
   h2_max_replace(&m, b);
   return m;
 }
-
-
-template<typename T> struct __dyn_shmem__ {
-  __device__
-  T* getPtr() {
-    return NULL;
-  }
-};
-template<> struct __dyn_shmem__<float> {
-  __device__
-  float* getPtr() {
-    extern __shared__ float Sptr[];
-    return Sptr;
-  }
-};
-template<> struct __dyn_shmem__<double> {
-  __device__
-  double* getPtr() {
-    extern __shared__ double Dptr[];
-    return Dptr;
-  }
-};
-template<> struct __dyn_shmem__<half2> {
-  __device__
-  half2* getPtr() {
-    extern __shared__ half2 Hptr[];
-    return Hptr;
-  }
-};
-template<> struct __dyn_shmem__<int> {
-  __device__
-  int* getPtr() {
-    extern __shared__ int Iptr[];
-    return Iptr;
-  }
-};
-template<> struct __dyn_shmem__<unsigned int> {
-  __device__
-  unsigned int* getPtr() {
-    extern __shared__ unsigned int UIptr[];
-    return UIptr;
-  }
-};
-
-template <int N>
-struct n_bytes {
-  char content[N];
-};
-
-#define CAFFE_GPU_SHMEM(N)                    \
-template<> struct __dyn_shmem__<n_bytes<N>> { \
-  __device__ n_bytes<N>* getPtr() {           \
-    extern __shared__ n_bytes<N> ptr##N[];    \
-    return ptr##N;                            \
-  }                                           \
-}
-
-CAFFE_GPU_SHMEM(2);
-CAFFE_GPU_SHMEM(4);
-CAFFE_GPU_SHMEM(6);
-CAFFE_GPU_SHMEM(8);
-CAFFE_GPU_SHMEM(10);
-CAFFE_GPU_SHMEM(12);
-CAFFE_GPU_SHMEM(14);
-CAFFE_GPU_SHMEM(16);
 
 
 template<typename T>
@@ -286,6 +211,29 @@ double tmax<half2, double>(half2 a, half2 b) {
 
 template<typename T, typename TR>
 __device__ __inline__
+TR tsumsq(T a, T b) {
+  return TR(a * a) + TR(b * b);
+}
+template<>
+__device__ __inline__
+half2 tsumsq<half2, half2>(half2 a, half2 b) {
+  return hadd2(hmul2(a, a), hmul2(b, b));
+}
+template<>
+__device__ __inline__
+float tsumsq<half2, float>(half2 a, half2 b) {
+  float2 af = __half22float2(a);
+  float2 bf = __half22float2(b);
+  return af.x * af.x + af.y * af.y + bf.x * bf.x + bf.y * bf.y;
+}
+template<>
+__device__ __inline__
+double tsumsq<half2, double>(half2 a, half2 b) {
+  return tsumsq<half2, float>(a, b);
+}
+
+template<typename T, typename TR>
+__device__ __inline__
 TR tsum(T a, T b) {
   return TR(a + b);
 }
@@ -297,9 +245,9 @@ half2 tsum<half2, half2>(half2 a, half2 b) {
 template<>
 __device__ __inline__
 float tsum<half2, float>(half2 a, half2 b) {
-  half2 h = hadd2(a, b);
-  float2 f = __half22float2(h);
-  return f.x + f.y;
+  float2 af = __half22float2(a);
+  float2 bf = __half22float2(b);
+  return af.x + af.y + bf.x + bf.y;
 }
 template<>
 __device__ __inline__
@@ -367,6 +315,127 @@ __device__ __inline__
 void tsum_replace<half2, double>(volatile double *a, half2 b) {
   float2 f = __half22float2(b);
   *a += f.x + f.y;
+}
+
+template<typename T, typename TR>
+__device__ __inline__
+void tsumsq_replace(volatile TR *a, T b) {
+  *a += TR(b * b);
+}
+template<>
+__device__ __inline__
+void tsumsq_replace<half2, half2>(volatile half2 *a, half2 b) {
+  *const_cast<half2*>(a) = hadd2(*const_cast<half2*>(a), hmul2(b, b));
+}
+template<>
+__device__ __inline__
+void tsumsq_replace<half2, float>(volatile float *a, half2 b) {
+  float2 f = __half22float2(b);
+  *a += f.x * f.x + f.y * f.y;
+}
+template<>
+__device__ __inline__
+void tsumsq_replace<half2, double>(volatile double *a, half2 b) {
+  float2 f = __half22float2(b);
+  *a += f.x * f.x + f.y * f.y;
+}
+
+
+#define SHMEM(FN)  \
+template<typename T>  \
+struct __dyn_shmem_##FN##__ {  \
+  __device__  \
+  T *getPtr() {  \
+    return NULL;  \
+  }  \
+};  \
+  \
+template<>  \
+struct __dyn_shmem_##FN##__<float> {  \
+  __device__  \
+  float *getPtr() {  \
+    extern __shared__ float S##FN##ptr[];  \
+    return S##FN##ptr;  \
+  }  \
+};  \
+  \
+template<>  \
+struct __dyn_shmem_##FN##__<double> {  \
+  __device__  \
+  double *getPtr() {  \
+    extern __shared__ double D##FN##ptr[];  \
+    return D##FN##ptr;  \
+  }  \
+};  \
+  \
+template<>  \
+struct __dyn_shmem_##FN##__<half2> {  \
+  __device__  \
+  half2 *getPtr() {  \
+    extern __shared__ half2 H##FN##ptr[];  \
+    return H##FN##ptr;  \
+  }  \
+};  \
+  \
+template<>  \
+struct __dyn_shmem_##FN##__<int> {  \
+  __device__  \
+  int *getPtr() {  \
+    extern __shared__ int I##FN##ptr[];  \
+    return I##FN##ptr;  \
+  }  \
+};  \
+  \
+template<>  \
+struct __dyn_shmem_##FN##__<unsigned int> {  \
+  __device__  \
+  unsigned int *getPtr() {  \
+    extern __shared__ unsigned int UI##FN##ptr[];  \
+    return UI##FN##ptr;  \
+  }  \
+};  \
+  \
+template<int N>  \
+struct n_bytes {  \
+  char content[N];  \
+}
+
+#define SHMEMN(N, FN)                    \
+template<> struct __dyn_shmem_##FN##__<n_bytes<N>> { \
+  __device__ n_bytes<N>* getPtr() {           \
+    extern __shared__ n_bytes<N> FN##ptr##N[];    \
+    return FN##ptr##N;                            \
+  }                                           \
+}
+
+#define CAFFE_GPU_SHMEM(FN)  \
+SHMEMN(2, FN);  \
+SHMEMN(4, FN);  \
+SHMEMN(6, FN);  \
+SHMEMN(8, FN);  \
+SHMEMN(10, FN);  \
+SHMEMN(12, FN);  \
+SHMEMN(14, FN);  \
+SHMEMN(16, FN)
+
+#define REDUCTION_GROUP_AMAX   0
+#define REDUCTION_GROUP_ASUM   1
+#define REDUCTION_GROUP_SQ     2
+#define REDUCTION_GROUP_DOT    3
+
+#define TOTAL_REDUCTION_GROUPS 4
+#define TOTAL_TYPES 5  // Type_ARRAYSIZE
+
+namespace caffe {
+
+inline int reduction_group(int tp, int id) {
+  CHECK_LT(tp, TOTAL_TYPES);
+  CHECK_LT(id, TOTAL_REDUCTION_GROUPS);
+  return tp * TOTAL_REDUCTION_GROUPS + id;
+}
+
+#define REGRESSION_GROUPS_MAX 16
+
 }
 
 #endif  // INCLUDE_CAFFE_GPU_MATH_FUNCTIONS_H_

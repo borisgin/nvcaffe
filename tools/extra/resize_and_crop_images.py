@@ -95,9 +95,9 @@ class ResizeCropImagesMapper(mapreducer.BasicMapper):
                     os.makedirs(output_dir)
                 feat = resize_crop.resize_and_crop_image(input_file, output_file,
                                                               FLAGS.output_side_length)
-            except Exception, e:
+            except Exception as e:
                 # we ignore the exception (maybe the image is corrupted?)
-                print line, Exception, e
+                print(line, Exception, e)
         yield value, FLAGS.output_folder
 
 mapreducer.REGISTER_DEFAULT_MAPPER(ResizeCropImagesMapper)

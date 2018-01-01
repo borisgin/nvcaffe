@@ -22,14 +22,21 @@ TEST_F(CommonTest, TestCublasHandlerGPU) {
   EXPECT_TRUE(Caffe::cublas_handle());
 }
 
+TEST_F(CommonTest, TestDeviceQuery) {
+  std::string dq = Caffe::DeviceQuery();
+  EXPECT_TRUE(dq.find("No") == 0UL || dq.find("Dev") == 0UL);
+}
+
 #endif
 
 TEST_F(CommonTest, TestBrewMode) {
   Caffe::Brew current_mode = Caffe::mode();
   Caffe::set_mode(Caffe::CPU);
   EXPECT_EQ(Caffe::mode(), Caffe::CPU);
+#ifndef CPU_ONLY
   Caffe::set_mode(Caffe::GPU);
   EXPECT_EQ(Caffe::mode(), Caffe::GPU);
+#endif
   Caffe::set_mode(current_mode);
 }
 

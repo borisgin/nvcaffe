@@ -32,6 +32,16 @@ def coord_net_spec(ks=3, stride=1, pad=0, pool=2, dstride=2, dpad=0):
 
 
 class TestCoordMap(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        super(TestCoordMap, self).setUpClass()
+        print('TestCoordMap.setUpClass')
+
+    @classmethod
+    def tearDownClass(self):
+        super(TestCoordMap, self).tearDownClass()
+        print('TestCoordMap.tearDownClass')
+
     def setUp(self):
         pass
 

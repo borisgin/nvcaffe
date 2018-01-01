@@ -1,9 +1,9 @@
-name: "AlexNet_fp16"
+name: "AlexNet_8K_fp16"
 
 default_forward_type:  FLOAT16
 default_backward_type: FLOAT16
-default_forward_math:  FLOAT16
-default_backward_math: FLOAT16
+#default_forward_math:  FLOAT16
+#default_backward_math: FLOAT16
 
 global_grad_scale: 1000.
 
@@ -13,14 +13,18 @@ layer {
   top: "data"
   top: "label"
   transform_param {
+#    mean_file: "data/ilsvrc12/imagenet_mean.binaryproto"
+    mean_file: "/data/imagenet/imagenet_256x256_mean.binaryproto"
     mirror: true
     crop_size: 227
-    mean_file: "data/ilsvrc12/imagenet_mean.binaryproto"
   }
   data_param {
-    source: "examples/imagenet/ilsvrc12_train_lmdb"
-    batch_size: 256
-#    batch_size: 1024  # DGX1
+#    source: "examples/imagenet/ilsvrc12_train_lmdb"
+#    batch_size: 1024
+    source: "/data/imagenet/train-lmdb-uncompressed-256x256"
+    batch_size: 8192
+    cache:   true
+    shuffle: true
     backend: LMDB
   }
   include { phase: TRAIN }
@@ -31,14 +35,16 @@ layer {
   top: "data"
   top: "label"
   transform_param {
+#    mean_file: "data/ilsvrc12/imagenet_mean.binaryproto"
+    mean_file: "/data/imagenet/imagenet_256x256_mean.binaryproto"
     mirror: false
     crop_size: 227
-    mean_file: "data/ilsvrc12/imagenet_mean.binaryproto"
   }
   data_param {
-    source: "examples/imagenet/ilsvrc12_val_lmdb"
-    batch_size: 32
-#    batch_size: 256  # DGx1
+#    source: "examples/imagenet/ilsvrc12_val_lmdb"
+#    batch_size: 32
+    source: "/data/imagenet/val-lmdb-uncompressed-256x256"
+    batch_size: 256  
     backend: LMDB
   }
   include { phase: TEST }

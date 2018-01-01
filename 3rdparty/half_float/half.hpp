@@ -1058,7 +1058,13 @@ namespace half_float
     CAFFE_UTIL_HD
     half& operator=(detail::expr rhs) { return *this = static_cast<float>(rhs); }
 
-		/// Arithmetic assignment.
+    CAFFE_UTIL_HD
+    half& operator=(const half& rhs) {
+      data_ = rhs.data_;
+      return *this;
+    }
+
+    /// Arithmetic assignment.
 		/// \tparam T type of concrete half expression
 		/// \param rhs half expression to add
 		/// \return reference to this half
@@ -1171,6 +1177,12 @@ namespace half_float
 		/// Internal binary representation
 		detail::uint16 data_;
 	};
+
+  template <>
+  CAFFE_UTIL_IHD half& half::operator= <half>(const half& rhs) {
+    data_ = rhs.data_;
+    return *this;
+  }
 
 #if HALF_ENABLE_CPP11_USER_LITERALS
 	/// Library-defined half-precision literals.
@@ -3085,6 +3097,10 @@ namespace std
 
 
   inline bool signbit(const half_float::half& arg) { return half_float::detail::signbit(arg); }
+
+  inline half_float::half fabs(half_float::half x) {
+		return abs(x);
+	}
 
 
 #if HALF_ENABLE_CPP11_HASH

@@ -1,0 +1,42 @@
+net: "models/resnet50/train_val_fp16.prototxt"
+
+test_iter:    1562         # 50000/32
+test_interval: 2500    
+test_initialization: false
+
+display: 100
+
+max_iter: 250000 	# 100 epoch 
+base_lr:  4.00 		# B=512
+
+local_lr_auto: true
+local_gw_ratio: 0.001
+
+#rampup_lr: 1.0
+#rampup_interval: 5000
+
+lr_policy: "poly"
+power: 2.0
+momentum: 0.9
+weight_decay: 1e-4
+
+snapshot: 1000000
+snapshot_prefix: "models/resnet50/snapshots/resnet50"
+snapshot_after_train: false
+
+solver_mode: GPU
+random_seed: 1
+
+# Train dataset size = 1,281,167
+# Test dataset size  =    50,000
+
+# batch 32  --> epoch = 40,000
+# batch 64  --> epoch = 20,000 
+# batch 96  --> epoch = 15,000
+# batch 128 --> epoch = 10,000 
+# batch 256 --> epoch =  5,000  
+# batch 512 --> epoch =  2,500  #
+# batch 1024--> epoch =  1,250
+# batch 2048--> epoch =    625
+# batch 4096--> epoch =    312
+# batch 8192--> epoch =    156

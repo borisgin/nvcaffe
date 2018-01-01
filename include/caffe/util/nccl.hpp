@@ -14,6 +14,14 @@
     << ncclGetErrorString(result); \
 }
 
+#define NCCL_CHECK_ARG2(condition, arg1, arg2) \
+{ \
+  ncclResult_t result = condition; \
+  CHECK_EQ(result, ncclSuccess) << " " \
+    << ncclGetErrorString(result) << \
+    " (" << arg1 << ") (" << arg2 << ")"; \
+}
+
 namespace caffe {
 
 namespace nccl {

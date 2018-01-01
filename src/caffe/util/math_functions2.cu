@@ -1,9 +1,8 @@
 #include <algorithm>
 #include <device_launch_parameters.h>
 
-#include "caffe/common.hpp"
-#include "caffe/util/gpu_math_functions.cuh"
 #include "caffe/util/math_functions.hpp"
+#include "caffe/util/gpu_math_functions.cuh"
 
 namespace caffe {
 
@@ -391,7 +390,7 @@ void caffe_gpu_rng_uniform<double>(const int n, const double a, const double b,
 template<>
 void caffe_gpu_rng_uniform<float16>(const int n, const float16 a,
     const float16 b, float16* r) {
-  GPUMemory::Workspace rf(n * sizeof(float));
+  GPUMemory::Workspace rf(n * sizeof(float), Caffe::current_device());
   float* rfp = static_cast<float*>(rf.data());
   CURAND_CHECK(curandGenerateUniform(Caffe::curand_generator(), rfp, n));
   const float range = b - a;
@@ -416,7 +415,7 @@ void caffe_gpu_rng_gaussian(const int n, const double mu, const double sigma, do
 
 template<>
 void caffe_gpu_rng_gaussian(const int n, const float16 mu, const float16 sigma, float16* r) {
-  GPUMemory::Workspace rf(n * sizeof(float));
+  GPUMemory::Workspace rf(n * sizeof(float), Caffe::current_device());
   float* rfp = static_cast<float*>(rf.data());
   CURAND_CHECK(curandGenerateNormal(Caffe::curand_generator(), rfp, n, mu, sigma));
   caffe_gpu_convert(n, rfp, r);

@@ -54,6 +54,10 @@ TYPED_TEST_CASE(EltwiseLayerTest, TestDtypesAndDevices);
 TYPED_TEST(EltwiseLayerTest, TestSetUp) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter layer_param;
+  layer_param.set_forward_type(tp<Dtype>());
+  layer_param.set_backward_type(tp<Dtype>());
+  layer_param.set_forward_math(tp<Dtype>());
+  layer_param.set_backward_math(tp<Dtype>());
   EltwiseParameter* eltwise_param = layer_param.mutable_eltwise_param();
   eltwise_param->set_operation(EltwiseParameter_EltwiseOp_PROD);
   shared_ptr<EltwiseLayer<Dtype, Dtype> > layer(
@@ -68,6 +72,10 @@ TYPED_TEST(EltwiseLayerTest, TestSetUp) {
 TYPED_TEST(EltwiseLayerTest, TestProd) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter layer_param;
+  layer_param.set_forward_type(tp<Dtype>());
+  layer_param.set_backward_type(tp<Dtype>());
+  layer_param.set_forward_math(tp<Dtype>());
+  layer_param.set_backward_math(tp<Dtype>());
   EltwiseParameter* eltwise_param = layer_param.mutable_eltwise_param();
   eltwise_param->set_operation(EltwiseParameter_EltwiseOp_PROD);
   shared_ptr<EltwiseLayer<Dtype, Dtype> > layer(
@@ -80,15 +88,17 @@ TYPED_TEST(EltwiseLayerTest, TestProd) {
   const Dtype* in_data_b = this->blob_bottom_b_->cpu_data();
   const Dtype* in_data_c = this->blob_bottom_c_->cpu_data();
   for (int i = 0; i < count; ++i) {
-    EXPECT_NEAR(data[i],
-                in_data_a[i] * in_data_b[i] * in_data_c[i],
-                tol<Dtype>(1e-4, 1e-2));
+    EXPECT_NEAR(data[i], in_data_a[i] * in_data_b[i] * in_data_c[i], tol<Dtype>(1e-4, 5e-4));
   }
 }
 
 TYPED_TEST(EltwiseLayerTest, TestSum) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter layer_param;
+  layer_param.set_forward_type(tp<Dtype>());
+  layer_param.set_backward_type(tp<Dtype>());
+  layer_param.set_forward_math(tp<Dtype>());
+  layer_param.set_backward_math(tp<Dtype>());
   EltwiseParameter* eltwise_param = layer_param.mutable_eltwise_param();
   eltwise_param->set_operation(EltwiseParameter_EltwiseOp_SUM);
   shared_ptr<EltwiseLayer<Dtype, Dtype> > layer(
@@ -101,15 +111,18 @@ TYPED_TEST(EltwiseLayerTest, TestSum) {
   const Dtype* in_data_b = this->blob_bottom_b_->cpu_data();
   const Dtype* in_data_c = this->blob_bottom_c_->cpu_data();
   for (int i = 0; i < count; ++i) {
-    EXPECT_NEAR(data[i],
-                in_data_a[i] + in_data_b[i] + in_data_c[i],
-                tol<Dtype>(1e-4, 1e-2));
+    EXPECT_NEAR(data[i], in_data_a[i] + in_data_b[i] + in_data_c[i],
+        tol<Dtype>(1e-4, 2e-3));
   }
 }
 
 TYPED_TEST(EltwiseLayerTest, TestSumCoeff) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter layer_param;
+  layer_param.set_forward_type(tp<Dtype>());
+  layer_param.set_backward_type(tp<Dtype>());
+  layer_param.set_forward_math(tp<Dtype>());
+  layer_param.set_backward_math(tp<Dtype>());
   EltwiseParameter* eltwise_param = layer_param.mutable_eltwise_param();
   eltwise_param->set_operation(EltwiseParameter_EltwiseOp_SUM);
   eltwise_param->add_coeff(1);
@@ -125,21 +138,23 @@ TYPED_TEST(EltwiseLayerTest, TestSumCoeff) {
   const Dtype* in_data_b = this->blob_bottom_b_->cpu_data();
   const Dtype* in_data_c = this->blob_bottom_c_->cpu_data();
   for (int i = 0; i < count; ++i) {
-    EXPECT_NEAR(data[i],
-                in_data_a[i] - 0.5*in_data_b[i] + 2.*in_data_c[i],
-                tol<Dtype>(1e-4, 1e-2));
+    EXPECT_NEAR(data[i], in_data_a[i] - 0.5*in_data_b[i] + 2*in_data_c[i],
+        tol<Dtype>(1e-4, 2e-3));
   }
 }
 
 TYPED_TEST(EltwiseLayerTest, TestStableProdGradient) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter layer_param;
+  layer_param.set_forward_type(tp<Dtype>());
+  layer_param.set_backward_type(tp<Dtype>());
+  layer_param.set_forward_math(tp<Dtype>());
+  layer_param.set_backward_math(tp<Dtype>());
   EltwiseParameter* eltwise_param = layer_param.mutable_eltwise_param();
   eltwise_param->set_operation(EltwiseParameter_EltwiseOp_PROD);
   eltwise_param->set_stable_prod_grad(true);
   EltwiseLayer<Dtype, Dtype> layer(layer_param);
-  GradientChecker<Dtype> checker(tol<Dtype>(1e-2, 5e-2),
-      tol<Dtype>(1e-3, 1e-2));
+  GradientChecker<Dtype> checker(tol<Dtype>(1e-2, 5e-2), tol<Dtype>(1e-3, 1e-2));
   checker.CheckGradientEltwise(&layer, this->blob_bottom_vec_,
       this->blob_top_vec_);
 }
@@ -147,12 +162,15 @@ TYPED_TEST(EltwiseLayerTest, TestStableProdGradient) {
 TYPED_TEST(EltwiseLayerTest, TestUnstableProdGradient) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter layer_param;
+  layer_param.set_forward_type(tp<Dtype>());
+  layer_param.set_backward_type(tp<Dtype>());
+  layer_param.set_forward_math(tp<Dtype>());
+  layer_param.set_backward_math(tp<Dtype>());
   EltwiseParameter* eltwise_param = layer_param.mutable_eltwise_param();
   eltwise_param->set_operation(EltwiseParameter_EltwiseOp_PROD);
   eltwise_param->set_stable_prod_grad(false);
   EltwiseLayer<Dtype, Dtype> layer(layer_param);
-  GradientChecker<Dtype> checker(tol<Dtype>(1e-2, 5e-2),
-      tol<Dtype>(1e-3, 1e-2));
+  GradientChecker<Dtype> checker(tol<Dtype>(1e-2, 5e-2), tol<Dtype>(1e-3, 1e-2));
   checker.CheckGradientEltwise(&layer, this->blob_bottom_vec_,
       this->blob_top_vec_);
 }
@@ -167,8 +185,7 @@ TYPED_TEST(EltwiseLayerTest, TestSumGradient) {
   EltwiseParameter* eltwise_param = layer_param.mutable_eltwise_param();
   eltwise_param->set_operation(EltwiseParameter_EltwiseOp_SUM);
   EltwiseLayer<Dtype, Dtype> layer(layer_param);
-  GradientChecker<Dtype> checker(tol<Dtype>(1e-2, 5e-2),
-      tol<Dtype>(1e-3, 5e-2));
+  GradientChecker<Dtype> checker(tol<Dtype>(1e-2, 6e-2), tol<Dtype>(1e-3, 5e-2));
   checker.CheckGradientEltwise(&layer, this->blob_bottom_vec_,
       this->blob_top_vec_);
 }
@@ -176,13 +193,17 @@ TYPED_TEST(EltwiseLayerTest, TestSumGradient) {
 TYPED_TEST(EltwiseLayerTest, TestSumCoeffGradient) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter layer_param;
+  layer_param.set_forward_type(tp<Dtype>());
+  layer_param.set_backward_type(tp<Dtype>());
+  layer_param.set_forward_math(tp<Dtype>());
+  layer_param.set_backward_math(tp<Dtype>());
   EltwiseParameter* eltwise_param = layer_param.mutable_eltwise_param();
   eltwise_param->set_operation(EltwiseParameter_EltwiseOp_SUM);
   eltwise_param->add_coeff(1);
   eltwise_param->add_coeff(-0.5);
   eltwise_param->add_coeff(2);
   EltwiseLayer<Dtype, Dtype> layer(layer_param);
-  GradientChecker<Dtype> checker(5e-2, tol<Dtype>(1e-3, 5e-2));
+  GradientChecker<Dtype> checker(tol<Dtype>(1e-2, 6e-2), tol<Dtype>(1e-3, 5e-2));
   checker.CheckGradientEltwise(&layer, this->blob_bottom_vec_,
       this->blob_top_vec_);
 }
@@ -190,6 +211,10 @@ TYPED_TEST(EltwiseLayerTest, TestSumCoeffGradient) {
 TYPED_TEST(EltwiseLayerTest, TestMax) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter layer_param;
+  layer_param.set_forward_type(tp<Dtype>());
+  layer_param.set_backward_type(tp<Dtype>());
+  layer_param.set_forward_math(tp<Dtype>());
+  layer_param.set_backward_math(tp<Dtype>());
   EltwiseParameter* eltwise_param = layer_param.mutable_eltwise_param();
   eltwise_param->set_operation(EltwiseParameter_EltwiseOp_MAX);
   shared_ptr<EltwiseLayer<Dtype, Dtype> > layer(
@@ -210,6 +235,10 @@ TYPED_TEST(EltwiseLayerTest, TestMax) {
 TYPED_TEST(EltwiseLayerTest, TestMaxGradient) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter layer_param;
+  layer_param.set_forward_type(tp<Dtype>());
+  layer_param.set_backward_type(tp<Dtype>());
+  layer_param.set_forward_math(tp<Dtype>());
+  layer_param.set_backward_math(tp<Dtype>());
   EltwiseParameter* eltwise_param = layer_param.mutable_eltwise_param();
   eltwise_param->set_operation(EltwiseParameter_EltwiseOp_MAX);
   EltwiseLayer<Dtype, Dtype> layer(layer_param);

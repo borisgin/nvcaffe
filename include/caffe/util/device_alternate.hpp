@@ -58,6 +58,20 @@ void classname<Dtype>::funcname##_##gpu(const vector<Blob*>& bottom, \
     CHECK_EQ(error, cudaSuccess) << " " << cudaGetErrorString(error); \
   } while (0)
 
+#define CUDA_CHECK_ARG(condition, arg) \
+  do { \
+    cudaError_t error = condition; \
+    CHECK_EQ(error, cudaSuccess) << " " << cudaGetErrorString(error) << \
+        " (" << arg << ")"; \
+  } while (0)
+
+#define CUDA_CHECK_ARG2(condition, arg1, arg2) \
+  do { \
+    cudaError_t error = condition; \
+    CHECK_EQ(error, cudaSuccess) << " " << cudaGetErrorString(error) << \
+        " (" << arg1 << ") (" << arg2 << ")"; \
+  } while (0)
+
 #define CUBLAS_CHECK(condition) \
   do { \
     cublasStatus_t status = condition; \
@@ -70,6 +84,14 @@ void classname<Dtype>::funcname##_##gpu(const vector<Blob*>& bottom, \
     curandStatus_t status = condition; \
     CHECK_EQ(status, CURAND_STATUS_SUCCESS) << " " \
       << caffe::curandGetErrorString(status); \
+  } while (0)
+
+#define CURAND_CHECK_ARG(condition, arg) \
+  do { \
+    curandStatus_t status = condition; \
+    CHECK_EQ(status, CURAND_STATUS_SUCCESS) << " " \
+      << caffe::curandGetErrorString(status) << \
+        " (" << arg << ")"; \
   } while (0)
 
 // CUDA: grid stride looping
@@ -109,22 +131,13 @@ namespace nvml {
 // Also, it's better to run this on current device (note that Caffe ctr
 // might be executed somewhere else). So, let's keep it risk free.
 struct NVMLInit {
-  NVMLInit() {
-    if (nvmlInit() != NVML_SUCCESS) {
-      LOG(ERROR) << "NVML failed to initialize";
-    } else {
-      LOG(INFO) << "NVML initialized on thread " << std::this_thread::get_id();
-    }
-  }
-  ~NVMLInit() {
-    nvmlShutdown();
-  }
-
+  NVMLInit();
+  ~NVMLInit();
   nvmlDevice_t device_;
   static std::mutex m_;
 };
 
-void setCpuAffinity(unsigned int rank);
+void setCpuAffinity();
 
 }  // namespace nvml
 #endif  // NO_NVML

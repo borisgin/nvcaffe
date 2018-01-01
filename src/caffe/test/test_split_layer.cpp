@@ -50,6 +50,10 @@ TYPED_TEST_CASE(SplitLayerTest, TestDtypesAndDevices);
 TYPED_TEST(SplitLayerTest, TestSetup) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter layer_param;
+  layer_param.set_forward_type(tp<Dtype>());
+  layer_param.set_backward_type(tp<Dtype>());
+  layer_param.set_forward_math(tp<Dtype>());
+  layer_param.set_backward_math(tp<Dtype>());
   SplitLayer<Dtype, Dtype> layer(layer_param);
   layer.SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
   EXPECT_EQ(this->blob_top_a_->num(), 2);
@@ -65,6 +69,10 @@ TYPED_TEST(SplitLayerTest, TestSetup) {
 TYPED_TEST(SplitLayerTest, Test) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter layer_param;
+  layer_param.set_forward_type(tp<Dtype>());
+  layer_param.set_backward_type(tp<Dtype>());
+  layer_param.set_forward_math(tp<Dtype>());
+  layer_param.set_backward_math(tp<Dtype>());
   SplitLayer<Dtype, Dtype> layer(layer_param);
   layer.SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
   layer.Forward(this->blob_bottom_vec_, this->blob_top_vec_);
@@ -78,8 +86,12 @@ TYPED_TEST(SplitLayerTest, Test) {
 TYPED_TEST(SplitLayerTest, TestGradient) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter layer_param;
+  layer_param.set_forward_type(tp<Dtype>());
+  layer_param.set_backward_type(tp<Dtype>());
+  layer_param.set_forward_math(tp<Dtype>());
+  layer_param.set_backward_math(tp<Dtype>());
   SplitLayer<Dtype, Dtype> layer(layer_param);
-  GradientChecker<Dtype> checker(5e-2, tol<Dtype>(1e-2, 1.e-1));
+  GradientChecker<Dtype> checker(1e-2, 1e-2);
   checker.CheckGradientEltwise(&layer, this->blob_bottom_vec_,
       this->blob_top_vec_);
 }

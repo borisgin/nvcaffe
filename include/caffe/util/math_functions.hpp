@@ -16,6 +16,8 @@
 
 namespace caffe {
 
+class Blob;
+
 inline
 bool is_pow2(unsigned int x) {
   return ((x & (x - 1)) == 0);
@@ -99,14 +101,17 @@ unsigned int caffe_rng_rand();
 template <typename Dtype>
 Dtype caffe_nextafter(const Dtype b);
 
-template <typename Dtype>
-void caffe_rng_uniform(int n, float a, float b, Dtype* r);
+template <typename Ftype>
+void caffe_rng_uniform(int n, Ftype a, Ftype b, Blob* blob);
 
-template <>
-void caffe_rng_uniform<int>(int n, float a, float b, int* r);
+template <typename Ftype>
+void caffe_rng_uniform(int n, Ftype a, Ftype b, Ftype* r);
 
-template <typename Dtype>
-void caffe_rng_gaussian(int n, float mu, float sigma, Dtype* r);
+template <typename Ftype>
+void caffe_rng_gaussian(int n, Ftype a, Ftype b, Blob* blob);
+
+template <typename Ftype>
+void caffe_rng_gaussian(int n, Ftype a, Ftype b, Ftype* r);
 
 template <typename Dtype>
 void caffe_rng_bernoulli(const int n, const Dtype p, int* r);
@@ -136,6 +141,9 @@ int caffe_cpu_hamming_distance(const int n, const Dtype* x, const Dtype* y);
 // Returns the sum of the absolute values of the elements of vector x
 template <typename Dtype>
 float caffe_cpu_asum(const int n, const Dtype* x);
+
+template <typename Dtype>
+float caffe_cpu_sumsq(const int n, const Dtype* x);
 
 template <typename Dtype>
 Dtype caffe_cpu_amax(const int n, const Dtype* x);
@@ -197,10 +205,6 @@ template <typename Dtype>
 void caffe_gpu_axpy(const int N, const Dtype alpha, const Dtype* X,
     Dtype* Y, void* handle = nullptr);
 
-void caffe_gpu_axpy_extfp16(const int N, const float alpha, const float16* X,
-    float16* Y);
-
-
 template <typename Dtype>
 void caffe_gpu_axpby(const int N, const Dtype alpha, const Dtype* X,
     const Dtype beta, Dtype* Y);
@@ -208,11 +212,12 @@ void caffe_gpu_axpby(const int N, const Dtype alpha, const Dtype* X,
 void caffe_gpu_memcpy(const size_t N, const void *X, void *Y);
 
 template <typename Dtype>
-void caffe_gpu_set(const size_t N, const Dtype alpha, Dtype *X, cudaStream_t stream = nullptr);
+void caffe_gpu_set(const size_t N, const Dtype alpha, Dtype *X);
 
 inline void caffe_gpu_memset(const size_t N, const int alpha, void* X) {
   cudaStream_t stream = Caffe::thread_stream();
-  CUDA_CHECK(cudaMemsetAsync(X, alpha, N, stream));  // NOLINT(caffe/alt_fn)
+  CUDA_CHECK_ARG2(cudaMemsetAsync(X, alpha, N, stream),
+      stream, Caffe::current_device());  // NOLINT(caffe/alt_fn)
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
@@ -222,15 +227,14 @@ void caffe_gpu_add_scalar(const int N, const Dtype alpha, Dtype *X);
 template <typename Dtype>
 void caffe_gpu_scal(const int N, const Dtype alpha, Dtype* X);
 
-void caffe_gpu_scal_fp16(const int N, const float alpha, float16* X,
-    cublasHandle_t cublas_handle, bool sync);
-
 template <typename Dtype>
-void caffe_gpu_scal(const int N, const Dtype alpha, Dtype* X,
-    cublasHandle_t cublas_handle, bool sync);
+void caffe_gpu_scal(const int N, const Dtype alpha, Dtype* X, cublasHandle_t cublas_handle);
 
 template <typename Dtype>
 void caffe_gpu_add(const int N, const Dtype* a, const Dtype* b, Dtype* y);
+
+template <typename Dtype>
+void caffe_gpu_incr(const int N, const Dtype* a, Dtype* b);
 
 template <typename Dtype>
 void caffe_gpu_sub(const int N, const Dtype* a, const Dtype* b, Dtype* y);
@@ -240,7 +244,6 @@ void caffe_gpu_mul(const int N, const Dtype* a, const Dtype* b, Dtype* y);
 
 template <typename Dtype>
 void caffe_gpu_square(const int N, const Dtype* a, Dtype* y);
-
 
 template <typename Dtype>
 void caffe_gpu_div(const int N, const Dtype* a, const Dtype* b, Dtype* y);
@@ -283,11 +286,15 @@ void caffe_gpu_dot(const int n, const Dtype* x, const Dtype* y, Mtype* out);
 //uint32_t caffe_gpu_hamming_distance(const int n, const Dtype* x,
 //                                    const Dtype* y);
 
+// TODO group
 template <typename Dtype, typename Mtype>
-void caffe_gpu_asum(const int n, const Dtype* x, Mtype* y);
+void caffe_gpu_asum(const int n, const Dtype* x, Mtype* y, int group = 0);
+
+template <typename Dtype, typename Mtype>
+void caffe_gpu_sumsq(const int n, const Dtype* x, Mtype* s, int group = 0);
 
 template <typename Dtype>
-void caffe_gpu_amax(const int n, const Dtype* x, float* y);
+void caffe_gpu_amax(const int n, const Dtype* x, float* y, int group = 0);
 
 template<typename Dtype>
 void caffe_gpu_sign(const int n, const Dtype* x, Dtype* y, void* handle = nullptr);

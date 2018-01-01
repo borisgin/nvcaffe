@@ -36,7 +36,7 @@ layer {
     source: "examples/imagenet/ilsvrc12_val_lmdb"
 #    source: "/data/imagenet/val-lmdb-uncompressed-256x256"
     batch_size: 32
-#    batch_size: 256          
+#    batch_size: 256
     backend: LMDB
   }
   include { phase: TEST }

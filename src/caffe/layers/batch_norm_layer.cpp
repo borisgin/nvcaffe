@@ -36,26 +36,49 @@ BatchNormLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bottom, const vect
       this->blobs_.resize(5);
     else
       this->blobs_.resize(3);
-    this->blobs_[0] = Blob::create<Ftype>(channels_);  // mean
-    this->blobs_[1] = Blob::create<Ftype>(channels_);  // variance
+
+    const Type btype = blobs_type();
+    const vector<int> shape { channels_ };
+    const vector<int> shape1 { 1 };
+    this->blobs_[0] = Blob::create(btype, btype);  // mean
+    this->blobs_[0]->Reshape(shape);
     this->blobs_[0]->set_data(0.);
+    this->blobs_[1] = Blob::create(btype, btype);  // variance1
+    this->blobs_[1]->Reshape(shape);
     this->blobs_[1]->set_data(0.);
-    this->blobs_[2] = Blob::create<Ftype>(1);  // variance correction
-    this->blobs_[2]->set_data(0.);
+    this->blobs_[2] = Blob::create(btype, btype);  // variance correction
+    this->blobs_[2]->Reshape(shape1);
+    this->blobs_[2]->set_data(1.);
     if (scale_bias_) {
-      this->blobs_[3] = Blob::create<Ftype>(channels_);  // scale
-      this->blobs_[4] = Blob::create<Ftype>(channels_);  // bias
+      this->blobs_[3] = Blob::create(btype, btype);  // scale
+      this->blobs_[3]->Reshape(shape);
+      this->blobs_[4] = Blob::create(btype, btype);  // bias
+      this->blobs_[4]->Reshape(shape);
       if (param.has_scale_filler()) {
-        shared_ptr<Filler<Ftype>> scale_filler(
-            GetFiller<Ftype>(this->layer_param_.batch_norm_param().scale_filler()));
-        scale_filler->Fill(this->blobs_[3].get());
+        // TODO
+        if (btype == tp<Ftype>()) {
+          shared_ptr<Filler<Ftype>> scale_filler(
+              GetFiller<Ftype>(this->layer_param_.batch_norm_param().scale_filler()));
+          scale_filler->Fill(this->blobs_[3].get());
+        } else {
+          shared_ptr<Filler<float>> scale_filler(
+              GetFiller<float>(this->layer_param_.batch_norm_param().scale_filler()));
+          scale_filler->Fill(this->blobs_[3].get());
+        }
       } else {
         this->blobs_[3]->set_data(1.);
       }
       if (param.has_bias_filler()) {
-        shared_ptr<Filler<Ftype>> bias_filler(
-            GetFiller<Ftype>(this->layer_param_.batch_norm_param().bias_filler()));
-        bias_filler->Fill(this->blobs_[4].get());
+        // TODO
+        if (btype == tp<Ftype>()) {
+          shared_ptr<Filler<Ftype>> bias_filler(
+              GetFiller<Ftype>(this->layer_param_.batch_norm_param().bias_filler()));
+          bias_filler->Fill(this->blobs_[4].get());
+        } else {
+          shared_ptr<Filler<float>> bias_filler(
+              GetFiller<float>(this->layer_param_.batch_norm_param().bias_filler()));
+          bias_filler->Fill(this->blobs_[4].get());
+        }
       } else {
         this->blobs_[4]->set_data(0.);
       }

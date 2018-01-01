@@ -133,7 +133,7 @@ shared_ptr<Datum>& DataReader::DataCache::next_new() {
   return cache_buffer_.back();
 }
 
-shared_ptr<Datum>& DataReader::DataCache::next_cached() {
+shared_ptr<Datum>& DataReader::DataCache::next_cached(DataReader& reader) {
   if (just_cached_.load()) {
     cache_bar_.wait();
     just_cached_.store(false);
@@ -173,6 +173,9 @@ void DataReader::DataCache::just_cached() {
 }
 
 bool DataReader::DataCache::check_memory() {
+#ifdef __APPLE__
+  return true;
+#else
   if (cache_buffer_.size() == 0UL || cache_buffer_.size() % 1000UL != 0UL) {
     return true;
   }
@@ -186,43 +189,45 @@ bool DataReader::DataCache::check_memory() {
         << " of swap buffer. Free swap memory left: " << sinfo.freeswap << " of total "
         << sinfo.totalswap << ". Cache and shuffling are now disabled.";
     mem_ok = false;
-  } else {
-    unsigned long ram_avail = 0UL;  // NOLINT(runtime/int)
-    char buf[128];
-    char *e;
-    FILE *fp = fopen("/proc/meminfo", "r");
-    while (fgets(buf, sizeof(buf) - 1, fp) != nullptr) {
-      if (strstr(buf, "vailable") != nullptr) {
-        char *p = strchr(buf, ':');
-        if (p != nullptr) {
-          ++p;
-          ram_avail = strtoull(p, &e, 10) * 1024UL;
-          break;
-        }
-      }
-      if (feof(fp)) {
-        break;
-      }
-    }
-    fclose(fp);
-    if (ram_avail == 0UL) {
-      // 2nd attempt
-      ram_avail = sinfo.freeram + sinfo.bufferram + sinfo.sharedram;
-    }
-    if (sinfo.totalswap == 0UL && ram_avail < sinfo.totalram / 50UL) {
-      LOG_FIRST_N(WARNING, 1) << "Data Reader cached " << cache_buffer_.size()
-          << " records so far but it can't continue because it used more than 98%"
-          << " of RAM and there is no swap space available. RAM available: "
-          << ram_avail << " of total " << sinfo.totalram
-          << ". Cache and shuffling are now disabled.";
-      mem_ok = false;
-    }
   }
+//  else {
+//    unsigned long ram_avail = 0UL;  // NOLINT(runtime/int)
+//    char buf[128];
+//    char *e;
+//    FILE *fp = fopen("/proc/meminfo", "r");
+//    while (fgets(buf, sizeof(buf) - 1, fp) != nullptr) {
+//      if (strstr(buf, "vailable") != nullptr) {
+//        char *p = strchr(buf, ':');
+//        if (p != nullptr) {
+//          ++p;
+//          ram_avail = strtoull(p, &e, 10) * 1024UL;
+//          break;
+//        }
+//      }
+//      if (feof(fp)) {
+//        break;
+//      }
+//    }
+//    fclose(fp);
+//    if (ram_avail == 0UL) {
+//      // 2nd attempt
+//      ram_avail = sinfo.freeram + sinfo.bufferram + sinfo.sharedram;
+//    }
+//    if (sinfo.totalswap == 0UL && ram_avail < sinfo.totalram / 50UL) {
+//      LOG_FIRST_N(WARNING, 1) << "Data Reader cached " << cache_buffer_.size()
+//          << " records so far but it can't continue because it used more than 98%"
+//          << " of RAM and there is no swap space available. RAM available: "
+//          << ram_avail << " of total " << sinfo.totalram
+//          << ". Cache and shuffling are now disabled.";
+//      mem_ok = false;
+//    }
+//  }
   if (!mem_ok) {
     cache_buffer_.clear();
     shuffle_ = false;
   }
   return mem_ok;
+#endif
 }
 
 DataReader::CursorManager::CursorManager(shared_ptr<db::DB> db, DataReader* reader,
@@ -326,9 +331,35 @@ void DataReader::CursorManager::rewind() {
 }
 
 void DataReader::CursorManager::fetch(Datum* datum) {
-  if (!cursor_->parse(datum)) {
+  C2TensorProtos protos;
+  if (cursor_->parse(&protos) && protos.protos_size() >= 2) {
+    C2TensorProto* image_proto = protos.mutable_protos(0);
+    C2TensorProto* label_proto = protos.mutable_protos(1);
+    if (image_proto->data_type() == C2TensorProto::STRING) {
+      // encoded image string.
+      DCHECK_EQ(image_proto->string_data_size(), 1);
+      datum->mutable_data()->assign(image_proto->string_data(0));
+      datum->set_encoded(true);
+    } else if (image_proto->data_type() == C2TensorProto::BYTE) {
+      // raw image content.
+      datum->set_allocated_data(image_proto->release_byte_data());
+      datum->set_encoded(false);
+      datum->set_channels(image_proto->dims_size() == 3 ? image_proto->dims(2) : 1);
+      datum->set_height(image_proto->dims_size() > 1 ? image_proto->dims(0) : 0);
+      datum->set_width(image_proto->dims_size() > 1 ? image_proto->dims(1) : 0);
+    } else {
+      LOG(FATAL) << "Unknown C2 image data type.";
+    }
+    if (label_proto->data_type() == C2TensorProto::INT32) {
+      DCHECK_EQ(label_proto->int32_data_size(), 1);
+      datum->set_label(label_proto->int32_data(0));
+    } else {
+      LOG(FATAL) << "Unsupported C2 label data type.";
+    }
+  } else if (!cursor_->parse(datum)) {
     LOG(ERROR) << "Database cursor failed to parse Datum record";
   }
+  // DLOG(INFO) << cursor_->key() << " " << datum->label();
 }
 
 }  // namespace caffe

@@ -201,8 +201,8 @@ class GaussianFillerTest : public ::testing::Test {
   GaussianFillerTest()
       : blob_(new TBlob<Dtype>(2, 3, 4, 5)),
         filler_param_() {
-    filler_param_.set_mean(10.);
-    filler_param_.set_std(0.1);
+    filler_param_.set_mean(0.1);
+    filler_param_.set_std(10.);
     filler_.reset(new GaussianFiller<Dtype>(filler_param_));
     filler_->Fill(blob_);
   }
@@ -242,8 +242,8 @@ class GaussianStaticFillerTest : public ::testing::Test {
   GaussianStaticFillerTest()
       : blob_(new TBlob<Dtype>(2, 3, 4, 5)),
         filler_param_() {
-    filler_param_.set_mean(10.);
-    filler_param_.set_std(0.1);
+    filler_param_.set_mean(0.1F);
+    filler_param_.set_std(10.F);
     filler_.reset(new GaussianStaticFiller<Dtype>(filler_param_));
     filler_->Fill(blob_.get());
   }

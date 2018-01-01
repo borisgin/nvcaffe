@@ -30,24 +30,23 @@ void CuDNNBatchNormLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bottom,
   this->eps_ = std::max(this->eps_, CUDNN_BN_MIN_EPSILON);
 
   int channels = bottom[0]->channels();
+  const Type btype = blobs_type();
+  const vector<int> shape { 1, channels, 1, 1 };
   if (!this->scale_bias_) { // stubs for cudnn
-    scale_ones_ = Blob::create<Ftype>(1, channels, 1, 1);
-    bias_zeros_ = Blob::create<Ftype>(1, channels, 1, 1);
+    scale_ones_ = Blob::create(btype, btype);
+    scale_ones_->Reshape(shape);
     scale_ones_->set_data(1.F);
+    bias_zeros_ = Blob::create(btype, btype);
+    bias_zeros_->Reshape(shape);
     bias_zeros_->set_data(0.F);
   }
-  save_mean_->Reshape(1, channels, 1, 1);
-  save_inv_var_->Reshape(1, channels, 1, 1);
+  save_mean_->Reshape(shape);
+  save_inv_var_->Reshape(shape);
   handles_setup_ = true;
 
   if (bottom == top) {  // CUDNN_BN does support in-place
     private_top_ = Blob::create<Ftype>(top[0]->shape());
     private_bottom_ = Blob::create<Ftype>(bottom[0]->shape());
-  }
-
-  if (this->blobs_.size() > 3) {
-    scale_diff_tmp_.Reshape(this->blobs_[3]->shape());
-    bias_diff_tmp_.Reshape(this->blobs_[4]->shape());
   }
 }
 

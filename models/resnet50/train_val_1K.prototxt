@@ -1,10 +1,11 @@
-name: "Resnet50_lightBN"
+name: "Resnet50_fp16"
 
-# n:  ch	:  s	:  g	: skip	:
-# 0:  64	:  3	:  1	:  0	:
-# 1:  128	:  4	:  1	:  1	:
-# 2:  256	:  6	:  1	:  1	:
-# 3:  512	:  3	:  1	:  1	:
+default_forward_type:  FLOAT16
+default_backward_type: FLOAT16
+#default_forward_math:  FLOAT16
+#default_backward_math: FLOAT16
+
+global_grad_scale: 1000.
 
 layer {
   name: "data"
@@ -12,15 +13,24 @@ layer {
   top: "data"
   top: "label"
   data_param {
-    source: "examples/imagenet/ilsvrc12_train_lmdb"
+#    source: "examples/imagenet/ilsvrc12_train_lmdb"
+#    source: "/data/imagenet/train-lmdb-uncompressed-256x256"
+    source: "/data/imagenet/train-c2lmdb-480"
     backend: LMDB
-    batch_size: 128 #256
-#    cache: true
-#    shuffle: true
+    batch_size: 1024
+    cache:   true
+    shuffle: true  
   }
   transform_param {
+#    mean_file: "data/ilsvrc12/imagenet_mean.binaryproto"
+    mean_file: "/data/imagenet/imagenet_256x256_mean.binaryproto"
+    img_rand_resize_lower: 224
+    img_rand_resize_upper: 320
+    vertical_stretch_lower: 0.5
+    vertical_stretch_upper: 1.5
+    horizontal_stretch_lower: 0.5
+    horizontal_stretch_upper: 1.5
     crop_size: 224
-    mean_file: "data/ilsvrc12/imagenet_mean.binaryproto"
     mirror: true
     scale: 0.00390625
   }
@@ -32,18 +42,22 @@ layer {
   top: "data"
   top: "label"
   data_param {
-    source: "examples/imagenet/ilsvrc12_val_lmdb"
+#    source: "examples/imagenet/ilsvrc12_val_lmdb"
+#    source: "/data/imagenet/val-lmdb-uncompressed-256x256"
+    source: "/data/imagenet/val-c2lmdb-256"
     backend: LMDB
     batch_size: 32
   }
   transform_param {
-    mean_file: "data/ilsvrc12/imagenet_mean.binaryproto"
+#    mean_file: "data/ilsvrc12/imagenet_mean.binaryproto"
+    mean_file: "/data/imagenet/imagenet_256x256_mean.binaryproto"
     crop_size: 224
     mirror: false
     scale: 0.00390625
   }
   include: { phase: TEST }
 }
+
 layer {
   name: "conv1"
   type: "Convolution"
@@ -57,22 +71,30 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "conv1/bn"
+  type: "BatchNorm"
+  bottom: "conv1"
+  top: "conv1/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
   name: "conv1/relu"
   type: "ReLU"
-  bottom: "conv1"
-  top: "conv1"
+  bottom: "conv1/bn"
+  top: "conv1/bn"
 }
 layer {
   name: "pool1"
   type: "Pooling"
-  bottom: "conv1"
+  bottom: "conv1/bn"
   top: "pool1"
   pooling_param {
     pool: MAX
@@ -94,22 +116,30 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res2.1.conv1/bn"
+  type: "BatchNorm"
+  bottom: "res2.1.conv1"
+  top: "res2.1.conv1/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
   name: "res2.1.conv1/relu"
   type: "ReLU"
-  bottom: "res2.1.conv1"
-  top: "res2.1.conv1"
+  bottom: "res2.1.conv1/bn"
+  top: "res2.1.conv1/bn"
 }
 layer {
   name: "res2.1.conv2"
   type: "Convolution"
-  bottom: "res2.1.conv1"
+  bottom: "res2.1.conv1/bn"
   top: "res2.1.conv2"
   convolution_param {
     num_output: 64
@@ -118,22 +148,30 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res2.1.conv2/bn"
+  type: "BatchNorm"
+  bottom: "res2.1.conv2"
+  top: "res2.1.conv2/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
   name: "res2.1.conv2/relu"
   type: "ReLU"
-  bottom: "res2.1.conv2"
-  top: "res2.1.conv2"
+  bottom: "res2.1.conv2/bn"
+  top: "res2.1.conv2/bn"
 }
 layer {
   name: "res2.1.conv3"
   type: "Convolution"
-  bottom: "res2.1.conv2"
+  bottom: "res2.1.conv2/bn"
   top: "res2.1.conv3"
   convolution_param {
     num_output: 256
@@ -141,10 +179,18 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res2.1.conv3/bn"
+  type: "BatchNorm"
+  bottom: "res2.1.conv3"
+  top: "res2.1.conv3/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
@@ -158,17 +204,25 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res2.1.skipConv/bn"
+  type: "BatchNorm"
+  bottom: "res2.1.skipConv"
+  top: "res2.1.skipConv/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
   name: "res2.1.sum"
   type: "Eltwise"
-  bottom: "res2.1.conv3"
-  bottom: "res2.1.skipConv"
+  bottom: "res2.1.conv3/bn"
+  bottom: "res2.1.skipConv/bn"
   top: "res2.1.sum"
   eltwise_param {
     operation: SUM
@@ -191,22 +245,30 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res2.2.conv1/bn"
+  type: "BatchNorm"
+  bottom: "res2.2.conv1"
+  top: "res2.2.conv1/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
   name: "res2.2.conv1/relu"
   type: "ReLU"
-  bottom: "res2.2.conv1"
-  top: "res2.2.conv1"
+  bottom: "res2.2.conv1/bn"
+  top: "res2.2.conv1/bn"
 }
 layer {
   name: "res2.2.conv2"
   type: "Convolution"
-  bottom: "res2.2.conv1"
+  bottom: "res2.2.conv1/bn"
   top: "res2.2.conv2"
   convolution_param {
     num_output: 64
@@ -215,22 +277,30 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res2.2.conv2/bn"
+  type: "BatchNorm"
+  bottom: "res2.2.conv2"
+  top: "res2.2.conv2/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
   name: "res2.2.conv2/relu"
   type: "ReLU"
-  bottom: "res2.2.conv2"
-  top: "res2.2.conv2"
+  bottom: "res2.2.conv2/bn"
+  top: "res2.2.conv2/bn"
 }
 layer {
   name: "res2.2.conv3"
   type: "Convolution"
-  bottom: "res2.2.conv2"
+  bottom: "res2.2.conv2/bn"
   top: "res2.2.conv3"
   convolution_param {
     num_output: 256
@@ -238,16 +308,24 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res2.2.conv3/bn"
+  type: "BatchNorm"
+  bottom: "res2.2.conv3"
+  top: "res2.2.conv3/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
   name: "res2.2.sum"
   type: "Eltwise"
-  bottom: "res2.2.conv3"
+  bottom: "res2.2.conv3/bn"
   bottom: "res2.1.sum"
   top: "res2.2.sum"
   eltwise_param {
@@ -271,22 +349,30 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res2.3.conv1/bn"
+  type: "BatchNorm"
+  bottom: "res2.3.conv1"
+  top: "res2.3.conv1/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
   name: "res2.3.conv1/relu"
   type: "ReLU"
-  bottom: "res2.3.conv1"
-  top: "res2.3.conv1"
+  bottom: "res2.3.conv1/bn"
+  top: "res2.3.conv1/bn"
 }
 layer {
   name: "res2.3.conv2"
   type: "Convolution"
-  bottom: "res2.3.conv1"
+  bottom: "res2.3.conv1/bn"
   top: "res2.3.conv2"
   convolution_param {
     num_output: 64
@@ -295,50 +381,14 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
   }
 }
 layer {
-  name: "res2.3.conv2/relu"
-  type: "ReLU"
-  bottom: "res2.3.conv2"
-  top: "res2.3.conv2"
-}
-layer {
-  name: "res2.3.conv3"
-  type: "Convolution"
-  bottom: "res2.3.conv2"
-  top: "res2.3.conv3"
-  convolution_param {
-    num_output: 256
-    kernel_size: 1
-    weight_filler {
-      type: "msra"
-    }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
-  }
-}
-layer {
-  name: "res2.3.sum"
-  type: "Eltwise"
-  bottom: "res2.3.conv3"
-  bottom: "res2.2.sum"
-  top: "res2.3.sum"
-  eltwise_param {
-    operation: SUM
-  }
-}
-layer {
-  name: "res2.3.bn"
+  name: "res2.3.conv2/bn"
   type: "BatchNorm"
-  bottom: "res2.3.sum"
-  top: "res2.3.bn"
+  bottom: "res2.3.conv2"
+  top: "res2.3.conv2/bn"
   batch_norm_param {
     moving_average_fraction: 0.9
     eps: 0.0001
@@ -346,10 +396,51 @@ layer {
   }
 }
 layer {
+  name: "res2.3.conv2/relu"
+  type: "ReLU"
+  bottom: "res2.3.conv2/bn"
+  top: "res2.3.conv2/bn"
+}
+layer {
+  name: "res2.3.conv3"
+  type: "Convolution"
+  bottom: "res2.3.conv2/bn"
+  top: "res2.3.conv3"
+  convolution_param {
+    num_output: 256
+    kernel_size: 1
+    weight_filler {
+      type: "msra"
+    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res2.3.conv3/bn"
+  type: "BatchNorm"
+  bottom: "res2.3.conv3"
+  top: "res2.3.conv3/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
+  }
+}
+layer {
+  name: "res2.3.sum"
+  type: "Eltwise"
+  bottom: "res2.3.conv3/bn"
+  bottom: "res2.2.sum"
+  top: "res2.3.sum"
+  eltwise_param {
+    operation: SUM
+  }
+}
+layer {
   name: "res2.3.relu"
   type: "ReLU"
-  bottom: "res2.3.bn"
-  top: "res2.3.bn"
+  bottom: "res2.3.sum"
+  top: "res2.3.sum"
 }
 #
 # res3
@@ -357,7 +448,7 @@ layer {
 layer {
   name: "res3.1.conv1"
   type: "Convolution"
-  bottom: "res2.3.bn"
+  bottom: "res2.3.sum"
   top: "res3.1.conv1"
   convolution_param {
     num_output: 128
@@ -366,22 +457,30 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res3.1.conv1/bn"
+  type: "BatchNorm"
+  bottom: "res3.1.conv1"
+  top: "res3.1.conv1/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
   name: "res3.1.conv1/relu"
   type: "ReLU"
-  bottom: "res3.1.conv1"
-  top: "res3.1.conv1"
+  bottom: "res3.1.conv1/bn"
+  top: "res3.1.conv1/bn"
 }
 layer {
   name: "res3.1.conv2"
   type: "Convolution"
-  bottom: "res3.1.conv1"
+  bottom: "res3.1.conv1/bn"
   top: "res3.1.conv2"
   convolution_param {
     num_output: 128
@@ -390,22 +489,30 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res3.1.conv2/bn"
+  type: "BatchNorm"
+  bottom: "res3.1.conv2"
+  top: "res3.1.conv2/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
   name: "res3.1.conv2/relu"
   type: "ReLU"
-  bottom: "res3.1.conv2"
-  top: "res3.1.conv2"
+  bottom: "res3.1.conv2/bn"
+  top: "res3.1.conv2/bn"
 }
 layer {
   name: "res3.1.conv3"
   type: "Convolution"
-  bottom: "res3.1.conv2"
+  bottom: "res3.1.conv2/bn"
   top: "res3.1.conv3"
   convolution_param {
     num_output: 512
@@ -413,16 +520,24 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res3.1.conv3/bn"
+  type: "BatchNorm"
+  bottom: "res3.1.conv3"
+  top: "res3.1.conv3/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
   name: "res3.1.skipConv"
   type: "Convolution"
-  bottom: "res2.3.bn"
+  bottom: "res2.3.sum"
   top: "res3.1.skipConv"
   convolution_param {
     num_output: 512
@@ -431,17 +546,25 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res3.1.skipConv/bn"
+  type: "BatchNorm"
+  bottom: "res3.1.skipConv"
+  top: "res3.1.skipConv/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
   name: "res3.1.sum"
   type: "Eltwise"
-  bottom: "res3.1.conv3"
-  bottom: "res3.1.skipConv"
+  bottom: "res3.1.conv3/bn"
+  bottom: "res3.1.skipConv/bn"
   top: "res3.1.sum"
   eltwise_param {
     operation: SUM
@@ -464,22 +587,30 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res3.2.conv1/bn"
+  type: "BatchNorm"
+  bottom: "res3.2.conv1"
+  top: "res3.2.conv1/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
   name: "res3.2.conv1/relu"
   type: "ReLU"
-  bottom: "res3.2.conv1"
-  top: "res3.2.conv1"
+  bottom: "res3.2.conv1/bn"
+  top: "res3.2.conv1/bn"
 }
 layer {
   name: "res3.2.conv2"
   type: "Convolution"
-  bottom: "res3.2.conv1"
+  bottom: "res3.2.conv1/bn"
   top: "res3.2.conv2"
   convolution_param {
     num_output: 128
@@ -488,22 +619,30 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res3.2.conv2/bn"
+  type: "BatchNorm"
+  bottom: "res3.2.conv2"
+  top: "res3.2.conv2/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
   name: "res3.2.conv2/relu"
   type: "ReLU"
-  bottom: "res3.2.conv2"
-  top: "res3.2.conv2"
+  bottom: "res3.2.conv2/bn"
+  top: "res3.2.conv2/bn"
 }
 layer {
   name: "res3.2.conv3"
   type: "Convolution"
-  bottom: "res3.2.conv2"
+  bottom: "res3.2.conv2/bn"
   top: "res3.2.conv3"
   convolution_param {
     num_output: 512
@@ -511,16 +650,24 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res3.2.conv3/bn"
+  type: "BatchNorm"
+  bottom: "res3.2.conv3"
+  top: "res3.2.conv3/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
   name: "res3.2.sum"
   type: "Eltwise"
-  bottom: "res3.2.conv3"
+  bottom: "res3.2.conv3/bn"
   bottom: "res3.1.sum"
   top: "res3.2.sum"
   eltwise_param {
@@ -544,74 +691,14 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
   }
 }
 layer {
-  name: "res3.3.conv1/relu"
-  type: "ReLU"
-  bottom: "res3.3.conv1"
-  top: "res3.3.conv1"
-}
-layer {
-  name: "res3.3.conv2"
-  type: "Convolution"
-  bottom: "res3.3.conv1"
-  top: "res3.3.conv2"
-  convolution_param {
-    num_output: 128
-    kernel_size: 3
-    pad: 1
-    weight_filler {
-      type: "msra"
-    }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
-  }
-}
-layer {
-  name: "res3.3.conv2/relu"
-  type: "ReLU"
-  bottom: "res3.3.conv2"
-  top: "res3.3.conv2"
-}
-layer {
-  name: "res3.3.conv3"
-  type: "Convolution"
-  bottom: "res3.3.conv2"
-  top: "res3.3.conv3"
-  convolution_param {
-    num_output: 512
-    kernel_size: 1
-    weight_filler {
-      type: "msra"
-    }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
-  }
-}
-layer {
-  name: "res3.3.sum"
-  type: "Eltwise"
-  bottom: "res3.3.conv3"
-  bottom: "res3.2.sum"
-  top: "res3.3.sum"
-  eltwise_param {
-    operation: SUM
-  }
-}
-layer {
-  name: "res3.3.bn"
+  name: "res3.3.conv1/bn"
   type: "BatchNorm"
-  bottom: "res3.3.sum"
-  top: "res3.3.bn"
+  bottom: "res3.3.conv1"
+  top: "res3.3.conv1/bn"
   batch_norm_param {
     moving_average_fraction: 0.9
     eps: 0.0001
@@ -619,15 +706,88 @@ layer {
   }
 }
 layer {
+  name: "res3.3.conv1/relu"
+  type: "ReLU"
+  bottom: "res3.3.conv1/bn"
+  top: "res3.3.conv1/bn"
+}
+layer {
+  name: "res3.3.conv2"
+  type: "Convolution"
+  bottom: "res3.3.conv1/bn"
+  top: "res3.3.conv2"
+  convolution_param {
+    num_output: 128
+    kernel_size: 3
+    pad: 1
+    weight_filler {
+      type: "msra"
+    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res3.3.conv2/bn"
+  type: "BatchNorm"
+  bottom: "res3.3.conv2"
+  top: "res3.3.conv2/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
+  }
+}
+layer {
+  name: "res3.3.conv2/relu"
+  type: "ReLU"
+  bottom: "res3.3.conv2/bn"
+  top: "res3.3.conv2/bn"
+}
+layer {
+  name: "res3.3.conv3"
+  type: "Convolution"
+  bottom: "res3.3.conv2/bn"
+  top: "res3.3.conv3"
+  convolution_param {
+    num_output: 512
+    kernel_size: 1
+    weight_filler {
+      type: "msra"
+    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res3.3.conv3/bn"
+  type: "BatchNorm"
+  bottom: "res3.3.conv3"
+  top: "res3.3.conv3/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
+  }
+}
+layer {
+  name: "res3.3.sum"
+  type: "Eltwise"
+  bottom: "res3.3.conv3/bn"
+  bottom: "res3.2.sum"
+  top: "res3.3.sum"
+  eltwise_param {
+    operation: SUM
+  }
+}
+layer {
   name: "res3.3.relu"
   type: "ReLU"
-  bottom: "res3.3.bn"
-  top: "res3.3.bn"
+  bottom: "res3.3.sum"
+  top: "res3.3.sum"
 }
 layer {
   name: "res3.4.conv1"
   type: "Convolution"
-  bottom: "res3.3.bn"
+  bottom: "res3.3.sum"
   top: "res3.4.conv1"
   convolution_param {
     num_output: 128
@@ -635,22 +795,30 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res3.4.conv1/bn"
+  type: "BatchNorm"
+  bottom: "res3.4.conv1"
+  top: "res3.4.conv1/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
   name: "res3.4.conv1/relu"
   type: "ReLU"
-  bottom: "res3.4.conv1"
-  top: "res3.4.conv1"
+  bottom: "res3.4.conv1/bn"
+  top: "res3.4.conv1/bn"
 }
 layer {
   name: "res3.4.conv2"
   type: "Convolution"
-  bottom: "res3.4.conv1"
+  bottom: "res3.4.conv1/bn"
   top: "res3.4.conv2"
   convolution_param {
     num_output: 128
@@ -659,22 +827,30 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res3.4.conv2/bn"
+  type: "BatchNorm"
+  bottom: "res3.4.conv2"
+  top: "res3.4.conv2/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
   name: "res3.4.conv2/relu"
   type: "ReLU"
-  bottom: "res3.4.conv2"
-  top: "res3.4.conv2"
+  bottom: "res3.4.conv2/bn"
+  top: "res3.4.conv2/bn"
 }
 layer {
   name: "res3.4.conv3"
   type: "Convolution"
-  bottom: "res3.4.conv2"
+  bottom: "res3.4.conv2/bn"
   top: "res3.4.conv3"
   convolution_param {
     num_output: 512
@@ -682,17 +858,25 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res3.4.conv3/bn"
+  type: "BatchNorm"
+  bottom: "res3.4.conv3"
+  top: "res3.4.conv3/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
   name: "res3.4.sum"
   type: "Eltwise"
-  bottom: "res3.4.conv3"
-  bottom: "res3.3.bn"
+  bottom: "res3.4.conv3/bn"
+  bottom: "res3.3.sum"
   top: "res3.4.sum"
   eltwise_param {
     operation: SUM
@@ -719,22 +903,30 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res4.1.conv1/bn"
+  type: "BatchNorm"
+  bottom: "res4.1.conv1"
+  top: "res4.1.conv1/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
   name: "res4.1.conv1/relu"
   type: "ReLU"
-  bottom: "res4.1.conv1"
-  top: "res4.1.conv1"
+  bottom: "res4.1.conv1/bn"
+  top: "res4.1.conv1/bn"
 }
 layer {
   name: "res4.1.conv2"
   type: "Convolution"
-  bottom: "res4.1.conv1"
+  bottom: "res4.1.conv1/bn"
   top: "res4.1.conv2"
   convolution_param {
     num_output: 256
@@ -743,22 +935,30 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res4.1.conv2/bn"
+  type: "BatchNorm"
+  bottom: "res4.1.conv2"
+  top: "res4.1.conv2/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
   name: "res4.1.conv2/relu"
   type: "ReLU"
-  bottom: "res4.1.conv2"
-  top: "res4.1.conv2"
+  bottom: "res4.1.conv2/bn"
+  top: "res4.1.conv2/bn"
 }
 layer {
   name: "res4.1.conv3"
   type: "Convolution"
-  bottom: "res4.1.conv2"
+  bottom: "res4.1.conv2/bn"
   top: "res4.1.conv3"
   convolution_param {
     num_output: 1024
@@ -766,10 +966,18 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res4.1.conv3/bn"
+  type: "BatchNorm"
+  bottom: "res4.1.conv3"
+  top: "res4.1.conv3/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
@@ -784,17 +992,25 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res4.1.skipConv/bn"
+  type: "BatchNorm"
+  bottom: "res4.1.skipConv"
+  top: "res4.1.skipConv/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
   name: "res4.1.sum"
   type: "Eltwise"
-  bottom: "res4.1.conv3"
-  bottom: "res4.1.skipConv"
+  bottom: "res4.1.conv3/bn"
+  bottom: "res4.1.skipConv/bn"
   top: "res4.1.sum"
   eltwise_param {
     operation: SUM
@@ -817,22 +1033,30 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res4.2.conv1/bn"
+  type: "BatchNorm"
+  bottom: "res4.2.conv1"
+  top: "res4.2.conv1/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
   name: "res4.2.conv1/relu"
   type: "ReLU"
-  bottom: "res4.2.conv1"
-  top: "res4.2.conv1"
+  bottom: "res4.2.conv1/bn"
+  top: "res4.2.conv1/bn"
 }
 layer {
   name: "res4.2.conv2"
   type: "Convolution"
-  bottom: "res4.2.conv1"
+  bottom: "res4.2.conv1/bn"
   top: "res4.2.conv2"
   convolution_param {
     num_output: 256
@@ -841,22 +1065,30 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res4.2.conv2/bn"
+  type: "BatchNorm"
+  bottom: "res4.2.conv2"
+  top: "res4.2.conv2/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
   name: "res4.2.conv2/relu"
   type: "ReLU"
-  bottom: "res4.2.conv2"
-  top: "res4.2.conv2"
+  bottom: "res4.2.conv2/bn"
+  top: "res4.2.conv2/bn"
 }
 layer {
   name: "res4.2.conv3"
   type: "Convolution"
-  bottom: "res4.2.conv2"
+  bottom: "res4.2.conv2/bn"
   top: "res4.2.conv3"
   convolution_param {
     num_output: 1024
@@ -864,16 +1096,24 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res4.2.conv3/bn"
+  type: "BatchNorm"
+  bottom: "res4.2.conv3"
+  top: "res4.2.conv3/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
   name: "res4.2.sum"
   type: "Eltwise"
-  bottom: "res4.2.conv3"
+  bottom: "res4.2.conv3/bn"
   bottom: "res4.1.sum"
   top: "res4.2.sum"
   eltwise_param {
@@ -897,74 +1137,14 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
   }
 }
 layer {
-  name: "res4.3.conv1/relu"
-  type: "ReLU"
-  bottom: "res4.3.conv1"
-  top: "res4.3.conv1"
-}
-layer {
-  name: "res4.3.conv2"
-  type: "Convolution"
-  bottom: "res4.3.conv1"
-  top: "res4.3.conv2"
-  convolution_param {
-    num_output: 256
-    kernel_size: 3
-    pad: 1
-    weight_filler {
-      type: "msra"
-    }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
-  }
-}
-layer {
-  name: "res4.3.conv2/relu"
-  type: "ReLU"
-  bottom: "res4.3.conv2"
-  top: "res4.3.conv2"
-}
-layer {
-  name: "res4.3.conv3"
-  type: "Convolution"
-  bottom: "res4.3.conv2"
-  top: "res4.3.conv3"
-  convolution_param {
-    num_output: 1024
-    kernel_size: 1
-    weight_filler {
-      type: "msra"
-    }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
-  }
-}
-layer {
-  name: "res4.3.sum"
-  type: "Eltwise"
-  bottom: "res4.3.conv3"
-  bottom: "res4.2.sum"
-  top: "res4.3.sum"
-  eltwise_param {
-    operation: SUM
-  }
-}
-layer {
-  name: "res4.3.bn"
+  name: "res4.3.conv1/bn"
   type: "BatchNorm"
-  bottom: "res4.3.sum"
-  top: "res4.3.bn"
+  bottom: "res4.3.conv1"
+  top: "res4.3.conv1/bn"
   batch_norm_param {
     moving_average_fraction: 0.9
     eps: 0.0001
@@ -972,15 +1152,88 @@ layer {
   }
 }
 layer {
+  name: "res4.3.conv1/relu"
+  type: "ReLU"
+  bottom: "res4.3.conv1/bn"
+  top: "res4.3.conv1/bn"
+}
+layer {
+  name: "res4.3.conv2"
+  type: "Convolution"
+  bottom: "res4.3.conv1/bn"
+  top: "res4.3.conv2"
+  convolution_param {
+    num_output: 256
+    kernel_size: 3
+    pad: 1
+    weight_filler {
+      type: "msra"
+    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res4.3.conv2/bn"
+  type: "BatchNorm"
+  bottom: "res4.3.conv2"
+  top: "res4.3.conv2/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
+  }
+}
+layer {
+  name: "res4.3.conv2/relu"
+  type: "ReLU"
+  bottom: "res4.3.conv2/bn"
+  top: "res4.3.conv2/bn"
+}
+layer {
+  name: "res4.3.conv3"
+  type: "Convolution"
+  bottom: "res4.3.conv2/bn"
+  top: "res4.3.conv3"
+  convolution_param {
+    num_output: 1024
+    kernel_size: 1
+    weight_filler {
+      type: "msra"
+    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res4.3.conv3/bn"
+  type: "BatchNorm"
+  bottom: "res4.3.conv3"
+  top: "res4.3.conv3/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
+  }
+}
+layer {
+  name: "res4.3.sum"
+  type: "Eltwise"
+  bottom: "res4.3.conv3/bn"
+  bottom: "res4.2.sum"
+  top: "res4.3.sum"
+  eltwise_param {
+    operation: SUM
+  }
+}
+layer {
   name: "res4.3.relu"
   type: "ReLU"
-  bottom: "res4.3.bn"
-  top: "res4.3.bn"
+  bottom: "res4.3.sum"
+  top: "res4.3.sum"
 }
 layer {
   name: "res4.4.conv1"
   type: "Convolution"
-  bottom: "res4.3.bn"
+  bottom: "res4.3.sum"
   top: "res4.4.conv1"
   convolution_param {
     num_output: 256
@@ -988,22 +1241,30 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res4.4.conv1/bn"
+  type: "BatchNorm"
+  bottom: "res4.4.conv1"
+  top: "res4.4.conv1/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
   name: "res4.4.conv1/relu"
   type: "ReLU"
-  bottom: "res4.4.conv1"
-  top: "res4.4.conv1"
+  bottom: "res4.4.conv1/bn"
+  top: "res4.4.conv1/bn"
 }
 layer {
   name: "res4.4.conv2"
   type: "Convolution"
-  bottom: "res4.4.conv1"
+  bottom: "res4.4.conv1/bn"
   top: "res4.4.conv2"
   convolution_param {
     num_output: 256
@@ -1012,22 +1273,30 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res4.4.conv2/bn"
+  type: "BatchNorm"
+  bottom: "res4.4.conv2"
+  top: "res4.4.conv2/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
   name: "res4.4.conv2/relu"
   type: "ReLU"
-  bottom: "res4.4.conv2"
-  top: "res4.4.conv2"
+  bottom: "res4.4.conv2/bn"
+  top: "res4.4.conv2/bn"
 }
 layer {
   name: "res4.4.conv3"
   type: "Convolution"
-  bottom: "res4.4.conv2"
+  bottom: "res4.4.conv2/bn"
   top: "res4.4.conv3"
   convolution_param {
     num_output: 1024
@@ -1035,17 +1304,25 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res4.4.conv3/bn"
+  type: "BatchNorm"
+  bottom: "res4.4.conv3"
+  top: "res4.4.conv3/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
   name: "res4.4.sum"
   type: "Eltwise"
-  bottom: "res4.4.conv3"
-  bottom: "res4.3.bn"
+  bottom: "res4.4.conv3/bn"
+  bottom: "res4.3.sum"
   top: "res4.4.sum"
   eltwise_param {
     operation: SUM
@@ -1068,22 +1345,30 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res4.5.conv1/bn"
+  type: "BatchNorm"
+  bottom: "res4.5.conv1"
+  top: "res4.5.conv1/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
   name: "res4.5.conv1/relu"
   type: "ReLU"
-  bottom: "res4.5.conv1"
-  top: "res4.5.conv1"
+  bottom: "res4.5.conv1/bn"
+  top: "res4.5.conv1/bn"
 }
 layer {
   name: "res4.5.conv2"
   type: "Convolution"
-  bottom: "res4.5.conv1"
+  bottom: "res4.5.conv1/bn"
   top: "res4.5.conv2"
   convolution_param {
     num_output: 256
@@ -1092,22 +1377,30 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res4.5.conv2/bn"
+  type: "BatchNorm"
+  bottom: "res4.5.conv2"
+  top: "res4.5.conv2/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
   name: "res4.5.conv2/relu"
   type: "ReLU"
-  bottom: "res4.5.conv2"
-  top: "res4.5.conv2"
+  bottom: "res4.5.conv2/bn"
+  top: "res4.5.conv2/bn"
 }
 layer {
   name: "res4.5.conv3"
   type: "Convolution"
-  bottom: "res4.5.conv2"
+  bottom: "res4.5.conv2/bn"
   top: "res4.5.conv3"
   convolution_param {
     num_output: 1024
@@ -1115,16 +1408,24 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res4.5.conv3/bn"
+  type: "BatchNorm"
+  bottom: "res4.5.conv3"
+  top: "res4.5.conv3/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
   name: "res4.5.sum"
   type: "Eltwise"
-  bottom: "res4.5.conv3"
+  bottom: "res4.5.conv3/bn"
   bottom: "res4.4.sum"
   top: "res4.5.sum"
   eltwise_param {
@@ -1148,22 +1449,30 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res4.6.conv1/bn"
+  type: "BatchNorm"
+  bottom: "res4.6.conv1"
+  top: "res4.6.conv1/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
   name: "res4.6.conv1/relu"
   type: "ReLU"
-  bottom: "res4.6.conv1"
-  top: "res4.6.conv1"
+  bottom: "res4.6.conv1/bn"
+  top: "res4.6.conv1/bn"
 }
 layer {
   name: "res4.6.conv2"
   type: "Convolution"
-  bottom: "res4.6.conv1"
+  bottom: "res4.6.conv1/bn"
   top: "res4.6.conv2"
   convolution_param {
     num_output: 256
@@ -1172,22 +1481,30 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res4.6.conv2/bn"
+  type: "BatchNorm"
+  bottom: "res4.6.conv2"
+  top: "res4.6.conv2/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
   name: "res4.6.conv2/relu"
   type: "ReLU"
-  bottom: "res4.6.conv2"
-  top: "res4.6.conv2"
+  bottom: "res4.6.conv2/bn"
+  top: "res4.6.conv2/bn"
 }
 layer {
   name: "res4.6.conv3"
   type: "Convolution"
-  bottom: "res4.6.conv2"
+  bottom: "res4.6.conv2/bn"
   top: "res4.6.conv3"
   convolution_param {
     num_output: 1024
@@ -1195,16 +1512,24 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res4.6.conv3/bn"
+  type: "BatchNorm"
+  bottom: "res4.6.conv3"
+  top: "res4.6.conv3/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
   name: "res4.6.sum"
   type: "Eltwise"
-  bottom: "res4.6.conv3"
+  bottom: "res4.6.conv3/bn"
   bottom: "res4.5.sum"
   top: "res4.6.sum"
   eltwise_param {
@@ -1232,22 +1557,30 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res5.1.conv1/bn"
+  type: "BatchNorm"
+  bottom: "res5.1.conv1"
+  top: "res5.1.conv1/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
   name: "res5.1.conv1/relu"
   type: "ReLU"
-  bottom: "res5.1.conv1"
-  top: "res5.1.conv1"
+  bottom: "res5.1.conv1/bn"
+  top: "res5.1.conv1/bn"
 }
 layer {
   name: "res5.1.conv2"
   type: "Convolution"
-  bottom: "res5.1.conv1"
+  bottom: "res5.1.conv1/bn"
   top: "res5.1.conv2"
   convolution_param {
     num_output: 512
@@ -1256,22 +1589,30 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res5.1.conv2/bn"
+  type: "BatchNorm"
+  bottom: "res5.1.conv2"
+  top: "res5.1.conv2/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
   name: "res5.1.conv2/relu"
   type: "ReLU"
-  bottom: "res5.1.conv2"
-  top: "res5.1.conv2"
+  bottom: "res5.1.conv2/bn"
+  top: "res5.1.conv2/bn"
 }
 layer {
   name: "res5.1.conv3"
   type: "Convolution"
-  bottom: "res5.1.conv2"
+  bottom: "res5.1.conv2/bn"
   top: "res5.1.conv3"
   convolution_param {
     num_output: 2048
@@ -1279,10 +1620,18 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res5.1.conv3/bn"
+  type: "BatchNorm"
+  bottom: "res5.1.conv3"
+  top: "res5.1.conv3/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
@@ -1297,17 +1646,25 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res5.1.skipConv/bn"
+  type: "BatchNorm"
+  bottom: "res5.1.skipConv"
+  top: "res5.1.skipConv/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
   name: "res5.1.sum"
   type: "Eltwise"
-  bottom: "res5.1.conv3"
-  bottom: "res5.1.skipConv"
+  bottom: "res5.1.conv3/bn"
+  bottom: "res5.1.skipConv/bn"
   top: "res5.1.sum"
   eltwise_param {
     operation: SUM
@@ -1330,22 +1687,30 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res5.2.conv1/bn"
+  type: "BatchNorm"
+  bottom: "res5.2.conv1"
+  top: "res5.2.conv1/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
   name: "res5.2.conv1/relu"
   type: "ReLU"
-  bottom: "res5.2.conv1"
-  top: "res5.2.conv1"
+  bottom: "res5.2.conv1/bn"
+  top: "res5.2.conv1/bn"
 }
 layer {
   name: "res5.2.conv2"
   type: "Convolution"
-  bottom: "res5.2.conv1"
+  bottom: "res5.2.conv1/bn"
   top: "res5.2.conv2"
   convolution_param {
     num_output: 512
@@ -1354,22 +1719,30 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res5.2.conv2/bn"
+  type: "BatchNorm"
+  bottom: "res5.2.conv2"
+  top: "res5.2.conv2/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
   name: "res5.2.conv2/relu"
   type: "ReLU"
-  bottom: "res5.2.conv2"
-  top: "res5.2.conv2"
+  bottom: "res5.2.conv2/bn"
+  top: "res5.2.conv2/bn"
 }
 layer {
   name: "res5.2.conv3"
   type: "Convolution"
-  bottom: "res5.2.conv2"
+  bottom: "res5.2.conv2/bn"
   top: "res5.2.conv3"
   convolution_param {
     num_output: 2048
@@ -1377,16 +1750,24 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res5.2.conv3/bn"
+  type: "BatchNorm"
+  bottom: "res5.2.conv3"
+  top: "res5.2.conv3/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
   name: "res5.2.sum"
   type: "Eltwise"
-  bottom: "res5.2.conv3"
+  bottom: "res5.2.conv3/bn"
   bottom: "res5.1.sum"
   top: "res5.2.sum"
   eltwise_param {
@@ -1410,22 +1791,30 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res5.3.conv1/bn"
+  type: "BatchNorm"
+  bottom: "res5.3.conv1"
+  top: "res5.3.conv1/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
   }
 }
 layer {
   name: "res5.3.conv1/relu"
   type: "ReLU"
-  bottom: "res5.3.conv1"
-  top: "res5.3.conv1"
+  bottom: "res5.3.conv1/bn"
+  top: "res5.3.conv1/bn"
 }
 layer {
   name: "res5.3.conv2"
   type: "Convolution"
-  bottom: "res5.3.conv1"
+  bottom: "res5.3.conv1/bn"
   top: "res5.3.conv2"
   convolution_param {
     num_output: 512
@@ -1434,50 +1823,14 @@ layer {
     weight_filler {
       type: "msra"
     }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
+    bias_term: false
   }
 }
 layer {
-  name: "res5.3.conv2/relu"
-  type: "ReLU"
-  bottom: "res5.3.conv2"
-  top: "res5.3.conv2"
-}
-layer {
-  name: "res5.3.conv3"
-  type: "Convolution"
-  bottom: "res5.3.conv2"
-  top: "res5.3.conv3"
-  convolution_param {
-    num_output: 2048
-    kernel_size: 1
-    weight_filler {
-      type: "msra"
-    }
-    bias_filler {
-      type: "constant"
-      value: 0
-    }
-  }
-}
-layer {
-  name: "res5.3.sum"
-  type: "Eltwise"
-  bottom: "res5.3.conv3"
-  bottom: "res5.2.sum"
-  top: "res5.3.sum"
-  eltwise_param {
-    operation: SUM
-  }
-}
-layer {
-  name: "res5.3.bn"
+  name: "res5.3.conv2/bn"
   type: "BatchNorm"
-  bottom: "res5.3.sum"
-  top: "res5.3.bn"
+  bottom: "res5.3.conv2"
+  top: "res5.3.conv2/bn"
   batch_norm_param {
     moving_average_fraction: 0.9
     eps: 0.0001
@@ -1485,15 +1838,56 @@ layer {
   }
 }
 layer {
+  name: "res5.3.conv2/relu"
+  type: "ReLU"
+  bottom: "res5.3.conv2/bn"
+  top: "res5.3.conv2/bn"
+}
+layer {
+  name: "res5.3.conv3"
+  type: "Convolution"
+  bottom: "res5.3.conv2/bn"
+  top: "res5.3.conv3"
+  convolution_param {
+    num_output: 2048
+    kernel_size: 1
+    weight_filler {
+      type: "msra"
+    }
+    bias_term: false
+  }
+}
+layer {
+  name: "res5.3.conv3/bn"
+  type: "BatchNorm"
+  bottom: "res5.3.conv3"
+  top: "res5.3.conv3/bn"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: true
+  }
+}
+layer {
+  name: "res5.3.sum"
+  type: "Eltwise"
+  bottom: "res5.3.conv3/bn"
+  bottom: "res5.2.sum"
+  top: "res5.3.sum"
+  eltwise_param {
+    operation: SUM
+  }
+}
+layer {
   name: "res5.3.relu"
   type: "ReLU"
-  bottom: "res5.3.bn"
-  top: "res5.3.bn"
+  bottom: "res5.3.sum"
+  top: "res5.3.sum"
 }
 layer {
   name: "pool2"
   type: "Pooling"
-  bottom: "res5.3.bn"
+  bottom: "res5.3.sum"
   top: "pool2"
   pooling_param {
     pool: AVE

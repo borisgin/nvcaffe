@@ -21,6 +21,10 @@ void LRNLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bottom,
     split_top_vec_.push_back(&product_input_);
     split_top_vec_.push_back(&square_input_);
     LayerParameter split_param;
+    split_param.set_forward_type(tp<Ftype>());
+    split_param.set_backward_type(tp<Btype>());
+    split_param.set_forward_math(tp<Ftype>());
+    split_param.set_backward_math(tp<Btype>());
     split_layer_.reset(new SplitLayer<Ftype, Btype>(split_param));
     split_layer_->SetUp(bottom, split_top_vec_);
     // Set up square_layer_ to square the inputs.
@@ -29,6 +33,10 @@ void LRNLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bottom,
     square_bottom_vec_.push_back(&square_input_);
     square_top_vec_.push_back(&square_output_);
     LayerParameter square_param;
+    square_param.set_forward_type(tp<Ftype>());
+    square_param.set_backward_type(tp<Btype>());
+    square_param.set_forward_math(tp<Ftype>());
+    square_param.set_backward_math(tp<Btype>());
     square_param.mutable_power_param()->set_power(Ftype(2));
     square_layer_.reset(new PowerLayer<Ftype, Btype>(square_param));
     square_layer_->SetUp(square_bottom_vec_, square_top_vec_);
@@ -36,6 +44,10 @@ void LRNLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bottom,
     pool_top_vec_.clear();
     pool_top_vec_.push_back(&pool_output_);
     LayerParameter pool_param;
+    pool_param.set_forward_type(tp<Ftype>());
+    pool_param.set_backward_type(tp<Btype>());
+    pool_param.set_forward_math(tp<Ftype>());
+    pool_param.set_backward_math(tp<Btype>());
     pool_param.mutable_pooling_param()->set_pool(
         PoolingParameter_PoolMethod_AVE);
     pool_param.mutable_pooling_param()->set_pad(pre_pad_);
@@ -47,6 +59,10 @@ void LRNLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bottom,
     power_top_vec_.clear();
     power_top_vec_.push_back(&power_output_);
     LayerParameter power_param;
+    power_param.set_forward_type(tp<Ftype>());
+    power_param.set_backward_type(tp<Btype>());
+    power_param.set_forward_math(tp<Ftype>());
+    power_param.set_backward_math(tp<Btype>());
     power_param.mutable_power_param()->set_power(-beta_);
     power_param.mutable_power_param()->set_scale(alpha_);
     power_param.mutable_power_param()->set_shift(Ftype(1));
@@ -58,6 +74,10 @@ void LRNLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bottom,
     product_bottom_vec_.push_back(&product_input_);
     product_bottom_vec_.push_back(&power_output_);
     LayerParameter product_param;
+    product_param.set_forward_type(tp<Ftype>());
+    product_param.set_backward_type(tp<Btype>());
+    product_param.set_forward_math(tp<Ftype>());
+    product_param.set_backward_math(tp<Btype>());
     EltwiseParameter* eltwise_param = product_param.mutable_eltwise_param();
     eltwise_param->set_operation(EltwiseParameter_EltwiseOp_PROD);
     product_layer_.reset(new EltwiseLayer<Ftype, Btype>(product_param));

@@ -41,6 +41,16 @@ def python_param_net_file():
 @unittest.skipIf('Python' not in caffe.layer_type_list(),
     'Caffe built without Python layer support')
 class TestLayerWithParam(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        super(TestLayerWithParam, self).setUpClass()
+        print('TestLayerWithParam.setUpClass')
+
+    @classmethod
+    def tearDownClass(self):
+        super(TestLayerWithParam, self).tearDownClass()
+        print('TestLayerWithParam.tearDownClass')
+
     def setUp(self):
         net_file = python_param_net_file()
         self.net = caffe.Net(net_file, caffe.TRAIN)

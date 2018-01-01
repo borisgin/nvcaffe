@@ -1,5 +1,3 @@
-#ifdef USE_OPENCV
-
 #include "caffe/layers/detectnet_transform_layer.hpp"
 
 #include <opencv2/core/core.hpp>
@@ -661,5 +659,3 @@ STUB_GPU_FORWARD1(DetectNetTransformationLayer, Forward);
 INSTANTIATE_CLASS_CPU(DetectNetTransformationLayer);
 
 }  // namespace caffe
-
-#endif  // USE_OPENCV

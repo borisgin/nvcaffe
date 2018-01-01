@@ -147,7 +147,7 @@ def forward_pass(images, net, transformer, batch_size=None):
             scores = np.copy(output)
         else:
             scores = np.vstack((scores, output))
-        print 'Processed %s/%s images in %f seconds ...' % (len(scores), len(caffe_images), (end - start))
+        print('Processed %s/%s images in %f seconds ...' % (len(scores), len(caffe_images), (end - start)))
 
     return scores
 
@@ -159,7 +159,7 @@ def read_labels(labels_file):
     labels_file -- path to a .txt file
     """
     if not labels_file:
-        print 'WARNING: No labels file provided. Results will be difficult to interpret.'
+        print('WARNING: No labels file provided. Results will be difficult to interpret.')
         return None
 
     labels = []
@@ -252,5 +252,5 @@ if __name__ == '__main__':
     classify(args['caffemodel'], args['deploy_file'], args['image_file'],
             args['mean'], args['labels'], args['batch_size'], not args['nogpu'])
 
-    print 'Script took %f seconds.' % (time.time() - script_start_time,)
+    print('Script took %f seconds.' % (time.time() - script_start_time,))
 

@@ -1,0 +1,52 @@
+net: "models/bvlc_googlenet/train_val_lars2.prototxt"
+
+test_iter:     1562         # 50000/32
+test_interval: 1250    
+test_initialization: false
+
+display: 250
+
+max_iter: 12500 	# 100 epoch
+#iter_size: 8
+ 
+base_lr:   9.00 	# B=1K
+
+local_lr_auto: true
+local_gw_ratio: 0.001
+
+rampup_lr: 0.2
+rampup_interval: 12500
+
+lr_policy: "poly"
+power: 2.0
+
+momentum: 0.9
+#momentum: 0.8
+#momentum_policy: "poly"
+#max_momentum: 0.92
+
+weight_decay: 1e-4
+
+snapshot: 1000000
+snapshot_prefix: "models/bvlc_googlenet/snapshots/bvlc_googlenet_fp16"
+snapshot_after_train: false
+
+solver_mode: GPU
+random_seed: 1
+
+# Train dataset size = 1,281,167
+# Test dataset size  =    50,000
+
+# batch 32  --> epoch = 40,000
+# batch 64  --> epoch = 20,000 
+# batch 96  --> epoch = 15,000
+# batch 128 --> epoch = 10,000 
+# batch 256 --> epoch =  5,000  
+# batch 512 --> epoch =  2,500  
+# batch 1024--> epoch =  1,250  #
+# batch 2048--> epoch =    625
+# batch 4096--> epoch =    312
+# batch 8192--> epoch =    156
+# batch 16k --> epoch =     80
+# batch 32k --> epoch =     40
+

@@ -37,7 +37,7 @@ class InternalThread {
       uint64_t random_seed = Caffe::next_seed());
 
   /** Will not return until the internal thread has exited. */
-  void StopInternalThread();
+  void StopInternalThread(bool wait_all = true);
   void WaitAll();
 
   bool is_started(int id = 0) const {
@@ -61,7 +61,7 @@ class InternalThread {
  protected:
   int target_device_;
   size_t rank_;
-  void* aux_;
+  void* aux_[2];
 
   /* Implement this method in your subclass
       with the code you want your thread to run. */

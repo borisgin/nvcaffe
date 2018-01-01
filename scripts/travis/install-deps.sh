@@ -13,12 +13,17 @@ apt-get install -y --no-install-recommends \
   libboost-python-dev \
   libboost-system-dev \
   libboost-thread-dev \
+  libboost-regex-dev \
   libgflags-dev \
   libgoogle-glog-dev \
   libhdf5-serial-dev \
   libopenblas-dev \
+  libturbojpeg \
   python-virtualenv \
   wget
+
+# package bug WAR:
+ln -s /usr/lib/x86_64-linux-gnu/libturbojpeg.so.0 /usr/lib/x86_64-linux-gnu/libturbojpeg.so
 
 if $WITH_CMAKE ; then
   apt-get install -y --no-install-recommends cmake
@@ -39,7 +44,8 @@ else
   apt-get install -y --no-install-recommends \
     python3-dev \
     python3-numpy \
-    python3-skimage
+    python3-skimage \
+    python3-pil
 
   # build Protobuf3 since it's needed for Python3
   echo "Building protobuf3 from source ..."
@@ -65,11 +71,12 @@ else
   popd
 fi
 
+apt-get install -y --no-install-recommends libopencv-dev
+
 if $WITH_IO ; then
   apt-get install -y --no-install-recommends \
     libleveldb-dev \
     liblmdb-dev \
-    libopencv-dev \
     libsnappy-dev
 fi
 

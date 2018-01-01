@@ -21,16 +21,11 @@ int Caffe::thread_count_ = 0;
 int Caffe::restored_iter_ = -1;
 std::atomic<uint64_t> Caffe::root_seed_(Caffe::SEED_NOT_SET);
 
-std::mutex Caffe::props_mutex_;
 std::mutex Caffe::caffe_mutex_;
 std::mutex Caffe::pstream_mutex_;
 std::mutex Caffe::cublas_mutex_;
+std::mutex Caffe::cudnn_mutex_;
 std::mutex Caffe::seed_mutex_;
-
-#ifndef CPU_ONLY
-// Lifecycle management for CUDA streams
-std::list<shared_ptr<CudaStream>> Caffe::all_streams_;
-#endif
 
 Caffe& Caffe::Get() {
   // Make sure each thread can have different values.
@@ -79,21 +74,15 @@ void Caffe::set_random_seed(uint64_t random_seed) {
     return;  // i.e. root solver was previously set to 0+ and there is no need to re-generate
   }
 #ifndef CPU_ONLY
-  {
+  if (device_count() > 0) {
     // Curand seed
     std::lock_guard<std::mutex> lock(seed_mutex_);
     if (random_seed == Caffe::SEED_NOT_SET) {
       random_seed = cluster_seedgen();
     }
-    static bool g_curand_availability_logged = false;
     curandGenerator_t curand_generator_handle = curand_generator();
-    if (curand_generator_handle) {
-      CURAND_CHECK(curandSetPseudoRandomGeneratorSeed(curand_generator_handle, random_seed));
-      CURAND_CHECK(curandSetGeneratorOffset(curand_generator_handle, 0));
-    } else if (!g_curand_availability_logged) {
-      LOG(ERROR) << "Curand not available. Skipping setting the curand seed.";
-      g_curand_availability_logged = true;
-    }
+    CURAND_CHECK(curandSetPseudoRandomGeneratorSeed(curand_generator_handle, random_seed));
+    CURAND_CHECK(curandSetGeneratorOffset(curand_generator_handle, 0));
   }
 #endif
   // RNG seed
@@ -118,6 +107,14 @@ void GlobalInit(int* pargc, char*** pargv) {
   ::google::InstallFailureSignalHandler();
 }
 
+int Caffe::device_count() {
+  int count = 0;
+#ifndef CPU_ONLY
+  cudaGetDeviceCount(&count);
+#endif
+  return count;
+}
+
 #ifdef CPU_ONLY  // CPU-only Caffe.
 
 Caffe::Caffe()
@@ -130,8 +127,9 @@ void Caffe::SetDevice(const int device_id) {
   NO_GPU;
 }
 
-void Caffe::DeviceQuery() {
+std::string Caffe::DeviceQuery() {
   NO_GPU;
+  return std::string();
 }
 
 bool Caffe::CheckDevice(const int device_id) {
@@ -170,30 +168,21 @@ void* Caffe::RNG::generator() {
 
 Caffe::Caffe()
     : random_generator_(), mode_(Caffe::CPU), solver_count_(1), root_solver_(true) {
-  int count;
-  CUDA_CHECK(cudaGetDeviceCount(&count));
-  device_streams_.resize(count);
-  device_streams_aux_.resize(count);
-  cublas_handles_.resize(count);
-  curand_generators_.resize(count);
-#ifdef USE_CUDNN
-  cudnn_handles_.resize(count);
-#endif
+  CURAND_CHECK_ARG(curandCreateGenerator(&curand_generator_, CURAND_RNG_PSEUDO_DEFAULT),
+      current_device());
+  CURAND_CHECK_ARG(curandSetPseudoRandomGeneratorSeed(curand_generator_, cluster_seedgen()),
+      current_device());
+  curand_stream_ = pstream();
+  CURAND_CHECK_ARG(curandSetStream(curand_generator_, curand_stream_->get()), current_device());
 }
 
 Caffe::~Caffe() {
-  for (vector<cublasHandle_t>& group_cublas_handles : cublas_handles_) {
-    for (cublasHandle_t h : group_cublas_handles) {
-      if (h) {
-        CUBLAS_CHECK(cublasDestroy(h));
-      }
-    }
+  int current_device;  // Just to check CUDA status:
+  cudaError_t status = cudaGetDevice(&current_device);
+  // Preventing crash while Caffe shutting down.
+  if (status != cudaErrorCudartUnloading) {
+    CURAND_CHECK(curandDestroyGenerator(curand_generator_));
   }
-  for_each(curand_generators_.begin(), curand_generators_.end(), [](curandGenerator_t h) {
-    if (h) {
-      CURAND_CHECK(curandDestroyGenerator(h));
-    }
-  });
 }
 
 size_t Caffe::min_avail_device_memory() {
@@ -203,7 +192,6 @@ size_t Caffe::min_avail_device_memory() {
   size_t gpu_bytes, total_memory;
   CUDA_CHECK(cudaGetDevice(&cur_device));
   GPUMemory::GetInfo(&ret, &total_memory, true);
-
   for (int gpu : cur_gpus) {
     if (gpu != cur_device) {
       CUDA_CHECK(cudaSetDevice(gpu));
@@ -226,7 +214,7 @@ CudaStream::CudaStream(bool high_priority) {
     CUDA_CHECK(cudaStreamCreate(&stream_));
   }
   DLOG(INFO) << "New " << (high_priority ? "high priority " : "") << "stream "
-      << stream_ << " on device " << current_device() << ", thread " << std::this_thread::get_id();
+      << stream_ << ", device " << current_device() << ", thread " << std::this_thread::get_id();
 }
 
 CudaStream::~CudaStream() {
@@ -238,74 +226,53 @@ CudaStream::~CudaStream() {
   }
 }
 
-shared_ptr<CudaStream> Caffe::device_pstream(int group) {
+shared_ptr<CudaStream> Caffe::pstream(int group) {
+  CHECK_GE(group, 0);
+  if (group < streams_.size() && streams_[group]) {
+    return streams_[group];
+  }
   std::lock_guard<std::mutex> lock(pstream_mutex_);
-  vector<shared_ptr<CudaStream>>& group_streams = device_streams_[current_device()];
-  if (group + 1 > group_streams.size()) {
-    group_streams.resize(group + 1);
-  }
-  if (!group_streams[group]) {
-    group_streams[group] = CudaStream::create();
-    all_streams_.push_back(group_streams[group]);
-  }
-  return group_streams[group];
+  streams_.resize(group + 1UL);
+  streams_[group] = CudaStream::create();
+  return streams_[group];
 }
 
-shared_ptr<CudaStream> Caffe::device_pstream_aux(int id) {
+shared_ptr<CudaStream> Caffe::pstream_aux(int id) {
+  CHECK_GE(id, 0);
+  if (id < streams_aux_.size() && streams_aux_[id]) {
+    return streams_aux_[id];
+  }
   std::lock_guard<std::mutex> lock(pstream_mutex_);
-  vector<shared_ptr<CudaStream>>& streams = device_streams_aux_[current_device()];
-  if (id + 1 > streams.size()) {
-    streams.resize(id + 1);
-  }
-  if (!streams[id]) {
-    streams[id] = CudaStream::create();
-    all_streams_.push_back(streams[id]);
-  }
-  return streams[id];
+  streams_aux_.resize(id + 1UL);
+  streams_aux_[id] = CudaStream::create();
+  return streams_aux_[id];
 }
 
-cublasHandle_t Caffe::device_cublas_handle(int group) {
+shared_ptr<CuBLASHandle> Caffe::th_cublas_handle(int group) {
+  CHECK_GE(group, 0);
+  if (group < cublas_handles_.size() && cublas_handles_[group]) {
+    return cublas_handles_[group];
+  }
   std::lock_guard<std::mutex> lock(cublas_mutex_);
-  vector<cublasHandle_t>& group_cublas_handles = cublas_handles_[current_device()];
-  if (group + 1 > group_cublas_handles.size()) {
-    group_cublas_handles.resize(group + 1);
-  }
-  cublasHandle_t& cublas_handle = group_cublas_handles[group];
+  cublas_handles_.resize(group + 1UL);
+  shared_ptr<CuBLASHandle>& cublas_handle = cublas_handles_[group];
   if (!cublas_handle) {
-    // Try to create a cublas handler, and report an error if failed (but we will
-    // keep the program running as one might just want to run CPU code).
-    if (cublasCreate(&cublas_handle) != CUBLAS_STATUS_SUCCESS) {
-      LOG(ERROR) << "Cannot create Cublas handle. Cublas won't be available.";
-    }
-    CUBLAS_CHECK(cublasSetStream(cublas_handle, device_pstream(group)->get()));
+    cublas_handle = make_shared<CuBLASHandle>(pstream(group)->get());
   }
   return cublas_handle;
 }
 
-curandGenerator_t Caffe::device_curand_generator() {
-  curandGenerator_t& curand_generator = curand_generators_[current_device()];
-  if (!curand_generator) {
-    // Try to create a curand handler.
-    if (curandCreateGenerator(&curand_generator, CURAND_RNG_PSEUDO_DEFAULT) !=
-            CURAND_STATUS_SUCCESS ||
-        curandSetPseudoRandomGeneratorSeed(curand_generator, cluster_seedgen()) !=
-            CURAND_STATUS_SUCCESS) {
-      LOG(ERROR) << "Cannot create Curand generator. Curand won't be available.";
-    }
-    curandSetStream(curand_generator, device_pstream()->get());
-  }
-  return curand_generator;
-}
-
 #ifdef USE_CUDNN
-cudnnHandle_t Caffe::device_cudnn_handle(int group) {
-  vector<shared_ptr<CuDNNHandle>>& group_cudnn_handles = cudnn_handles_[current_device()];
-  if (group + 1 > group_cudnn_handles.size()) {
-    group_cudnn_handles.resize(group + 1);
+cudnnHandle_t Caffe::th_cudnn_handle(int group) {
+  CHECK_GE(group, 0);
+  if (group < cudnn_handles_.size() && cudnn_handles_[group]) {
+    return cudnn_handles_[group]->get();
   }
-  shared_ptr<CuDNNHandle>& cudnn_handle = group_cudnn_handles[group];
+  std::lock_guard<std::mutex> lock(cudnn_mutex_);
+  cudnn_handles_.resize(group + 1UL);
+  shared_ptr<CuDNNHandle>& cudnn_handle = cudnn_handles_[group];
   if (!cudnn_handle) {
-    cudnn_handle = make_shared<CuDNNHandle>(device_pstream(group)->get());
+    cudnn_handle = make_shared<CuDNNHandle>(pstream(group)->get());
   }
   return cudnn_handle->get();
 }
@@ -316,39 +283,40 @@ void Caffe::SetDevice(const int device_id) {
   CUDA_CHECK(cudaSetDevice(root_device_));
 }
 
-void Caffe::DeviceQuery() {
+std::string Caffe::DeviceQuery() {
   cudaDeviceProp prop;
   int device;
+  std::ostringstream os;
   if (cudaSuccess != cudaGetDevice(&device)) {
-    printf("No cuda device present.\n");
-    return;
+    os << "No cuda device present." << std::endl;
+  } else {
+    CUDA_CHECK(cudaGetDeviceProperties(&prop, device));
+    os << "Device id:                     " << device << std::endl;
+    os << "Major revision number:         " << prop.major << std::endl;
+    os << "Minor revision number:         " << prop.minor << std::endl;
+    os << "Name:                          " << prop.name << std::endl;
+    os << "Total global memory:           " << prop.totalGlobalMem << std::endl;
+    os << "Total shared memory per block: " << prop.sharedMemPerBlock << std::endl;
+    os << "Total registers per block:     " << prop.regsPerBlock << std::endl;
+    os << "Warp size:                     " << prop.warpSize << std::endl;
+    os << "Maximum memory pitch:          " << prop.memPitch << std::endl;
+    os << "Maximum threads per block:     " << prop.maxThreadsPerBlock << std::endl;
+    os << "Maximum dimension of block:    "
+        << prop.maxThreadsDim[0] << ", " << prop.maxThreadsDim[1] << ", "
+        << prop.maxThreadsDim[2] << std::endl;
+    os << "Maximum dimension of grid:     "
+        << prop.maxGridSize[0] << ", " << prop.maxGridSize[1] << ", "
+        << prop.maxGridSize[2] << std::endl;
+    os << "Clock rate:                    " << prop.clockRate << std::endl;
+    os << "Total constant memory:         " << prop.totalConstMem << std::endl;
+    os << "Texture alignment:             " << prop.textureAlignment << std::endl;
+    os << "Concurrent copy and execution: "
+        << (prop.deviceOverlap ? "Yes" : "No") << std::endl;
+    os << "Number of multiprocessors:     " << prop.multiProcessorCount << std::endl;
+    os << "Kernel execution timeout:      "
+        << (prop.kernelExecTimeoutEnabled ? "Yes" : "No") << std::endl;
   }
-  CUDA_CHECK(cudaGetDeviceProperties(&prop, device));
-  LOG(INFO) << "Device id:                     " << device;
-  LOG(INFO) << "Major revision number:         " << prop.major;
-  LOG(INFO) << "Minor revision number:         " << prop.minor;
-  LOG(INFO) << "Name:                          " << prop.name;
-  LOG(INFO) << "Total global memory:           " << prop.totalGlobalMem;
-  LOG(INFO) << "Total shared memory per block: " << prop.sharedMemPerBlock;
-  LOG(INFO) << "Total registers per block:     " << prop.regsPerBlock;
-  LOG(INFO) << "Warp size:                     " << prop.warpSize;
-  LOG(INFO) << "Maximum memory pitch:          " << prop.memPitch;
-  LOG(INFO) << "Maximum threads per block:     " << prop.maxThreadsPerBlock;
-  LOG(INFO) << "Maximum dimension of block:    "
-      << prop.maxThreadsDim[0] << ", " << prop.maxThreadsDim[1] << ", "
-      << prop.maxThreadsDim[2];
-  LOG(INFO) << "Maximum dimension of grid:     "
-      << prop.maxGridSize[0] << ", " << prop.maxGridSize[1] << ", "
-      << prop.maxGridSize[2];
-  LOG(INFO) << "Clock rate:                    " << prop.clockRate;
-  LOG(INFO) << "Total constant memory:         " << prop.totalConstMem;
-  LOG(INFO) << "Texture alignment:             " << prop.textureAlignment;
-  LOG(INFO) << "Concurrent copy and execution: "
-      << (prop.deviceOverlap ? "Yes" : "No");
-  LOG(INFO) << "Number of multiprocessors:     " << prop.multiProcessorCount;
-  LOG(INFO) << "Kernel execution timeout:      "
-      << (prop.kernelExecTimeoutEnabled ? "Yes" : "No");
-  return;
+  return os.str();
 }
 
 bool Caffe::CheckDevice(const int device_id) {
@@ -490,17 +458,36 @@ const float16 TypedConsts<float16>::one = 1.0f;
 const int TypedConsts<int>::zero = 0;
 const int TypedConsts<int>::one = 1;
 
-#ifdef USE_CUDNN
-CuDNNHandle::CuDNNHandle(cudaStream_t stream) {
-  if (cudnnCreate(&handle_) != CUDNN_STATUS_SUCCESS) {
-    LOG(ERROR) << "Cannot create cuDNN handle. cuDNN won't be available.";
+#ifndef CPU_ONLY
+CuBLASHandle::CuBLASHandle() : handle_(nullptr) {
+  if (Caffe::device_count() > 0) {
+    CUBLAS_CHECK(cublasCreate(&handle_));
   }
-  CUDNN_CHECK(cudnnSetStream(handle_, stream));
 }
-
+CuBLASHandle::CuBLASHandle(cudaStream_t stream) : handle_(nullptr) {
+  if (Caffe::device_count() > 0) {
+    CUBLAS_CHECK(cublasCreate(&handle_));
+    CUBLAS_CHECK(cublasSetStream(handle_, stream));
+  }
+}
+CuBLASHandle::~CuBLASHandle() {
+  if (Caffe::device_count() > 0) {
+    CUBLAS_CHECK(cublasDestroy(handle_));
+  }
+}
+#ifdef USE_CUDNN
+CuDNNHandle::CuDNNHandle(cudaStream_t stream) : handle_(nullptr) {
+  if (Caffe::device_count() > 0) {
+    CUDNN_CHECK(cudnnCreate(&handle_));
+    CUDNN_CHECK(cudnnSetStream(handle_, stream));
+  }
+}
 CuDNNHandle::~CuDNNHandle() {
-  CUDNN_CHECK(cudnnDestroy(handle_));
+  if (Caffe::device_count() > 0) {
+    CUDNN_CHECK(cudnnDestroy(handle_));
+  }
 }
+#endif
 #endif
 
 Caffe::Properties Caffe::props_;
@@ -510,8 +497,10 @@ Caffe::Properties::Properties() :
       main_thread_id_(std::this_thread::get_id()),
       caffe_version_(AS_STRING(CAFFE_VERSION)) {
 #ifndef CPU_ONLY
-  int count = 0;
-  CUDA_CHECK(cudaGetDeviceCount(&count));
+  const int count = Caffe::device_count();
+  if (count == 0) {
+    return;
+  }
   compute_capabilities_.resize(count);
   cudaDeviceProp device_prop;
   for (int gpu = 0; gpu < compute_capabilities_.size(); ++gpu) {
@@ -525,8 +514,9 @@ Caffe::Properties::Properties() :
 #else
   cudnn_version_ = "USE_CUDNN is not defined";
 #endif
+  shared_ptr<CuBLASHandle> phandle = Caffe::short_term_cublas_phandle();
   int cublas_version = 0;
-  CUBLAS_CHECK(cublasGetVersion(Caffe::cublas_handle(), &cublas_version));
+  CUBLAS_CHECK(cublasGetVersion(phandle->get(), &cublas_version));
   cublas_version_ = std::to_string(cublas_version);
 
   int cuda_version = 0;
@@ -537,9 +527,6 @@ Caffe::Properties::Properties() :
   CUDA_CHECK(cudaDriverGetVersion(&cuda_driver_version));
   cuda_driver_version_ = std::to_string(cuda_driver_version);
 #endif
-}
-
-Caffe::Properties::~Properties() {
 }
 
 std::string Caffe::time_from_init() {
@@ -570,26 +557,35 @@ namespace nvml {
 
 std::mutex NVMLInit::m_;
 
-// set the CPU affinity for this GPU
-void setCpuAffinity(unsigned int rank) {
-  std::lock_guard<std::mutex> lock(NVMLInit::m_);
-  static thread_local NVMLInit nvml_init_;
-  bool result = false;
+NVMLInit::NVMLInit() {
+  if (nvmlInit() != NVML_SUCCESS) {
+    LOG(ERROR) << "NVML failed to initialize";
+    return;
+  } else {
+    LOG(INFO) << "NVML initialized, thread " << std::this_thread::get_id();
+  }
   unsigned int deviceCount = 0U;
-  const std::vector<int>& gpus = Caffe::gpus();
   if (nvmlDeviceGetCount(&deviceCount) == NVML_SUCCESS) {
-    CHECK_LT(rank, deviceCount);
-    if (rank < deviceCount && rank < gpus.size() &&
-        nvmlDeviceGetHandleByIndex(gpus[rank], &nvml_init_.device_) == NVML_SUCCESS) {
-      if (nvmlDeviceSetCpuAffinity(nvml_init_.device_) == NVML_SUCCESS) {
-        LOG(INFO) << "NVML succeeded to set CPU affinity on device " << gpus[rank];
-        result = true;
+    for (unsigned int id = 0; id < deviceCount; ++id) {
+      if (nvmlDeviceGetHandleByIndex(id, &device_) != NVML_SUCCESS ||
+          nvmlDeviceSetCpuAffinity(device_) != NVML_SUCCESS) {
+          LOG(ERROR) << "NVML failed to set CPU affinity on device " << id
+              << ", thread " << std::this_thread::get_id();
       }
     }
+  } else {
+    LOG(ERROR) << "nvmlDeviceGetCount failed, thread " << std::this_thread::get_id();
   }
-  if (!result && rank < gpus.size()) {
-    LOG(ERROR) << "NVML failed to set CPU affinity on device " << gpus[rank];
-  }
+}
+
+NVMLInit::~NVMLInit() {
+  nvmlShutdown();
+}
+
+// set the CPU affinity for this thread
+void setCpuAffinity() {
+  std::lock_guard<std::mutex> lock(NVMLInit::m_);
+  static thread_local NVMLInit nvml_init_;
 }
 
 }  // namespace nvml

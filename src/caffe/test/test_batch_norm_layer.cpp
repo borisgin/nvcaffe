@@ -203,6 +203,10 @@ TYPED_TEST(CuDNNBatchNormLayerTest, TestForward) {
   Caffe::set_random_seed(1701);
   typedef TypeParam Dtype;
   LayerParameter layer_param;
+  layer_param.set_forward_type(tp<Dtype>());
+  layer_param.set_backward_type(tp<Dtype>());
+  layer_param.set_forward_math(tp<Dtype>());
+  layer_param.set_backward_math(tp<Dtype>());
   BatchNormParameter* bn_param = layer_param.mutable_batch_norm_param();
   FillerParameter *scale_param = bn_param->mutable_scale_filler();
   scale_param->set_value(1);
@@ -226,6 +230,10 @@ TYPED_TEST(CuDNNBatchNormLayerTest, TestForward) {
 TYPED_TEST(CuDNNBatchNormLayerTest, TestGradient) {
   typedef TypeParam Dtype;
   LayerParameter layer_param;
+  layer_param.set_forward_type(tp<Dtype>());
+  layer_param.set_backward_type(tp<Dtype>());
+  layer_param.set_forward_math(tp<Dtype>());
+  layer_param.set_backward_math(tp<Dtype>());
   BatchNormParameter* bn_param = layer_param.mutable_batch_norm_param();
   FillerParameter *scale_param = bn_param->mutable_scale_filler();
   scale_param->set_value(1);

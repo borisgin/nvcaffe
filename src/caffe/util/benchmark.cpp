@@ -13,14 +13,25 @@ Timer::Timer()
 }
 
 Timer::~Timer() {
-  if (Caffe::mode() == Caffe::GPU) {
 #ifndef CPU_ONLY
-    CUDA_CHECK(cudaEventDestroy(start_gpu_));
-    CUDA_CHECK(cudaEventDestroy(stop_gpu_));
-#else
-    NO_GPU;
-#endif
+  if (Caffe::mode() == Caffe::GPU || start_gpu_ != nullptr || stop_gpu_ != nullptr) {
+    int current_device;  // Just to check CUDA status:
+    cudaError_t status = cudaGetDevice(&current_device);
+    // Preventing crash while Caffe shutting down.
+    if (status != cudaErrorCudartUnloading) {
+      if (start_gpu_ != nullptr) {
+        CUDA_CHECK(cudaEventDestroy(start_gpu_));
+      }
+      if (stop_gpu_ != nullptr) {
+        CUDA_CHECK(cudaEventDestroy(stop_gpu_));
+      }
+    }
   }
+#else
+  if (Caffe::mode() == Caffe::GPU) {
+    NO_GPU;
+  }
+#endif
 }
 
 void Timer::Start() {
@@ -112,6 +123,11 @@ void Timer::Init() {
       CUDA_CHECK(cudaEventCreate(&stop_gpu_));
 #else
       NO_GPU;
+#endif
+    } else {
+#ifndef CPU_ONLY
+      start_gpu_ = nullptr;
+      stop_gpu_ = nullptr;
 #endif
     }
     initted_ = true;

@@ -21,20 +21,18 @@ struct GPUMemory {
   }
 
   static int current_device() {
-    int device;
+    if (Caffe::device_count() == 0) {
+      return INVALID_DEVICE;
+    }
+    int device = 0;
     CUDA_CHECK(cudaGetDevice(&device));
     return device;
   }
 
-  static void* pinned_buffer(size_t size, int group = 0) {
-    return mgr_.pinned_buffer(size, current_device(), group);
-  }
-
-  static void* thread_pinned_buffer(size_t size, int group = 0);
-
   template <class Any>
-  static void allocate(Any** ptr, size_t size, int device = current_device(), int group = 0) {
-    if (!try_allocate(reinterpret_cast<void**>(ptr), size, device, group)) {
+  static void allocate(Any** ptr, shared_ptr<CudaStream>& pstream,
+      size_t size, int device = current_device(), int group = 0) {
+    if (!try_allocate(reinterpret_cast<void**>(ptr), pstream, size, device, group)) {
       LOG(FATAL) << "Failed to allocate " << size << " bytes on device " << device
           << ". " << mgr_.report_dev_info(device);
     }
@@ -44,42 +42,35 @@ struct GPUMemory {
     mgr_.deallocate(ptr, device);
   }
 
-  static bool try_allocate(void** ptr, size_t size, int device = current_device(), int group = 0) {
-    return mgr_.try_allocate(ptr, size, device, group);
+  static bool try_allocate(void** ptr, shared_ptr<CudaStream>& pstream,
+      size_t size, int device = current_device(), int group = 0) {
+    return mgr_.try_allocate(ptr, pstream, size, device, group);
   }
 
   static shared_mutex& read_write_mutex() {
-    return mgr_.read_write_mutex();
+    return mutex_;
   }
-
-  enum Mode {
-    CUDA_MALLOC,   // Straight CUDA malloc/free (may be expensive)
-    CUB_ALLOCATOR  // CUB caching allocator
-  };
 
   // Scope initializes global Memory Manager for a given scope.
   // It's instantiated in test(), train() and time() Caffe brewing functions
   // as well as in unit tests main().
   struct Scope {
-    Scope(const std::vector<int>& gpus, Mode m = CUB_ALLOCATOR,
-          bool debug = false) {
-      mgr_.init(gpus, m, debug);
+    Scope(const std::vector<int>& gpus, bool debug = false) {
+      mgr_.init(gpus, debug);
     }
     ~Scope() {
-      mgr_.reset();
     }
   };
 
-  // Workspace's release() functionality depends on global pool availability
-  // If pool is available, it returns memory to the pool and sets ptr to nullptr
-  // If pool is not available, it retains memory.
   struct Workspace {
     Workspace()
-      : ptr_(nullptr), size_(0), device_(current_device()) {}
-    Workspace(size_t size, int device = current_device())
+      : ptr_(nullptr), size_(0), device_(-1) {}
+
+    Workspace(size_t size, int device)
       : ptr_(nullptr), size_(size), device_(device) {
       reserve(size_, device);
     }
+
     ~Workspace() {
       if (ptr_ != nullptr) {
         mgr_.deallocate(ptr_, device_);
@@ -87,8 +78,8 @@ struct GPUMemory {
     }
 
     void* data() const {
-      CHECK(ptr_ != nullptr) << "(device_: " << device_
-                             << ", current device: " << Caffe::current_device() << ")";
+//      CHECK(ptr_ != nullptr) << "(device_: " << device_
+//          << ", current device: " << Caffe::current_device() << ")";
       return ptr_;
     }
 
@@ -106,12 +97,11 @@ struct GPUMemory {
     }
 
     void release() {
-      if (mgr_.using_pool() && ptr_ != nullptr) {
+      if (ptr_ != nullptr) {
         mgr_.deallocate(ptr_, device_);
         ptr_ = nullptr;
         size_ = 0;
       }
-      // otherwise (no pool) - we retain memory in the buffer
     }
 
     void zero_mem() {
@@ -124,6 +114,7 @@ struct GPUMemory {
     void* ptr_;
     size_t size_;
     int device_;
+    shared_ptr<CudaStream> pstream_;
 
     DISABLE_COPY_MOVE_AND_ASSIGN(Workspace);
   };
@@ -135,16 +126,12 @@ struct GPUMemory {
     void lazy_init(int device);
     void GetInfo(size_t* free_mem, size_t* used_mem, bool with_update);
     void deallocate(void* ptr, int device);
-    bool try_allocate(void** ptr, size_t size, int device, int group = 0);
-    const char* pool_name() const;
-    bool using_pool() const { return mode_ != CUDA_MALLOC; }
-    void init(const std::vector<int>&, Mode, bool);
+    bool try_allocate(void** ptr, shared_ptr<CudaStream>& pstream,
+        size_t size, int device, int group = 0);
+    void init(const std::vector<int>&, bool);
     void reset();
-    void* pinned_buffer(size_t size, int device, int group);
     std::string report_dev_info(int device);
-    shared_mutex& read_write_mutex() { return mutex_; }
 
-    Mode mode_;
     bool debug_;
 
    private:
@@ -158,27 +145,36 @@ struct GPUMemory {
     };
 
     void update_dev_info(int device);
-    bool resize_buffers(int device, int group);
 
     vector<DevInfo> dev_info_;
     bool initialized_;
     std::unique_ptr<cub::CachingDeviceAllocator> cub_allocator_;
-    vector<vector<void*>> pinned_host_buffers_;
-    vector<vector<void*>> pinned_device_buffers_;
-    vector<vector<size_t>> pinned_buffer_sizes_;
     vector<size_t> update_thresholds_;
-    shared_mutex mutex_;
 
     static const unsigned int BIN_GROWTH;  ///< Geometric growth factor
     static const unsigned int MIN_BIN;  ///< Minimum bin
     static const unsigned int MAX_BIN;  ///< Maximum bin
     static const size_t MAX_CACHED_BYTES;  ///< Maximum aggregate cached bytes
     static const size_t MAX_CACHED_SIZE;  ///< 2^MAX_BIN
-    static const size_t INITIAL_PINNED_BYTES;
   };
 
+  static shared_mutex mutex_;
+  static mutex ws_mutex_init_;
   static Manager mgr_;
   static const int INVALID_DEVICE;  ///< Default is invalid: CUB takes care
+
+ public:
+  // Workspace used by all Convolution layers one after another.
+  // We carry it global to prevent unnecessary allocations/deallocations
+  // because they hurt performance. It's also shared between TRAIN and TESTS nets.
+  static vector<shared_ptr<Workspace>> workspace_;
+  // This one is for TRAIN only:
+  static vector<shared_ptr<Workspace>> weights_workspace_;
+
+  static void Init();
+  static void Finalize();
+
+  static const int WS_INITIAL_SIZE;
 };
 
 }  // namespace caffe

@@ -28,79 +28,161 @@ namespace caffe {
 
 namespace cudnn {
 
-template <typename Dtype> class dataType;
-template<> class dataType<float>  {
+template<typename Dtype>
+class dataType;
+
+template<>
+class dataType<float> {
  public:
   static const cudnnDataType_t type = CUDNN_DATA_FLOAT;
   static const cudnnDataType_t conv_type = CUDNN_DATA_FLOAT;
   static float oneval, zeroval;
   static const void *one, *zero;
 };
-template<> class dataType<double> {
+
+template<>
+class dataType<double> {
  public:
   static const cudnnDataType_t type = CUDNN_DATA_DOUBLE;
   static const cudnnDataType_t conv_type = CUDNN_DATA_DOUBLE;
   static double oneval, zeroval;
   static const void *one, *zero;
 };
+
 #ifndef CPU_ONLY
-template<> class dataType<float16> {
+
+template<>
+class dataType<float16> {
  public:
   static const cudnnDataType_t type = CUDNN_DATA_HALF;
   static const cudnnDataType_t conv_type = CUDNN_DATA_HALF;
   static float oneval, zeroval;
   static const void *one, *zero;
 };
+
 #endif
 
 inline
-cudnnDataType_t conv_type(Type math) {
-  cudnnDataType_t ret;
-  switch (math) {
-  case FLOAT:
-    ret = dataType<float>::conv_type;
-    break;
+const void* one(Type type) {
+  const void* ret = nullptr;
+  switch (type) {
+    case FLOAT:
+      ret = dataType<float>::one;
+      break;
 #ifndef CPU_ONLY
-  case FLOAT16:
-    if (caffe::Caffe::device_capability(caffe::Caffe::current_device()) >= 600) {
-      ret = dataType<float16>::conv_type;
-    } else {
-      ret = dataType<float>::conv_type;
-    }
-    break;
+    case FLOAT16:
+      ret = dataType<float16>::one;
+      break;
 #endif
-  case DOUBLE:
-    ret = dataType<double>::conv_type;
-    break;
-  default:
-    LOG(FATAL) << "Unknown Math type " << Type_Name(math);
-    break;
+    case DOUBLE:
+      ret = dataType<double>::one;
+      break;
+    default:
+      LOG(FATAL) << "Unknown Type " << Type_Name(type);
+      break;
   }
   return ret;
 }
 
-template <typename Dtype>
-inline void createTensor4dDesc(cudnnTensorDescriptor_t* desc) {
+inline
+const void* zero(Type type) {
+  const void* ret = nullptr;
+  switch (type) {
+    case FLOAT:
+      ret = dataType<float>::zero;
+      break;
+#ifndef CPU_ONLY
+    case FLOAT16:
+      ret = dataType<float16>::zero;
+      break;
+#endif
+    case DOUBLE:
+      ret = dataType<double>::zero;
+      break;
+    default:
+      LOG(FATAL) << "Unknown Type " << Type_Name(type);
+      break;
+  }
+  return ret;
+}
+
+inline
+cudnnDataType_t cudnn_data_type(Type math) {
+  cudnnDataType_t ret;
+  switch (math) {
+    case FLOAT:
+      ret = dataType<float>::conv_type;
+      break;
+#ifndef CPU_ONLY
+    case FLOAT16:
+      if (caffe::Caffe::device_capability(caffe::Caffe::current_device()) >= 600) {
+        ret = dataType<float16>::conv_type;
+      } else {
+        ret = dataType<float>::conv_type;
+      }
+      break;
+#endif
+    case DOUBLE:
+      ret = dataType<double>::conv_type;
+      break;
+    default:
+      LOG(FATAL) << "Unknown Math type " << Type_Name(math);
+      break;
+  }
+  return ret;
+}
+
+template<typename Dtype>
+inline void createTensor4dDesc(cudnnTensorDescriptor_t *desc) {
   CUDNN_CHECK(cudnnCreateTensorDescriptor(desc));
 }
 
-template <typename Dtype>
-inline void setTensor4dDesc(cudnnTensorDescriptor_t* desc,
+template<typename Dtype>
+inline void setTensor4dDesc(cudnnTensorDescriptor_t *desc,
     int n, int c, int h, int w,
     int stride_n, int stride_c, int stride_h, int stride_w) {
   CUDNN_CHECK(cudnnSetTensor4dDescriptorEx(*desc, dataType<Dtype>::type,
-        n, c, h, w, stride_n, stride_c, stride_h, stride_w));
+      n, c, h, w, stride_n, stride_c, stride_h, stride_w));
 }
 
-template <typename Dtype>
-inline void setTensor4dDesc(cudnnTensorDescriptor_t* desc,
+template<typename Dtype>
+inline void setTensor4dDesc(cudnnTensorDescriptor_t *desc,
     int n, int c, int h, int w) {
   const int stride_w = 1;
   const int stride_h = w * stride_w;
   const int stride_c = h * stride_h;
   const int stride_n = c * stride_c;
   setTensor4dDesc<Dtype>(desc, n, c, h, w,
-                         stride_n, stride_c, stride_h, stride_w);
+      stride_n, stride_c, stride_h, stride_w);
+}
+
+inline void setTensor4dDesc(cudnnTensorDescriptor_t *desc, cudnnDataType_t type,
+    Packing packing, const vector<int> &shape) {
+  int stride_w = 0, stride_h = 0, stride_c = 0, stride_n = 0;
+  const int n = shape[0];
+  const int c = shape[1];
+  const int h = shape[2];
+  const int w = shape[3];
+  if (packing == NCHW) {
+    stride_w = 1;
+    stride_h = w * stride_w;
+    stride_c = h * stride_h;
+    stride_n = c * stride_c;
+  } else if (packing == NHWC) {
+    stride_c = 1;
+    stride_w = c * stride_c;
+    stride_h = w * stride_w;
+    stride_n = h * stride_h;
+  } else {
+    LOG(FATAL) << "Unknown packing";
+  }
+  CUDNN_CHECK(cudnnSetTensor4dDescriptorEx(*desc, type,
+      n, c, h, w, stride_n, stride_c, stride_h, stride_w));
+}
+
+inline void setTensor4dDesc(cudnnTensorDescriptor_t *desc, Type type,
+    Packing packing, const vector<int> &shape) {
+  setTensor4dDesc(desc, cudnn_data_type(type), packing, shape);
 }
 
 }  // namespace cudnn

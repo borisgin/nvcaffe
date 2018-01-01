@@ -497,7 +497,7 @@ static void write_mean(MEX_ARGS) {
   TBlob<float> data_mean(1, channels, height, width);
   mx_mat_to_blob(prhs[0], &data_mean, DATA);
   BlobProto blob_proto;
-  data_mean.ToProto<float>(&blob_proto, false, false);
+  data_mean.ToProto(&blob_proto, false, false);
   WriteProtoToBinaryFile(blob_proto, mean_proto_file);
   mxFree(mean_proto_file);
 }

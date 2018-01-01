@@ -20,7 +20,6 @@ class Tensor {
 
  public:
   explicit Tensor(Type type);
-
   ~Tensor() {}
 
   std::string to_string(int indent) const;
@@ -29,8 +28,8 @@ class Tensor {
       void* p_dst, Type dst_type);  // NOLINT(runtime/references)
 
 #ifndef CPU_ONLY
-  static void
-  gpu_scal(int count, Type dtype, void* data, float scal, cublasHandle_t cublas_handle, bool sync);
+  static void gpu_scal(int count, Type dtype, void* data, float scal,
+      cublasHandle_t cublas_handle);
 #endif
   static void cpu_scal(int count, Type dtype, void* data, float scal);
 
@@ -39,45 +38,29 @@ class Tensor {
     return type_;
   }
 
-  size_t size() const {
-    return synced_arrays_->size();
+  size_t size_of() const {
+    return tsize(type_) * count_;
   }
 
   void set(float value);
-  void scale(float new_scale, void* handle = nullptr, bool synced = true);
-  void cpu_scale(float new_scale);
-  float cpu_amax();
-  float cpu_asum();
-  float asum() const;
-  float sumsq() const;
+  void scale(float new_scale, void* handle = nullptr);
   void invalidate_others();
-
-#ifndef CPU_ONLY
-  void gpu_set(float value, cudaStream_t stream);
-  void gpu_scale(float new_scale, cublasHandle_t cublas_handle, bool sync);
-  float gpu_amax();
-  size_t gpu_memory_use(bool own_only = false) const;
-#endif
-  size_t cpu_memory_use(bool own_only = false) const;
-  const shared_ptr<SyncedMemory>& synced_mem() const;
-  shared_ptr<SyncedMemory>& mutable_synced_mem(bool flush = true);
   void convert(Type new_type);
   void Reshape(int count);
+  float asum(int group) const;
+  float amax(int group) const;
+  float sumsq(int group) const;
+  const shared_ptr<SyncedMemory>& synced_mem() const;
+  shared_ptr<SyncedMemory>& mutable_synced_mem(bool flush = true);
 
   bool is_current_valid() const {
     const shared_ptr<SyncedMemory>& mem = synced_arrays_->at(type_);
     return mem && mem->is_valid();
   }
 
-  void* mutable_memory(Type type, bool is_gpu) {
-    convert(type);
-    shared_ptr<SyncedMemory>& mem = mutable_synced_mem();
-    return is_gpu ? mem->mutable_gpu_data() : mem->mutable_cpu_data();
-  }
-
-  void* current_mutable_memory(bool is_gpu) {
-    shared_ptr<SyncedMemory>& mem = mutable_synced_mem();
-    return is_gpu ? mem->mutable_gpu_data() : mem->mutable_cpu_data();
+  void* current_mutable_memory(bool is_gpu, bool flush) {
+    shared_ptr<SyncedMemory>& mem = mutable_synced_mem(flush);
+    return is_gpu ? mem->mutable_gpu_data(flush) : mem->mutable_cpu_data(flush);
   }
 
   const void* current_memory(bool is_gpu) {
@@ -89,6 +72,20 @@ class Tensor {
     const shared_ptr<SyncedMemory>& mem = synced_arrays_->at(type_);
     return !mem || mem->head() == SyncedMemory::UNINITIALIZED;
   }
+
+  bool is_gpu_head() const {
+    const shared_ptr<SyncedMemory>& mem = synced_arrays_->at(type_);
+    return mem && (mem->head() == SyncedMemory::SYNCED || mem->head() == SyncedMemory::HEAD_AT_GPU);
+  }
+
+  bool is_cpu_head() const {
+    const shared_ptr<SyncedMemory>& mem = synced_arrays_->at(type_);
+    return mem && (mem->head() == SyncedMemory::SYNCED || mem->head() == SyncedMemory::HEAD_AT_CPU);
+  }
+
+#ifndef CPU_ONLY
+  size_t gpu_memory_use(bool own_only = false) const;
+#endif
 
   // numerical type stored here at a moment (might change due to conversion)
   Type type_;

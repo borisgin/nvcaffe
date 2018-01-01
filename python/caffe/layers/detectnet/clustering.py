@@ -7,7 +7,6 @@ import caffe
 
 MAX_BOXES = 50
 
-
 class ClusterGroundtruth(caffe.Layer):
     """
     * converts ground truth labels from grid format to list
@@ -56,12 +55,12 @@ class ClusterGroundtruth(caffe.Layer):
         num_classes = bottom[0].data.shape[1]
         if num_classes != self.num_classes:
             raise ValueError("Unexpected number of classes: %d != %d, bottom[0] shape=%s" % (num_classes, self.num_classes, repr(bottom[0].data.shape)))
-        for i in xrange(num_classes):
+        for i in list(range(num_classes)):
             # Assuming that max booxes per image are MAX_BOXES
             top[i].reshape(n_images, MAX_BOXES, 5)
 
     def forward(self, bottom, top):
-        for i in xrange(self.num_classes):
+        for i in list(range(self.num_classes)):
             data0 = bottom[0].data[:,i:i+1,:,:]
             bbox = cluster(self, data0, bottom[1].data)
             top[i].data[...] = bbox
@@ -123,12 +122,12 @@ class ClusterDetections(caffe.Layer):
         num_classes = bottom[0].data.shape[1]
         if num_classes != self.num_classes:
             raise ValueError("Unexpected number of classes: %d != %d, bottom[0] shape=%s" % (num_classes, self.num_classes, repr(bottom[0].data.shape)))
-        for i in xrange(num_classes):
+        for i in list(range(num_classes)):
             # Assuming that max booxes per image are MAX_BOXES
             top[i].reshape(n_images, MAX_BOXES, 5)
 
     def forward(self, bottom, top):
-        for i in xrange(self.num_classes):
+        for i in list(range(self.num_classes)):
             data0 = bottom[0].data[:,i:i+1,:,:]
             bbox = cluster(self, data0, bottom[1].data)
             top[i].data[...] = bbox
@@ -165,14 +164,14 @@ def gridbox_to_boxes(net_cvg, net_boxes, self):
     mx = x * cell_width
     my = y * cell_height
 
-    x1 = (np.asarray([net_boxes[0][y[i]][x[i]] for i in xrange(x.size)]) + mx)
-    y1 = (np.asarray([net_boxes[1][y[i]][x[i]] for i in xrange(x.size)]) + my)
-    x2 = (np.asarray([net_boxes[2][y[i]][x[i]] for i in xrange(x.size)]) + mx)
-    y2 = (np.asarray([net_boxes[3][y[i]][x[i]] for i in xrange(x.size)]) + my)
+    x1 = (np.asarray([net_boxes[0][y[i]][x[i]] for i in list(range(x.size))]) + mx)
+    y1 = (np.asarray([net_boxes[1][y[i]][x[i]] for i in list(range(x.size))]) + my)
+    x2 = (np.asarray([net_boxes[2][y[i]][x[i]] for i in list(range(x.size))]) + mx)
+    y2 = (np.asarray([net_boxes[3][y[i]][x[i]] for i in list(range(x.size))]) + my)
 
     boxes = np.transpose(np.vstack((x1, y1, x2, y2)))
     cvgs = np.transpose(np.vstack((x, y, np.asarray(
-        [cvg_val[y[i]][x[i]] for i in xrange(x.size)]))))
+        [cvg_val[y[i]][x[i]] for i in list(range(x.size))]))))
     return boxes, cvgs, mask
 
 

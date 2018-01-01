@@ -4,6 +4,8 @@
 #include "caffe/util/gpu_memory.hpp"
 #include "caffe/util/math_functions.hpp"
 
+#define MAX_ELEM_TO_SHOW 20UL
+
 namespace caffe {
 
 // If CUDA is available and in GPU mode, host memory will be allocated pinned,
@@ -49,15 +51,15 @@ SyncedMemory::~SyncedMemory() {
     cudaError_t status = cudaPointerGetAttributes(&attr, gpu_ptr_);
     if (status == cudaSuccess) {
       CHECK_EQ(attr.memoryType, cudaMemoryTypeDevice);
-      CHECK_EQ(attr.device, gpu_device_);
+      CHECK_EQ(attr.device, device_);
     }
 #endif
-    GPUMemory::deallocate(gpu_ptr_, gpu_device_);
+    GPUMemory::deallocate(gpu_ptr_, device_);
   }
 #endif  // CPU_ONLY
 }
 
-void SyncedMemory::to_cpu() {
+void SyncedMemory::to_cpu(bool copy_from_gpu) {
   switch (head_) {
     case UNINITIALIZED:
       MallocHost(&cpu_ptr_, size_, &cpu_malloc_use_cuda_);
@@ -71,8 +73,12 @@ void SyncedMemory::to_cpu() {
         MallocHost(&cpu_ptr_, size_, &cpu_malloc_use_cuda_);
         own_cpu_data_ = true;
       }
-      caffe_gpu_memcpy(size_, gpu_ptr_, cpu_ptr_);
-      head_ = SYNCED;
+      if (copy_from_gpu) {
+        caffe_gpu_memcpy(size_, gpu_ptr_, cpu_ptr_);
+        head_ = SYNCED;
+      } else {
+        head_ = HEAD_AT_CPU;
+      }
 #else
       NO_GPU;
 #endif
@@ -83,24 +89,28 @@ void SyncedMemory::to_cpu() {
   }
 }
 
-void SyncedMemory::to_gpu() {
+void SyncedMemory::to_gpu(bool copy_from_cpu) {
 #ifndef CPU_ONLY
   switch (head_) {
     case UNINITIALIZED:
-      CUDA_CHECK(cudaGetDevice(&gpu_device_));
-      GPUMemory::allocate(&gpu_ptr_, size_, gpu_device_);
+      CUDA_CHECK(cudaGetDevice(&device_));
+      GPUMemory::allocate(&gpu_ptr_, pstream_, size_, device_);
       caffe_gpu_memset(size_, 0, gpu_ptr_);
       head_ = HEAD_AT_GPU;
       own_gpu_data_ = true;
       break;
     case HEAD_AT_CPU:
       if (gpu_ptr_ == NULL) {
-        CUDA_CHECK(cudaGetDevice(&gpu_device_));
-        GPUMemory::allocate(&gpu_ptr_, size_, gpu_device_);
+        CUDA_CHECK(cudaGetDevice(&device_));
+        GPUMemory::allocate(&gpu_ptr_, pstream_, size_, device_);
         own_gpu_data_ = true;
       }
-      caffe_gpu_memcpy(size_, cpu_ptr_, gpu_ptr_);
-      head_ = SYNCED;
+      if (copy_from_cpu) {
+        caffe_gpu_memcpy(size_, cpu_ptr_, gpu_ptr_);
+        head_ = SYNCED;
+      } else {
+        head_ = HEAD_AT_GPU;
+      }
       break;
     case HEAD_AT_GPU:
     case SYNCED:
@@ -140,7 +150,7 @@ void SyncedMemory::set_gpu_data(void* data) {
 #ifndef CPU_ONLY
   CHECK(data);
   if (gpu_ptr_ && own_gpu_data_) {
-    GPUMemory::deallocate(gpu_ptr_, gpu_device_);
+    GPUMemory::deallocate(gpu_ptr_, device_);
   }
   gpu_ptr_ = data;
   head_ = HEAD_AT_GPU;
@@ -150,15 +160,15 @@ void SyncedMemory::set_gpu_data(void* data) {
 #endif
 }
 
-void* SyncedMemory::mutable_cpu_data() {
-  to_cpu();
+void* SyncedMemory::mutable_cpu_data(bool copy_from_gpu) {
+  to_cpu(copy_from_gpu);
   head_ = HEAD_AT_CPU;
   return cpu_ptr_;
 }
 
-void* SyncedMemory::mutable_gpu_data() {
+void* SyncedMemory::mutable_gpu_data(bool copy_from_cpu) {
 #ifndef CPU_ONLY
-  to_gpu();
+  to_gpu(copy_from_cpu);
   head_ = HEAD_AT_GPU;
   return gpu_ptr_;
 #else
@@ -166,121 +176,6 @@ void* SyncedMemory::mutable_gpu_data() {
   return NULL;
 #endif
 }
-
-#ifndef CPU_ONLY
-
-void SyncedMemory::async_gpu_push() {
-  if (gpu_ptr_ == NULL) {
-    CUDA_CHECK(cudaGetDevice(&gpu_device_));
-    GPUMemory::allocate(&gpu_ptr_, size_, gpu_device_, 0);
-    own_gpu_data_ = true;
-  }
-  CHECK_EQ(Caffe::current_device(), gpu_device_);
-  const cudaMemcpyKind put = cudaMemcpyHostToDevice;
-  CUDA_CHECK(cudaMemcpyAsync(gpu_ptr_, cpu_ptr_, size_, put,
-      Caffe::th_stream_aux(Caffe::STREAM_ID_ASYNC_PUSH)));
-  // Assume caller will synchronize on the stream before use
-  validate();
-  head_ = SYNCED;
-}
-
-float SyncedMemory::gpu_amax(int count, Type type) {
-  CHECK(valid_);
-  float amax = 0.F;
-  if (is_type<float>(type)) {
-    caffe_gpu_amax(count, static_cast<const float*>(gpu_data()), &amax);
-  } else if (is_type<float16>(type)) {
-    caffe_gpu_amax(count, static_cast<const float16*>(gpu_data()), &amax);
-  } else if (is_type<double>(type)) {
-    caffe_gpu_amax(count, static_cast<const double*>(gpu_data()), &amax);
-  } else {
-    LOG(FATAL) << "Unknown data type: " << Type_Name(type);
-  }
-  return amax;
-}
-
-#endif
-
-float SyncedMemory::cpu_asum(int count, Type type) {
-  CHECK(valid_);
-  float asum = 0.F;
-  if (is_type<float>(type)) {
-    asum = caffe_cpu_asum(count, static_cast<const float*>(cpu_data()));
-#ifndef CPU_ONLY
-  } else if (is_type<float16>(type)) {
-    asum = caffe_cpu_asum(count, static_cast<const float16*>(cpu_data()));
-#endif
-  } else if (is_type<double>(type)) {
-    asum = caffe_cpu_asum(count, static_cast<const double*>(cpu_data()));
-  } else {
-    LOG(FATAL) << "Unknown data type: " << Type_Name(type);
-  }
-  return asum;
-}
-
-#ifndef CPU_ONLY
-
-float SyncedMemory::gpu_asum(int count, Type type) {
-  CHECK(valid_);
-  float asum = 0.F;
-  if (is_type<float>(type)) {
-    caffe_gpu_asum(count, static_cast<const float*>(gpu_data()), &asum);
-  } else if (is_type<float16>(type)) {
-    caffe_gpu_asum(count, static_cast<const float16*>(gpu_data()), &asum);
-  } else if (is_type<double>(type)) {
-    caffe_gpu_asum(count, static_cast<const double*>(gpu_data()), &asum);
-  } else {
-    LOG(FATAL) << "Unknown data type: " << Type_Name(type);
-  }
-  return asum;
-}
-
-#endif
-
-float SyncedMemory::cpu_sumsq(int count, Type type) {
-  if (is_type<float>(type)) {
-    return caffe_cpu_dot(count, static_cast<const float*>(cpu_data()),
-        static_cast<const float*>(cpu_data()));
-#ifndef CPU_ONLY
-  } else if (is_type<float16>(type)) {
-    return caffe_cpu_dot(count, static_cast<const float16*>(cpu_data()),
-        static_cast<const float16*>(cpu_data()));
-#endif
-  } else if (is_type<double>(type)) {
-    return caffe_cpu_dot(count, static_cast<const double*>(cpu_data()),
-        static_cast<const double*>(cpu_data()));
-  } else {
-    LOG(FATAL) << "Unknown data type: " << Type_Name(type);
-  }
-  return 0.F;
-}
-
-#ifndef CPU_ONLY
-
-// TODO reduction
-float SyncedMemory::gpu_sumsq(int count, Type type) {
-  if (is_type<float>(type)) {
-    float sumsq;
-    caffe_gpu_dot(count, static_cast<const float*>(gpu_data()),
-        static_cast<const float*>(gpu_data()), &sumsq);
-    return sumsq;
-  } else if (is_type<float16>(type)) {
-    float16 sumsq;
-    caffe_gpu_dot(count, static_cast<const float16*>(gpu_data()),
-        static_cast<const float16*>(gpu_data()), &sumsq);
-    return sumsq;
-  } else if (is_type<double>(type)) {
-    double sumsq;
-    caffe_gpu_dot(count, static_cast<const double*>(gpu_data()),
-        static_cast<const double*>(gpu_data()), &sumsq);
-    return sumsq;
-  }
-  LOG(FATAL) << "Unsupported data type: " << Type_Name(type);
-  return 0.F;
-}
-
-#endif
-
 
 std::string SyncedMemory::to_string(int indent, Type type) {  // debug helper
   const std::string idt(indent, ' ');
@@ -309,14 +204,14 @@ std::string SyncedMemory::to_string(int indent, Type type) {  // debug helper
   os << idt << "cpu_ptr_, gpu_ptr_: " << cpu_ptr_ << " " << gpu_ptr_ << std::endl;
   os << idt << "own_cpu_data_, own_gpu_data_: " << own_cpu_data_ << " " << own_gpu_data_
      << std::endl;
-  os << idt << "cpu_malloc_use_cuda_, gpu_device_: " << cpu_malloc_use_cuda_ << " " << gpu_device_
+  os << idt << "cpu_malloc_use_cuda_, gpu_device_: " << cpu_malloc_use_cuda_ << " " << device_
      << std::endl;
   os << idt << "valid_: " << valid_ << std::endl;
 
   const void* data = cpu_data();
   if (is_type<float>(type)) {
     const float* fdata = static_cast<const float*>(data);
-    size_t n = std::min(size_ / sizeof(float), 5UL);
+    size_t n = std::min(size_ / sizeof(float), MAX_ELEM_TO_SHOW);
     os << idt << "First " << n << " elements:";
     for (size_t i = 0; i < n; ++i) {
       os << " " << fdata[i];
@@ -324,23 +219,18 @@ std::string SyncedMemory::to_string(int indent, Type type) {  // debug helper
     os << std::endl;
     os << idt << "First corrupted elements (if any):";
     int j = 0;
-    for (size_t i = 0; i < size_ / sizeof(float) && j < 5; ++i) {
+    for (size_t i = 0; i < size_ / sizeof(float) && j < MAX_ELEM_TO_SHOW; ++i) {
       if (isinf(fdata[i]) || isnan(fdata[i])) {
         os << idt << i << "->" << fdata[i] << " ";
         ++j;
       }
     }
     os << std::endl;
-    if (valid_) {
-      os << idt << "ASUM: " << cpu_asum(size_ / sizeof(float), tp<float>()) << std::endl;
-    } else {
-      os << idt << "NOT VALID" << std::endl;
-    }
   }
 #ifndef CPU_ONLY
   else if (is_type<float16>(type)) {
     const float16* fdata = static_cast<const float16*>(data);
-    size_t n = std::min(size_ / sizeof(float16), 5UL);
+    size_t n = std::min(size_ / sizeof(float16), MAX_ELEM_TO_SHOW);
     os << idt << "First " << n << " elements:";
     for (size_t i = 0; i < n; ++i) {
       os << " " << float(fdata[i]);
@@ -348,37 +238,32 @@ std::string SyncedMemory::to_string(int indent, Type type) {  // debug helper
     os << std::endl;
     os << idt << "First corrupted elements (if any):";
     int j = 0;
-    for (size_t i = 0; i < size_ / sizeof(float16) && j < 5; ++i) {
+    for (size_t i = 0; i < size_ / sizeof(float16) && j < MAX_ELEM_TO_SHOW; ++i) {
       if (isinf(fdata[i]) || isnan(fdata[i])) {
         os << i << "->" << float(fdata[i]) << " ";
         ++j;
       }
     }
     os << std::endl;
-    if (valid_) {
-      os << idt << "ASUM: " << gpu_asum(size_ / sizeof(float16), tp<float16>()) << std::endl;
-    } else {
-      os << idt << "NOT VALID" << std::endl;
-    }
   }
 #endif
   else if (is_type<double>(type)) {
     const double* fdata = static_cast<const double*>(data);
-    size_t n = std::min(size_ / sizeof(double), 5UL);
+    size_t n = std::min(size_ / sizeof(double), MAX_ELEM_TO_SHOW);
     os << idt << "First " << n << " elements:";
     for (size_t i = 0; i < n; ++i) {
       os << " " << fdata[i];
     }
   } else if (is_type<unsigned int>(type)) {
     const unsigned int* fdata = static_cast<const unsigned int*>(data);
-    size_t n = std::min(size_ / sizeof(unsigned int), 5UL);
+    size_t n = std::min(size_ / sizeof(unsigned int), MAX_ELEM_TO_SHOW);
     os << idt << "First " << n << " elements:";
     for (size_t i = 0; i < n; ++i) {
       os << " " << fdata[i];
     }
   } else if (is_type<int>(type)) {
     const int* fdata = static_cast<const int*>(data);
-    size_t n = std::min(size_ / sizeof(int), 5UL);
+    size_t n = std::min(size_ / sizeof(int), MAX_ELEM_TO_SHOW);
     os << idt << "First " << n << " elements:";
     for (size_t i = 0; i < n; ++i) {
       os << " " << fdata[i];

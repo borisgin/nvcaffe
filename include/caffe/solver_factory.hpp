@@ -74,8 +74,8 @@ class SolverRegistry {
   }
 
   // Get a solver using a SolverParameter.
-  static Solver* CreateSolver(const SolverParameter& param, size_t rank = 0U,
-      Solver* root_solver = NULL) {
+  static Solver* CreateSolver(const SolverParameter& param,
+      Solver* root_solver = NULL, size_t rank = 0) {
     const string& type = param.type();
     CreatorRegistry& registry = Registry();
     CHECK_EQ(registry.count(type), 1) << "Unknown solver type: " << type

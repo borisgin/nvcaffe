@@ -10,7 +10,7 @@ namespace caffe {
 InternalThread::InternalThread(int target_device, size_t rank, size_t threads, bool delayed)
     : target_device_(target_device),
       rank_(rank),
-      aux_(nullptr),
+      aux_{nullptr, nullptr},
       threads_(threads),
       delay_flags_(threads, make_shared<Flag>(!delayed)) {}
 
@@ -49,6 +49,7 @@ void InternalThread::RestartAllThreads(size_t new_threads, bool delayed, bool se
   delay_flags_.resize(new_threads);
   try {
     for (size_t id = 0; id < new_threads; ++id) {
+      CHECK(!is_started(id));
       delay_flags_[id] = make_shared<Flag>(!delayed);
       threads_[id] = boost::thread(&InternalThread::entry, this, id,
           target_device_, mode, random_seed, solver_count, rank_, set_cpu_affinity);
@@ -66,22 +67,25 @@ void InternalThread::entry(int thread_id, int device, Caffe::Brew mode, uint64_t
   }
   rank_ = rank;
   target_device_ = device;
-  DLOG(INFO) << "Started internal thread " << std::this_thread::get_id()
-            << " on device " << device << ", rank " << rank_;
+
 #ifndef CPU_ONLY
   if (mode == Caffe::GPU) {
     CUDA_CHECK(cudaSetDevice(device));
-    if (set_cpu_affinity) {
-#ifndef NO_NVML
-      nvml::setCpuAffinity(rank);
-#endif
-    }
   }
 #endif
   Caffe::set_mode(mode);
   Caffe::set_random_seed(random_seed);
   Caffe::set_solver_count(solver_count);
 
+  DLOG(INFO) << "Started internal thread " << std::this_thread::get_id()
+            << " on device " << device << ", rank " << rank_;
+#ifndef CPU_ONLY
+  if (mode == Caffe::GPU && set_cpu_affinity) {
+#ifndef NO_NVML
+    nvml::setCpuAffinity();
+#endif
+  }
+#endif
   if (threads_.size() == 1) {
     InternalThreadEntry();
   } else {
@@ -89,13 +93,15 @@ void InternalThread::entry(int thread_id, int device, Caffe::Brew mode, uint64_t
   }
 }
 
-void InternalThread::StopInternalThread() {
+void InternalThread::StopInternalThread(bool wait_all) {
   for (size_t id = 0; id < threads_.size(); ++id) {
     if (is_started(id)) {
       threads_[id].interrupt();
     }
   }
-  WaitAll();
+  if (wait_all) {
+    WaitAll();
+  }
 }
 
 void InternalThread::WaitAll() {

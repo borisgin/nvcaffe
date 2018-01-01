@@ -5,8 +5,12 @@
 #include "caffe/util/gpu_math_functions.cuh"
 #include "caffe/util/gpu_memory.hpp"
 #include "caffe/util/math_functions.hpp"
+#include "caffe/type.hpp"
 
 namespace caffe {
+
+SHMEM(amax);
+CAFFE_GPU_SHMEM(amax);
 
 ///////////////////////////////////// AMAX REDUCTION ///////////////////////////////////
 
@@ -43,70 +47,17 @@ __device__ void amax_reduce_block(volatile T *sdata, T my_max, unsigned int tid)
   }
 }
 
-
 // Global variable used by amax_reduce_kernel to count how many blocks have finished
-__device__ unsigned int amax_blocks_count_f = 0;
-__device__ unsigned int amax_blocks_count_d = 0;
-__device__ unsigned int amax_blocks_count_h = 0;
+__device__ unsigned int amax_blocks_count[REGRESSION_GROUPS_MAX];
 
-template<typename T>
-__device__ __inline__
-unsigned int* amax_blocks_count_ptr();
-template<>
-__device__ __inline__
-unsigned int* amax_blocks_count_ptr<float>() {
-  return &amax_blocks_count_f;
-}
-template<>
-__device__ __inline__
-unsigned int* amax_blocks_count_ptr<double>() {
-  return &amax_blocks_count_d;
-}
-template<>
-__device__ __inline__
-unsigned int* amax_blocks_count_ptr<half2>() {
-  return &amax_blocks_count_h;
-}
-
-template<typename T>
-cudaError_t set_amax_blocks_count(unsigned int cnt);
-template<>
-cudaError_t set_amax_blocks_count<float>(unsigned int cnt) {
-  return cudaMemcpyToSymbolAsync(amax_blocks_count_f, &cnt, sizeof(unsigned int), 0,
-      cudaMemcpyHostToDevice, Caffe::thread_stream());
-}
-template<>
-cudaError_t set_amax_blocks_count<double>(unsigned int cnt) {
-  return cudaMemcpyToSymbolAsync(amax_blocks_count_d, &cnt, sizeof(unsigned int), 0,
-      cudaMemcpyHostToDevice, Caffe::thread_stream());
-}
-template<>
-cudaError_t set_amax_blocks_count<half2>(unsigned int cnt) {
-  return cudaMemcpyToSymbolAsync(amax_blocks_count_h, &cnt, sizeof(unsigned int), 0,
-      cudaMemcpyHostToDevice, Caffe::thread_stream());
-}
-
-template<typename T>
-__device__ __inline__
-void reset_amax_blocks_count();
-template<>
-void reset_amax_blocks_count<float>() {
-  amax_blocks_count_f = 0;
-}
-template<>
-__device__ __inline__
-void reset_amax_blocks_count<double>() {
-  amax_blocks_count_d = 0;
-}
-template<>
-__device__ __inline__
-void reset_amax_blocks_count<half2>() {
-  amax_blocks_count_h = 0;
+void set_amax_blocks_count(unsigned int cnt, int group, cudaStream_t stream) {
+  CUDA_CHECK_ARG(cudaMemcpyToSymbolAsync(amax_blocks_count, &cnt, sizeof(unsigned int),
+      group * sizeof(unsigned int), cudaMemcpyHostToDevice, stream), Caffe::current_device());
 }
 
 template<unsigned int BlockSize, bool IsPow2, typename T, typename TR>
 __device__ void amax_reduce_blocks(const T *in, TR *out, unsigned int n) {
-  struct __dyn_shmem__<TR> amax_shmem;
+  struct __dyn_shmem_amax__<TR> amax_shmem;
   // first level of reduction:
   // reading from global memory, writing to shared memory
   unsigned int tid = threadIdx.x;
@@ -132,12 +83,11 @@ __device__ void amax_reduce_blocks(const T *in, TR *out, unsigned int n) {
 }
 
 template<unsigned int BlockSize, bool IsPow2, typename T, typename TR>
-__global__ void amax_reduce_kernel(unsigned int n, const T *in, TR *out) {
+__global__ void amax_reduce_kernel(unsigned int n, const T *in, TR *out, int group) {
   amax_reduce_blocks<BlockSize, IsPow2>(in, out, n);
-
   if (gridDim.x > 1) {
     const unsigned int tid = threadIdx.x;
-    struct __dyn_shmem__<TR> amax_reduce_shmem;
+    struct __dyn_shmem_amax__<TR> amax_reduce_shmem;
     __shared__ bool last_amax_block;
 
     // wait until all outstanding memory instructions in this thread are finished
@@ -145,12 +95,12 @@ __global__ void amax_reduce_kernel(unsigned int n, const T *in, TR *out) {
 
     // Thread 0 takes a ticket
     if (tid == 0) {
-      unsigned int ticket = atomicInc(amax_blocks_count_ptr<T>(), gridDim.x);
+      unsigned int ticket = atomicInc(amax_blocks_count + group, gridDim.x);
       last_amax_block = (ticket == gridDim.x - 1);
     }
     __syncthreads();
 
-    // The last block sums the results of all other blocks
+    // The last block max-es the results of all other blocks
     if (last_amax_block) {
       int i = tid;
       TR my_max = tzero<TR>();
@@ -163,14 +113,15 @@ __global__ void amax_reduce_kernel(unsigned int n, const T *in, TR *out) {
       if (tid == 0) {
         out[0] = amax_reduce_shmem.getPtr()[0];
         // reset blocks count so that next run succeeds
-        reset_amax_blocks_count<T>();
+        amax_blocks_count[group] = 0U;
       }
     }
   }
 }
 
 template <typename T, typename TR>
-void gpu_amax_t(const int n, const T* x, TR* result) {
+void gpu_amax_t(const int n, const T* x, TR* result, int group) {
+  CHECK_LT(group, REGRESSION_GROUPS_MAX);
   cudaStream_t stream = Caffe::thread_stream();
   const bool po2 = is_pow2(n);
   // See kernel for details
@@ -178,36 +129,34 @@ void gpu_amax_t(const int n, const T* x, TR* result) {
   CHECK_GE(CAFFE_CUDA_NUM_THREADS_HALF, 128);
   const int threadsPerCta = CAFFE_CUDA_NUM_THREADS_HALF;
   const int nbrCtas = CAFFE_GET_BLOCKS_HALF(n);
-  const int reductionSize = (nbrCtas + 1) * sizeof(TR);
-  TR* devPtrT = reinterpret_cast<TR*>(GPUMemory::pinned_buffer(reductionSize));
+  const int reduction_size = (nbrCtas + 1) * sizeof(TR);
+  GPUMemory::Workspace ws(reduction_size, Caffe::current_device());
+  TR* dev_ptr_max = reinterpret_cast<TR*>(ws.data());
+  set_amax_blocks_count(0U, group, stream);
   if (po2 && n > CAFFE_CUDA_NUM_THREADS_HALF) {
     // NOLINT_NEXT_LINE(whitespace/operators)
     amax_reduce_kernel<CAFFE_CUDA_NUM_THREADS_HALF, true><<<nbrCtas, threadsPerCta,
         threadsPerCta * sizeof(TR) + sizeof(bool), stream>>>
-            ((unsigned int)n, x, devPtrT);
+            ((unsigned int)n, x, dev_ptr_max, group);
   } else {
     // NOLINT_NEXT_LINE(whitespace/operators)
     amax_reduce_kernel<CAFFE_CUDA_NUM_THREADS_HALF, false><<<nbrCtas, threadsPerCta,
         threadsPerCta * sizeof(TR) + sizeof(bool), stream>>>
-            ((unsigned int)n, x, devPtrT);
+            ((unsigned int)n, x, dev_ptr_max, group);
   }
   CUDA_POST_KERNEL_CHECK;
+  CUDA_CHECK(cudaMemcpyAsync(result, dev_ptr_max, sizeof(TR), cudaMemcpyDeviceToHost, stream));
   CUDA_CHECK(cudaStreamSynchronize(stream));
-  *result = devPtrT[0];
 }
 
 template <typename T>
-void caffe_gpu_amax(const int n, const T* x, float* result) {
-  static cudaError_t status = set_amax_blocks_count<T>(0U);  // needed just 1 time
-  CUDA_CHECK(status);
-  gpu_amax_t(n, x, result);
+void caffe_gpu_amax(const int n, const T* x, float* result, int group) {
+  gpu_amax_t(n, x, result, group);
 }
-template
-void caffe_gpu_amax<double>(const int n, const double* x, float* y);
-template
-void caffe_gpu_amax<float>(const int n, const float* x, float* y);
+template void caffe_gpu_amax<double>(const int n, const double* x, float* y, int group);
+template void caffe_gpu_amax<float>(const int n, const float* x, float* y, int group);
 template<>
-void caffe_gpu_amax<float16>(const int n, const float16* x, float* y) {
+void caffe_gpu_amax<float16>(const int n, const float16* x, float* y, int group) {
   // For odd counts we allocate extra element to speed up kernels.
   // We have to keep it clean.
   cudaStream_t stream = Caffe::thread_stream();
@@ -215,15 +164,11 @@ void caffe_gpu_amax<float16>(const int n, const float16* x, float* y) {
     clean_last_element(const_cast<float16*>(x) + n, stream);
   }
   const int n2 = even(n) / 2;
-  static cudaError_t status = set_amax_blocks_count<half2>(0U);  // needed just 1 time
-  CUDA_CHECK(status);
-  gpu_amax_t(n2, reinterpret_cast<const half2*>(x), y);
+  gpu_amax_t(n2, reinterpret_cast<const half2*>(x), y, group);
 #ifdef DEBUG
   CHECK(!isnan(*y));
   CHECK(!isinf(*y));
 #endif
 }
-
-
 
 }  // namespace caffe

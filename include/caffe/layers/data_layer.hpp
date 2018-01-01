@@ -8,6 +8,7 @@
 #include "caffe/blob.hpp"
 #include "caffe/data_reader.hpp"
 #include "caffe/data_transformer.hpp"
+#include "caffe/batch_transformer.hpp"
 #include "caffe/internal_thread.hpp"
 #include "caffe/layer.hpp"
 #include "caffe/layers/base_data_layer.hpp"
@@ -39,14 +40,16 @@ class DataLayer : public BasePrefetchingDataLayer<Ftype, Btype> {
   int MaxTopBlobs() const override {
     return 2;
   }
-
   Flag* layer_inititialized_flag() override {
     return this->phase_ == TRAIN ? &layer_inititialized_flag_ : nullptr;
+  }
+  size_t prefetch_bytes() {
+    return this->batch_transformer_->prefetch_bytes();
   }
 
  protected:
   void InitializePrefetch() override;
-  void load_batch(Batch<Ftype>* batch, int thread_id, size_t queue_id = 0UL) override;
+  void load_batch(Batch* batch, int thread_id, size_t queue_id = 0UL) override;
   size_t queue_id(size_t thread_id) const override;
 
   void init_offsets();
@@ -54,12 +57,19 @@ class DataLayer : public BasePrefetchingDataLayer<Ftype, Btype> {
     reader_->start_reading();
   }
 
-  shared_ptr<DataReader> sample_reader_, reader_;
+  std::shared_ptr<DataReader> sample_reader_, reader_;
+
+#ifndef CPU_ONLY
+  vector<shared_ptr<GPUMemory::Workspace>> tmp_gpu_buffer_;
+#endif
+
+  // stored random numbers for this batch
+  vector<shared_ptr<TBlob<unsigned int>>> random_vectors_;
   mutable vector<size_t> parser_offsets_, queue_ids_;
   Flag layer_inititialized_flag_;
   std::atomic_bool sample_only_;
-  mutable std::mutex mutex_setup_, mutex_prefetch_;
   const bool cache_, shuffle_;
+  bool datum_encoded_;
 };
 
 }  // namespace caffe

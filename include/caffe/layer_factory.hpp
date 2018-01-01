@@ -201,7 +201,8 @@ class LayerRegisterer {
   }                                                                            \
   REGISTER_LAYER_CREATOR(type, Creator_##type##Layer)
 
-void check_precision_support(Type& ftype, Type& btype, LayerParameter& param);
+void check_precision_support(Type& ftype, Type& btype, LayerParameter& param,
+    bool transf = false);
 
 }  // namespace caffe
 

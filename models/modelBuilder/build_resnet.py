@@ -100,7 +100,7 @@ def buildResidualModel(netConfig, name, net_type):
     model = ""
     model = addHeader(model, name=name)
     model += print_netconfig(netConfig)
-    print model
+    print(model)
 
     train_batch = 256 if net_type=="small" else 128
     test_batch  = 32

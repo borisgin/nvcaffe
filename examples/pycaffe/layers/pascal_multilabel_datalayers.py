@@ -100,8 +100,8 @@ class BatchLoader(object):
         # this class does some simple data-manipulations
         self.transformer = SimpleTransformer()
 
-        print "BatchLoader initialized with {} images".format(
-            len(self.indexlist))
+        print("BatchLoader initialized with {} images".format(
+            len(self.indexlist)))
 
     def load_next_image(self):
         """
@@ -209,8 +209,8 @@ def print_info(name, params):
     """
     Ouput some info regarding the class
     """
-    print "{} initialized for split: {}, with bs: {}, im_shape: {}.".format(
+    print("{} initialized for split: {}, with bs: {}, im_shape: {}.".format(
         name,
         params['split'],
         params['batch_size'],
-        params['im_shape'])
+        params['im_shape']))

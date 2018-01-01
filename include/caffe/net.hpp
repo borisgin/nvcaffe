@@ -15,6 +15,7 @@
 #include "caffe/proto/caffe.pb.h"
 #include "caffe/util/blocking_queue.hpp"
 #include "caffe/util/thread_pool.hpp"
+#include "caffe/layers/data_layer.hpp"
 
 namespace caffe {
 
@@ -90,7 +91,7 @@ class Net {
    * a forward pass, e.g. to compute output feature size.
    */
   void Reshape();
-  void ReduceAndUpdate();
+  void ReduceAndUpdate(int type_id);
 
   float ForwardBackward(bool apply_update = true);
 
@@ -182,6 +183,20 @@ class Net {
   const vector<shared_ptr<Blob>>& learnable_params() const {
     return learnable_params_;
   }
+  const vector<shared_ptr<Blob>>& learnable_params_mapped() const {
+    return learnable_params_mapped_;
+  }
+
+  shared_ptr<TBlob<float>> lars_learnable_param(int param_id) {
+    lars_learnable_params_.resize(learnable_params_.size());
+    if (!lars_learnable_params_[param_id]) {
+      lars_learnable_params_[param_id] = make_shared<TBlob<float>>();
+    }
+    lars_learnable_params_[param_id]->CopyDataFrom(*learnable_params_[param_id], true);
+    lars_learnable_params_[param_id]->CopyDiffFrom(*learnable_params_[param_id], true);
+    return lars_learnable_params_[param_id];
+  }
+  const vector<Type>& learnable_types(bool reset = false);
 
   /// @brief returns the learnable parameter learning rate multipliers
   const vector<float>& params_lr() const { return params_lr_; }
@@ -254,7 +269,7 @@ class Net {
   }
 
 #ifndef CPU_ONLY
-  void InitializeLearnableDiffSpace();
+  void InitializeLearnableDiffSpace(int type_id);
 #endif
 
   void wait_layers_init() {
@@ -263,13 +278,19 @@ class Net {
     }
   }
 
-  float global_grad_scale() {
-    return global_grad_scale_;
+  float global_grad_scale() const {
+    return global_grad_scale_coeff_;
   }
 
   size_t infer_count() const {
     return infer_count_;
   }
+
+  bool global_grad_scale_enabled() const {
+    return global_grad_scale_param_ > 1.F;
+  }
+
+  void update_grad_scale();
 
   std::string print_current_device() const {
 #ifndef CPU_ONLY
@@ -281,6 +302,17 @@ class Net {
 #else
     return std::string();
 #endif
+  }
+
+  template <typename Ftype, typename Btype>
+  size_t prefetch_bytes() {
+    size_t bytes = 0UL;
+    for (const shared_ptr<LayerBase>& layer : layers_) {
+      if (typeid(*layer) == typeid(DataLayer<Ftype, Btype>)) {
+        bytes += reinterpret_cast<DataLayer<Ftype, Btype>*>(layer.get())->prefetch_bytes();
+      }
+    }
+    return bytes;
   }
 
  protected:
@@ -305,10 +337,22 @@ class Net {
   void UpdateDebugInfo(const int param_id);
   /// @brief Multi-GPU reduction for a particular parameter.
 #ifndef CPU_ONLY
-  void Reduce(int param_id);
+  void Reduce(int type_id, int param_id);
   /// @brief Multi-GPU reduction for a particular bucket of parameters.
-  void ReduceBucket(size_t count, Type bucket_type, void* bucket);
+  void ReduceBucket(int type_id, size_t count, Type bucket_type, void* bucket);
+  size_t received_contiguous_count(int type_id, const std::set<int>& au_ids, int& from);
 #endif
+
+  size_t lp_aligned_count(int id) const {
+    return align_up<6>((size_t)learnable_params_[id]->count());
+  }
+
+  size_t lp_size(int id) const {
+    return tsize(learnable_params_[id]->diff_type());
+  }
+
+  void add_wgrad_sq(float wgrad_sq);
+  float wgrad_sq();
 
   /// @brief The network name
   string name_;
@@ -351,14 +395,19 @@ class Net {
   /// The parameters in the network.
   vector<shared_ptr<Blob>> params_;
   vector<shared_ptr<Blob>> learnable_params_;
+  vector<shared_ptr<Blob>> learnable_params_mapped_;
+  vector<shared_ptr<TBlob<float>>> lars_learnable_params_;
   bool trained_layers_shared_;
 
+  vector<Type> learnable_types_;
+  vector<void*> learnable_params_ptrs_[2];
 #ifndef CPU_ONLY
-  vector<void*> learnable_params_ptrs_;
-  GPUMemory::Workspace learnable_space_;
-  size_t learnable_space_count_;
-  size_t reduce_buckets_;
+  GPUMemory::Workspace learnable_space_[2];
 #endif
+  size_t learnable_space_size_[2];
+  /// layer_id->{paramss}
+  std::map<size_t, std::set<int>> ltop_[2];
+  size_t reduce_buckets_;
 
   /**
    * The mapping from params_ -> learnable_params_: we have
@@ -390,17 +439,21 @@ class Net {
   /// Pointer to the solver being used with this net
   Solver* solver_;
   size_t solver_rank_;
-  BlockingQueue<int> reduction_queue_;
+  BlockingQueue<int> reduction_queue_[2];
   Flag* solver_init_flag_;
   Flag* solver_iter0_flag_;
   vector<Flag*> layer_inititialized_flags_;
   NetParameter net_param_;
 
   size_t infer_count_;
-  float global_grad_scale_;
+  std::atomic_llong wgrad_sq_;
+  float global_grad_scale_coeff_, global_grad_scale_param_;
+  bool global_grad_scale_adaptive_;
+
+  static constexpr float GRAD_FACTOR = 1.E6F;
 
   static constexpr int END_OF_ITERATION = -1;
-  static constexpr int END_OF_BATCH = -2;
+  static constexpr int END_OF_TRAIN = -2;
 
   DISABLE_COPY_MOVE_AND_ASSIGN(Net);
 };

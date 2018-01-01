@@ -1,16 +1,8 @@
-#ifdef USE_OPENCV
-#include <opencv2/highgui/highgui_c.h>
-#include <stdint.h>
-
 #include <algorithm>
 #include <map>
-#include <string>
-#include <utility>
-#include <vector>
-
-#include "opencv2/core/core.hpp"
-#include "opencv2/highgui/highgui.hpp"
-#include "opencv2/imgproc/imgproc.hpp"
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 
 #include "caffe/data_transformer.hpp"
 #include "caffe/internal_thread.hpp"
@@ -18,7 +10,6 @@
 #include "caffe/layers/window_data_layer.hpp"
 #include "caffe/util/benchmark.hpp"
 #include "caffe/util/io.hpp"
-#include "caffe/util/math_functions.hpp"
 #include "caffe/util/rng.hpp"
 
 // caffe.proto > LayerParameter > WindowDataParameter
@@ -172,20 +163,14 @@ void WindowDataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom,
   CHECK_GT(crop_size, 0);
   const int batch_size = this->layer_param_.window_data_param().batch_size();
   top[0]->Reshape(batch_size, channels, crop_size, crop_size);
-  for (int i = 0; i < this->prefetch_.size(); ++i) {
-    this->prefetch_[i]->data_.Reshape(batch_size, channels, crop_size, crop_size);
-  }
-  data_shape_ = this->prefetch_[0]->data_.shape();
-
+  data_shape_ = top[0]->shape();
   LOG(INFO) << "output data size: " << top[0]->num() << ", "
       << top[0]->channels() << "," << top[0]->height() << ", "
       << top[0]->width();
   // label
   label_shape_ = vector<int>(1, batch_size);
   top[1]->Reshape(label_shape_);
-  for (int i = 0; i < this->prefetch_.size(); ++i) {
-    this->prefetch_[i]->label_.Reshape(label_shape_);
-  }
+  this->batch_transformer_->reshape(top[0]->shape(), label_shape_);
 
   // data mean
   has_mean_file_ = this->transform_param_.has_mean_file();
@@ -225,7 +210,7 @@ unsigned int WindowDataLayer<Ftype, Btype>::PrefetchRand() {
 
 // This function is called on prefetch thread
 template <typename Ftype, typename Btype>
-void WindowDataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch,
+void WindowDataLayer<Ftype, Btype>::load_batch(Batch* batch,
     int thread_id, size_t queue_id) {
   // At each iteration, sample N windows where N*p are foreground (object)
   // windows and N*(1-p) are background (non-object) windows
@@ -234,10 +219,10 @@ void WindowDataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch,
   double read_time = 0;
   double trans_time = 0;
   CPUTimer timer;
-  batch->data_.Reshape(data_shape_);
-  batch->label_.Reshape(label_shape_);
-  Ftype* top_data = batch->data_.mutable_cpu_data();
-  Ftype* top_label = batch->label_.mutable_cpu_data();
+  batch->data_->Reshape(data_shape_);
+  batch->label_->Reshape(label_shape_);
+  Ftype* top_data = batch->data_->mutable_cpu_data<Ftype>();
+  Ftype* top_label = batch->label_->mutable_cpu_data<Ftype>();
   const Ftype scale = this->layer_param_.window_data_param().scale();
   const int batch_size = this->layer_param_.window_data_param().batch_size();
   const int context_pad = this->layer_param_.window_data_param().context_pad();
@@ -261,7 +246,7 @@ void WindowDataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch,
   bool use_square = (crop_mode == "square") ? true : false;
 
   // zero out batch
-  caffe_set(batch->data_.count(), Ftype(0), top_data);
+  caffe_set(batch->data_->count(), Ftype(0), top_data);
 
   const int num_fg = static_cast<int>(static_cast<float>(batch_size)
       * fg_fraction);
@@ -288,7 +273,7 @@ void WindowDataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch,
       if (this->cache_images_) {
         pair<std::string, Datum> image_cached =
           image_database_cache_[window[WindowDataLayer<Ftype, Btype>::IMAGE_INDEX]];
-        cv_img = DecodeDatumToCVMat(image_cached.second, true);
+        DecodeDatumToCVMat(image_cached.second, true, cv_img, false);
       } else {
         cv_img = cv::imread(image.first, CV_LOAD_IMAGE_COLOR);
         if (!cv_img.data) {
@@ -470,8 +455,6 @@ void WindowDataLayer<Ftype, Btype>::load_batch(Batch<Ftype>* batch,
   batch->set_id(this->batch_id(thread_id));
 }
 
-INSTANTIATE_CLASS_FB(WindowDataLayer);
-REGISTER_LAYER_CLASS(WindowData);
+INSTANTIATE_CLASS_CPU_FB(WindowDataLayer);
 
 }  // namespace caffe
-#endif  // USE_OPENCV

@@ -13,12 +13,9 @@ layer {
     shuffle: true  
   }
   transform_param {
-    var_sz_img_enabled: true
-    img_rand_resize_lower: 256
-    img_rand_resize_upper: 288
-    mean_value: 104
-    mean_value: 117
-    mean_value: 123
+    img_rand_resize_lower: 224
+    img_rand_resize_upper: 272
+    mean_file: "data/imagenet/imagenet_mean.binaryproto"
     crop_size: 224
     mirror: true
     scale: 0.00390625
@@ -36,9 +33,9 @@ layer {
     batch_size: 32
   }
   transform_param {
-    mean_value: 104
-    mean_value: 117
-    mean_value: 123
+    mean_file: "data/imagenet/imagenet_mean.binaryproto"
+    img_rand_resize_lower: 240
+    img_rand_resize_upper: 240
     crop_size: 224
     mirror: false
     scale: 0.00390625

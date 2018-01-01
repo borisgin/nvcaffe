@@ -18,34 +18,32 @@ namespace caffe {
  */
 class SyncedMemory {
  public:
-  SyncedMemory()
-      : cpu_ptr_(nullptr), gpu_ptr_(nullptr), size_(0), head_(UNINITIALIZED),
-        own_cpu_data_(false), cpu_malloc_use_cuda_(false), own_gpu_data_(false),
-        gpu_device_(-1), valid_(true)
-      {}
-  explicit SyncedMemory(size_t size)
+  explicit SyncedMemory(size_t size = 0UL)
       : cpu_ptr_(nullptr), gpu_ptr_(nullptr), size_(size), head_(UNINITIALIZED),
         own_cpu_data_(false), cpu_malloc_use_cuda_(false), own_gpu_data_(false),
-        gpu_device_(-1), valid_(true)
-      {}
-
+        device_(-1), valid_(true) {}
   ~SyncedMemory();
   const void* cpu_data();
-  void set_cpu_data(void* data);
   const void* gpu_data();
+  void set_cpu_data(void* data);
   void set_gpu_data(void* data);
-  void* mutable_cpu_data();
-  void* mutable_gpu_data();
-  enum SyncedHead { UNINITIALIZED, HEAD_AT_CPU, HEAD_AT_GPU, SYNCED };
-  SyncedHead head() const { return head_; }
-  size_t size() const { return size_; }
-  size_t gpu_memory_use(bool own_only = false) const {
-    return own_only ? (own_gpu_data_ ? size_ : 0ULL) : size_;
-  }
-  size_t cpu_memory_use(bool own_only = false) const {
-    return own_only ? (own_cpu_data_ ? size_ : 0ULL) : size_;
-  }
+  void* mutable_cpu_data(bool copy_from_gpu = true);
+  void* mutable_gpu_data(bool copy_from_cpu = true);
 
+  enum SyncedHead { UNINITIALIZED, HEAD_AT_CPU, HEAD_AT_GPU, SYNCED };
+
+  SyncedHead head() const {
+    return head_;
+  }
+  size_t size() const {
+    return size_;
+  }
+  void resize(size_t size) {
+    size_ = size;
+  }
+  size_t gpu_memory_use(bool own_only = false) const {
+    return own_only ? (own_gpu_data_ ? size_ : 0UL) : size_;
+  }
   bool is_valid() const {
     return valid_;
   }
@@ -56,20 +54,6 @@ class SyncedMemory {
     valid_ = true;
   }
 
-  float cpu_asum(int count, Type type);
-  float cpu_sumsq(int count, Type dtype);
-
-#ifndef CPU_ONLY
-  int gpu_device() const {
-    return gpu_device_;
-  }
-
-  void async_gpu_push();
-  float gpu_asum(int count, Type type);
-  float gpu_amax(int count, Type type);
-  float gpu_sumsq(int count, Type dtype);
-#endif
-
   std::string to_string(int indent, Type type);  // debug helper
 
  protected:
@@ -77,8 +61,9 @@ class SyncedMemory {
   void FreeHost(void* ptr, bool use_cuda);
 
  private:
-  void to_cpu();
-  void to_gpu();
+  void to_cpu(bool copy_from_gpu = true);
+  void to_gpu(bool copy_from_cpu = true);
+
   void* cpu_ptr_;
   void* gpu_ptr_;
   size_t size_;
@@ -86,8 +71,9 @@ class SyncedMemory {
   bool own_cpu_data_;
   bool cpu_malloc_use_cuda_;
   bool own_gpu_data_;
-  int gpu_device_;
+  int  device_;
   bool valid_;
+  shared_ptr<CudaStream> pstream_;
 
   DISABLE_COPY_MOVE_AND_ASSIGN(SyncedMemory);
 };  // class SyncedMemory

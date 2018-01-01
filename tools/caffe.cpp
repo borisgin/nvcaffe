@@ -112,7 +112,7 @@ int device_query() {
   get_gpus(&gpus);
   for (int i = 0; i < gpus.size(); ++i) {
     caffe::Caffe::SetDevice(gpus[i]);
-    caffe::Caffe::DeviceQuery();
+    std::cout << caffe::Caffe::DeviceQuery();
   }
   return 0;
 }
@@ -174,9 +174,6 @@ int train() {
   vector<int> gpus;
   get_gpus(&gpus);
 #ifndef CPU_ONLY
-  if (gpus.size() > 0) {
-    Caffe::SetDevice(gpus[0]);
-  }
   caffe::GPUMemory::Scope gpu_memory_scope(gpus);
 #endif
   // Set mode and device id[s]
@@ -189,27 +186,32 @@ int train() {
       s << (i ? ", " : "") << gpus[i];
     }
 
-    solver_param.set_device_id(gpus[0]);
-    Caffe::set_mode(Caffe::GPU);
-    Caffe::set_gpus(gpus);
-    Caffe::set_solver_count(gpus.size());
-    CHECK_EQ(gpus.size(), Caffe::solver_count());
-
     LOG(INFO) << "Using GPUs " << s.str();
+    int dev_id = 0;
 #ifndef CPU_ONLY
     cudaDeviceProp device_prop;
     for (int i = 0; i < gpus.size(); ++i) {
       cudaGetDeviceProperties(&device_prop, gpus[i]);
       LOG(INFO) << "GPU " << gpus[i] << ": " << device_prop.name;
+      if (solver_param.has_device_id() && gpus[i] == solver_param.device_id()) {
+        dev_id = i;
+      }
     }
+    CUDA_CHECK(cudaSetDevice(gpus[dev_id]));
+    Caffe::SetDevice(gpus[dev_id]);
 #endif
+    solver_param.set_device_id(gpus[dev_id]);
+    Caffe::set_mode(Caffe::GPU);
+    Caffe::set_gpus(gpus);
+    Caffe::set_solver_count(gpus.size());
+    CHECK_EQ(gpus.size(), Caffe::solver_count());
   }
 
   caffe::SignalHandler signal_handler(
         GetRequestedAction(FLAGS_sigint_effect),
         GetRequestedAction(FLAGS_sighup_effect));
 
-  shared_ptr<caffe::Solver> solver(caffe::SolverRegistry::CreateSolver(solver_param));
+  shared_ptr<caffe::Solver> solver(caffe::SolverRegistry::CreateSolver(solver_param, nullptr, 0));
   solver->SetActionFunction(signal_handler.GetActionFunction());
 
   if (FLAGS_snapshot.size()) {
@@ -479,6 +481,12 @@ int main(int argc, char** argv) {
   if (argc == 2) {
 #ifdef WITH_PYTHON_LAYER
     try {
+      Py_InitializeEx(0);
+      if (!PyEval_ThreadsInitialized()) {
+        PyEval_InitThreads();
+        static PyThreadState* mainPyThread = PyEval_SaveThread();
+        (void)mainPyThread;
+      }
 #endif
       return GetBrewFunction(caffe::string(argv[1]))();
 #ifdef WITH_PYTHON_LAYER

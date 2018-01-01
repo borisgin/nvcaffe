@@ -1,6 +1,14 @@
-name: "AlexNet_Transform"
+#------------------------------------------
+# Alexnet wih BatchNorm instead of LRN
+#------------------------------------------
+name: "AlexnetBn_8K_fp16"
 
-# Example for new tranformations"
+default_forward_type:  FLOAT16
+default_backward_type: FLOAT16
+#default_forward_math:  FLOAT16
+#default_backward_math: FLOAT16
+
+global_grad_scale: 1000.
 
 layer {
   name: "data"
@@ -9,22 +17,19 @@ layer {
   top: "label"
   transform_param {
 #    mean_file: "data/ilsvrc12/imagenet_mean.binaryproto"
-    crop_size: 227
-    mean_value: 123.68
-    mean_value: 116.78
-    mean_value: 103.94
-    img_rand_resize_lower: 250
-    img_rand_resize_upper: 260
-    var_sz_img_enabled: true
+    mean_file: "/data/imagenet/imagenet_256x256_mean.binaryproto"
     mirror: true
+    crop_size: 227
+    scale: 0.00390625
   }
   data_param {
-    source: "examples/imagenet/ilsvrc12_train_lmdb"
-    batch_size: 256
-#    batch_size: 1024          # DGX1
-    backend: LMDB
-    cache: true
+#    source: "examples/imagenet/ilsvrc12_train_lmdb"
+#    batch_size: 1024
+    source: "/data/imagenet/train-lmdb-uncompressed-256x256"
+    batch_size: 8192
+    cache:   true
     shuffle: true
+    backend: LMDB
   }
   include { phase: TRAIN }
 }
@@ -35,19 +40,16 @@ layer {
   top: "label"
   transform_param {
 #    mean_file: "data/ilsvrc12/imagenet_mean.binaryproto"
-    crop_size: 227
-    mean_value: 123.68
-    mean_value: 116.78
-    mean_value: 103.94
-    img_rand_resize_lower: 256
-    img_rand_resize_upper: 256
-    var_sz_img_enabled: true
+    mean_file: "/data/imagenet/imagenet_256x256_mean.binaryproto"
     mirror: false
+    crop_size: 227
+    scale: 0.00390625
   }
   data_param {
-    source: "examples/imagenet/ilsvrc12_val_lmdb"
+#    source: "examples/imagenet/ilsvrc12_val_lmdb"
 #    batch_size: 32
-    batch_size: 256          # DGX1
+    source: "/data/imagenet/val-lmdb-uncompressed-256x256"
+    batch_size: 256  
     backend: LMDB
   }
   include { phase: TEST }
@@ -67,7 +69,7 @@ layer {
     }
     bias_filler {
       type: "constant"
-      value: 0
+      value: 0.01
     }
   }
 }
@@ -78,20 +80,9 @@ layer {
   top: "conv1"
 }
 layer {
-  name: "norm1"
-  type: "LRN"
-  bottom: "conv1"
-  top: "norm1"
-  lrn_param {
-    local_size: 5
-    alpha: 0.0001
-    beta: 0.75
-  }
-}
-layer {
   name: "pool1"
   type: "Pooling"
-  bottom: "norm1"
+  bottom: "conv1"
   top: "pool1"
   pooling_param {
     pool: MAX
@@ -100,9 +91,21 @@ layer {
   }
 }
 layer {
+  name: "bn2"
+  type: "BatchNorm"
+  bottom: "pool1"
+  top: "bn2"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: false
+  }
+}
+
+layer {
   name: "conv2"
   type: "Convolution"
-  bottom: "pool1"
+  bottom: "bn2"
   top: "conv2"
   convolution_param {
     num_output: 256
@@ -115,7 +118,7 @@ layer {
     }
     bias_filler {
       type: "constant"
-      value: 0.1
+      value: 0.01
     }
   }
 }
@@ -126,20 +129,9 @@ layer {
   top: "conv2"
 }
 layer {
-  name: "norm2"
-  type: "LRN"
-  bottom: "conv2"
-  top: "norm2"
-  lrn_param {
-    local_size: 5
-    alpha: 0.0001
-    beta: 0.75
-  }
-}
-layer {
   name: "pool2"
   type: "Pooling"
-  bottom: "norm2"
+  bottom: "conv2"
   top: "pool2"
   pooling_param {
     pool: MAX
@@ -148,9 +140,21 @@ layer {
   }
 }
 layer {
+  name: "bn3"
+  type: "BatchNorm"
+  bottom: "pool2"
+  top: "bn3"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: false
+  }
+}
+
+layer {
   name: "conv3"
   type: "Convolution"
-  bottom: "pool2"
+  bottom: "bn3"
   top: "conv3"
   convolution_param {
     num_output: 384
@@ -162,7 +166,7 @@ layer {
     }
     bias_filler {
       type: "constant"
-      value: 0
+      value: 0.01
     }
   }
 }
@@ -173,9 +177,20 @@ layer {
   top: "conv3"
 }
 layer {
+  name: "bn4"
+  type: "BatchNorm"
+  bottom: "conv3"
+  top: "bn4"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: false
+  }
+}
+layer {
   name: "conv4"
   type: "Convolution"
-  bottom: "conv3"
+  bottom: "bn4"
   top: "conv4"
   convolution_param {
     num_output: 384
@@ -188,10 +203,12 @@ layer {
     }
     bias_filler {
       type: "constant"
-      value: 0.1
+      value: 0.01
     }
   }
 }
+
+
 layer {
   name: "relu4"
   type: "ReLU"
@@ -199,9 +216,20 @@ layer {
   top: "conv4"
 }
 layer {
+  name: "bn5"
+  type: "BatchNorm"
+  bottom: "conv4"
+  top: "bn5"
+  batch_norm_param {
+    moving_average_fraction: 0.9
+    eps: 0.0001
+    scale_bias: false
+  }
+}
+layer {
   name: "conv5"
   type: "Convolution"
-  bottom: "conv4"
+  bottom: "bn5"
   top: "conv5"
   convolution_param {
     num_output: 256
@@ -214,7 +242,7 @@ layer {
     }
     bias_filler {
       type: "constant"
-      value: 0.1
+      value: 0.01
     }
   }
 }
@@ -312,7 +340,7 @@ layer {
     }
     bias_filler {
       type: "constant"
-      value: 0
+      value: 0.01
     }
   }
 }

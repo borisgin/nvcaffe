@@ -23,6 +23,9 @@ class LevelDBCursor : public Cursor {
   bool parse(Datum* datum) const override {
     return datum->ParseFromArray(iter_->value().data(), iter_->value().size());
   }
+  bool parse(C2TensorProtos* c2p) const override {
+    return c2p->ParseFromArray(iter_->value().data(), iter_->value().size());
+  }
   const void* data() const override {
     return iter_->value().data();
   }

@@ -36,6 +36,9 @@ class CuDNNBatchNormLayer : public BatchNormLayer<Ftype, Btype> {
       const vector<Blob*>& top);
   virtual void Backward_gpu(const vector<Blob*>& top,
       const vector<bool>& propagate_down, const vector<Blob*>& bottom);
+  Type blobs_type() const override {
+    return tpmax<Ftype, float>();
+  }
 
   // cuDNN descriptors / handles
   cudnnTensorDescriptor_t fwd_bottom_desc_, fwd_top_desc_;
@@ -54,9 +57,6 @@ class CuDNNBatchNormLayer : public BatchNormLayer<Ftype, Btype> {
 
   shared_ptr<Blob> private_top_;
   shared_ptr<Blob> private_bottom_;
-
-  TBlob<float> scale_diff_tmp_;
-  TBlob<float> bias_diff_tmp_;
 };
 #endif
 

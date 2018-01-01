@@ -5,6 +5,7 @@ TODO:
 
 #include <stdint.h>
 #include <vector>
+#include "caffe/common.hpp"
 #include "caffe/util/rng.hpp"
 
 #include "hdf5.h"

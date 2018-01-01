@@ -1,5 +1,6 @@
 #include <vector>
 #include <driver_types.h>
+#include <device_launch_parameters.h>
 
 #include "caffe/layers/eltwise_layer.hpp"
 
@@ -36,20 +37,24 @@ void EltwiseLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom,
   const int count = top[0]->count();
   //  convert to Ftype
   Ftype* top_data = top[0]->mutable_gpu_data<Ftype>();
-  for (int i = 0; i < bottom.size(); ++i)
-    bottom[i]->gpu_data<Ftype>();
 
   switch (op_) {
   case EltwiseParameter_EltwiseOp_PROD:
-    caffe_gpu_mul(count, bottom[0]->gpu_data<Ftype>(),
-        bottom[1]->gpu_data<Ftype>(), top_data);
+    caffe_gpu_mul(count, bottom[0]->gpu_data<Ftype>(), bottom[1]->gpu_data<Ftype>(), top_data);
     for (int i = 2; i < bottom.size(); ++i) {
       caffe_gpu_mul(count, top_data, bottom[i]->gpu_data<Ftype>(), top_data);
     }
     break;
   case EltwiseParameter_EltwiseOp_SUM:
-    if (bottom.size() == 2 && coeffs_[0] == 1.F && coeffs_[1] == 1.F) {
-      caffe_gpu_add(count, bottom[0]->gpu_data<Ftype>(), bottom[1]->gpu_data<Ftype>(), top_data);
+    if (no_coeffs_) {
+      if (bottom.size() >= 2) {
+        caffe_gpu_add(count, bottom[0]->gpu_data<Ftype>(), bottom[1]->gpu_data<Ftype>(), top_data);
+        for (int i = 2; i < bottom.size(); ++i) {
+          caffe_gpu_incr(count, bottom[i]->gpu_data<Ftype>(), top_data);
+        }
+      } else if (bottom.size() == 1) {
+        caffe_copy(count, bottom[0]->gpu_data<Ftype>(), top_data);
+      }
     } else {
       caffe_gpu_set(count, Ftype(0.), top_data);
       // TODO(shelhamer) does cuBLAS optimize to sum for coeff = 1?
@@ -100,37 +105,41 @@ void EltwiseLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
   for (int i = 0; i < bottom.size(); ++i) {
     if (propagate_down[i]) {
       const Btype* bottom_data = bottom[i]->gpu_data<Btype>();
-      Btype* bottom_diff = bottom[i]->mutable_gpu_diff<Btype>();
       switch (op_) {
       case EltwiseParameter_EltwiseOp_PROD:
-        if (stable_prod_grad_) {
-          bool initialized = false;
-          for (int j = 0; j < bottom.size(); ++j) {
-            if (i == j) { continue; }
-            if (!initialized) {
-              caffe_copy(count, bottom[j]->gpu_data<Btype>(), bottom_diff);
-              initialized = true;
-            } else {
-              caffe_gpu_mul(count, bottom[j]->gpu_data<Btype>(), bottom_diff, bottom_diff);
+        {
+          Btype *bottom_diff = bottom[i]->mutable_gpu_diff<Btype>();
+          if (stable_prod_grad_) {
+            bool initialized = false;
+            for (int j = 0; j < bottom.size(); ++j) {
+              if (i == j) { continue; }
+              if (!initialized) {
+                caffe_copy(count, bottom[j]->gpu_data<Btype>(), bottom_diff);
+                initialized = true;
+              } else {
+                caffe_gpu_mul(count, bottom[j]->gpu_data<Btype>(), bottom_diff, bottom_diff);
+              }
             }
+          } else {
+            caffe_gpu_div(count, top_data, bottom_data, bottom_diff);
           }
-        } else {
-          caffe_gpu_div(count, top_data, bottom_data, bottom_diff);
+          caffe_gpu_mul(count, bottom_diff, top_diff, bottom_diff);
         }
-        caffe_gpu_mul(count, bottom_diff, top_diff, bottom_diff);
         break;
       case EltwiseParameter_EltwiseOp_SUM:
-        if (coeffs_[i] == 1.F) {
-          bottom[i]->ShareDiff(*top[0]);
+        if (no_coeffs_) {
+          if (i > 0) {
+            caffe_copy(count, top_diff, bottom[i]->mutable_gpu_diff<Btype>());
+          }
         } else {
-          caffe_gpu_scale(count, Btype(coeffs_[i]), top_diff, bottom_diff);
+          caffe_gpu_scale(count, Btype(coeffs_[i]), top_diff, bottom[i]->mutable_gpu_diff<Btype>());
         }
         break;
       case EltwiseParameter_EltwiseOp_MAX:
         mask = max_idx_.gpu_data();
         MaxBackward<Btype>  // NOLINT_NEXT_LINE(whitespace/operators)
-            <<< CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS, 0, Caffe::thread_stream()>>> (
-            count, top_diff, i, mask, bottom_diff);
+            <<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS, 0, Caffe::thread_stream()>>>(
+            count, top_diff, i, mask, bottom[i]->mutable_gpu_diff<Btype>());
         CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
         break;
       default:

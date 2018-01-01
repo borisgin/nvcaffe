@@ -11,6 +11,11 @@ enum Type {
   UINT = 4;  // math not supported
 }
 
+enum Packing {
+  NCHW = 0;
+  NHWC = 1;
+}
+
 // Specifies the shape (dimensions) of a Blob.
 message BlobShape {
   repeated int64 dim = 1 [packed = true];
@@ -54,6 +59,50 @@ message Datum {
   // Unique record index assigned by Reader
   optional uint32 record_id = 8 [default = 0];
 }
+
+// Caffe 2 datasets support
+message C2TensorProto {
+  // The dimensions in the tensor.
+  repeated int64 dims = 1;
+  enum DataType {
+    UNDEFINED = 0;
+    FLOAT = 1;  // float
+    INT32 = 2;  // int
+    BYTE = 3;  // BYTE, when deserialized, is going to be restored as uint8.
+    STRING = 4;  // string
+    // Less-commonly used data types.
+    BOOL = 5;  // bool
+    UINT8 = 6;  // uint8_t
+    INT8 = 7;  // int8_t
+    UINT16 = 8;  // uint16_t
+    INT16 = 9;  // int16_t
+    INT64 = 10;  // int64_t
+    FLOAT16 = 12;  // caffe2::__f16, caffe2::float16
+    DOUBLE = 13;  // double
+  }
+  optional DataType data_type = 2 [default = FLOAT];
+  // For float
+  repeated float float_data = 3 [packed = true];
+  // For int32, uint8, int8, uint16, int16, bool, and float16
+  // Note about float16: in storage we will basically convert float16 byte-wise
+  // to unsigned short and then store them in the int32_data field.
+  repeated int32 int32_data = 4 [packed = true];
+  // For bytes
+  optional bytes byte_data = 5;
+  // For strings
+  repeated bytes string_data = 6;
+  // For double
+  repeated double double_data = 9 [packed = true];
+  // For int64
+  repeated int64 int64_data = 10 [packed = true];
+  // Optionally, a name for the tensor.
+  optional string name = 7;
+}
+
+message C2TensorProtos {
+  repeated C2TensorProto protos = 1;
+}
+
 
 message FillerParameter {
   // The filler type. Can be one of the following:
@@ -126,8 +175,16 @@ message NetParameter {
   optional Type default_forward_math  = 13 [default = FLOAT];
   optional Type default_backward_math = 14 [default = FLOAT];
   
-  
+  // Global gradient scaling coefficient K (default - no scaling)
+  //
+  // Scenario 1: global_grad_scale_adaptive: true
+  // If positive, gradients scaled by K*L where L is L_2 norm of all gradients in a Net.
+  // This helps to improve accuracy of reduced precision training.
+  //
+  // Scenario 2: global_grad_scale_adaptive: false
+  // If positive, gradients scaled by K.
   optional float global_grad_scale = 15 [default = 1.];
+  optional bool global_grad_scale_adaptive = 16 [default = false];
 
   // Sets the default "conv_algos_override" value for every convolution layer
   optional string default_conv_algos_override = 17 [default = "-1,-1,-1"];
@@ -136,7 +193,7 @@ message NetParameter {
   // For better performance we unify multiple layers in buckets.
   // This parameter sets approximate number of buckets to combine layers to.
   // Default value is good for majority of nets.
-  optional int32 reduce_buckets = 18 [default = 6];
+  optional int32 reduce_buckets = 18 [default = 3];
 
   // Sets the default "cudnn_math_override" value for every layer
   optional int32 default_cudnn_math_override = 19 [default = -1];
@@ -145,7 +202,7 @@ message NetParameter {
 // NOTE
 // Update the next available ID when you add a new SolverParameter field.
 //
-// SolverParameter next available ID: 50 (last added: local_gw_ratio)
+// SolverParameter next available ID: 54 (last added: weight_decay_power)
 message SolverParameter {
   //////////////////////////////////////////////////////////////////////////////
   // Specifying the train and test networks
@@ -190,7 +247,7 @@ message SolverParameter {
   optional bool test_compute_loss = 19 [default = false];
   // If true, run an initial test pass before the first iteration,
   // ensuring memory availability and printing the starting value of the loss.
-  optional bool test_initialization = 32 [default = true];
+  optional bool test_initialization = 32 [default = false];
   
   optional int32 rampup_interval = 41 [default = 0];
   optional float rampup_lr = 42 [default = 0.];
@@ -231,10 +288,15 @@ message SolverParameter {
   optional float max_momentum     = 47 [default = 0.99];
   optional float momentum_power   = 48 [default = 1.];
   
-  optional bool  local_lr_auto = 49 [default = false]; 
-  optional float local_gw_ratio = 50 [default = 0.001];   
+  // LARC - Layer-wise Adaptive Rate Control
+  optional bool larc = 49 [default = false]; 
+  optional string larc_policy = 50 [default = "scale"];
+  optional float  larc_eta = 51    [default = 0.001];
   
-  optional float weight_decay = 12; // The weight decay.
+  optional float  weight_decay = 12; // The weight decay.  
+  optional string weight_decay_policy = 52 [default = "fixed"]; 
+  optional float  weight_decay_power  = 53 [default = 0.5];
+  
   // regularization types supported: L1 and L2
   // controlled by weight_decay
   optional string regularization_type = 29 [default = "L2"];
@@ -280,7 +342,7 @@ message SolverParameter {
 
   // RMSProp decay value
   // MeanSquare(t) = rms_decay*MeanSquare(t-1) + (1-rms_decay)*SquareGradient(t)
-  optional float rms_decay = 38;
+  optional float rms_decay = 38 [default = 0.99];
 
   // If true, print information about the state of the net that may help with
   // debugging learning problems.
@@ -499,6 +561,12 @@ message LayerParameter {
 // Message that stores parameters used to apply transformation
 // to the data layer's data
 message TransformationParameter {
+  enum InterpolationAlgo {
+    INTER_NEAREST = 0; //!< nearest neighbor interpolation
+    INTER_LINEAR  = 1; //!< bilinear interpolation
+    INTER_CUBIC   = 2; //!< bicubic interpolation
+    INTER_AREA    = 3; //!< area-based (or super) interpolation
+  }
   // When the images in a batch are of different shapes, we need to preprocess
   // them into the same fixed shape, as downstream operations in caffe require
   // images within a batch to be of the same shape.
@@ -527,7 +595,39 @@ message TransformationParameter {
   //
   optional uint32 img_rand_resize_lower = 10 [default = 0];
   optional uint32 img_rand_resize_upper = 11 [default = 0];
-  optional bool var_sz_img_enabled = 12 [default = false];
+
+  // Limits for randomly generated ratio R so that longer side
+  // length would be set to shorter side length multiplied by R.
+  // If applied to sguare, the shorter side is chosen randomly.
+  // Pair {1,1} means "resize image to square (by shortest side)".
+  // Values less than 1 are ignored.
+  optional float rand_resize_ratio_lower = 12 [default = 0];
+  optional float rand_resize_ratio_upper = 13 [default = 0];
+
+  // Limits for randomly generated vertical stretch, i.e.
+  // "height" *= "vertical_stretch" where
+  // "vertical_stretch" = Rand(vertical_stretch_lower,vertical_stretch_upper).
+  // Pair {1,1} means "do nothing".
+  optional float vertical_stretch_lower = 14 [default = 1];
+  optional float vertical_stretch_upper = 15 [default = 1];
+
+  // Limits for randomly generated horizontal stretch, i.e.
+  // "width" *= "horizontal_stretch" where
+  // "horizontal_stretch" = Rand(horizontal_stretch_lower,horizontal_stretch_upper).
+  // Pair {1,1} means "do nothing".
+  optional float horizontal_stretch_lower = 16 [default = 1];
+  optional float horizontal_stretch_upper = 17 [default = 1];
+
+  // OpenCV algorithm used for downsampling
+  optional InterpolationAlgo interpolation_algo_down = 18 [default = INTER_NEAREST];
+  // OpenCV algorithm used for upsampling
+  optional InterpolationAlgo interpolation_algo_up = 19 [default = INTER_CUBIC];
+  // No upscale by default no matter what resize parameters are chosen
+  optional bool allow_upscale = 20 [default = false];
+
+  // If followed by CuDNN, set to NHWC for better performance
+  optional Packing forward_packing = 21 [default = NCHW];
+
   // For data pre-processing, we can do simple scaling and subtracting the
   // data mean, if provided. Note that the mean subtraction is always carried
   // out before scaling.
@@ -1040,6 +1140,9 @@ message ImageDataParameter {
   // data.
   optional bool mirror = 6 [default = false];
   optional string root_folder = 12 [default = ""];
+  // Resize while reading to adjust images by short side.
+  // Has priority over new_height and new_width.
+  optional uint32 short_side = 13 [default = 0];
 }
 
 message InfogainLossParameter {
@@ -1146,6 +1249,11 @@ message PoolingParameter {
   // If global_pooling then it will pool over the size of the bottom by doing
   // kernel_h = bottom->height and kernel_w = bottom->width
   optional bool global_pooling = 12 [default = false];
+  
+  // FB pooling parameters
+  // Use floor((height + 2 * padding - kernel) / stride) + 1
+  // instead of ceil((height + 2 * padding - kernel) / stride) + 1
+  optional bool torch_pooling = 40 [default = false];
 }
 
 message PowerParameter {

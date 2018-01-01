@@ -1,12 +1,8 @@
-#ifdef USE_OPENCV
 #include <opencv2/core/core.hpp>
-#endif  // USE_OPENCV
-
 #include <device_launch_parameters.h>
 
 #include "caffe/util/gpu_math_functions.cuh"
 #include "caffe/data_transformer.hpp"
-#include "caffe/util/io.hpp"
 
 namespace caffe {
 
@@ -19,13 +15,14 @@ void transform_kernel(int N, int C,
                       int datum_height, int datum_width,  // offsets
                       int crop_size, Phase phase,
                       size_t sizeof_element,
-                      const Dtype *in,
+                      const void *in,
                       Dtype *out,  // buffers
                       float scale,
                       int has_mean_file,
                       int has_mean_values,
-                      float *mean,
-                      const unsigned int *random_numbers) {
+                      const float *mean,
+                      const unsigned int *random_numbers,
+                      bool signed_data) {
   const int c = blockIdx.y;
 
   // loop over images
@@ -52,15 +49,16 @@ void transform_kernel(int N, int C,
     // offsets into start of (image, channel) = (n, c)
     // channel is handled by blockIdx.y
     // Initial offset per Dtype:
-    const Dtype *in_ptr  = &in[n*C*H*W];
+    const Dtype *in_ptr;// = &in[n*C*H*W];
     // Element-specific offset to a channel c
     if (sizeof_element == sizeof(uint8_t)) {
-      in_ptri = reinterpret_cast<const uint8_t*>(in_ptr);
+      in_ptri = &(reinterpret_cast<const uint8_t*>(in))[n*C*H*W];
       in_ptri += c*H*W;
     } else if (sizeof_element == sizeof(float)) {
-      in_ptrf = reinterpret_cast<const float*>(in_ptr);
+      in_ptrf = &(reinterpret_cast<const float*>(in))[n*C*H*W];
       in_ptrf += c*H*W;
     } else {
+      in_ptr = &(reinterpret_cast<const Dtype*>(in))[n*C*H*W];
       in_ptr += c*H*W;
     }
 
@@ -80,7 +78,9 @@ void transform_kernel(int N, int C,
         } else {
           element = in_ptr[in_idx];
         }
-
+        if (signed_data && element < 0.) {
+          element += 256.;
+        }
         // perform the transform
         if (has_mean_file) {
           out_ptr[out_idx] = (element - mean[c*H*W + in_idx]) * scale;
@@ -107,13 +107,14 @@ void transform_kernel<__half>(int N, int C,
     int datum_height, int datum_width,  // offsets
     int crop_size, Phase phase,
     size_t sizeof_element,
-    const __half* in,
+    const void* in,
     __half* out,  // buffers
     float scale,
     int has_mean_file,
     int has_mean_values,
-    float* mean,
-    const unsigned int *random_numbers) {
+    const float* mean,
+    const unsigned int *random_numbers,
+    bool signed_data) {
   const int c = blockIdx.y;
 
   // loop over images
@@ -140,15 +141,16 @@ void transform_kernel<__half>(int N, int C,
     // offsets into start of (image, channel) = (n, c)
     // channel is handled by blockIdx.y
     // Initial offset per Dtype:
-    const __half *in_ptr  = &in[n*C*H*W];
+    const __half *in_ptr;//  = &in[n*C*H*W];
     // Element-specific offset to a channel c
     if (sizeof_element == sizeof(uint8_t)) {
-      in_ptri = reinterpret_cast<const uint8_t*>(in_ptr);
+      in_ptri = &(reinterpret_cast<const uint8_t*>(in))[n*C*H*W];
       in_ptri += c*H*W;
     } else if (sizeof_element == sizeof(float)) {
-      in_ptrf = reinterpret_cast<const float*>(in_ptr);
+      in_ptrf = &(reinterpret_cast<const float*>(in))[n*C*H*W];
       in_ptrf += c*H*W;
     } else {
+      in_ptr = &(reinterpret_cast<const __half*>(in))[n*C*H*W];
       in_ptr += c*H*W;
     }
 
@@ -168,7 +170,9 @@ void transform_kernel<__half>(int N, int C,
         } else {
           element = __half2float(in_ptr[in_idx]);
         }
-
+        if (signed_data && element < 0.F) {
+          element += 256.F;
+        }
         // perform the transform
         if (has_mean_file) {
           out_ptr[out_idx] = float2half_clip((element - mean[c*H*W + in_idx]) * scale);
@@ -186,10 +190,10 @@ void transform_kernel<__half>(int N, int C,
 
 
 template <typename Dtype>
-void DataTransformer<Dtype>::TransformGPU(int N, int C, int H, int W,
+void DataTransformer::TransformGPU(int N, int C, int H, int W,
     size_t sizeof_element,
-    const Dtype *in, Dtype *out,
-    const unsigned int *random_numbers) {
+    const void *in, Dtype *out,
+    const unsigned int *random_numbers, bool signed_data) {
   const int datum_channels = C;
   const int datum_height = H;
   const int datum_width = W;
@@ -204,15 +208,11 @@ void DataTransformer<Dtype>::TransformGPU(int N, int C, int H, int W,
   CHECK_GE(datum_height, crop_size);
   CHECK_GE(datum_width, crop_size);
 
-  float* mean = nullptr;
+  const float* mean = nullptr;
   if (has_mean_file) {
     CHECK_EQ(datum_channels, data_mean_.channels());
-    // no need to check equality anymore
-    // datum_{height, width} are _output_ not input
-    mean = data_mean_.mutable_gpu_data();
-  }
-
-  if (has_mean_values) {
+    mean = data_mean_.gpu_data();
+  } else if (has_mean_values) {
     if (mean_values_gpu_.empty()) {
       CHECK(mean_values_.size() == 1 || mean_values_.size() == datum_channels)
           << "Specify either 1 mean_value or as many as channels: "
@@ -240,10 +240,12 @@ void DataTransformer<Dtype>::TransformGPU(int N, int C, int H, int W,
 
   dim3 grid(N, C);
   dim3 block(16, 16);
-  cudaStream_t stream = Caffe::th_stream_aux(Caffe::STREAM_ID_TRANSFORMER);
+  cudaStream_t stream = Caffe::thread_stream();
 
-  transform_kernel<Dtype>
-    <<< grid, block, 0, stream >>>(N, C, H, W,
+  // TODO clean
+  if (is_precise<Dtype>()) {
+    transform_kernel<Dtype>
+        <<< grid, block, 0, stream >>> (N, C, H, W,
         height, width,
         param_.mirror(),
         datum_height, datum_width,
@@ -253,16 +255,30 @@ void DataTransformer<Dtype>::TransformGPU(int N, int C, int H, int W,
         scale,
         static_cast<int>(has_mean_file),
         static_cast<int>(has_mean_values),
-        mean, random_numbers);
+        mean, random_numbers, signed_data);
+  } else {
+    transform_kernel<__half>
+        <<< grid, block, 0, stream >>> (N, C, H, W,
+        height, width,
+        param_.mirror(),
+        datum_height, datum_width,
+        crop_size, phase_,
+        sizeof_element,
+        in, reinterpret_cast<__half*>(out),
+        scale,
+        static_cast<int>(has_mean_file),
+        static_cast<int>(has_mean_values),
+        mean, random_numbers, signed_data);
+  }
   CUDA_POST_KERNEL_CHECK;
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
-template void DataTransformer<float>::TransformGPU(int, int, int, int,
-    size_t, const float*, float*, const unsigned int*);
-template void DataTransformer<double>::TransformGPU(int, int, int, int,
-    size_t, const double*, double*, const unsigned int*);
-template void DataTransformer<float16>::TransformGPU(int, int, int, int,
-    size_t, const float16*, float16*, const unsigned int*);
+template void DataTransformer::TransformGPU<float>(int, int, int, int,
+    size_t, const void*, float*, const unsigned int*, bool);
+template void DataTransformer::TransformGPU<double>(int, int, int, int,
+    size_t, const void*, double*, const unsigned int*, bool);
+template void DataTransformer::TransformGPU<float16>(int, int, int, int,
+    size_t, const void*, float16*, const unsigned int*, bool);
 
 }  // namespace caffe

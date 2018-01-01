@@ -2,6 +2,7 @@
 // to avoid _POSIX_C_SOURCE redefinition
 #ifdef WITH_PYTHON_LAYER
 #include <boost/python.hpp>
+#include <boost/regex.hpp>
 #endif
 #include <string>
 
@@ -18,7 +19,9 @@
 #include "caffe/layers/dropout_layer.hpp"
 #include "caffe/layers/detectnet_transform_layer.hpp"
 #include "caffe/layers/data_layer.hpp"
-#include "caffe/proto/caffe.pb.h"
+#include "caffe/layers/memory_data_layer.hpp"
+#include "caffe/layers/image_data_layer.hpp"
+#include "caffe/layers/window_data_layer.hpp"
 
 #ifdef USE_CUDNN
 #include "caffe/layers/cudnn_batch_norm_layer.hpp"
@@ -35,14 +38,6 @@
 
 #ifdef WITH_PYTHON_LAYER
 #include "caffe/layers/python_layer.hpp"
-
-__attribute__((constructor)) void loadso() {
-//  PyEval_InitThreads();
-  Py_Initialize();
-}
-
-__attribute__((destructor))  void unloadso() {
-}
 #endif
 
 #pragma GCC diagnostic ignored "-Wreturn-type"
@@ -270,7 +265,6 @@ shared_ptr<LayerBase> GetTanHLayer(const LayerParameter& param,
     LOG(FATAL) << "Layer " << param.name() << " has unknown engine.";
   }
 }
-
 REGISTER_LAYER_CREATOR(TanH, GetTanHLayer);
 
 // Get dropout layer according to engine
@@ -297,10 +291,47 @@ shared_ptr<LayerBase> GetDropoutLayer(const LayerParameter& param,
     LOG(FATAL) << "Layer " << param.name() << " has unknown engine.";
   }
 }
-
 REGISTER_LAYER_CREATOR(Dropout, GetDropoutLayer);
 
-#ifdef USE_OPENCV
+shared_ptr<LayerBase> GetMemoryDataLayer(const LayerParameter& param, Type ftype, Type btype) {
+  LayerParameter lparam(param);
+  check_precision_support(ftype, btype, lparam);
+  shared_ptr<LayerBase> ret;
+  if (is_type<double>(ftype)) {
+    ret.reset(new MemoryDataLayer<double, double>(lparam));
+  } else {
+    ret.reset(new MemoryDataLayer<float, float>(lparam));
+  }
+  return ret;
+}
+REGISTER_LAYER_CREATOR(MemoryData, GetMemoryDataLayer);
+
+shared_ptr<LayerBase> GetImageDataLayer(const LayerParameter& param, Type ftype, Type btype) {
+  LayerParameter lparam(param);
+  check_precision_support(ftype, btype, lparam);
+  shared_ptr<LayerBase> ret;
+  if (is_type<double>(ftype)) {
+    ret.reset(new ImageDataLayer<double, double>(lparam));
+  } else {
+    ret.reset(new ImageDataLayer<float, float>(lparam));
+  }
+  return ret;
+}
+REGISTER_LAYER_CREATOR(ImageData, GetImageDataLayer);
+
+shared_ptr<LayerBase> GetWindowDataLayer(const LayerParameter& param, Type ftype, Type btype) {
+  LayerParameter lparam(param);
+  check_precision_support(ftype, btype, lparam);
+  shared_ptr<LayerBase> ret;
+  if (is_type<double>(ftype)) {
+    ret.reset(new WindowDataLayer<double, double>(lparam));
+  } else {
+    ret.reset(new WindowDataLayer<float, float>(lparam));
+  }
+  return ret;
+}
+REGISTER_LAYER_CREATOR(WindowData, GetWindowDataLayer);
+
 shared_ptr<LayerBase> GetDetectNetTransformationLayer(const LayerParameter& param,
     Type ftype, Type btype) {
   LayerParameter lparam(param);
@@ -314,21 +345,25 @@ shared_ptr<LayerBase> GetDetectNetTransformationLayer(const LayerParameter& para
   return ret;
 }
 REGISTER_LAYER_CREATOR(DetectNetTransformation, GetDetectNetTransformationLayer);
-#endif
 
 #ifdef WITH_PYTHON_LAYER
 shared_ptr<LayerBase> GetPythonLayer(const LayerParameter& param, Type, Type) {
   try {
-    std::lock_guard<std::mutex> lock(PythonLayer<float, float>::mutex());
-    bp::object module;
-    PYTHON_CALL_BEGIN
-    LOG(INFO) << "Importing Python module '" << param.python_param().module() << "'";
-    module = bp::import(param.python_param().module().c_str());
-    PYTHON_CALL_END
-    bp::object layer = module.attr(param.python_param().layer().c_str())(param);
-    shared_ptr<LayerBase> ret = bp::extract<shared_ptr<LayerBase>>(layer)();
-    CHECK(ret);
-    return ret;
+    string module_name = param.python_param().module();
+    string layer_name = param.python_param().layer();
+    // Check injection. This allows nested import.
+    boost::regex expression("[a-zA-Z_][a-zA-Z0-9_]*(\\.[a-zA-Z_][a-zA-Z0-9_]*)*");
+    CHECK(boost::regex_match(module_name, expression))
+        << "Module name is invalid: " << module_name;
+    CHECK(boost::regex_match(layer_name, expression))
+        << "Layer name is invalid: " << layer_name;
+
+    PyGILAquire gil;
+    bp::object globals = bp::import("__main__").attr("__dict__");
+    bp::exec(("import " + module_name).c_str(), globals, globals);
+    bp::object layer_class = bp::eval((module_name + "." + layer_name).c_str(), globals, globals);
+    bp::object layer = layer_class(param);
+    return bp::extract<shared_ptr<LayerBase>>(layer)();
   } catch (...) {
     PyErrFatal();
   }
@@ -337,15 +372,21 @@ shared_ptr<LayerBase> GetPythonLayer(const LayerParameter& param, Type, Type) {
 REGISTER_LAYER_CREATOR(Python, GetPythonLayer);
 #endif
 
-void check_precision_support(Type& ftype, Type& btype, LayerParameter& param) {
-  if (!is_precise(ftype) || !is_precise(btype)) {
+void check_precision_support(Type& ftype, Type& btype, LayerParameter& param, bool transf) {
+  if (!is_precise(ftype) || !is_precise(btype) || transf) {
     Type MT = tp<float>();
     if (Caffe::is_main_thread()) {
-      LOG(WARNING) << "Layer '" << param.name() << "' of type '"
-          << param.type() << "' is not supported in " << Type_Name(FLOAT16)
-          << " precision. Falling back to " << Type_Name(MT) << ". You might use "
-              "'forward_type: FLOAT' and 'backward_type: FLOAT' "
-              "settings to suppress this warning.";
+      if (transf) {
+        LOG(WARNING) << "Layer '" << param.name() << "' of type '"
+                     << param.type() << "' has transform settings not supported in "
+                     << Type_Name(FLOAT16) << " precision. Falling back to " << Type_Name(MT);
+      } else {
+        LOG(WARNING) << "Layer '" << param.name() << "' of type '"
+                     << param.type() << "' is not supported in " << Type_Name(FLOAT16)
+                     << " precision. Falling back to " << Type_Name(MT) << ". You might use "
+                         "'forward_type: FLOAT' and 'backward_type: FLOAT' "
+                         "settings to suppress this warning.";
+      }
     }
     ftype = MT;
     btype = MT;
