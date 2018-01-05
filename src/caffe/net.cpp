@@ -816,6 +816,9 @@ size_t Net::received_contiguous_count(int type_id, const std::set<int>& au_ids, 
 
 void Net::ReduceAndUpdate(int type_id) {
 #ifndef CPU_ONLY
+  DLOG(INFO) << "[" << Caffe::current_device()
+             << "] Entering ReduceAndUpdate thread " << std::this_thread::get_id()
+             <<  ", type_id " << type_id;
   shared_ptr<CuBLASHandle> cublas_phandle = Caffe::cublas_phandle();
   cublasHandle_t handle = cublas_phandle->get();
   size_t bucket_size = 0UL;
@@ -906,12 +909,14 @@ void Net::ReduceAndUpdate(int type_id) {
     }
 #endif
   }
-  DLOG(INFO) << "[" << Caffe::current_device() << "] Leaving ReduceAndUpdate thread";
+  DLOG(INFO) << "[" << Caffe::current_device()
+             << "] Leaving ReduceAndUpdate thread " << std::this_thread::get_id();
 }
 
 void Net::add_wgrad_sq(float wgrad_sq) {
-  CHECK_GE(wgrad_sq, 0.F);
-  wgrad_sq_.fetch_add(std::llround(wgrad_sq * GRAD_FACTOR));
+  if (wgrad_sq > 0.F) {
+    wgrad_sq_.fetch_add(std::llround(wgrad_sq * GRAD_FACTOR));
+  }
 }
 
 float Net::wgrad_sq() {
@@ -1385,6 +1390,12 @@ void Net::InitializeLearnableDiffSpace(int type_id) {
   CHECK_GE(type_id, 0);
   CHECK_LT(type_id, 2);
   const Type t = (Type) learnable_types_[type_id];
+  if (learnable_params_ptrs_[type_id].size() == learnable_params_.size()) {
+    LOG(INFO) << print_current_device() << " Already reserved "
+              << learnable_space_size_[type_id] << " bytes of shared learnable space for type "
+              << Type_Name(t);
+    return;
+  }
   learnable_space_size_[type_id] = 0UL;
   learnable_params_ptrs_[type_id].resize(learnable_params_.size(), nullptr);
   for (int i = 0; i < layers_.size(); ++i) {

@@ -363,12 +363,6 @@ class Caffe {
   static cudaStream_t thread_stream(int group = 0) {
     return Get().pstream(group)->get();
   }
-  static shared_ptr<CudaStream> th_pstream_aux(int id) {
-    return Get().pstream_aux(id);
-  }
-  static cudaStream_t th_stream_aux(int id) {
-    return Get().pstream_aux(id)->get();
-  }
   static cublasHandle_t cublas_handle(int group = 0) {
     return Get().th_cublas_handle(group)->get();
   }
@@ -377,9 +371,6 @@ class Caffe {
   }
   static curandGenerator_t curand_generator() {
     return Get().curand_generator_;
-  }
-  static shared_ptr<CudaStream> short_term_pstream() {
-    return CudaStream::create();
   }
   static shared_ptr<CuBLASHandle> short_term_cublas_phandle() {
     return make_shared<CuBLASHandle>();
@@ -503,9 +494,7 @@ class Caffe {
  protected:
 #ifndef CPU_ONLY
   vector<shared_ptr<CudaStream>> streams_;
-  vector<shared_ptr<CudaStream>> streams_aux_;
   shared_ptr<CudaStream> pstream(int group = 0);
-  shared_ptr<CudaStream> pstream_aux(int id);
   vector<shared_ptr<CuBLASHandle>> cublas_handles_;
   shared_ptr<CuBLASHandle> th_cublas_handle(int group = 0);
   curandGenerator_t curand_generator_;
@@ -528,6 +517,7 @@ class Caffe {
   static int restored_iter_;
   static std::atomic<uint64_t> root_seed_;
   static std::mutex caffe_mutex_, pstream_mutex_, cublas_mutex_, cudnn_mutex_, seed_mutex_;
+  static std::unordered_map<std::thread::id, std::shared_ptr<Caffe>> thread_instance_map_;
   shared_ptr<CudaStream> curand_stream_;
 
  private:

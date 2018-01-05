@@ -26,18 +26,22 @@ std::mutex Caffe::pstream_mutex_;
 std::mutex Caffe::cublas_mutex_;
 std::mutex Caffe::cudnn_mutex_;
 std::mutex Caffe::seed_mutex_;
+std::unordered_map<std::thread::id, std::shared_ptr<Caffe>> Caffe::thread_instance_map_;
 
 Caffe& Caffe::Get() {
   // Make sure each thread can have different values.
-  static thread_local unique_ptr<Caffe> thread_instance_;
-  if (!thread_instance_) {
-    std::lock_guard<std::mutex> lock(caffe_mutex_);
-    if (!thread_instance_) {
-      thread_instance_.reset(new Caffe());
-      ++thread_count_;
-    }
+  std::thread::id tid = std::this_thread::get_id();
+  auto it = thread_instance_map_.find(tid);
+  if (it != thread_instance_map_.end()) {
+    return *it->second.get();
   }
-  return *(thread_instance_.get());
+  std::lock_guard<std::mutex> lock(caffe_mutex_);
+  auto emp_pair = thread_instance_map_.emplace(tid, std::shared_ptr<Caffe>(new Caffe()));
+  ++thread_count_;
+  DLOG(INFO) << "[" << Caffe::current_device()
+             << "] New Caffe instance " << emp_pair.first->second.get()
+             << ", count " << thread_count_ << ", thread " << tid;
+  return *emp_pair.first->second.get();
 }
 
 // random seeding
@@ -235,17 +239,6 @@ shared_ptr<CudaStream> Caffe::pstream(int group) {
   streams_.resize(group + 1UL);
   streams_[group] = CudaStream::create();
   return streams_[group];
-}
-
-shared_ptr<CudaStream> Caffe::pstream_aux(int id) {
-  CHECK_GE(id, 0);
-  if (id < streams_aux_.size() && streams_aux_[id]) {
-    return streams_aux_[id];
-  }
-  std::lock_guard<std::mutex> lock(pstream_mutex_);
-  streams_aux_.resize(id + 1UL);
-  streams_aux_[id] = CudaStream::create();
-  return streams_aux_[id];
 }
 
 shared_ptr<CuBLASHandle> Caffe::th_cublas_handle(int group) {

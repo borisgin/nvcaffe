@@ -3,6 +3,7 @@ import tempfile
 import os
 import numpy as np
 import six
+# import psutil
 
 import caffe
 from test_net import simple_net_file
@@ -47,6 +48,14 @@ class TestSolver(unittest.TestCase):
         self.assertEqual(self.solver.iter, 0)
         self.solver.solve()
         self.assertEqual(self.solver.iter, 100)
+
+    def test_step(self):
+        # p = psutil.Process()
+        for i in range(500):
+            self.assertEqual(self.solver.iter, i)
+            self.solver.step(1)
+            # if (i % 100 == 0):
+            #     print(p.name() + " ************ " + str(p.memory_full_info().uss))
 
     def test_net_memory(self):
         """Check that nets survive after the solver is destroyed."""

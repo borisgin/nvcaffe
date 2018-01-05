@@ -13,9 +13,9 @@ Here are the major features:
 * **Mixed-precision support**. It allows to store and/or compute data in either 
 64, 32 or 16 bit formats. Precision can be defined for every layer (forward and 
 backward passes might be different too), or it can be set for the whole Net.
-* **Integration with  [cuDNN](https://developer.nvidia.com/cudnn) v6**.
+* **Integration with  [cuDNN](https://developer.nvidia.com/cudnn) v7**.
 * **Automatic selection of the best cuDNN convolution algorithm**.
-* **Integration with v1.3.4 of [NCCL library](https://github.com/NVIDIA/nccl)**
+* **Integration with v2.1 of [NCCL library](https://github.com/NVIDIA/nccl)**
  for improved multi-GPU scaling.
 * **Optimized GPU memory management** for data and parameters storage, I/O buffers 
 and workspace for convolutional layers.
@@ -40,3 +40,9 @@ Please cite Caffe in your publications if it helps your research:
       Title = {Caffe: Convolutional Architecture for Fast Feature Embedding},
       Year = {2014}
     }
+
+## Usful notes
+
+Libturbojpeg library is used since 0.16.5. It has a packaging bug. Please execute the following (required for Makefile, optional for CMake):
+sudo apt-get install libturbojpeg 
+sudo ln -s /usr/lib/x86_64-linux-gnu/libturbojpeg.so.0.1.0 /usr/lib/x86_64-linux-gnu/libturbojpeg.so

@@ -1,11 +1,8 @@
 # This list is required for static linking and exported to CaffeConfig.cmake
 set(Caffe_LINKER_LIBS "")
 
-find_package(PythonInterp ${python_version})
-
 # ---[ Boost
-find_package(Boost 1.54 REQUIRED COMPONENTS system thread filesystem regex python-py${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR})
-set(Boost_PYTHON_FOUND ${Boost_PYTHON-PY${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR}_FOUND})
+find_package(Boost 1.54 REQUIRED COMPONENTS system thread filesystem regex)
 include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 list(APPEND Caffe_LINKER_LIBS ${Boost_LIBRARIES})
 
@@ -113,6 +110,20 @@ endif()
 
 # ---[ Python
 if(BUILD_python)
+  find_package(PythonInterp ${python_version})
+
+  find_library(Boost_PYTHON_FOUND NAMES
+          python-py${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR}
+          boost_python-py${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR}
+          boost_python${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR}
+          PATHS ${LIBDIR})
+  if ("${Boost_PYTHON_FOUND}" STREQUAL "Boost_PYTHON_FOUND-NOTFOUND")
+    message(SEND_ERROR "Could NOT find Boost Python Library")
+  else()
+    message(STATUS "Found Boost Python Library ${Boost_PYTHON_FOUND}")
+    list(APPEND Caffe_LINKER_LIBS ${Boost_PYTHON_FOUND})
+  endif()
+
   find_package(PythonLibs ${python_version})
   find_package(NumPy 1.7.1)
   if(PYTHONLIBS_FOUND AND NUMPY_FOUND AND Boost_PYTHON_FOUND)
