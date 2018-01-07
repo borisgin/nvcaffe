@@ -222,7 +222,16 @@ ifeq ($(USE_OPENCV), 1)
 	endif
 		
 endif
-PYTHON_LIBRARIES ?= boost_python python2.7 boost_regex
+
+python_version_full := $(wordlist 2,4,$(subst ., ,$(shell python --version 2>&1)))
+python_version_major := $(word 1,${python_version_full})
+python_version_minor := $(word 2,${python_version_full})
+python_version_patch := $(word 3,${python_version_full})
+ifeq ($(python_version_major), 3)
+	python_lib_suffix := m
+endif
+
+PYTHON_LIBRARIES ?= boost_python python${python_version_major}.${python_version_minor}${python_lib_suffix} boost_regex
 WARNINGS := -Wall -Wno-sign-compare
 
 ##############################
