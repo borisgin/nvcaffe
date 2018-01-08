@@ -88,9 +88,11 @@ if $WITH_CUDA ; then
   rm $CUDA_REPO_PKG
 
   if $WITH_CUDNN ; then
-    ML_REPO_PKG=libcudnn7-dev_7.0.5.15-1+cuda8.0_amd64.deb
+    ML_REPO_PKG=libcudnn7_7.0.5.15-1+cuda8.0_amd64.deb
+    ML_REPO_PKGD=libcudnn7-dev_7.0.5.15-1+cuda8.0_amd64.deb
     wget http://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1404/x86_64/$ML_REPO_PKG
-    dpkg -i $ML_REPO_PKG
+    wget http://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1404/x86_64/$ML_REPO_PKGD
+    dpkg -i $ML_REPO_PKG $ML_REPO_PKGD
   fi
 
   # update package lists
@@ -109,7 +111,7 @@ if $WITH_CUDA ; then
   ln -s /usr/local/cuda-$CUDA_VERSION /usr/local/cuda
 
   if $WITH_CUDNN ; then
-    apt-get install -y --no-install-recommends libcudnn7-dev
+    apt-get install -y --no-install-recommends libcudnn7 libcudnn7-dev
   fi
 fi
 

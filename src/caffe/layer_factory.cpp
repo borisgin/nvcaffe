@@ -49,18 +49,10 @@ shared_ptr<LayerBase> GetConvolutionLayer(const LayerParameter& param,
     Type ftype, Type btype) {
   ConvolutionParameter conv_param = param.convolution_param();
   ConvolutionParameter_Engine engine = conv_param.engine();
-#ifdef USE_CUDNN
-  bool use_dilation = false;
-  for (int i = 0; i < conv_param.dilation_size(); ++i) {
-    if (conv_param.dilation(i) > 1) {
-      use_dilation = true;
-    }
-  }
-#endif
   if (engine == ConvolutionParameter_Engine_DEFAULT) {
     engine = ConvolutionParameter_Engine_CAFFE;
 #ifdef USE_CUDNN
-    if (!use_dilation && Caffe::mode() == Caffe::GPU) {
+    if (Caffe::mode() == Caffe::GPU) {
       engine = ConvolutionParameter_Engine_CUDNN;
     }
 #endif
@@ -69,10 +61,6 @@ shared_ptr<LayerBase> GetConvolutionLayer(const LayerParameter& param,
     return CreateLayerBase<ConvolutionLayer>(param, ftype, btype);
 #ifdef USE_CUDNN
   } else if (engine == ConvolutionParameter_Engine_CUDNN) {
-    if (use_dilation) {
-      LOG(FATAL) << "CuDNN doesn't support the dilated convolution at Layer "
-                 << param.name();
-    }
     return CreateLayerBase<CuDNNConvolutionLayer>(param, ftype, btype);
 #endif
   } else {
