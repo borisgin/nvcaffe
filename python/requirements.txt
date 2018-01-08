@@ -14,7 +14,7 @@ pydot2
 python-dateutil>=1.4,<2
 python-gflags>=2.0
 pyyaml>=3.10
+django==1.11.*
 Pillow>=2.3.0
 six>=1.1.0
 image>=1.5.16
-django==1.11.*

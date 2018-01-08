@@ -28,10 +28,10 @@ void createFilterDesc(cudnnFilterDescriptor_t* desc, int n, int c, int h, int w)
 }
 
 void setConvolutionDesc(Type math, cudnnConvolutionDescriptor_t conv,
-    int pad_h, int pad_w, int stride_h, int stride_w) {
+    int pad_h, int pad_w, int stride_h, int stride_w, int dilation_h, int dilation_w) {
   int padA[2] = {pad_h, pad_w};
   int strideA[2] = {stride_h, stride_w};
-  int upscaleA[2] = {1, 1};
+  int upscaleA[2] = {dilation_h, dilation_w};
   CUDNN_CHECK(cudnnSetConvolutionNdDescriptor(conv,
       2, padA, strideA, upscaleA, CUDNN_CROSS_CORRELATION,
       cudnn::cudnn_data_type(math)));
@@ -113,19 +113,25 @@ void CuDNNConvolutionLayer<Ftype, Btype>::LayerSetUp(
     CHECK_LT(user_algos_override_[2], CUDNN_CONVOLUTION_BWD_FILTER_ALGO_COUNT) << param_err;
   }
 
+  const int* dilation_data = this->dilation_.cpu_data();
+  const bool use_dilation = dilation_data[0] > 1 || dilation_data[1] > 1;
+
   // Initializing algorithms and workspaces
   // Do not rely on initialized algorithms (Reshape will set algorithms
   // with correct values in the first iteration).
   for (size_t i = 0; i < bottom.size(); ++i) {
     fwd_algo_[i] = (cudnnConvolutionFwdAlgo_t)
         (user_algos_override_[0] >= 0 ? user_algos_override_[0] :
-        CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_PRECOMP_GEMM);
+         (use_dilation ? CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM :
+          CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_PRECOMP_GEMM));
     bwd_data_algo_[i] = (cudnnConvolutionBwdDataAlgo_t)
         (user_algos_override_[1] >= 0 ? user_algos_override_[1] :
-        CUDNN_CONVOLUTION_BWD_DATA_ALGO_1);
+         (use_dilation ? CUDNN_CONVOLUTION_BWD_DATA_ALGO_0 :
+          CUDNN_CONVOLUTION_BWD_DATA_ALGO_1));
     bwd_filter_algo_[i] = (cudnnConvolutionBwdFilterAlgo_t)
         (user_algos_override_[2] >= 0 ? user_algos_override_[2] :
-        CUDNN_CONVOLUTION_BWD_FILTER_ALGO_1);
+         (use_dilation ? CUDNN_CONVOLUTION_BWD_FILTER_ALGO_0 :
+          CUDNN_CONVOLUTION_BWD_FILTER_ALGO_1));
 
     workspace_fwd_sizes_[i] = 0;
     workspace_bwd_data_sizes_[i] = 0;
@@ -382,8 +388,11 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
   const int* stride_data = this->stride_.cpu_data();
   const int stride_h = stride_data[0];
   const int stride_w = stride_data[1];
+  const int* dilation_data = this->dilation_.cpu_data();
+  const int dilation_h = dilation_data[0];
+  const int dilation_w = dilation_data[1];
 
-    // Set cuDNN tensor and convolution descriptors
+  // Set cuDNN tensor and convolution descriptors
   for (int i = 0; i < bottom.size(); i++) {
     cudnn::setTensor4dDesc<Ftype>(&fwd_bottom_descs_[i],
         this->num_,
@@ -411,17 +420,17 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
         this->out_spatial_dim_, width_out, 1);
 
     setConvolutionDesc(forward_math_, fwd_conv_descs_[i],
-        pad_h, pad_w, stride_h, stride_w);
+        pad_h, pad_w, stride_h, stride_w, dilation_h, dilation_w);
     setConvolutionDesc(forward_math_, fwd_cached_conv_descs_[i],
-        pad_h, pad_w, stride_h, stride_w);
+        pad_h, pad_w, stride_h, stride_w, dilation_h, dilation_w);
     setConvolutionDesc(backward_data_math_, bwd_conv_data_descs_[i],
-        pad_h, pad_w, stride_h, stride_w);
+        pad_h, pad_w, stride_h, stride_w, dilation_h, dilation_w);
     setConvolutionDesc(backward_filter_math_, bwd_conv_filter_descs_[i],
-        pad_h, pad_w, stride_h, stride_w);
+        pad_h, pad_w, stride_h, stride_w, dilation_h, dilation_w);
     setConvolutionDesc(backward_data_math_, bwd_cached_conv_data_descs_[i],
-        pad_h, pad_w, stride_h, stride_w);
+        pad_h, pad_w, stride_h, stride_w, dilation_h, dilation_w);
     setConvolutionDesc(backward_filter_math_, bwd_cached_conv_filter_descs_[i],
-        pad_h, pad_w, stride_h, stride_w);
+        pad_h, pad_w, stride_h, stride_w, dilation_h, dilation_w);
 
     // Set cached descriptors
     cudnn::setTensor4dDesc<Ftype>(&fwd_cached_bottom_descs_[i],
