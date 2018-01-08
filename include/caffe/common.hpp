@@ -932,8 +932,8 @@ inline size_t rss() {
   size_t i = 0UL;
   FILE* file = fopen("/proc/self/status", "r");
   char line[128];
-  while (fgets(line, 128, file) != nullptr){
-    if (strncmp(line, "VmRSS:", 6) == 0){
+  while (fgets(line, sizeof(line), file) != nullptr) {
+    if (strncmp(line, "VmRSS:", 6) == 0) {
       i = strlen(line);
       const char* p = line;
       while (*p <'0' || *p > '9') p++;

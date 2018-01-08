@@ -27,10 +27,12 @@ void LMDB::Open(const string& source, Mode mode) {
 //      break;
 //    }
 //    map_size *= 2UL;
-//    std::cout << i << " &&&&&&&&&&&&&&&&&& " << map_size << std::endl;
+//    std::cout << i << " " << map_size << std::endl;
 //  }
 #endif
   MDB_CHECK(mdb_env_open(mdb_env_, source.c_str(), flags, 0664));
+//  MDB_envinfo stat;
+//  MDB_CHECK(mdb_env_info(mdb_env_, &stat));
   LOG(INFO) << "Opened lmdb " << source;
 }
 
