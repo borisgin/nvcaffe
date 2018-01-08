@@ -90,9 +90,9 @@ void ScaleLayer<Ftype, Btype>::Reshape(const vector<Blob*>& bottom,
   scale_dim_ = scale->count();
   inner_dim_ = bottom[0]->count(axis_ + scale->num_axes());
   if (bottom[0] == top[0]) {  // in-place computation
-    temp_.ReshapeLike(*bottom[0]);
+    temp_->ReshapeLike(bottom[0]);
   } else {
-    top[0]->ReshapeLike(*bottom[0]);
+    top[0]->ReshapeLike(bottom[0]);
   }
   sum_result_.Reshape(vector<int>(1, outer_dim_ * scale_dim_));
   const int sum_mult_size = std::max(outer_dim_, inner_dim_);
@@ -116,7 +116,7 @@ void ScaleLayer<Ftype, Btype>::Forward_cpu(
     // doing Backward, but Caffe currently provides no way of knowing whether
     // we'll need to do Backward at the time of the Forward call.
     caffe_copy<Ftype>(bottom[0]->count(), bottom[0]->cpu_data<Ftype>(),
-               temp_.template mutable_cpu_data<Ftype>());
+               temp_->template mutable_cpu_data<Ftype>());
   }
   const Ftype* scale_data =
       ((bottom.size() > 1) ? bottom[1] : this->blobs_[0].get())->template cpu_data<Ftype>();
@@ -148,7 +148,7 @@ void ScaleLayer<Ftype, Btype>::Backward_cpu(const vector<Blob*>& top,
     const Btype* top_diff = top[0]->cpu_diff<Btype>();
     const bool in_place = (bottom[0] == top[0]);
     const Btype* bottom_data =
-        in_place ? temp_.template cpu_data<Btype>() : bottom[0]->cpu_data<Btype>();
+        in_place ? temp_->template cpu_data<Btype>() : bottom[0]->cpu_data<Btype>();
     // Hack: store big eltwise product in bottom[0] diff, except in the special
     // case where this layer itself does the eltwise product, in which case we
     // can store it directly in the scale diff, and we're done.
@@ -156,7 +156,7 @@ void ScaleLayer<Ftype, Btype>::Backward_cpu(const vector<Blob*>& top,
     // hack doesn't work and we store the product in temp_.
     const bool is_eltwise = (bottom[0]->count() == scale->count());
     Btype* product = (is_eltwise ? scale->mutable_cpu_diff<Btype>() :
-        (in_place ? temp_.template mutable_cpu_data<Btype>() :
+        (in_place ? temp_->template mutable_cpu_data<Btype>() :
          bottom[0]->mutable_cpu_diff<Btype>()));
     caffe_mul(top[0]->count(), top_diff, bottom_data, product);
     if (!is_eltwise) {

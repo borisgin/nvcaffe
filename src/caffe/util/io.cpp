@@ -105,6 +105,7 @@ vector<int> DecodeDatumToCVMat(const Datum& datum, int color_mode, cv::Mat& cv_i
 
     ch = color_mode < 0 ? 1 : (color_mode > 0 ? 3 : (subsamp == TJSAMP_GRAY ? 1 : 3));
     if (shape_only) {
+      tjDestroy(jpeg_decoder);
       return vector<int>{1, ch, height, width};
     }
     cv_img.create(height, width, ch == 3 ? CV_8UC3 : CV_8UC1);

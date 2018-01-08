@@ -14,13 +14,10 @@ void CuDNNBatchNormLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom,
     const vector<Blob*>& top) {
 
   const Ftype* bottom_data = bottom[0]->gpu_data<Ftype>();
-  Ftype* top_data = top[0]->mutable_gpu_data<Ftype>();
-  if (top[0] == bottom[0]) {
-    top_data = private_top_->mutable_gpu_data<Ftype>();
-  }
+  Ftype* top_data = top[0] == bottom[0] ?
+      private_top_->mutable_gpu_data<Ftype>() : top[0]->mutable_gpu_data<Ftype>();
 
   double epsilon = this->eps_;
-
   const void* scale_data;
   const void* bias_data;
   void* global_mean;
@@ -96,12 +93,10 @@ void CuDNNBatchNormLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
     const vector<bool>& propagate_down, const vector<Blob*>& bottom) {
 
   const Btype* top_diff = top[0]->gpu_diff<Btype>();
-  const Btype* bottom_data = bottom[0]->gpu_data<Btype>();
+  const Btype* bottom_data = top[0] == bottom[0] ?
+      private_bottom_->gpu_data<Btype>() : bottom[0]->gpu_data<Btype>();
   Btype* bottom_diff = bottom[0]->mutable_gpu_diff<Btype>();
 
-  if (top[0] == bottom[0]) {
-    bottom_data = private_bottom_->gpu_data<Btype>();
-  }
   double epsilon = this->eps_;
   const void* save_mean;
   const void* save_inv_var;

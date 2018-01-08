@@ -19,6 +19,16 @@ void LMDB::Open(const string& source, Mode mode) {
 #ifdef __ARM_ARCH
   // Tegra
   MDB_CHECK(mdb_env_set_mapsize(mdb_env_, 1073741824UL));
+//#else
+//  size_t map_size = 1024UL;// * 1024UL;
+//  for (int i = 0; i < 32; ++i) {
+//    MDB_CHECK(mdb_env_set_mapsize(mdb_env_, map_size));
+//    if (mdb_env_open(mdb_env_, source.c_str(), flags, 0664) == MDB_SUCCESS) {
+//      break;
+//    }
+//    map_size *= 2UL;
+//    std::cout << i << " &&&&&&&&&&&&&&&&&& " << map_size << std::endl;
+//  }
 #endif
   MDB_CHECK(mdb_env_open(mdb_env_, source.c_str(), flags, 0664));
   LOG(INFO) << "Opened lmdb " << source;

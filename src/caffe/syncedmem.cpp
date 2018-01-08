@@ -14,17 +14,17 @@ namespace caffe {
 // but might be more significant for parallel training. Most importantly,
 // it improved stability for large models on many GPUs.
 void SyncedMemory::MallocHost(void** ptr, size_t size, bool* use_cuda) {
-#ifndef CPU_ONLY
-  if (Caffe::mode() == Caffe::GPU) {
-    shared_lock<shared_mutex> lock(GPUMemory::read_write_mutex());
-    CUDA_CHECK(cudaMallocHost(ptr, size));
-    *use_cuda = true;
-    return;
-  }
-#endif
+//#ifndef CPU_ONLY
+//  if (Caffe::mode() == Caffe::GPU) {
+//    shared_lock<shared_mutex> lock(GPUMemory::read_write_mutex());
+//    CUDA_CHECK(cudaMallocHost(ptr, size));
+//    *use_cuda = true;
+//    return;
+//  }
+//#endif
   *ptr = malloc(size);
   *use_cuda = false;
-  CHECK(*ptr) << "host allocation of size " << size << " failed";
+//  CHECK(*ptr) << "host allocation of size " << size << " failed";
 }
 
 void SyncedMemory::FreeHost(void* ptr, bool use_cuda) {

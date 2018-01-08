@@ -74,12 +74,14 @@ class Blob {
   void Reshape(const vector<int>& shape);
   void Reshape(const BlobShape& shape);
 
-  void ReshapeLike(const Blob& other) {
-    Reshape(other.shape());
+  void ReshapeLike(const Blob* other) {
+    if (this->shape() != other->shape()) {
+      Reshape(other->shape());
+    }
   }
 
-  void ReshapeLike(const Blob* other) {
-    Reshape(other->shape());
+  void ReshapeLike(const Blob& other) {
+    ReshapeLike(&other);
   }
 
   Type data_type() const {
