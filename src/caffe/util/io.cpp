@@ -172,7 +172,6 @@ void DecodeDatumToSignedBuf(const Datum& datum, int color_mode,
 
 cv::Mat ReadImageToCVMat(const string& filename,
     int height, int width, bool is_color, int short_side) {
-  cv::Mat cv_img;
   int cv_read_flag = (is_color ? CV_LOAD_IMAGE_COLOR :
     CV_LOAD_IMAGE_GRAYSCALE);
   cv::Mat cv_img_origin = cv::imread(filename, cv_read_flag);
@@ -189,11 +188,12 @@ cv::Mat ReadImageToCVMat(const string& filename,
       width = cv_img_origin.cols * short_side / cv_img_origin.rows;
     }
   }
-  if (height > 0 && width > 0) {
-    cv::resize(cv_img_origin, cv_img, cv::Size(width, height));
-  } else {
-    cv_img = cv_img_origin;
+  if (height <= 0 || width <= 0) {
+    return cv_img_origin;
   }
+  cv::Size sz(width, height);
+  cv::Mat cv_img;
+  cv::resize(cv_img_origin, cv_img, sz, 0., 0., CV_INTER_LINEAR);
   return cv_img;
 }
 

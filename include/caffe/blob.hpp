@@ -75,9 +75,9 @@ class Blob {
   void Reshape(const BlobShape& shape);
 
   void ReshapeLike(const Blob* other) {
-    if (this->shape() != other->shape()) {
+// TODO   if (this->shape() != other->shape()) {
       Reshape(other->shape());
-    }
+//    }
   }
 
   void ReshapeLike(const Blob& other) {

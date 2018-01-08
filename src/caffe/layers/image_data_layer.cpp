@@ -112,6 +112,10 @@ void ImageDataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_
   const bool is_color = image_data_param.is_color();
   string root_folder = image_data_param.root_folder();
 
+#if CV_VERSION_EPOCH == 2
+  cv::setNumThreads(0);  // cv::resize crashes otherwise
+#endif
+
   // Reshape according to the first image of each batch
   // on single input batches allows for inputs of varying dimension.
   cv::Mat cv_img = ReadImageToCVMat(root_folder + lines_[lines_id_].first,
