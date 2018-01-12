@@ -37,11 +37,6 @@ void SigmoidLayer<Ftype, Btype>::Backward_cpu(const vector<Blob*>& top,
   }
 }
 
-#ifdef CPU_ONLY
-STUB_GPU(SigmoidLayer);
-#endif
-
 INSTANTIATE_CLASS_FB(SigmoidLayer);
-
 
 }  // namespace caffe

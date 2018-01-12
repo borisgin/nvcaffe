@@ -1,8 +1,6 @@
 #include <glog/logging.h>
 #include <cmath>
-#include <cstdio>
 #include <ctime>
-#include <ios>
 #include <memory>
 
 #include "caffe/common.hpp"
@@ -20,26 +18,39 @@ int Caffe::root_device_ = -1;
 int Caffe::thread_count_ = 0;
 int Caffe::restored_iter_ = -1;
 std::atomic<uint64_t> Caffe::root_seed_(Caffe::SEED_NOT_SET);
+std::atomic_ulong Caffe::epoch_count_((unsigned long)-1L);
 
 std::mutex Caffe::caffe_mutex_;
 std::mutex Caffe::pstream_mutex_;
 std::mutex Caffe::cublas_mutex_;
 std::mutex Caffe::cudnn_mutex_;
 std::mutex Caffe::seed_mutex_;
-std::unordered_map<std::thread::id, std::shared_ptr<Caffe>> Caffe::thread_instance_map_;
+std::vector<std::shared_ptr<std::unordered_map<std::thread::id, std::shared_ptr<Caffe>>>>
+    Caffe::instance_map_;
 
 Caffe& Caffe::Get() {
   // Make sure each thread can have different values.
-  std::thread::id tid = std::this_thread::get_id();
-  auto it = thread_instance_map_.find(tid);
-  if (it != thread_instance_map_.end()) {
+  const std::thread::id tid = std::this_thread::get_id();
+  const int dev = current_device();
+  if (instance_map_.size() <= dev) {
+    std::lock_guard<std::mutex> lock(caffe_mutex_);
+    instance_map_.resize(dev + 1);
+    for (int i = 0; i <= dev; ++i) {
+      if (!instance_map_[i]) {
+        instance_map_[i] =
+            std::make_shared<std::unordered_map<std::thread::id, std::shared_ptr<Caffe>>>();
+      }
+    }
+  }
+  auto& map = instance_map_[dev];
+  auto it = map->find(tid);
+  if (it != map->end()) {
     return *it->second.get();
   }
   std::lock_guard<std::mutex> lock(caffe_mutex_);
-  auto emp_pair = thread_instance_map_.emplace(tid, std::shared_ptr<Caffe>(new Caffe()));
+  auto emp_pair = map->emplace(tid, std::shared_ptr<Caffe>(new Caffe()));
   ++thread_count_;
-  DLOG(INFO) << "[" << Caffe::current_device()
-             << "] New Caffe instance " << emp_pair.first->second.get()
+  DLOG(INFO) << "[" << dev << "] New Caffe instance " << emp_pair.first->second.get()
              << ", count " << thread_count_ << ", thread " << tid;
   return *emp_pair.first->second.get();
 }
@@ -77,7 +88,6 @@ void Caffe::set_random_seed(uint64_t random_seed) {
   } else if (random_seed == Caffe::SEED_NOT_SET) {
     return;  // i.e. root solver was previously set to 0+ and there is no need to re-generate
   }
-#ifndef CPU_ONLY
   if (device_count() > 0) {
     // Curand seed
     std::lock_guard<std::mutex> lock(seed_mutex_);
@@ -88,7 +98,6 @@ void Caffe::set_random_seed(uint64_t random_seed) {
     CURAND_CHECK(curandSetPseudoRandomGeneratorSeed(curand_generator_handle, random_seed));
     CURAND_CHECK(curandSetGeneratorOffset(curand_generator_handle, 0));
   }
-#endif
   // RNG seed
   Get().random_generator_.reset(new RNG(random_seed));
 }
@@ -113,65 +122,15 @@ void GlobalInit(int* pargc, char*** pargv) {
 
 int Caffe::device_count() {
   int count = 0;
-#ifndef CPU_ONLY
   cudaGetDeviceCount(&count);
-#endif
   return count;
 }
 
-#ifdef CPU_ONLY  // CPU-only Caffe.
-
 Caffe::Caffe()
-    : random_generator_(), mode_(Caffe::CPU),
-      solver_count_(1), root_solver_(true) { }
-
-Caffe::~Caffe() { }
-
-void Caffe::SetDevice(const int device_id) {
-  NO_GPU;
-}
-
-std::string Caffe::DeviceQuery() {
-  NO_GPU;
-  return std::string();
-}
-
-bool Caffe::CheckDevice(const int device_id) {
-  NO_GPU;
-  return false;
-}
-
-int Caffe::FindDevice(const int start_id) {
-  NO_GPU;
-  return -1;
-}
-
-class Caffe::RNG::Generator {
- public:
-  Generator() : rng_(new caffe::rng_t(cluster_seedgen())) {}
-  explicit Generator(unsigned int seed) : rng_(new caffe::rng_t(seed)) {}
-  caffe::rng_t* rng() { return rng_.get(); }
- private:
-  shared_ptr<caffe::rng_t> rng_;
-};
-
-Caffe::RNG::RNG() : generator_(new Generator()) { }
-
-Caffe::RNG::RNG(uint64_t seed) : generator_(new Generator(seed)) { }
-
-Caffe::RNG& Caffe::RNG::operator=(const RNG& other) {
-  generator_ = other.generator_;
-  return *this;
-}
-
-void* Caffe::RNG::generator() {
-  return static_cast<void*>(generator_->rng());
-}
-
-#else  // Normal GPU + CPU Caffe.
-
-Caffe::Caffe()
-    : random_generator_(), mode_(Caffe::CPU), solver_count_(1), root_solver_(true) {
+    : random_generator_(),
+      mode_(Caffe::GPU),
+      solver_count_(1),
+      root_solver_(true) {
   CURAND_CHECK_ARG(curandCreateGenerator(&curand_generator_, CURAND_RNG_PSEUDO_DEFAULT),
       current_device());
   CURAND_CHECK_ARG(curandSetPseudoRandomGeneratorSeed(curand_generator_, cluster_seedgen()),
@@ -218,7 +177,8 @@ CudaStream::CudaStream(bool high_priority) {
     CUDA_CHECK(cudaStreamCreate(&stream_));
   }
   DLOG(INFO) << "New " << (high_priority ? "high priority " : "") << "stream "
-      << stream_ << ", device " << current_device() << ", thread " << std::this_thread::get_id();
+      << stream_ << ", device " << Caffe::current_device() << ", thread "
+      << std::this_thread::get_id();
 }
 
 CudaStream::~CudaStream() {
@@ -435,23 +395,15 @@ const char* curandGetErrorString(curandStatus_t error) {
   return "Unknown curand status";
 }
 
-#endif  // CPU_ONLY
-
-const double TypedConsts<double>::zero = 0.0;
-const double TypedConsts<double>::one = 1.0;
-
-const float TypedConsts<float>::zero = 0.0f;
-const float TypedConsts<float>::one = 1.0f;
-
-#ifndef CPU_ONLY
+const double  TypedConsts<double>::zero = 0.0;
+const double  TypedConsts<double>::one = 1.0;
+const float   TypedConsts<float>::zero = 0.0f;
+const float   TypedConsts<float>::one = 1.0f;
 const float16 TypedConsts<float16>::zero = 0.0f;
 const float16 TypedConsts<float16>::one = 1.0f;
-#endif
+const int     TypedConsts<int>::zero = 0;
+const int     TypedConsts<int>::one = 1;
 
-const int TypedConsts<int>::zero = 0;
-const int TypedConsts<int>::one = 1;
-
-#ifndef CPU_ONLY
 CuBLASHandle::CuBLASHandle() : handle_(nullptr) {
   if (Caffe::device_count() > 0) {
     CUBLAS_CHECK(cublasCreate(&handle_));
@@ -481,7 +433,6 @@ CuDNNHandle::~CuDNNHandle() {
   }
 }
 #endif
-#endif
 
 Caffe::Properties Caffe::props_;
 
@@ -489,7 +440,6 @@ Caffe::Properties::Properties() :
       init_time_(std::time(nullptr)),
       main_thread_id_(std::this_thread::get_id()),
       caffe_version_(AS_STRING(CAFFE_VERSION)) {
-#ifndef CPU_ONLY
   const int count = Caffe::device_count();
   if (count == 0) {
     return;
@@ -519,7 +469,6 @@ Caffe::Properties::Properties() :
   int cuda_driver_version = 0;
   CUDA_CHECK(cudaDriverGetVersion(&cuda_driver_version));
   cuda_driver_version_ = std::to_string(cuda_driver_version);
-#endif
 }
 
 std::string Caffe::time_from_init() {
@@ -544,7 +493,6 @@ std::string Caffe::time_from_init() {
   return os.str();
 }
 
-#ifndef CPU_ONLY
 #ifndef NO_NVML
 namespace nvml {
 
@@ -583,6 +531,5 @@ void setCpuAffinity() {
 
 }  // namespace nvml
 #endif  // NO_NVML
-#endif
 
 }  // namespace caffe

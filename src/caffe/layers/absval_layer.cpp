@@ -34,10 +34,6 @@ void AbsValLayer<Ftype, Btype>::Backward_cpu(const vector<Blob*>& top,
   }
 }
 
-#ifdef CPU_ONLY
-STUB_GPU(AbsValLayer);
-#endif
-
 INSTANTIATE_CLASS_FB(AbsValLayer);
 REGISTER_LAYER_CLASS(AbsVal);
 

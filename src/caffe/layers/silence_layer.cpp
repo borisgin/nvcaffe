@@ -21,10 +21,6 @@ void SilenceLayer<Ftype, Btype>::Reshape(const vector<Blob*>& bottom, const vect
 #endif
 }
 
-#ifdef CPU_ONLY
-STUB_GPU(SilenceLayer);
-#endif
-
 INSTANTIATE_CLASS_FB(SilenceLayer);
 REGISTER_LAYER_CLASS(Silence);
 

@@ -52,10 +52,7 @@ namespace caffe {
 // For Python, for now, we'll just always use float as the type.
 typedef float Dtype;
 const int NPY_DTYPE = NPY_FLOAT32;
-
-#ifndef CPU_ONLY
 shared_ptr<GPUMemory::Scope> gpu_memory_scope;
-#endif
 
 void initialize_gpu_memory_scope(const vector<int>& gpus) {
   FLAGS_alsologtostderr = 1;
@@ -64,43 +61,33 @@ void initialize_gpu_memory_scope(const vector<int>& gpus) {
     google_initialized = true;
     google::InitGoogleLogging("pyNVCaffe");
   }
-#ifndef CPU_ONLY
   if (!gpu_memory_scope) {
     gpu_memory_scope.reset(new GPUMemory::Scope(gpus));
     if (gpus.size() > 0) {
       Caffe::SetDevice(gpus[0]);
     }
   }
-#else
-  LOG(WARNING) << "GPU memory initialization is ignored for CPU_ONLY build";
-#endif
 }
 
 // Selecting mode.
 void set_mode_cpu() {
   Caffe::set_mode(Caffe::CPU);
-#ifndef CPU_ONLY
   // We need to run GPU-built Caffe on CPU sometimes.
   vector<int> gpus(1, 0);
   initialize_gpu_memory_scope(gpus);
-#endif
 }
 
 void set_mode_gpu() {
   Caffe::set_mode(Caffe::GPU);
-#ifndef CPU_ONLY
   vector<int> gpus(1, 0);
   initialize_gpu_memory_scope(gpus);
-#endif
 }
 
 void set_device(int gpu) {
   CHECK_GE(gpu, 0);
   Caffe::set_mode(Caffe::GPU);
-#ifndef CPU_ONLY
   vector<int> gpus(1, gpu);
   initialize_gpu_memory_scope(gpus);
-#endif
 }
 
 void set_devices(const bp::list& lst) {

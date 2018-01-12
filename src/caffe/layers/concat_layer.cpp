@@ -94,10 +94,6 @@ void ConcatLayer<Ftype, Btype>::Backward_cpu(const vector<Blob*>& top,
   }
 }
 
-#ifdef CPU_ONLY
-STUB_GPU(ConcatLayer);
-#endif
-
 INSTANTIATE_CLASS_FB(ConcatLayer);
 REGISTER_LAYER_CLASS(Concat);
 

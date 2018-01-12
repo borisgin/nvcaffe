@@ -82,22 +82,16 @@ void Tensor::copy_helper(bool use_gpu, int count, const void* p_src, Type src_ty
     if (is_type<float>(dst_type)) {  // FP32 -> FP32
       caffe_copy(count, static_cast<const float*>(p_src),
           static_cast<float*>(p_dst));
-    }
-#ifndef CPU_ONLY
-    else if (is_type<float16>(dst_type)) {  // FP32 -> FP16
+    } else if (is_type<float16>(dst_type)) {  // FP32 -> FP16
       caffe_convert(use_gpu, count, static_cast<const float*>(p_src),
           static_cast<float16*>(p_dst));
-    }
-#endif
-    else if (is_type<double>(dst_type)) {  // FP32 -> FP64
+    } else if (is_type<double>(dst_type)) {  // FP32 -> FP64
       caffe_convert(use_gpu, count, static_cast<const float*>(p_src),
           static_cast<double*>(p_dst));
     } else {
       failed = true;
     }
-  }
-#ifndef CPU_ONLY
-  else if (is_type<float16>(src_type)) {
+  } else if (is_type<float16>(src_type)) {
     if (is_type<float>(dst_type)) {  // FP16 -> FP32
       caffe_convert(use_gpu, count, static_cast<const float16*>(p_src),
           static_cast<float*>(p_dst));
@@ -110,20 +104,14 @@ void Tensor::copy_helper(bool use_gpu, int count, const void* p_src, Type src_ty
     } else {
       failed = true;
     }
-  }
-#endif
-  else if (is_type<double>(src_type)) {
+  } else if (is_type<double>(src_type)) {
     if (is_type<float>(dst_type)) {  // FP64 -> FP32
       caffe_convert(use_gpu, count, static_cast<const double*>(p_src),
           static_cast<float*>(p_dst));
-    }
-#ifndef CPU_ONLY
-    else if (is_type<float16>(dst_type)) {  // FP64 -> FP16
+    } else if (is_type<float16>(dst_type)) {  // FP64 -> FP16
       caffe_convert(use_gpu, count, static_cast<const double*>(p_src),
           static_cast<float16*>(p_dst));
-    }
-#endif
-    else if (is_type<double>(dst_type)) {  // FP64 -> FP64
+    } else if (is_type<double>(dst_type)) {  // FP64 -> FP64
       caffe_copy(count, static_cast<const double*>(p_src),
           static_cast<double*>(p_dst));
     } else {
@@ -145,13 +133,9 @@ void Tensor::copy_helper(bool use_gpu, int count, const void* p_src, Type src_ty
 void Tensor::scale(float scale, void* handle) {
   shared_ptr<SyncedMemory>& mem = mutable_synced_mem();
   if (Caffe::mode() == Caffe::GPU) {
-#ifndef CPU_ONLY
     cublasHandle_t cublas_handle =
         handle == nullptr ? Caffe::cublas_handle() : reinterpret_cast<cublasHandle_t>(handle);
     gpu_scal(count_, type_, mem->mutable_gpu_data(), scale, cublas_handle);
-#else
-    NO_GPU;
-#endif
   } else {
     cpu_scal(count_, type_, mem->mutable_cpu_data(), scale);
   }
@@ -160,7 +144,6 @@ void Tensor::scale(float scale, void* handle) {
 void Tensor::set(float value) {
   shared_ptr<SyncedMemory>& mem = mutable_synced_mem();
   if (Caffe::mode() == Caffe::GPU) {
-#ifndef CPU_ONLY
     void* data = mem->mutable_gpu_data();
     if (is_type<float>(type_)) {
       caffe_gpu_set(count_, value, static_cast<float*>(data));
@@ -171,17 +154,12 @@ void Tensor::set(float value) {
     } else {
       LOG(FATAL) << "Unsupported data type: " << Type_Name(type_);
     }
-#else
-    NO_GPU;
-#endif
   } else {
     void* data = mem->mutable_cpu_data();
     if (is_type<float>(type_)) {
       caffe_set(count_, value, static_cast<float*>(data));
-#ifndef CPU_ONLY
     } else if (is_type<float16>(type_)) {
       caffe_set(count_, static_cast<float16>(value), static_cast<float16*>(data));
-#endif
     } else if (is_type<double>(type_)) {
       caffe_set(count_, static_cast<double>(value), static_cast<double*>(data));
     } else {
@@ -197,7 +175,6 @@ float Tensor::asum(int group) const {
     return asum;
   }
   if (Caffe::mode() == Caffe::GPU) {
-#ifndef CPU_ONLY
     if (is_type<float>(type_)) {
       caffe_gpu_asum(count_, static_cast<const float*>(mem->gpu_data()), &asum, group);
     } else if (is_type<float16>(type_)) {
@@ -208,16 +185,11 @@ float Tensor::asum(int group) const {
       LOG(FATAL) << "Unknown data type: " << Type_Name(type_);
     }
     return asum;
-#else
-    NO_GPU;
-#endif
   }
   if (is_type<float>(type_)) {
     asum = caffe_cpu_asum(count_, static_cast<const float*>(mem->cpu_data()));
-#ifndef CPU_ONLY
   } else if (is_type<float16>(type_)) {
     asum = caffe_cpu_asum(count_, static_cast<const float16*>(mem->cpu_data()));
-#endif
   } else if (is_type<double>(type_)) {
     asum = caffe_cpu_asum(count_, static_cast<const double*>(mem->cpu_data()));
   } else {
@@ -233,7 +205,6 @@ float Tensor::amax(int group) const {
     return amax;
   }
   if (Caffe::mode() == Caffe::GPU) {
-#ifndef CPU_ONLY
     if (is_type<float>(type_)) {
       caffe_gpu_amax(count_, static_cast<const float*>(mem->gpu_data()), &amax, group);
     } else if (is_type<float16>(type_)) {
@@ -244,16 +215,11 @@ float Tensor::amax(int group) const {
       LOG(FATAL) << "Unknown data type: " << Type_Name(type_);
     }
     return amax;
-#else
-    NO_GPU;
-#endif
   }
   if (is_type<float>(type_)) {
     amax = caffe_cpu_amax(count_, static_cast<const float*>(mem->cpu_data()));
-#ifndef CPU_ONLY
   } else if (is_type<float16>(type_)) {
     amax = caffe_cpu_amax(count_, static_cast<const float16*>(mem->cpu_data()));
-#endif
   } else if (is_type<double>(type_)) {
     amax = caffe_cpu_amax(count_, static_cast<const double*>(mem->cpu_data()));
   } else {
@@ -269,7 +235,6 @@ float Tensor::sumsq(int group) const {
     return sumsq;
   }
   if (Caffe::mode() == Caffe::GPU) {
-#ifndef CPU_ONLY
     if (is_type<float>(type_)) {
       caffe_gpu_sumsq(count_, static_cast<const float*>(mem->gpu_data()), &sumsq, group);
     } else if (is_type<float16>(type_)) {
@@ -280,16 +245,11 @@ float Tensor::sumsq(int group) const {
       LOG(FATAL) << "Unknown data type: " << Type_Name(type_);
     }
     return sumsq;
-#else
-    NO_GPU;
-#endif
   }
   if (is_type<float>(type_)) {
     sumsq = caffe_cpu_sumsq(count_, static_cast<const float*>(mem->cpu_data()));
-#ifndef CPU_ONLY
   } else if (is_type<float16>(type_)) {
     sumsq = caffe_cpu_sumsq(count_, static_cast<const float16*>(mem->cpu_data()));
-#endif
   } else if (is_type<double>(type_)) {
     sumsq = caffe_cpu_sumsq(count_, static_cast<const double*>(mem->cpu_data()));
   } else {
@@ -301,10 +261,8 @@ float Tensor::sumsq(int group) const {
 void Tensor::cpu_scal(int count, Type dtype, void* data, float scal) {
   if (is_type<float>(dtype)) {
     caffe_scal(count, scal, static_cast<float*>(data));
-#ifndef CPU_ONLY
   } else if (is_type<float16>(dtype)) {
     caffe_scal(count, static_cast<float16>(scal), static_cast<float16*>(data));
-#endif
   } else if (is_type<double>(dtype)) {
     caffe_scal(count, static_cast<double>(scal), static_cast<double*>(data));
   } else {
@@ -312,7 +270,6 @@ void Tensor::cpu_scal(int count, Type dtype, void* data, float scal) {
   }
 }
 
-#ifndef CPU_ONLY
 void Tensor::gpu_scal(int count, Type dtype, void* data, float scal, cublasHandle_t cublas_handle) {
   if (is_type<float>(dtype)) {
     caffe_gpu_scal(count, scal, static_cast<float*>(data), cublas_handle);
@@ -334,7 +291,6 @@ size_t Tensor::gpu_memory_use(bool own_only) const {
   }
   return ret;
 }
-#endif
 
 std::string Tensor::to_string(int indent) const {  // debug helper
   const std::string idt(indent, ' ');

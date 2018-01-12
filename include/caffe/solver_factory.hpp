@@ -44,11 +44,7 @@
 
 #include "caffe/common.hpp"
 #include "caffe/proto/caffe.pb.h"
-
-#ifndef CPU_ONLY
-  #include "caffe/util/float16.hpp"
-#endif
-
+#include "caffe/util/float16.hpp"
 #include "caffe/solver.hpp"
 
 namespace caffe {
@@ -125,7 +121,6 @@ class SolverRegisterer {
 #define REGISTER_SOLVER_CREATOR(type, creator)                                 \
 static SolverRegisterer g_creator_f_##type(#type, creator)
 
-#ifndef CPU_ONLY
 #define REGISTER_SOLVER_CLASS(type)                                            \
   Solver* Creator_##type##Solver(                                              \
       const SolverParameter& param,                                            \
@@ -150,30 +145,6 @@ static SolverRegisterer g_creator_f_##type(#type, creator)
     return nullptr;                                                            \
   }                                                                            \
   REGISTER_SOLVER_CREATOR(type, Creator_##type##Solver)
-#else
-#define REGISTER_SOLVER_CLASS(type)                                            \
-  Solver* Creator_##type##Solver(                                              \
-      const SolverParameter& param,                                            \
-      size_t rank,                                                             \
-      Solver* root_solver)                                                     \
-  {                                                                            \
-    const Type tp = param.solver_data_type();                                  \
-    switch (tp) {                                                              \
-      case FLOAT:                                                              \
-        return new type##Solver<float>(param, rank, root_solver);              \
-        break;                                                                 \
-      case DOUBLE:                                                             \
-        return new type##Solver<double>(param, rank, root_solver);             \
-        break;                                                                 \
-      default:                                                                 \
-        LOG(FATAL) << "Solver data type " << Type_Name(tp)                     \
-                   << " is not supported";                                     \
-    }                                                                          \
-    return nullptr;                                                            \
-  }                                                                            \
-  REGISTER_SOLVER_CREATOR(type, Creator_##type##Solver)
-#endif
-
 
 }  // namespace caffe
 

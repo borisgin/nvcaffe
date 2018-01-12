@@ -64,10 +64,6 @@ void HDF5OutputLayer<Ftype, Btype>::Backward_cpu(const vector<Blob*>& top,
   return;
 }
 
-#ifdef CPU_ONLY
-STUB_GPU(HDF5OutputLayer);
-#endif
-
 INSTANTIATE_CLASS_FB(HDF5OutputLayer);
 REGISTER_LAYER_CLASS(HDF5Output);
 

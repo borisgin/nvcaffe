@@ -60,18 +60,15 @@ inline shared_ptr<LayerBase> CreateLayerBase(const LayerParameter& param,
     if (btype == FLOAT) {
       ptr.reset(new LayerType<float, float>(param));
     }
-#ifndef CPU_ONLY
     else if (btype == FLOAT16) {
       ptr.reset(new LayerType<float, float16>(param));
     }
-#endif
     else if (btype == DOUBLE) {
       ptr.reset(new LayerType<float, double>(param));
     } else {
       failed = true;
     }
   }
-#ifndef CPU_ONLY
   else if (ftype == FLOAT16) {
     if (btype == FLOAT) {
       ptr.reset(new LayerType<float16, float>(param));
@@ -83,16 +80,13 @@ inline shared_ptr<LayerBase> CreateLayerBase(const LayerParameter& param,
       failed = true;
     }
   }
-#endif
   else if (ftype == DOUBLE) {
     if (btype == FLOAT) {
       ptr.reset(new LayerType<double, float>(param));
     }
-#ifndef CPU_ONLY
     else if (btype == FLOAT16) {
       ptr.reset(new LayerType<double, float16>(param));
     }
-#endif
     else if (btype == DOUBLE) {
       ptr.reset(new LayerType<double, double>(param));
     } else {

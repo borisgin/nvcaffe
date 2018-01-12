@@ -493,7 +493,6 @@ class Blob {
     return diff_tensor_->is_gpu_head();
   }
 
-#ifndef CPU_ONLY
   size_t gpu_memory_data_use(bool own_only = false) const;
   size_t gpu_memory_diff_use(bool own_only = false) const;
 
@@ -542,7 +541,6 @@ class Blob {
   }
 
   const int* gpu_shape() const;
-#endif
 
   // Element-wise mutator. Might be slow due to syncing from GPU to CPU.
   template<typename Dtype>
@@ -554,11 +552,9 @@ class Blob {
     if (is_type<float>(dtype)) {
       static_cast<float*>(ptr)[idx] = static_cast<float>(val);
     }
-#ifndef CPU_ONLY
     else if (is_type<float16>(dtype)) {
       static_cast<float16*>(ptr)[idx] = static_cast<float16>(val);
     }
-#endif
     else if (is_type<double>(dtype)) {
       static_cast<double*>(ptr)[idx] = static_cast<double>(val);
     } else {
@@ -593,10 +589,7 @@ class Blob {
 
   static float at(int offset, Type dtype, const void* data);
   static void cpu_axpy(int count, Type dtype, float alpha, const void* X, void* Y);
-
-#ifndef CPU_ONLY
   static void gpu_axpy(int count, Type dtype, float alpha, const void* X, void* Y);
-#endif
 
   static void check_integrity(bool do_data, Type current_type, Type new_type) {
     CHECK_EQ(current_type, new_type)
@@ -661,7 +654,6 @@ class TBlob : public Blob {
     return Blob::mutable_cpu_diff_c<T>(copy_from_gpu);
   }
 
-#ifndef CPU_ONLY
   template<typename T = Dtype>
   const T* gpu_data() const {
     check_integrity(true, data_type(), tp<T>());
@@ -685,8 +677,6 @@ class TBlob : public Blob {
     check_integrity(false, diff_type(), tp<T>());
     return Blob::mutable_gpu_diff_c<T>(copy_from_cpu);
   }
-
-#endif
 
   DISABLE_COPY_MOVE_AND_ASSIGN(TBlob);
 };  // class TBlob

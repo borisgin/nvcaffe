@@ -1,41 +1,6 @@
 #ifndef CAFFE_UTIL_DEVICE_ALTERNATE_H_
 #define CAFFE_UTIL_DEVICE_ALTERNATE_H_
 
-#ifdef CPU_ONLY  // CPU-only Caffe.
-
-#include <vector>
-
-// Stub out GPU calls as unavailable.
-
-#define NO_GPU LOG(FATAL) << "Cannot use GPU in CPU-only Caffe: check mode."
-
-#define STUB_GPU(classname) \
-template <typename Ftype, typename Btype> \
-void classname<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom, \
-    const vector<Blob*>& top) { NO_GPU; } \
-template <typename Ftype, typename Btype> \
-void classname<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top, \
-    const vector<bool>& propagate_down, \
-    const vector<Blob*>& bottom) { NO_GPU; }
-
-#define STUB_GPU_FORWARD(classname, funcname) \
-template <typename Ftype, typename Btype> \
-void classname<Ftype, Btype>::funcname##_##gpu(const vector<Blob*>& bottom, \
-    const vector<Blob*>& top) { NO_GPU; }
-
-#define STUB_GPU_BACKWARD(classname, funcname) \
-template <typename Ftype, typename Btype> \
-void classname<Ftype, Btype>::funcname##_##gpu(const vector<Blob*>& top, \
-    const vector<bool>& propagate_down, \
-    const vector<Blob*>& bottom) { NO_GPU; }
-
-#define STUB_GPU_FORWARD1(classname, funcname) \
-template <typename Dtype> \
-void classname<Dtype>::funcname##_##gpu(const vector<Blob*>& bottom, \
-    const vector<Blob*>& top) { NO_GPU; }
-
-#else  // Normal GPU + CPU Caffe.
-
 #include <cublas_v2.h>
 #include <cuda.h>
 #include <cuda_runtime.h>
@@ -139,9 +104,9 @@ struct NVMLInit {
 
 void setCpuAffinity();
 
-}  // namespace nvml
+}
 #endif  // NO_NVML
 
 }  // namespace caffe
-#endif  // CPU_ONLY
+
 #endif  // CAFFE_UTIL_DEVICE_ALTERNATE_H_

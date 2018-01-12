@@ -11,10 +11,6 @@
 
 #include "caffe/common.hpp"
 
-#if defined(CPU_ONLY) && defined(TEST_FP16)
-  #undef TEST_FP16
-#endif
-
 using std::cout;
 using std::endl;
 
@@ -45,7 +41,7 @@ class MultiDeviceTest : public ::testing::Test {
 typedef ::testing::Types<float, double> TestDtypesNoFP16;
 
 typedef ::testing::Types<float, double
-#if !defined(CPU_ONLY) && defined(TEST_FP16)
+#if defined(TEST_FP16)
     , float16
 #endif
     > TestDtypes;
@@ -53,26 +49,17 @@ typedef ::testing::Types<float, double
 template <typename TypeParam>
 struct CPUDevice {
   typedef TypeParam Dtype;
-  static const Caffe::Brew device = Caffe::CPU;
+  static constexpr Caffe::Brew device = Caffe::CPU;
 };
 
 template <typename Dtype>
 class CPUDeviceTest : public MultiDeviceTest<CPUDevice<Dtype> > {
 };
 
-#ifdef CPU_ONLY
-
-typedef ::testing::Types<CPUDevice<float>,
-                         CPUDevice<double> > TestDtypesAndDevices;
-
-typedef ::testing::Types<CPUDevice<float>, CPUDevice<double>> TestDtypesAndDevicesNoFP16;
-
-#else
-
 template <typename TypeParam>
 struct GPUDevice {
   typedef TypeParam Dtype;
-  static const Caffe::Brew device = Caffe::GPU;
+  static constexpr Caffe::Brew device = Caffe::GPU;
 };
 
 template <typename Dtype>
@@ -90,7 +77,6 @@ typedef ::testing::Types<CPUDevice<float>, CPUDevice<double>,
 typedef ::testing::Types<CPUDevice<float>, CPUDevice<double>,
                          GPUDevice<float>, GPUDevice<double>>
                          TestDtypesAndDevicesNoFP16;
-#endif
 
 typedef ::testing::Types<CPUDevice<float>, CPUDevice<double>> TestDtypesAndCPUOnly;
 

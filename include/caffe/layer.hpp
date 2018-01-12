@@ -570,7 +570,6 @@ inline float Layer<Ftype, Btype>::Forward(const vector<Blob*>& bottom, const vec
       break;
     case Caffe::GPU:
       Forward_gpu(bottom, top);
-#ifndef CPU_ONLY
       for (int top_id = 0; top_id < top.size(); ++top_id) {
         if (this->loss(top_id) == 0.F) { continue; }
         const int count = top[top_id]->count();
@@ -585,7 +584,6 @@ inline float Layer<Ftype, Btype>::Forward(const vector<Blob*>& bottom, const vec
           loss += blob_loss;
         }
       }
-#endif
       break;
     default:
       LOG(FATAL) << "Unknown caffe mode.";

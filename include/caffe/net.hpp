@@ -268,9 +268,7 @@ class Net {
     return trained_layers_shared_;
   }
 
-#ifndef CPU_ONLY
   void InitializeLearnableDiffSpace(int type_id);
-#endif
 
   void wait_layers_init() {
     for (Flag* flag : layer_inititialized_flags_) {
@@ -293,15 +291,11 @@ class Net {
   void update_grad_scale();
 
   std::string print_current_device() const {
-#ifndef CPU_ONLY
     std::ostringstream os;
     os << (phase_ == TRAIN ? "[" : "(")
        << Caffe::current_device()
        << (phase_ == TRAIN ? "]" : ")");
     return os.str();
-#else
-    return std::string();
-#endif
   }
 
   template <typename Ftype, typename Btype>
@@ -336,12 +330,10 @@ class Net {
   /// @brief Helper for displaying debug info in Update.
   void UpdateDebugInfo(const int param_id);
   /// @brief Multi-GPU reduction for a particular parameter.
-#ifndef CPU_ONLY
   void Reduce(int type_id, int param_id);
   /// @brief Multi-GPU reduction for a particular bucket of parameters.
   void ReduceBucket(int type_id, size_t count, Type bucket_type, void* bucket);
   size_t received_contiguous_count(int type_id, const std::set<int>& au_ids, int& from);
-#endif
 
   size_t lp_aligned_count(int id) const {
     return align_up<6>((size_t)learnable_params_[id]->count());
@@ -401,9 +393,7 @@ class Net {
 
   vector<Type> learnable_types_;
   vector<void*> learnable_params_ptrs_[2];
-#ifndef CPU_ONLY
   GPUMemory::Workspace learnable_space_[2];
-#endif
   size_t learnable_space_size_[2];
   /// layer_id->{paramss}
   std::map<size_t, std::set<int>> ltop_[2];
@@ -424,13 +414,12 @@ class Net {
   vector<float> params_weight_decay_;
   vector<bool> has_params_decay_;
   /// The bytes of memory __planned_to_be_used__ by this net
-#ifndef CPU_ONLY
+  // TODO: clean
   size_t gpu_top_memory_data_use_, gpu_top_memory_diff_use_;
   size_t gpu_btm_memory_data_use_, gpu_btm_memory_diff_use_;
   size_t gpu_shr_memory_data_use_, gpu_shr_memory_diff_use_;
   size_t gpu_prm_memory_data_use_, gpu_prm_memory_diff_use_;
   size_t gpu_shp_memory_data_use_, gpu_shp_memory_diff_use_;
-#endif
   unsigned int batch_per_solver_;
   /// Whether to compute and display debug info for the net.
   bool debug_info_;

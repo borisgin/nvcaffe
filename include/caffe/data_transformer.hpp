@@ -28,11 +28,9 @@ class DataTransformer {
    */
   void InitRand();
 
-#ifndef CPU_ONLY
   template<typename Dtype>
   void TransformGPU(int N, int C, int H, int W, size_t sizeof_element,
       const void* in, Dtype* out, const unsigned int* rands, bool signed_data);
-#endif
 
   /**
    * @brief Applies transformations defined in the data layer's
@@ -376,10 +374,8 @@ class DataTransformer {
   const float horizontal_stretch_lower_;
   const float horizontal_stretch_upper_;
   const bool allow_upscale_;
-
-#ifndef CPU_ONLY
   GPUMemory::Workspace mean_values_gpu_;
-#endif
+
   static constexpr double UM = static_cast<double>(UINT_MAX);
 };
 

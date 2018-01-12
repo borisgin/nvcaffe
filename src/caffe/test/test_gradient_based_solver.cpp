@@ -20,7 +20,7 @@ using std::ostringstream;
 namespace caffe {
 
 template <typename TypeParam>
-class GradientBasedSolverTest : public MultiDeviceTest<TypeParam> {
+class GradientBasedSolverTest : public GPUDeviceTest<TypeParam> {
   typedef typename TypeParam::Dtype Dtype;
 
  protected:
@@ -74,11 +74,9 @@ class GradientBasedSolverTest : public MultiDeviceTest<TypeParam> {
       const bool snapshot = false, const char* from_snapshot = NULL) {
     ostringstream proto;
     int device_id = 0;
-#ifndef CPU_ONLY
     if (Caffe::mode() == Caffe::GPU) {
       CUDA_CHECK(cudaGetDevice(&device_id));
     }
-#endif
     proto <<
        "snapshot_after_train: " << snapshot << " "
        "max_iter: " << num_iters << " "
@@ -475,11 +473,9 @@ class GradientBasedSolverTest : public MultiDeviceTest<TypeParam> {
     const int kNum = num_;
     // Test over all numbers of devices.
     int available_devices = 1;
-#ifndef CPU_ONLY
     if (Caffe::mode() == Caffe::GPU) {
       CUDA_CHECK(cudaGetDeviceCount(&available_devices));
     }
-#endif
     for (int devices = 1; devices <= available_devices; ++devices) {
       // Configure batch size for single / multi device equivalence.
       // Constant data is needed for multi device as for accumulation.

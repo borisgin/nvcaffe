@@ -199,16 +199,15 @@ void Solver::Step(int iters) {
   if (iters <= 0) {
     iter0_flag_.set();
     init_flag_.set();
-#ifdef CPU_ONLY
     return;
-#endif
   }
 
-#ifndef CPU_ONLY
-
-  const vector<Type>& ltypes = net_->learnable_types(true);
-  for (int type_id = 0; type_id < ltypes.size(); ++type_id) {
-    net_->InitializeLearnableDiffSpace(type_id);
+  vector<Type> ltypes;
+  if (Caffe::mode() == Caffe::GPU) {
+    ltypes = net_->learnable_types(true);
+    for (int type_id = 0; type_id < ltypes.size(); ++type_id) {
+      net_->InitializeLearnableDiffSpace(type_id);
+    }
   }
 
   if (solver_count > 1) {
@@ -229,23 +228,17 @@ void Solver::Step(int iters) {
   }
   const bool use_multi_gpu_testing = Caffe::solver_count() > 1;
   const string mgpu_str = use_multi_gpu_testing ? "[MultiGPU] " : "";
-#else
-  const bool use_multi_gpu_testing = false;
-  const string mgpu_str;
-#endif
 
   uint64_t random_seed = param_.random_seed() >= 0 ?
       static_cast<uint64_t>(param_.random_seed()) : Caffe::next_seed();
   reduce_thread0_.reset(new boost::thread(&Solver::Reduce, this, callback(),
       Caffe::current_device(), mode, random_seed, solver_count, root_solver, 0));
-#ifndef CPU_ONLY
   if (ltypes.size() > 1) {
     random_seed = param_.random_seed() >= 0 ?
                   static_cast<uint64_t>(param_.random_seed()) : Caffe::next_seed();
     reduce_thread1_.reset(new boost::thread(&Solver::Reduce, this, callback(),
         Caffe::current_device(), mode, random_seed, solver_count, root_solver, 1));
   }
-#endif
 
   while (iter_ < stop_iter) {
     if (param_.snapshot_diff()) {
@@ -290,13 +283,9 @@ void Solver::Step(int iters) {
       iteration_timer_->Start();
     }
 
-#ifndef CPU_ONLY
     for (int type_id = 0; type_id < ltypes.size(); ++type_id) {
       iteration_start_signal(type_id);
     }
-#else
-    iteration_start_signal(0);
-#endif
     for (int i = 0; i < param_.iter_size(); ++i) {
       loss += net_->ForwardBackward(i + 1 == param_.iter_size());
       if (i == 0) {
@@ -307,7 +296,6 @@ void Solver::Step(int iters) {
       }
     }
     loss /= param_.iter_size();
-#ifndef CPU_ONLY
     for (int type_id = 0; type_id < ltypes.size(); ++type_id) {
       iteration_wait(type_id);
       if (requested_early_exit_) {
@@ -322,25 +310,33 @@ void Solver::Step(int iters) {
       total_lapse_ += iteration_timer_->Seconds();
       break;
     }
-#else
-    iteration_wait(0);
-#endif
 
     // average the loss across iterations for smoothed reporting
     UpdateSmoothedLoss(loss, start_iter, average_loss);
     if (this->param_display() && (display || rel_iter <= 2 || iter_ + 1 >= stop_iter)) {
       float lapse = iteration_timer_->Seconds();
       iteration_timer_->Start();
+
+      std::ostringstream os_ep;
+      size_t epoch_count = Caffe::epoch_count();
+      if (epoch_count > 0UL) {
+        unsigned int bps = net_->batch_per_solver();
+        double epochs_passed = (double)(iter() * bps * Caffe::solver_count()) / epoch_count;
+        os_ep << f_round2(epochs_passed) << "ep, ";
+      }
+
       if (rel_iter > 2) {  // we skip 0,1,2 for correct benchmarking
         total_lapse_ += lapse;
         float per_s = (iter_ - iterations_last_) / (lapse > 0.F ? lapse : 1.F);
         LOG_IF(INFO, Caffe::root_solver()) << "Iteration " << iter_
                                            << " (" << per_s << " iter/s, " << lapse << "s/"
-                                           << (iter_ - iterations_last_) << " iter), loss = "
+                                           << (iter_ - iterations_last_) << " iter), "
+                                           << os_ep.str() << "loss = "
                                            << smoothed_loss_;
       } else {
         LOG_IF(INFO, Caffe::root_solver()) << "Iteration " << iter_
-                                           << " (" << lapse << " s), loss = " << smoothed_loss_;
+                                           << " (" << lapse << " s), "
+                                           << os_ep.str() << "loss = " << smoothed_loss_;
       }
       const vector<Blob*>& result = net_->output_blobs();
       int score_index = 0;
@@ -400,14 +396,12 @@ void Solver::Finalize() {
 void Solver::Reduce(Callback* callback, int device, Caffe::Brew mode, uint64_t random_seed,
     int solver_count, bool root_solver, int type_id) {
   set_callback(callback);
-#ifndef CPU_ONLY
   if (mode == Caffe::GPU) {
     CUDA_CHECK(cudaSetDevice(device));
 #ifndef NO_NVML
     nvml::setCpuAffinity();
 #endif
   }
-#endif
   Caffe::set_mode(mode);
   Caffe::set_random_seed(random_seed);
   Caffe::set_solver_count(solver_count);

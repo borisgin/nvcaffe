@@ -80,6 +80,10 @@ class BasePrefetchingDataLayer : public BaseDataLayer<Ftype, Btype>, public Inte
     return use_gpu && Caffe::mode() == Caffe::GPU && !use_rand_resize;
   }
 
+  int batch_size() const {
+    return batch_size_;
+  }
+
  protected:
   void InternalThreadEntry() override;
   void InternalThreadEntryN(size_t thread_id) override;

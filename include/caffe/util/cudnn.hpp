@@ -49,8 +49,6 @@ class dataType<double> {
   static const void *one, *zero;
 };
 
-#ifndef CPU_ONLY
-
 template<>
 class dataType<float16> {
  public:
@@ -60,8 +58,6 @@ class dataType<float16> {
   static const void *one, *zero;
 };
 
-#endif
-
 inline
 const void* one(Type type) {
   const void* ret = nullptr;
@@ -69,11 +65,9 @@ const void* one(Type type) {
     case FLOAT:
       ret = dataType<float>::one;
       break;
-#ifndef CPU_ONLY
     case FLOAT16:
       ret = dataType<float16>::one;
       break;
-#endif
     case DOUBLE:
       ret = dataType<double>::one;
       break;
@@ -91,11 +85,9 @@ const void* zero(Type type) {
     case FLOAT:
       ret = dataType<float>::zero;
       break;
-#ifndef CPU_ONLY
     case FLOAT16:
       ret = dataType<float16>::zero;
       break;
-#endif
     case DOUBLE:
       ret = dataType<double>::zero;
       break;
@@ -113,7 +105,6 @@ cudnnDataType_t cudnn_data_type(Type math) {
     case FLOAT:
       ret = dataType<float>::conv_type;
       break;
-#ifndef CPU_ONLY
     case FLOAT16:
       if (caffe::Caffe::device_capability(caffe::Caffe::current_device()) >= 600) {
         ret = dataType<float16>::conv_type;
@@ -121,7 +112,6 @@ cudnnDataType_t cudnn_data_type(Type math) {
         ret = dataType<float>::conv_type;
       }
       break;
-#endif
     case DOUBLE:
       ret = dataType<double>::conv_type;
       break;

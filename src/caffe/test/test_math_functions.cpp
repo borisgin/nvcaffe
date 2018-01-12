@@ -50,16 +50,10 @@ class MathFunctionsTest : public MultiDeviceTest<TypeParam> {
         val = static_cast<uint64_t>(x[i]) ^ static_cast<uint64_t>(y[i]);
       } else if (is_type<Dtype>(FLOAT)) {
         val = static_cast<uint32_t>(x[i]) ^ static_cast<uint32_t>(y[i]);
-      }
-
-#ifndef CPU_ONLY
-      else if (is_type<Dtype>(FLOAT16)) {
+      } else if (is_type<Dtype>(FLOAT16)) {
         val = reinterpret_cast<const float16*>(x + i)->getx() ^
             reinterpret_cast<const float16*>(y + i)->getx();
-      }
-#endif
-      // NOLINT_NEXT_LINE(readability/braces)
-      else {
+      } else {
         LOG(FATAL) << "Unrecognized Dtype size: " << sizeof(Dtype);
       }
       // Count the number of set bits
@@ -200,8 +194,6 @@ TYPED_TEST(CPUMathFunctionsTest, TestCopy) {
     EXPECT_EQ(bottom_data[i], top_data[i]);
   }
 }
-
-#ifndef CPU_ONLY
 
 template <typename Dtype>
 class GPUMathFunctionsTest : public MathFunctionsTest<GPUDevice<Dtype> > {
@@ -413,6 +405,5 @@ TYPED_TEST(GPUMathFunctionsTest, TestConvertToAndFrom16) {
         static_cast<float>(top_data_cpu[i]), 2.e-3) << " at i=" << i;
   }
 }
-#endif
 
 }  // namespace caffe

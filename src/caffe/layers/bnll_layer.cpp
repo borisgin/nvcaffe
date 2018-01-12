@@ -37,10 +37,6 @@ void BNLLLayer<Ftype, Btype>::Backward_cpu(const vector<Blob*>& top,
   }
 }
 
-#ifdef CPU_ONLY
-STUB_GPU(BNLLLayer);
-#endif
-
 INSTANTIATE_CLASS_FB(BNLLLayer);
 REGISTER_LAYER_CLASS(BNLL);
 

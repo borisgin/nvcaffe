@@ -397,7 +397,6 @@ TYPED_TEST(VarSzTransformsTest, TestVarSzImgCenterCrop) {
   this->Run(transform_param, 3, 3);
 }
 
-#ifndef CPU_ONLY
 // GPU-based transform tests
 template <typename Dtype>
 class GPUDataTransformTest : public GPUDeviceTest<Dtype> {
@@ -672,6 +671,5 @@ TYPED_TEST(GPUDataTransformTest, TestMeanFile) {
     EXPECT_EQ(blob.cpu_data()[j], 0);
   }
 }
-#endif
 
 }  // namespace caffe

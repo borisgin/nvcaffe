@@ -9,9 +9,6 @@
 # See https://github.com/NVIDIA/nccl
 # USE_NCCL := 1
 
-# CPU-only switch (uncomment to build without GPU support).
-# Disables FP16 support.
-# CPU_ONLY := 1
 # Builds tests with 16 bit float support in addition to 32 and 64 bit.
 # TEST_FP16 := 1
 

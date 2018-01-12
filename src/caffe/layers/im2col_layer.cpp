@@ -183,10 +183,6 @@ void Im2colLayer<Ftype, Btype>::Backward_cpu(const vector<Blob*>& top,
   }
 }
 
-#ifdef CPU_ONLY
-STUB_GPU(Im2colLayer);
-#endif
-
 INSTANTIATE_CLASS_FB(Im2colLayer);
 REGISTER_LAYER_CLASS(Im2col);
 

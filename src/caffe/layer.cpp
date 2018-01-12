@@ -94,15 +94,11 @@ int LayerBase::relative_iter() const {
 }
 
 std::string LayerBase::print_current_device() const {
-#ifndef CPU_ONLY
   std::ostringstream os;
   os << (phase_ == TRAIN ? "[" : "(")
       << Caffe::current_device()
       << (phase_ == TRAIN ? "]" : ")");
   return os.str();
-#else
-  return std::string();
-#endif
 }
 
 INSTANTIATE_CLASS_FB(Layer);

@@ -75,10 +75,6 @@ void LogLayer<Ftype, Btype>::Backward_cpu(const vector<Blob*>& top,
   caffe_mul(count, top_diff, bottom_diff, bottom_diff);
 }
 
-#ifdef CPU_ONLY
-STUB_GPU(LogLayer);
-#endif
-
 INSTANTIATE_CLASS_FB(LogLayer);
 REGISTER_LAYER_CLASS(Log);
 

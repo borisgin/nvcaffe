@@ -173,10 +173,6 @@ void BasePrefetchingDataLayer<Ftype, Btype>::Forward_cpu(const vector<Blob*>& bo
   this->batch_transformer_->processed_push(batch);
 }
 
-#ifdef CPU_ONLY
-STUB_GPU_FORWARD(BasePrefetchingDataLayer, Forward);
-#endif
-
 INSTANTIATE_CLASS_FB(BaseDataLayer);
 INSTANTIATE_CLASS_FB(BasePrefetchingDataLayer);
 

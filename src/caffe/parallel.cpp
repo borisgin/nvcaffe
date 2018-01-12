@@ -1,6 +1,4 @@
-#ifndef CPU_ONLY
 #include <cuda_runtime.h>
-#endif
 #include <glog/logging.h>
 #include <boost/thread.hpp>
 #include <boost/thread/latch.hpp>
@@ -34,7 +32,6 @@ P2PManager::P2PManager(shared_ptr<Solver> root_solver,
 }
 
 void P2PManager::Run(const vector<int>& gpus) {
-#ifndef CPU_ONLY
 #ifdef USE_NCCL
   CHECK_EQ(nranks_, gpus.size());
   CHECK_EQ(nranks_, Caffe::solver_count());
@@ -43,20 +40,17 @@ void P2PManager::Run(const vector<int>& gpus) {
 #else
   LOG(FATAL) << "Multi-GPU execution not available - rebuild with USE_NCCL";
 #endif  // USE_NCCL
-#endif  // CPU_ONLY
   SolverParameter param = root_solver_->param();
   this->shared_ = make_shared<SharedScores<float>>(nranks_);
   for (int i = 0; i < gpus.size(); ++i) {
     param.set_device_id(gpus[i]);
     syncs_[i].reset(new P2PSync(this, root_solver_, i, gpus.size(), param));
-#ifndef CPU_ONLY
 #ifdef USE_NCCL
     syncs_[i]->aux_[0] = &nccl_id_[0];
     syncs_[i]->aux_[1] = &nccl_id_[1];
 #else
     LOG(FATAL) << "Multi-GPU execution not available - rebuild with USE_NCCL";
 #endif  // USE_NCCL
-#endif  // CPU_ONLY
     syncs_[i]->shared_ = this->shared_;
   }
 
@@ -104,20 +98,14 @@ P2PSync::P2PSync(P2PManager* mgr, shared_ptr<Solver> root_solver,
 #ifndef USE_NCCL
   LOG(FATAL) << "USE_NCCL := 1 must be specified for multi-GPU";
 #endif
-#ifndef CPU_ONLY
   LOG(INFO) << "[" << rank << " - " << this->target_device_ << "] P2pSync adding callback";
   cublas_handle_ = nullptr;
-#else
-  NO_GPU;
-#endif
 }
 
 P2PSync::~P2PSync() {
-#ifndef CPU_ONLY
 #ifdef USE_NCCL
   ncclCommDestroy(nccl_comm_[0]);
   ncclCommDestroy(nccl_comm_[1]);
-#endif
 #endif
 }
 
@@ -134,7 +122,6 @@ void P2PSync::InternalThreadEntry() {
 
   CHECK_EQ(nranks_, Caffe::solver_count());
 
-#ifndef CPU_ONLY
 #ifdef USE_NCCL
   ncclUniqueId* nccl_id[2];
   nccl_id[0] = reinterpret_cast<ncclUniqueId*>(this->aux_[0]);
@@ -143,7 +130,6 @@ void P2PSync::InternalThreadEntry() {
   NCCL_CHECK(ncclCommInitRank(&nccl_comm_[0], nranks_, *nccl_id[0], rank_));
   NCCL_CHECK(ncclCommInitRank(&nccl_comm_[1], nranks_, *nccl_id[1], rank_));
   soft_barrier();
-#endif
 #endif
 
   LOG(INFO) << "[" << rank_ << " - " << target_device_ << "] P2pSync adding callback";
@@ -158,7 +144,6 @@ void P2PSync::InternalThreadEntry() {
     Caffe::set_random_seed(Caffe::SEED_NOT_SET);
   }
 
-#ifndef CPU_ONLY
   comm_stream_[0] = CudaStream::create(true);
   comm_stream_[1] = CudaStream::create(true);
   stream_ = Caffe::thread_pstream();
@@ -167,7 +152,6 @@ void P2PSync::InternalThreadEntry() {
   cudaStream_t stream;
   CUBLAS_CHECK(cublasGetStream(cublas_handle_->get(), &stream));
   CHECK_EQ(stream_->get(), stream);
-#endif
 
   if (solver_->Solve()) {
     mgr_->EarlyCancel(this);
@@ -175,20 +159,15 @@ void P2PSync::InternalThreadEntry() {
 }
 
 void P2PSync::soft_barrier() {
-#ifndef CPU_ONLY
   // CPU barrier to avoid busy-polling on the GPU.
   P2PManager::bar_wait();
-#endif
 }
 
 void P2PSync::reduce_barrier(int type_id) {
-#ifndef CPU_ONLY
   P2PManager::rbar_wait(type_id);
-#endif
 }
 
 void P2PSync::on_start(const vector<shared_ptr<Blob>>& net) {
-#ifndef CPU_ONLY
 #ifdef USE_NCCL
   int count = 0;
   NCCL_CHECK(ncclCommCount(nccl_comm_[0], &count));
@@ -204,11 +183,9 @@ void P2PSync::on_start(const vector<shared_ptr<Blob>>& net) {
   }
   CUDA_CHECK(cudaStreamSynchronize(comm_stream_[0]->get()));
 #endif  // USE_NCCL
-#endif
 }
 
 void P2PSync::allreduce(int type_id, int param_id) {
-#ifndef CPU_ONLY
 #ifdef USE_NCCL
   const shared_ptr<Blob>& param = solver_->net()->learnable_params()[param_id];
   NCCL_CHECK(ncclAllReduce(param->current_diff_memory(true),
@@ -220,11 +197,9 @@ void P2PSync::allreduce(int type_id, int param_id) {
       comm_stream_[type_id]->get()));
   CUDA_CHECK(cudaStreamSynchronize(comm_stream_[type_id]->get()));
 #endif  // USE_NCCL
-#endif  // CPU_ONLY
 }
 
 void P2PSync::allreduce_bucket(int type_id, size_t count, void* bucket, Type type) {
-#ifndef CPU_ONLY
 #ifdef USE_NCCL
   CHECK(bucket);
   NCCL_CHECK_ARG2(ncclAllReduce(bucket, bucket, count, nccl::nccl_type(type),
@@ -232,7 +207,6 @@ void P2PSync::allreduce_bucket(int type_id, size_t count, void* bucket, Type typ
                   Caffe::current_device(), comm_stream_[type_id]->get());
   CUDA_CHECK(cudaStreamSynchronize(comm_stream_[type_id]->get()));
 #endif  // USE_NCCL
-#endif  // CPU_ONLY
 }
 
 // master thread gets aggregate of results for output

@@ -6,14 +6,12 @@
 
 namespace caffe {
 
-#ifndef CPU_ONLY
 size_t Blob::gpu_memory_data_use(bool own_only) const {
   return data_tensor_->gpu_memory_use(own_only);
 }
 size_t Blob::gpu_memory_diff_use(bool own_only) const {
   return diff_tensor_->gpu_memory_use(own_only);
 }
-#endif
 
 void Blob::Reshape(const int num, const int channels, const int height,
     const int width) {
@@ -65,13 +63,10 @@ void Blob::Reshape(const BlobShape& shape) {
   Reshape(shape_vec);
 }
 
-#ifndef CPU_ONLY
 const int* Blob::gpu_shape() const {
   CHECK(shape_data_);
   return static_cast<const int*>(shape_data_->gpu_data());
 }
-
-#endif
 
 void Blob::ShareData(const Blob& other) {
   CHECK_NE(this, &other);
@@ -111,12 +106,8 @@ void Blob::Update() {
     break;
   case SyncedMemory::HEAD_AT_GPU:
   case SyncedMemory::SYNCED:
-#ifndef CPU_ONLY
     gpu_axpy(count_, data_type(), -1.F,
         diff_mem->gpu_data(), data_mem->mutable_gpu_data());
-#else
-    NO_GPU;
-#endif
     break;
     default:
     LOG(FATAL) << "Syncedmem not initialized.";
@@ -128,10 +119,8 @@ void Blob::Update() {
 float Blob::at(int offset, Type dtype, const void* data) {
   if (is_type<float>(dtype)) {
     return static_cast<const float*>(data)[offset];
-#ifndef CPU_ONLY
   } else if (is_type<float16>(dtype)) {
     return static_cast<const float16*>(data)[offset];
-#endif
   } else if (is_type<double>(dtype)) {
     return static_cast<const double*>(data)[offset];
   }
@@ -143,11 +132,9 @@ void Blob::cpu_axpy(int count, Type dtype, float alpha, const void* X, void* Y) 
   if (is_type<float>(dtype)) {
     caffe_axpy(count, alpha, static_cast<const float*>(X),
         static_cast<float*>(Y));
-#ifndef CPU_ONLY
   } else if (is_type<float16>(dtype)) {
     caffe_axpy(count, static_cast<float16>(alpha),
         static_cast<const float16*>(X), static_cast<float16*>(Y));
-#endif
   } else if (is_type<double>(dtype)) {
     caffe_axpy(count, static_cast<double>(alpha),
         static_cast<const double*>(X), static_cast<double*>(Y));
@@ -156,7 +143,6 @@ void Blob::cpu_axpy(int count, Type dtype, float alpha, const void* X, void* Y) 
   }
 }
 
-#ifndef CPU_ONLY
 void Blob::gpu_axpy(int count, Type dtype, float alpha, const void* X, void* Y) {
   if (is_type<float>(dtype)) {
     caffe_gpu_axpy(count, alpha, static_cast<const float*>(X),
@@ -171,7 +157,6 @@ void Blob::gpu_axpy(int count, Type dtype, float alpha, const void* X, void* Y) 
     LOG(FATAL) << "Unsupported data type: " << Type_Name(dtype);
   }
 }
-#endif
 
 bool Blob::ShapeEquals(const BlobProto& other) {
   if (other.has_num() || other.has_channels() ||
@@ -224,7 +209,6 @@ void Blob::CopyFrom(const Blob& source, bool copy_diff, bool reshape,
       return;
     }
     do {
-#ifndef CPU_ONLY
       if (src_type == dst_type) {
         CHECK_EQ(srct->count_, dstt->count_);
         // cross copy
@@ -244,7 +228,6 @@ void Blob::CopyFrom(const Blob& source, bool copy_diff, bool reshape,
           break;
         }
       }
-#endif
       // TODO use group
       Tensor::copy_helper(is_gpu, count_,
           is_gpu ? src->gpu_data() : src->cpu_data(), src_type,
@@ -317,12 +300,10 @@ void Blob::FromProto(const BlobProto& proto, bool reshape) {
         caffe_copy<float>(count_, reinterpret_cast<const float*>(&hd.front()),
             mutable_cpu_data<float>());
         break;
-#ifndef CPU_ONLY
       case FLOAT16:
         caffe_copy<float16>(count_, reinterpret_cast<const float16*>(&hd.front()),
             mutable_cpu_data<float16>());
         break;
-#endif
       case DOUBLE:
         caffe_copy<double>(count_, reinterpret_cast<const double*>(&hd.front()),
             mutable_cpu_data<double>());
@@ -357,12 +338,10 @@ void Blob::FromProto(const BlobProto& proto, bool reshape) {
         caffe_copy<float>(count_, reinterpret_cast<const float*>(&hd.front()),
             mutable_cpu_diff<float>());
         break;
-#ifndef CPU_ONLY
       case FLOAT16:
         caffe_copy<float16>(count_, reinterpret_cast<const float16*>(&hd.front()),
             mutable_cpu_diff<float16>());
         break;
-#endif
       case DOUBLE:
         caffe_copy<double>(count_, reinterpret_cast<const double*>(&hd.front()),
             mutable_cpu_diff<double>());

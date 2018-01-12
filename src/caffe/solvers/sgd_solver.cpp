@@ -206,24 +206,17 @@ void SGDSolver<Dtype>::Regularize(int param_id, void* handle) {
       }
     }
   } else if (Caffe::mode() == Caffe::GPU) {
-#ifndef CPU_ONLY
     //Fused with ComputeUpdateValue
-#else
-    NO_GPU;
-#endif
   } else {
     LOG(FATAL) << "Unknown caffe mode: " << Caffe::mode();
   }
 }
 
-#ifndef CPU_ONLY
 template<typename Gtype, typename Wtype, typename Htype>
 void sgd_reg_update_all_and_clear_gpu(int N,
     Gtype* g, Wtype* w, Htype* h,
     float momentum, float local_rate, const std::string& regularization_type, float local_decay,
     void* handle, bool clear_grads);
-#endif
-
 
 template<typename Dtype>
 float SGDSolver<Dtype>::ComputeUpdateValue(int param_id, void* handle, float rate,
@@ -231,8 +224,8 @@ float SGDSolver<Dtype>::ComputeUpdateValue(int param_id, void* handle, float rat
   if (this->param_.debug_info()) {
     PrintParams(param_id);
   }
-  shared_ptr<Blob> param = this->net_->learnable_params()[param_id];
-  shared_ptr<TBlob<Dtype>> history = history_[param_id];
+  Blob* param = this->net_->learnable_params()[param_id].get();
+  TBlob<Dtype>* history = history_[param_id].get();
   float momentum = GetMomentum();
   float wgrad_sq = 0.F;
 
@@ -262,7 +255,6 @@ float SGDSolver<Dtype>::ComputeUpdateValue(int param_id, void* handle, float rat
       param->set_diff(0.F);
     }
   } else if (Caffe::mode() == Caffe::GPU) {
-#ifndef CPU_ONLY
     const std::string& regularization_type = this->param_.regularization_type();
     float decay = local_decay(param_id);
     const Type wtype = param->data_type();
@@ -296,9 +288,6 @@ float SGDSolver<Dtype>::ComputeUpdateValue(int param_id, void* handle, float rat
     } else {
       LOG(FATAL) << "Gradient type " << Type_Name(gtype) << " is not supported";
     }
-#else
-    NO_GPU;
-#endif
   } else {
     LOG(FATAL) << "Unknown caffe mode: " << Caffe::mode();
   }

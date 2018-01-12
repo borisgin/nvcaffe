@@ -115,10 +115,6 @@ void FilterLayer<Ftype, Btype>::Backward_cpu(const vector<Blob*>& top,
   }
 }
 
-#ifdef CPU_ONLY
-STUB_GPU(FilterLayer);
-#endif
-
 INSTANTIATE_CLASS_FB(FilterLayer);
 REGISTER_LAYER_CLASS(Filter);
 

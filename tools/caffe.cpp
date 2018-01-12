@@ -79,12 +79,7 @@ static BrewFunction GetBrewFunction(const caffe::string& name) {
 // Parse GPU ids or use all available devices
 static void get_gpus(vector<int>* gpus) {
   if (FLAGS_gpu == "all") {
-    int count = 0;
-#ifndef CPU_ONLY
-    CUDA_CHECK(cudaGetDeviceCount(&count));
-#else
-    NO_GPU;
-#endif
+    const int count = Caffe::device_count();
     for (int i = 0; i < count; ++i) {
       gpus->push_back(i);
     }
@@ -173,9 +168,7 @@ int train() {
   // Read flags for list of GPUs
   vector<int> gpus;
   get_gpus(&gpus);
-#ifndef CPU_ONLY
   caffe::GPUMemory::Scope gpu_memory_scope(gpus);
-#endif
   // Set mode and device id[s]
   if (gpus.size() == 0) {
     LOG(INFO) << "Use CPU.";
@@ -188,7 +181,6 @@ int train() {
 
     LOG(INFO) << "Using GPUs " << s.str();
     int dev_id = 0;
-#ifndef CPU_ONLY
     cudaDeviceProp device_prop;
     for (int i = 0; i < gpus.size(); ++i) {
       cudaGetDeviceProperties(&device_prop, gpus[i]);
@@ -199,7 +191,6 @@ int train() {
     }
     CUDA_CHECK(cudaSetDevice(gpus[dev_id]));
     Caffe::SetDevice(gpus[dev_id]);
-#endif
     solver_param.set_device_id(gpus[dev_id]);
     Caffe::set_mode(Caffe::GPU);
     Caffe::set_gpus(gpus);
@@ -255,21 +246,17 @@ int test() {
     LOG(INFO) << "Not using GPU #" << gpus.back() << " for single-GPU function";
     gpus.pop_back();
   }
-#ifndef CPU_ONLY
   if (gpus.size() > 0) {
     Caffe::SetDevice(gpus[0]);
   }
   caffe::GPUMemory::Scope gpu_memory_scope(gpus);
-#endif
 
   // Set mode and device id
   if (gpus.size() != 0) {
     LOG(INFO) << "Use GPU with device ID " << gpus[0];
-#ifndef CPU_ONLY
     cudaDeviceProp device_prop;
     cudaGetDeviceProperties(&device_prop, gpus[0]);
     LOG(INFO) << "GPU device name: " << device_prop.name;
-#endif
     Caffe::set_mode(Caffe::GPU);
   } else {
     LOG(INFO) << "Use CPU.";
@@ -329,7 +316,6 @@ RegisterBrewFunction(test);
 int time() {
   CHECK_GT(FLAGS_model.size(), 0) << "Need a model definition to time.";
   vector<int> gpus;
-#ifndef CPU_ONLY
   // Read flags for list of GPUs
   get_gpus(&gpus);
   while (gpus.size() > 1) {
@@ -341,15 +327,12 @@ int time() {
     Caffe::SetDevice(gpus[0]);
   }
   caffe::GPUMemory::Scope gpu_memory_scope(gpus);
-#endif
   // Set mode and device_id
   if (gpus.size() != 0) {
     LOG(INFO) << "Use GPU with device ID " << gpus[0];
-#ifndef CPU_ONLY
     cudaDeviceProp device_prop;
     cudaGetDeviceProperties(&device_prop, gpus[0]);
     LOG(INFO) << "GPU " << gpus[0] << ": " << device_prop.name;
-#endif
     Caffe::set_mode(Caffe::GPU);
   } else {
     LOG(INFO) << "Use CPU.";
@@ -463,20 +446,16 @@ int main(int argc, char** argv) {
 
   vector<int> gpus;
   get_gpus(&gpus);
-#ifndef CPU_ONLY
   if (gpus.size() > 0) {
     Caffe::SetDevice(gpus[0]);
   }
-#endif
 
   LOG(INFO) << "This is NVCaffe " << Caffe::caffe_version()
             << " started at " << Caffe::start_time();
-#ifndef CPU_ONLY
   LOG(INFO) << "CuDNN version: " << Caffe::cudnn_version();
   LOG(INFO) << "CuBLAS version: " << Caffe::cublas_version();
   LOG(INFO) << "CUDA version: " << Caffe::cuda_version();
   LOG(INFO) << "CUDA driver version: " << Caffe::cuda_driver_version();
-#endif
 
   if (argc == 2) {
 #ifdef WITH_PYTHON_LAYER

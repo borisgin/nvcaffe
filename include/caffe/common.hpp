@@ -42,24 +42,16 @@
 #include <utility>  // pair
 #include <vector>
 
-#ifndef CPU_ONLY
-#  ifdef USE_CUDNN
-#    include <cudnn.h>
-#  endif
-#  include "caffe/util/device_alternate.hpp"
+#ifdef USE_CUDNN
+#  include <cudnn.h>
 #endif
-
-#if defined(CPU_ONLY) && defined(USE_CUDNN)
-  #error "USE_CUDNN mode is not compatible with CPU_ONLY"
-#endif
+#include "caffe/util/device_alternate.hpp"
 
 #include "caffe/util/float16.hpp"
-#ifndef CPU_ONLY
-#  if CUDA_VERSION >= 8000
-#    define CAFFE_DATA_HALF CUDA_R_16F
-#  else
-#    define CAFFE_DATA_HALF CUBLAS_DATA_HALF
-#  endif
+#if CUDA_VERSION >= 8000
+#  define CAFFE_DATA_HALF CUDA_R_16F
+#else
+#  define CAFFE_DATA_HALF CUBLAS_DATA_HALF
 #endif
 // Convert macro to string
 #define STRINGIFY(m) #m
@@ -94,13 +86,6 @@ namespace gflags = google;
   template class classname<double, double>
 
 // Instantiate a class with float and double specifications.
-#ifdef CPU_ONLY
-
-# define INSTANTIATE_CLASS(classname)    INSTANTIATE_CLASS_CPU(classname)
-# define INSTANTIATE_CLASS_FB(classname) INSTANTIATE_CLASS_CPU_FB(classname)
-
-#else
-
 # define INSTANTIATE_CLASS(classname) \
     INSTANTIATE_CLASS_CPU(classname); \
     template class classname<float16>
@@ -118,11 +103,6 @@ namespace gflags = google;
       const std::vector<Blob*>& bottom, \
       const std::vector<Blob*>& top); \
   template void classname<double>::Forward_gpu( \
-      const std::vector<Blob*>& bottom, \
-      const std::vector<Blob*>& top)
-
-# define INSTANTIATE_LAYER_GPU_FORWARD_F16(classname) \
-  template void classname<float16>::Forward_gpu( \
       const std::vector<Blob*>& bottom, \
       const std::vector<Blob*>& top)
 
@@ -219,7 +199,6 @@ namespace gflags = google;
     INSTANTIATE_LAYER_GPU_BACKWARD_FB(classname, member); \
     INSTANTIATE_LAYER_GPU_BACKWARD_F16_FB(classname, member)
 
-#endif
 
 // A simple macro to mark codes that are not implemented, so that when the code
 // is executed we will see a fatal log.
@@ -258,8 +237,22 @@ using boost::upgrade_lock;
 using boost::unique_lock;
 using boost::upgrade_to_unique_lock;
 
+template<typename Dtype>
+void atomic_maximum(std::atomic<Dtype>& max_val, Dtype const& new_val) noexcept {
+  Dtype prev_val = std::atomic_load(&max_val);
+  while (prev_val < new_val &&
+         !max_val.compare_exchange_weak(prev_val, new_val)) {}
+}
+
+template<typename Dtype>
+void atomic_minimum(std::atomic<Dtype>& min_val, Dtype const& new_val) noexcept {
+  Dtype prev_val = std::atomic_load(&min_val);
+  while (prev_val > new_val &&
+         !min_val.compare_exchange_weak(prev_val, new_val)) {}
+}
+
+
 // Shared CUDA Stream for correct life cycle management
-// Has no meaning for CPU_ONLY
 class CudaStream {
   explicit CudaStream(bool high_priority);
 
@@ -271,25 +264,15 @@ class CudaStream {
     return pstream;
   }
 
-  DISABLE_COPY_MOVE_AND_ASSIGN(CudaStream);
-
-#ifndef CPU_ONLY
   cudaStream_t get() const {
     return stream_;
   }
 
  private:
   cudaStream_t stream_;
-
-  static int current_device() {
-    int device;
-    CUDA_CHECK(cudaGetDevice(&device));
-    return device;
-  }
-#endif
+  DISABLE_COPY_MOVE_AND_ASSIGN(CudaStream);
 };
 
-#ifndef CPU_ONLY
 struct CuBLASHandle {
   CuBLASHandle();
   explicit CuBLASHandle(cudaStream_t stream);
@@ -315,7 +298,6 @@ struct CuDNNHandle {
   cudnnHandle_t handle_;
   DISABLE_COPY_MOVE_AND_ASSIGN(CuDNNHandle);
 };
-#endif
 #endif
 
 // A global initialization function that you should call in your main function.
@@ -356,7 +338,6 @@ class Caffe {
     }
     return *(Get().random_generator_);
   }
-#ifndef CPU_ONLY
   static shared_ptr<CudaStream> thread_pstream(int group = 0) {
     return Get().pstream(group);
   }
@@ -380,7 +361,19 @@ class Caffe {
     return Get().th_cudnn_handle(group);
   }
 #endif
-#endif
+
+  static void report_epoch_count(size_t rec) {
+    atomic_minimum(epoch_count_, rec);
+  }
+
+  static size_t epoch_count() {
+    size_t count = epoch_count_.load();
+    if (count == (size_t)-1L) {
+      count = 0UL;
+    }
+    return count;
+  }
+
 
   // Returns the mode: running on CPU or GPU.
   static Brew mode() {
@@ -396,6 +389,9 @@ class Caffe {
       LOG(ERROR) << "Cannot set GPU mode: no device detected";
       return;
     }
+    DLOG(INFO) << "Caffe " << &Get() << "[" << Get().current_device() << "] old mode "
+               << (Get().mode_ == Caffe::GPU ? "GPU" : "CPU")  << " new mode "
+               << (mode == Caffe::GPU ? "GPU" : "CPU");
     Get().mode_ = mode;
   }
   // Next seed. It's deterministic if root seed is already set.
@@ -464,24 +460,17 @@ class Caffe {
   static int device_capability(int device) {
     return props().device_capability(device);
   }
-
   static int current_device() {
-#ifndef CPU_ONLY
     int device = 0;
     cudaGetDevice(&device);
     return device;
-#else
-    return 0;
-#endif
   }
 
-#ifndef CPU_ONLY
   /**
    * Minimum memory available across all deviced currently used
    * @return size_t
    */
   static size_t min_avail_device_memory();
-#endif
 
   static int thread_count() {
     return thread_count_;
@@ -492,17 +481,14 @@ class Caffe {
   static constexpr int GPU_TRANSF_GROUP = 2;
 
  protected:
-#ifndef CPU_ONLY
   vector<shared_ptr<CudaStream>> streams_;
   shared_ptr<CudaStream> pstream(int group = 0);
   vector<shared_ptr<CuBLASHandle>> cublas_handles_;
   shared_ptr<CuBLASHandle> th_cublas_handle(int group = 0);
   curandGenerator_t curand_generator_;
-
 #ifdef USE_CUDNN
   vector<shared_ptr<CuDNNHandle>> cudnn_handles_;
   cudnnHandle_t th_cudnn_handle(int group = 0);
-#endif
 #endif
 
   shared_ptr<RNG> random_generator_;
@@ -517,7 +503,10 @@ class Caffe {
   static int restored_iter_;
   static std::atomic<uint64_t> root_seed_;
   static std::mutex caffe_mutex_, pstream_mutex_, cublas_mutex_, cudnn_mutex_, seed_mutex_;
-  static std::unordered_map<std::thread::id, std::shared_ptr<Caffe>> thread_instance_map_;
+  static std::vector<std::shared_ptr<std::unordered_map<std::thread::id, std::shared_ptr<Caffe>>>>
+      instance_map_;
+
+  static std::atomic_ulong epoch_count_;
   shared_ptr<CudaStream> curand_stream_;
 
  private:
@@ -773,12 +762,10 @@ template<> class TypedConsts<float>  {
  public:
   static const float zero, one;
 };
-#ifndef CPU_ONLY
 template<> class TypedConsts<float16>  {
  public:
   static const float16 zero, one;
 };
-#endif
 template<> class TypedConsts<int>  {
  public:
   static const int zero, one;
@@ -795,7 +782,6 @@ template <>
 CAFFE_UTIL_IHD float max_dtype<float>() {
   return FLT_MAX;
 }
-#ifndef CPU_ONLY
 template <>
 CAFFE_UTIL_IHD float16 max_dtype<float16>() {
   float16 ret;
@@ -813,7 +799,6 @@ CAFFE_UTIL_IHD half max_dtype<half>() {
     return ret;
 }
 #endif
-#endif
 
 // Normalized minimums:
 template <typename Dtype>
@@ -826,7 +811,6 @@ template <>
 CAFFE_UTIL_IHD float min_dtype<float>() {
   return FLT_MIN;
 }
-#ifndef CPU_ONLY
 template <>
 CAFFE_UTIL_IHD float16 min_dtype<float16>() {
   float16 ret;
@@ -844,7 +828,6 @@ CAFFE_UTIL_IHD half min_dtype<half>() {
   return ret;
 }
 #endif
-#endif
 
 template <typename Dtype>
 CAFFE_UTIL_IHD Dtype epsilon_dtype();
@@ -856,8 +839,6 @@ template <>
 CAFFE_UTIL_IHD float epsilon_dtype<float>() {
   return FLT_EPSILON;
 }
-
-#ifndef CPU_ONLY
 template <>
 CAFFE_UTIL_IHD float16 epsilon_dtype<float16>() {
   float16 ret;
@@ -871,7 +852,6 @@ CAFFE_UTIL_IHD half epsilon_dtype<half>() {
   ret.setx(0x1001U);
   return ret;
 }
-#endif
 #endif
 
 template <typename Dtype> constexpr
@@ -892,18 +872,9 @@ CAFFE_UTIL_IHD Dtype tol(Dtype fine, Dtype coarse) {
   return is_precise<Dtype>() ? fine : coarse;
 }
 
-template<typename Dtype>
-void atomic_maximum(std::atomic<Dtype>& max_val, Dtype const& new_val) noexcept {
-    Dtype prev_val = std::atomic_load(&max_val);
-    while (prev_val < new_val &&
-        !max_val.compare_exchange_weak(prev_val, new_val)) {}
-}
-
-template<typename Dtype>
-void atomic_minimum(std::atomic<Dtype>& min_val, Dtype const& new_val) noexcept {
-  Dtype prev_val = std::atomic_load(&min_val);
-  while (prev_val > new_val &&
-         !min_val.compare_exchange_weak(prev_val, new_val)) {}
+template <typename Dtype>
+CAFFE_UTIL_IHD Dtype tol2(Dtype fine, Dtype coarse, Dtype cpu_tol) {
+  return Caffe::mode() == Caffe::CPU ? cpu_tol : (is_precise<Dtype>() ? fine : coarse);
 }
 
 template <typename Dtype>

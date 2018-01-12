@@ -74,7 +74,6 @@ void hdf5_load_nd_dataset(hid_t file_id, const char* dataset_name_,
     status = H5LTread_dataset_double(
         file_id, dataset_name_, blob->mutable_cpu_data<double>());
   }
-#ifndef CPU_ONLY
   else if (is_type<float16>(blob->data_type())) {
     const int count = blob->count();
     std::vector<float> buf(count);
@@ -86,7 +85,6 @@ void hdf5_load_nd_dataset(hid_t file_id, const char* dataset_name_,
           blob->mutable_cpu_data<float16>());
     }
   }
-#endif
   // NOLINT_NEXT_LINE(readability/braces)
   else {
     LOG(FATAL) << "Unsupported data type: " << Type_Name(blob->data_type());
@@ -115,9 +113,7 @@ void hdf5_save_nd_dataset(hid_t file_id, const string& dataset_name,
         blob.cpu_diff<double>() :  blob.cpu_data<double>();
     status = H5LTmake_dataset_double(file_id, dataset_name.c_str(), num_axes,
         &dims.front(), data);
-  }
-#ifndef CPU_ONLY
-  else if (is_type<float16>(blob.data_type())) {
+  } else if (is_type<float16>(blob.data_type())) {
     const float16* data = write_diff ?
         blob.cpu_diff<float16>() : blob.cpu_data<float16>();
     const int count = blob.count();
@@ -126,10 +122,7 @@ void hdf5_save_nd_dataset(hid_t file_id, const string& dataset_name,
     caffe_cpu_convert(count, data, &buf.front());
     status = H5LTmake_dataset_float(file_id, dataset_name.c_str(),
         num_axes, &dims.front(), &buf.front());
-  }
-#endif
-  // NOLINT_NEXT_LINE(readability/braces)
-  else {
+  } else {
     LOG(FATAL) << "Unsupported data type: " << Type_Name(blob.data_type());
   }
   CHECK_GE(status, 0) << "Failed to write dataset " << dataset_name;

@@ -98,8 +98,6 @@ class BaseConvolutionLayer : public Layer<Ftype, Btype> {
         input, bias_multiplier_.template cpu_data<Dtype>(), (Dtype)1., bias);
   }
 
-#ifndef CPU_ONLY
-
   template <typename Dtype>
   void forward_gpu_gemm(const Dtype* input, const Dtype* weights, Dtype* output,
       bool skip_im2col = false) {
@@ -165,8 +163,6 @@ class BaseConvolutionLayer : public Layer<Ftype, Btype> {
     caffe_gpu_gemv(CblasNoTrans, num_output_, out_spatial_dim_, (Dtype)1.,
         input, bias_multiplier_.template gpu_data<Dtype>(), (Dtype)1., bias);
   }
-
-#endif
 
   /// @brief The spatial dimensions of the input.
   inline int input_shape(int i) {
@@ -241,7 +237,7 @@ class BaseConvolutionLayer : public Layer<Ftype, Btype> {
           pad_.cpu_data(), stride_.cpu_data(), dilation_.cpu_data(), data);
     }
   }
-#ifndef CPU_ONLY
+
   template <typename Dtype>
   inline void conv_im2col_gpu(const Dtype* data, Dtype* col_buff) {
     if (!force_nd_im2col_ && num_spatial_axes_ == 2) {
@@ -258,6 +254,7 @@ class BaseConvolutionLayer : public Layer<Ftype, Btype> {
           stride_.gpu_data(), dilation_.gpu_data(), col_buff);
     }
   }
+
   template <typename Dtype>
   inline void conv_col2im_gpu(const Dtype* col_buff, Dtype* data) {
     if (!force_nd_im2col_ && num_spatial_axes_ == 2) {
@@ -274,7 +271,6 @@ class BaseConvolutionLayer : public Layer<Ftype, Btype> {
           dilation_.gpu_data(), data);
     }
   }
-#endif
 
   int num_kernels_im2col_;
   int num_kernels_col2im_;

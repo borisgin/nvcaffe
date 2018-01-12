@@ -1,5 +1,3 @@
-#ifndef CPU_ONLY
-
 #include <cstdio>
 #include <cstdlib>
 
@@ -53,5 +51,3 @@ TEST_F(PlatformTest, TestInitialization) {
 }
 
 }  // namespace caffe
-
-#endif  // CPU_ONLY

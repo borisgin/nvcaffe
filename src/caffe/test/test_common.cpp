@@ -3,18 +3,13 @@
 #include "caffe/common.hpp"
 #include "caffe/syncedmem.hpp"
 #include "caffe/util/math_functions.hpp"
-
 #include "caffe/test/test_caffe_main.hpp"
 
-#ifndef CPU_ONLY
 #include "cub/util_allocator.cuh"
-#endif
 
 namespace caffe {
 
 class CommonTest : public ::testing::Test {};
-
-#ifndef CPU_ONLY  // GPU Caffe singleton test.
 
 TEST_F(CommonTest, TestCublasHandlerGPU) {
   int cuda_device_id;
@@ -27,16 +22,12 @@ TEST_F(CommonTest, TestDeviceQuery) {
   EXPECT_TRUE(dq.find("No") == 0UL || dq.find("Dev") == 0UL);
 }
 
-#endif
-
 TEST_F(CommonTest, TestBrewMode) {
   Caffe::Brew current_mode = Caffe::mode();
   Caffe::set_mode(Caffe::CPU);
   EXPECT_EQ(Caffe::mode(), Caffe::CPU);
-#ifndef CPU_ONLY
   Caffe::set_mode(Caffe::GPU);
   EXPECT_EQ(Caffe::mode(), Caffe::GPU);
-#endif
   Caffe::set_mode(current_mode);
 }
 
@@ -54,8 +45,6 @@ TEST_F(CommonTest, TestRandSeedCPU) {
         static_cast<const int*>(data_b.cpu_data())[i]);
   }
 }
-
-#ifndef CPU_ONLY  // GPU Caffe singleton test.
 
 TEST_F(CommonTest, TestRandSeedGPU) {
   SyncedMemory data_a(10 * sizeof(unsigned int));
@@ -97,7 +86,5 @@ TEST_F(CommonTest, TestCUBNearestPowerOf2) {
     EXPECT_EQ(pow2(power), rounded_bytes);
   }
 }
-
-#endif
 
 }  // namespace caffe

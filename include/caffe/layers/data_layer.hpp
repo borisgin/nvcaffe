@@ -58,10 +58,7 @@ class DataLayer : public BasePrefetchingDataLayer<Ftype, Btype> {
   }
 
   std::shared_ptr<DataReader> sample_reader_, reader_;
-
-#ifndef CPU_ONLY
   vector<shared_ptr<GPUMemory::Workspace>> tmp_gpu_buffer_;
-#endif
 
   // stored random numbers for this batch
   vector<shared_ptr<TBlob<unsigned int>>> random_vectors_;

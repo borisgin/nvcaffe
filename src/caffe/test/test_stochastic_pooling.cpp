@@ -66,8 +66,6 @@ TYPED_TEST(CPUStochasticPoolingLayerTest, TestSetup) {
   EXPECT_EQ(this->blob_top_->width(), 2);
 }
 
-#ifndef CPU_ONLY
-
 template <typename Dtype>
 class GPUStochasticPoolingLayerTest
   : public StochasticPoolingLayerTest<GPUDevice<Dtype> > {
@@ -172,7 +170,5 @@ TYPED_TEST(GPUStochasticPoolingLayerTest, TestGradient) {
   checker.CheckGradient(&layer, this->blob_bottom_vec_,
       this->blob_top_vec_);
 }
-
-#endif
 
 }  // namespace caffe

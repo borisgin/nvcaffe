@@ -28,7 +28,7 @@ THIRDPARTY_DIR := ./3rdparty
 
 # All of the directories containing code.
 SRC_DIRS := $(shell find * -type d -exec bash -c "find {} -maxdepth 1 \
-	\( -name '*.cpp' -o -name '*.proto' \) | grep -q ." \; -print)
+	\( -name '*.cpp' -o -name '*.proto' \) | grep -q ." \; -print 2>/dev/null)
 
 # The target shared library name
 LIBRARY_NAME := $(PROJECT)$(LIBRARY_NAME_SUFFIX)
@@ -184,13 +184,11 @@ endif
 CUDA_LIB_DIR += $(CUDA_DIR)/lib
 
 INCLUDE_DIRS += $(BUILD_INCLUDE_DIR) ./src ./include $(THIRDPARTY_DIR) /usr/include/hdf5/serial
-ifneq ($(CPU_ONLY), 1)
-	INCLUDE_DIRS += $(CUDA_INCLUDE_DIR)
-	LIBRARY_DIRS += $(CUDA_LIB_DIR)
-	LIBRARIES := cudart cublas curand
+INCLUDE_DIRS += $(CUDA_INCLUDE_DIR)
+LIBRARY_DIRS += $(CUDA_LIB_DIR)
+LIBRARIES := cudart cublas curand
 ifneq ($(NO_NVML), 1)
 	LIBRARIES += nvidia-ml
-endif
 endif
 
 # Note: libturbojpeg has a packaging bug. Workaround:
@@ -303,23 +301,21 @@ endif
 # libstdc++ for NVCC compatibility on OS X >= 10.9 with CUDA < 7.0
 ifeq ($(OSX), 1)
 	CXX := /usr/bin/clang++
-	ifneq ($(CPU_ONLY), 1)
-		CUDA_VERSION := $(shell $(CUDA_DIR)/bin/nvcc -V | grep -o 'release [0-9.]*' | grep -o '[0-9.]*')
-		ifeq ($(shell echo | awk '{exit $(CUDA_VERSION) < 7.0;}'), 1)
-			CXXFLAGS += -stdlib=libstdc++
-			LINKFLAGS += -stdlib=libstdc++
-		endif
-		# clang throws this warning for cuda headers
-		WARNINGS += -Wno-unneeded-internal-declaration
-		# 10.11 strips DYLD_* env vars so link CUDA (rpath is available on 10.5+)
-		OSX_10_OR_LATER   := $(shell [ $(OSX_MAJOR_VERSION) -ge 10 ] && echo true)
-		OSX_10_5_OR_LATER := $(shell [ $(OSX_MINOR_VERSION) -ge 5 ] && echo true)
-		ifeq ($(OSX_10_OR_LATER),true)
-			ifeq ($(OSX_10_5_OR_LATER),true)
-				LDFLAGS += -Wl,-rpath,$(CUDA_LIB_DIR)
-			endif
-		endif
-	endif
+    CUDA_VERSION := $(shell $(CUDA_DIR)/bin/nvcc -V | grep -o 'release [0-9.]*' | grep -o '[0-9.]*')
+    ifeq ($(shell echo | awk '{exit $(CUDA_VERSION) < 7.0;}'), 1)
+        CXXFLAGS += -stdlib=libstdc++
+        LINKFLAGS += -stdlib=libstdc++
+    endif
+    # clang throws this warning for cuda headers
+    WARNINGS += -Wno-unneeded-internal-declaration
+    # 10.11 strips DYLD_* env vars so link CUDA (rpath is available on 10.5+)
+    OSX_10_OR_LATER   := $(shell [ $(OSX_MAJOR_VERSION) -ge 10 ] && echo true)
+    OSX_10_5_OR_LATER := $(shell [ $(OSX_MINOR_VERSION) -ge 5 ] && echo true)
+    ifeq ($(OSX_10_OR_LATER),true)
+        ifeq ($(OSX_10_5_OR_LATER),true)
+            LDFLAGS += -Wl,-rpath,$(CUDA_LIB_DIR)
+        endif
+    endif
 	# gtest needs to use its own tuple to not conflict with clang
 	COMMON_FLAGS += -DGTEST_USE_OWN_TR1_TUPLE=1
 	# boost::thread is called boost_thread-mt to mark multithreading on OS X
@@ -387,16 +383,6 @@ endif
 
 # New place for HDF5
 LIBRARY_DIRS += /usr/lib/x86_64-linux-gnu/hdf5/serial
-
-# CPU-only configuration
-ifeq ($(CPU_ONLY), 1)
-	OBJS := $(PROTO_OBJS) $(CXX_OBJS)
-	TEST_OBJS := $(TEST_CXX_OBJS)
-	TEST_BINS := $(TEST_CXX_BINS)
-	ALL_WARNS := $(ALL_CXX_WARNS)
-	TEST_FILTER := --gtest_filter="-*GPU*"
-	COMMON_FLAGS += -DCPU_ONLY
-endif
 
 ifeq ($(NO_NVML), 1)
 	COMMON_FLAGS += -DNO_NVML=1

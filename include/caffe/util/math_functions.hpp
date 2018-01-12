@@ -23,13 +23,11 @@ bool is_pow2(unsigned int x) {
   return ((x & (x - 1)) == 0);
 }
 
-#ifndef CPU_ONLY
 template <typename T>
 void clean_last_element(T* x, cudaStream_t stream) {
   CUDA_CHECK(cudaMemsetAsync(x, 0, sizeof(T), stream));
 //  CUDA_CHECK(cudaStreamSynchronize(stream));
 }
-#endif
 
 // Caffe gemm provides a simpler interface to the gemm functions, with the
 // limitation that the data has to be contiguous in memory.
@@ -184,8 +182,6 @@ DEFINE_CAFFE_CPU_UNARY_FUNC(fabs, y[i] = std::fabs(x[i]));
 
 template <typename Dtype>
 void caffe_cpu_scale(const int n, const Dtype alpha, const Dtype *x, Dtype* y);
-
-#ifndef CPU_ONLY  // GPU
 
 // Decaf gpu gemm provides an interface that is almost the same as the cpu
 // gemm function - following the c convention and calling the fortran-order
@@ -393,7 +389,6 @@ void caffe_gpu_##name<float16>(const int n, const float16* x, float16* y, void* 
   name##_kernel<float16><<<CAFFE_GET_BLOCKS(n), CAFFE_CUDA_NUM_THREADS, 0, stream>>>(n, x, y); \
   CUDA_CHECK(cudaStreamSynchronize(stream)); \
 }
-#endif  // !CPU_ONLY
 
 
 template <typename T_IN, typename T_OUT>
@@ -406,11 +401,7 @@ inline void caffe_cpu_convert(const int n, const T_IN *in, T_OUT *out) {
 template <typename T_IN, typename T_OUT>
 inline void caffe_convert(bool use_gpu, const int n, const T_IN* in, T_OUT* out) {
   if (use_gpu) {
-#ifndef CPU_ONLY
     caffe_gpu_convert(n, in, out);
-#else
-    NO_GPU;
-#endif
   } else {
     caffe_cpu_convert(n, in, out);
   }

@@ -121,13 +121,7 @@ MVNLayer<Ftype, Btype>::Backward_cpu(const vector<Blob*>& top, const vector<bool
   }
 }
 
-
-#ifdef CPU_ONLY
-STUB_GPU(MVNLayer);
-#endif
-
 INSTANTIATE_CLASS_FB(MVNLayer);
-
 REGISTER_LAYER_CLASS(MVN);
 
 }  // namespace caffe

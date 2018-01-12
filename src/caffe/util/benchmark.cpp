@@ -13,8 +13,7 @@ Timer::Timer()
 }
 
 Timer::~Timer() {
-#ifndef CPU_ONLY
-  if (Caffe::mode() == Caffe::GPU || start_gpu_ != nullptr || stop_gpu_ != nullptr) {
+  if (Caffe::mode() == Caffe::GPU) {
     int current_device;  // Just to check CUDA status:
     cudaError_t status = cudaGetDevice(&current_device);
     // Preventing crash while Caffe shutting down.
@@ -27,21 +26,12 @@ Timer::~Timer() {
       }
     }
   }
-#else
-  if (Caffe::mode() == Caffe::GPU) {
-    NO_GPU;
-  }
-#endif
 }
 
 void Timer::Start() {
   if (!running()) {
     if (Caffe::mode() == Caffe::GPU) {
-#ifndef CPU_ONLY
       CUDA_CHECK(cudaEventRecord(start_gpu_, 0));
-#else
-      NO_GPU;
-#endif
     } else {
       start_cpu_ = boost::posix_time::microsec_clock::local_time();
     }
@@ -53,12 +43,8 @@ void Timer::Start() {
 void Timer::Stop() {
   if (running()) {
     if (Caffe::mode() == Caffe::GPU) {
-#ifndef CPU_ONLY
       CUDA_CHECK(cudaEventRecord(stop_gpu_, 0));
       CUDA_CHECK(cudaEventSynchronize(stop_gpu_));
-#else
-      NO_GPU;
-#endif
     } else {
       stop_cpu_ = boost::posix_time::microsec_clock::local_time();
     }
@@ -76,14 +62,9 @@ float Timer::MicroSeconds() {
     Stop();
   }
   if (Caffe::mode() == Caffe::GPU) {
-#ifndef CPU_ONLY
-    CUDA_CHECK(cudaEventElapsedTime(&elapsed_milliseconds_, start_gpu_,
-                                    stop_gpu_));
+    CUDA_CHECK(cudaEventElapsedTime(&elapsed_milliseconds_, start_gpu_, stop_gpu_));
     // Cuda only measure milliseconds
     elapsed_microseconds_ = elapsed_milliseconds_ * 1000;
-#else
-      NO_GPU;
-#endif
   } else {
     elapsed_microseconds_ = (stop_cpu_ - start_cpu_).total_microseconds();
   }
@@ -99,12 +80,7 @@ float Timer::MilliSeconds() {
     Stop();
   }
   if (Caffe::mode() == Caffe::GPU) {
-#ifndef CPU_ONLY
-    CUDA_CHECK(cudaEventElapsedTime(&elapsed_milliseconds_, start_gpu_,
-                                    stop_gpu_));
-#else
-      NO_GPU;
-#endif
+    CUDA_CHECK(cudaEventElapsedTime(&elapsed_milliseconds_, start_gpu_, stop_gpu_));
   } else {
     elapsed_milliseconds_ = (stop_cpu_ - start_cpu_).total_milliseconds();
   }
@@ -118,17 +94,11 @@ float Timer::Seconds() {
 void Timer::Init() {
   if (!initted()) {
     if (Caffe::mode() == Caffe::GPU) {
-#ifndef CPU_ONLY
       CUDA_CHECK(cudaEventCreate(&start_gpu_));
       CUDA_CHECK(cudaEventCreate(&stop_gpu_));
-#else
-      NO_GPU;
-#endif
     } else {
-#ifndef CPU_ONLY
       start_gpu_ = nullptr;
       stop_gpu_ = nullptr;
-#endif
     }
     initted_ = true;
   }

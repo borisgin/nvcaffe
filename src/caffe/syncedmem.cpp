@@ -14,37 +14,30 @@ namespace caffe {
 // but might be more significant for parallel training. Most importantly,
 // it improved stability for large models on many GPUs.
 void SyncedMemory::MallocHost(void** ptr, size_t size, bool* use_cuda) {
-#ifndef CPU_ONLY
   if (Caffe::mode() == Caffe::GPU) {
     shared_lock<shared_mutex> lock(GPUMemory::read_write_mutex());
     CUDA_CHECK(cudaMallocHost(ptr, size));
     *use_cuda = true;
-    return;
+  } else {
+    *ptr = malloc(size);
+    *use_cuda = false;
   }
-#endif
-  *ptr = malloc(size);
-  *use_cuda = false;
   CHECK(*ptr) << "host allocation of size " << size << " failed";
 }
 
 void SyncedMemory::FreeHost(void* ptr, bool use_cuda) {
-#ifndef CPU_ONLY
   if (use_cuda) {
     CUDA_CHECK(cudaFreeHost(ptr));
-    return;
+  } else {
+    free(ptr);
   }
-#endif
-  free(ptr);
 }
 
 SyncedMemory::~SyncedMemory() {
   if (cpu_ptr_ && own_cpu_data_) {
-#ifndef CPU_ONLY
     shared_lock<shared_mutex> lock(GPUMemory::read_write_mutex());
-#endif
     FreeHost(cpu_ptr_, cpu_malloc_use_cuda_);
   }
-#ifndef CPU_ONLY
   if (gpu_ptr_ && own_gpu_data_) {
 #ifdef DEBUG
     cudaPointerAttributes attr;
@@ -56,7 +49,6 @@ SyncedMemory::~SyncedMemory() {
 #endif
     GPUMemory::deallocate(gpu_ptr_, device_);
   }
-#endif  // CPU_ONLY
 }
 
 void SyncedMemory::to_cpu(bool copy_from_gpu) {
@@ -68,7 +60,7 @@ void SyncedMemory::to_cpu(bool copy_from_gpu) {
       own_cpu_data_ = true;
       break;
     case HEAD_AT_GPU:
-#ifndef CPU_ONLY
+      CHECK(Caffe::mode() == Caffe::GPU);
       if (cpu_ptr_ == NULL) {
         MallocHost(&cpu_ptr_, size_, &cpu_malloc_use_cuda_);
         own_cpu_data_ = true;
@@ -79,9 +71,6 @@ void SyncedMemory::to_cpu(bool copy_from_gpu) {
       } else {
         head_ = HEAD_AT_CPU;
       }
-#else
-      NO_GPU;
-#endif
       break;
     case HEAD_AT_CPU:
     case SYNCED:
@@ -90,11 +79,11 @@ void SyncedMemory::to_cpu(bool copy_from_gpu) {
 }
 
 void SyncedMemory::to_gpu(bool copy_from_cpu) {
-#ifndef CPU_ONLY
+  CHECK(Caffe::mode() == Caffe::GPU);
   switch (head_) {
     case UNINITIALIZED:
       CUDA_CHECK(cudaGetDevice(&device_));
-      GPUMemory::allocate(&gpu_ptr_, pstream_, size_, device_);
+      GPUMemory::allocate(&gpu_ptr_, size_, device_);
       caffe_gpu_memset(size_, 0, gpu_ptr_);
       head_ = HEAD_AT_GPU;
       own_gpu_data_ = true;
@@ -102,7 +91,7 @@ void SyncedMemory::to_gpu(bool copy_from_cpu) {
     case HEAD_AT_CPU:
       if (gpu_ptr_ == NULL) {
         CUDA_CHECK(cudaGetDevice(&device_));
-        GPUMemory::allocate(&gpu_ptr_, pstream_, size_, device_);
+        GPUMemory::allocate(&gpu_ptr_, size_, device_);
         own_gpu_data_ = true;
       }
       if (copy_from_cpu) {
@@ -116,9 +105,6 @@ void SyncedMemory::to_gpu(bool copy_from_cpu) {
     case SYNCED:
       break;
   }
-#else
-  NO_GPU;
-#endif
 }
 
 const void* SyncedMemory::cpu_data() {
@@ -137,17 +123,13 @@ void SyncedMemory::set_cpu_data(void* data) {
 }
 
 const void* SyncedMemory::gpu_data() {
-#ifndef CPU_ONLY
+  CHECK(Caffe::mode() == Caffe::GPU);
   to_gpu();
   return (const void*) gpu_ptr_;
-#else
-  NO_GPU;
-  return NULL;
-#endif
 }
 
 void SyncedMemory::set_gpu_data(void* data) {
-#ifndef CPU_ONLY
+  CHECK(Caffe::mode() == Caffe::GPU);
   CHECK(data);
   if (gpu_ptr_ && own_gpu_data_) {
     GPUMemory::deallocate(gpu_ptr_, device_);
@@ -155,26 +137,22 @@ void SyncedMemory::set_gpu_data(void* data) {
   gpu_ptr_ = data;
   head_ = HEAD_AT_GPU;
   own_gpu_data_ = false;
-#else
-  NO_GPU;
-#endif
 }
 
 void* SyncedMemory::mutable_cpu_data(bool copy_from_gpu) {
+  if (Caffe::mode() != Caffe::GPU) {
+    copy_from_gpu = false;
+  }
   to_cpu(copy_from_gpu);
   head_ = HEAD_AT_CPU;
   return cpu_ptr_;
 }
 
 void* SyncedMemory::mutable_gpu_data(bool copy_from_cpu) {
-#ifndef CPU_ONLY
+  CHECK(Caffe::mode() == Caffe::GPU);
   to_gpu(copy_from_cpu);
   head_ = HEAD_AT_GPU;
   return gpu_ptr_;
-#else
-  NO_GPU;
-  return NULL;
-#endif
 }
 
 std::string SyncedMemory::to_string(int indent, Type type) {  // debug helper
@@ -226,9 +204,7 @@ std::string SyncedMemory::to_string(int indent, Type type) {  // debug helper
       }
     }
     os << std::endl;
-  }
-#ifndef CPU_ONLY
-  else if (is_type<float16>(type)) {
+  } else if (is_type<float16>(type)) {
     const float16* fdata = static_cast<const float16*>(data);
     size_t n = std::min(size_ / sizeof(float16), MAX_ELEM_TO_SHOW);
     os << idt << "First " << n << " elements:";
@@ -245,9 +221,7 @@ std::string SyncedMemory::to_string(int indent, Type type) {  // debug helper
       }
     }
     os << std::endl;
-  }
-#endif
-  else if (is_type<double>(type)) {
+  } else if (is_type<double>(type)) {
     const double* fdata = static_cast<const double*>(data);
     size_t n = std::min(size_ / sizeof(double), MAX_ELEM_TO_SHOW);
     os << idt << "First " << n << " elements:";

@@ -72,13 +72,11 @@ void DetectNetTransformationLayer<Dtype>::retrieveMeanImage(Size dimensions) {
     cv::resize(data_mean_, data_mean_, dimensions, 0, 0, cv::INTER_CUBIC);
   }
 
-#ifndef CPU_ONLY
   if (Caffe::mode() == Caffe::GPU) {
     mean_blob_.Reshape(1, data_mean_.channels(),
         data_mean_.size().height, data_mean_.size().width);
     matToBlob(data_mean_, mean_blob_.mutable_cpu_data());
   }
-#endif
 
   // scale from 0..255 to 0..1:
   data_mean_ /= Dtype(UINT8_MAX);
@@ -133,14 +131,12 @@ void DetectNetTransformationLayer<Dtype>::Reshape(
       tensorDimensions(1),
       tensorDimensions(2));
 
-#ifndef CPU_ONLY
   if (Caffe::mode() == Caffe::GPU) {
     const size_t aug_data_sz = sizeof(AugmentSelection) * bottom[0]->num();
     gpu_workspace_augmentations_.reserve(aug_data_sz);
     const size_t tmp_data_sz = sizeof(Dtype) * bottom[0]->count();
     gpu_workspace_tmpdata_.reserve(tmp_data_sz);
   }
-#endif
 }
 
 
@@ -651,10 +647,6 @@ cv::Size DetectNetTransformationLayer<Dtype>::getRotatedSize(
   cv::Point center(0.5 * size.width, 0.5 * size.height);
   return cv::RotatedRect(center, size, rotation).boundingRect().size();
 }
-
-#ifdef CPU_ONLY
-STUB_GPU_FORWARD1(DetectNetTransformationLayer, Forward);
-#endif
 
 INSTANTIATE_CLASS_CPU(DetectNetTransformationLayer);
 
