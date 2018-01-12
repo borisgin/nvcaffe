@@ -88,7 +88,7 @@ void BatchTransformer<Ftype, Btype>::reshape(const vector<int>& data_shape,
   for (int i = 0; i < this->prefetch_.size(); ++i) {
     prefetch_[i]->data_->Reshape(data_shape);
     prefetch_[i]->label_->Reshape(label_shape);
-    if (preallocate) {
+    if (preallocate && Caffe::mode() == Caffe::GPU) {
       prefetch_[i]->data_->template mutable_gpu_data_c<Ftype>(false);
       prefetch_[i]->label_->template mutable_gpu_data_c<Ftype>(false);
     }
@@ -97,8 +97,10 @@ void BatchTransformer<Ftype, Btype>::reshape(const vector<int>& data_shape,
   if (processed_free_.try_peek(&processed_batch)) {
     processed_batch->data_->Reshape(data_shape);
     processed_batch->label_->Reshape(label_shape);
-    processed_batch->data_->template mutable_gpu_data_c<Ftype>(false);
-    processed_batch->label_->template mutable_gpu_data_c<Ftype>(false);
+    if (Caffe::mode() == Caffe::GPU) {
+      processed_batch->data_->template mutable_gpu_data_c<Ftype>(false);
+      processed_batch->label_->template mutable_gpu_data_c<Ftype>(false);
+    }
   }
 }
 

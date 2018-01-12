@@ -22,7 +22,6 @@ void SyncedMemory::MallocHost(void** ptr, size_t size, bool* use_cuda) {
     *ptr = malloc(size);
     *use_cuda = false;
   }
-  CHECK(*ptr) << "host allocation of size " << size << " failed";
 }
 
 void SyncedMemory::FreeHost(void* ptr, bool use_cuda) {
