@@ -73,8 +73,7 @@ void hdf5_load_nd_dataset(hid_t file_id, const char* dataset_name_,
   } else if (is_type<double>(blob->data_type())) {
     status = H5LTread_dataset_double(
         file_id, dataset_name_, blob->mutable_cpu_data<double>());
-  }
-  else if (is_type<float16>(blob->data_type())) {
+  } else if (is_type<float16>(blob->data_type())) {
     const int count = blob->count();
     std::vector<float> buf(count);
     status = H5LTread_dataset_float(file_id, dataset_name_,
@@ -84,9 +83,7 @@ void hdf5_load_nd_dataset(hid_t file_id, const char* dataset_name_,
       caffe_cpu_convert<float, float16>(count, &buf.front(),
           blob->mutable_cpu_data<float16>());
     }
-  }
-  // NOLINT_NEXT_LINE(readability/braces)
-  else {
+  } else {
     LOG(FATAL) << "Unsupported data type: " << Type_Name(blob->data_type());
   }
   CHECK_GE(status, 0) << "Failed to read dataset " << dataset_name_;

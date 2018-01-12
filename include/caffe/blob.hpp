@@ -551,11 +551,9 @@ class Blob {
     const Type dtype = set_data ? data_type() : diff_type();
     if (is_type<float>(dtype)) {
       static_cast<float*>(ptr)[idx] = static_cast<float>(val);
-    }
-    else if (is_type<float16>(dtype)) {
+    } else if (is_type<float16>(dtype)) {
       static_cast<float16*>(ptr)[idx] = static_cast<float16>(val);
-    }
-    else if (is_type<double>(dtype)) {
+    } else if (is_type<double>(dtype)) {
       static_cast<double*>(ptr)[idx] = static_cast<double>(val);
     } else {
       LOG(FATAL) << "Unknown data or diff: " << Type_Name(dtype);

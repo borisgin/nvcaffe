@@ -18,39 +18,31 @@ int Caffe::root_device_ = -1;
 int Caffe::thread_count_ = 0;
 int Caffe::restored_iter_ = -1;
 std::atomic<uint64_t> Caffe::root_seed_(Caffe::SEED_NOT_SET);
-std::atomic_ulong Caffe::epoch_count_((unsigned long)-1L);
+// NOLINT_NEXT_LINE(runtime/int)
+std::atomic_ulong Caffe::epoch_count_(static_cast<unsigned long>(-1L));
 
 std::mutex Caffe::caffe_mutex_;
 std::mutex Caffe::pstream_mutex_;
 std::mutex Caffe::cublas_mutex_;
 std::mutex Caffe::cudnn_mutex_;
 std::mutex Caffe::seed_mutex_;
-std::vector<std::shared_ptr<std::unordered_map<std::thread::id, std::shared_ptr<Caffe>>>>
-    Caffe::instance_map_;
+std::unordered_map<std::thread::id, std::shared_ptr<Caffe>> Caffe::thread_instance_map_;
 
 Caffe& Caffe::Get() {
   // Make sure each thread can have different values.
-  const std::thread::id tid = std::this_thread::get_id();
-  const int dev = current_device();
-  if (instance_map_.size() <= dev) {
-    std::lock_guard<std::mutex> lock(caffe_mutex_);
-    instance_map_.resize(dev + 1);
-    for (int i = 0; i <= dev; ++i) {
-      if (!instance_map_[i]) {
-        instance_map_[i] =
-            std::make_shared<std::unordered_map<std::thread::id, std::shared_ptr<Caffe>>>();
-      }
+  std::thread::id tid = std::this_thread::get_id();
+  auto it = thread_instance_map_.find(tid);
+  if (it != thread_instance_map_.end()) {
+    Caffe& ret = *it->second.get();
+    if (ret.device_ == current_device()) {
+      return ret;
     }
   }
-  auto& map = instance_map_[dev];
-  auto it = map->find(tid);
-  if (it != map->end()) {
-    return *it->second.get();
-  }
   std::lock_guard<std::mutex> lock(caffe_mutex_);
-  auto emp_pair = map->emplace(tid, std::shared_ptr<Caffe>(new Caffe()));
+  auto emp_pair = thread_instance_map_.emplace(tid, std::shared_ptr<Caffe>(new Caffe()));
   ++thread_count_;
-  DLOG(INFO) << "[" << dev << "] New Caffe instance " << emp_pair.first->second.get()
+  DLOG(INFO) << "[" << Caffe::current_device()
+             << "] New Caffe instance " << emp_pair.first->second.get()
              << ", count " << thread_count_ << ", thread " << tid;
   return *emp_pair.first->second.get();
 }
@@ -130,7 +122,8 @@ Caffe::Caffe()
     : random_generator_(),
       mode_(Caffe::GPU),
       solver_count_(1),
-      root_solver_(true) {
+      root_solver_(true),
+      device_(current_device()) {
   CURAND_CHECK_ARG(curandCreateGenerator(&curand_generator_, CURAND_RNG_PSEUDO_DEFAULT),
       current_device());
   CURAND_CHECK_ARG(curandSetPseudoRandomGeneratorSeed(curand_generator_, cluster_seedgen()),

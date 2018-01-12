@@ -495,6 +495,7 @@ class Caffe {
   Brew mode_;
   int solver_count_;
   bool root_solver_;
+  const int device_;
 
   // Default device chosen by a user and associated with the main thread.
   // For example, if user runs `caffe train -gpu=1,0,3` then it has to be set to 1.
@@ -503,8 +504,7 @@ class Caffe {
   static int restored_iter_;
   static std::atomic<uint64_t> root_seed_;
   static std::mutex caffe_mutex_, pstream_mutex_, cublas_mutex_, cudnn_mutex_, seed_mutex_;
-  static std::vector<std::shared_ptr<std::unordered_map<std::thread::id, std::shared_ptr<Caffe>>>>
-      instance_map_;
+  static std::unordered_map<std::thread::id, std::shared_ptr<Caffe>> thread_instance_map_;
 
   static std::atomic_ulong epoch_count_;
   shared_ptr<CudaStream> curand_stream_;
