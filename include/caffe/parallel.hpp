@@ -71,7 +71,7 @@ class P2PManager {
   shared_ptr<SharedScores<float>> shared_;
   shared_ptr<Solver> root_solver_;
 #ifdef USE_NCCL
-  ncclUniqueId nccl_id_[2];
+  ncclUniqueId nccl_id_;
 #endif
 
   static unique_ptr<boost::barrier> dl_bar;  // DataLayer sync helper
@@ -91,8 +91,8 @@ class P2PSync : public Solver::Callback, public InternalThread {
   // Divide the batch size by the number of solvers
   static unsigned int divide_batch_size(NetParameter* net);
 
-  void allreduce(int type_id, int param_id) override;
-  void allreduce_bucket(int type_id, size_t count, void* bucket, Type type) override;
+  void allreduce(int param_id) override;
+  void allreduce_bucket(size_t count, void* bucket, Type type) override;
   void soft_barrier() override;
   void reduce_barrier(int type_id) override;
   void saveTestResults(float loss, const vector<float>& scores) override;
@@ -103,16 +103,16 @@ class P2PSync : public Solver::Callback, public InternalThread {
   }
 
  protected:
-  void on_start(const vector<shared_ptr<Blob>>& net, int type_id, Type type) override;
+  void on_start(const vector<shared_ptr<Blob>>& net, Type type) override;
 #ifdef USE_NCCL
-  ncclComm_t nccl_comm_[2];
+  ncclComm_t nccl_comm_;
 #endif
   void InternalThreadEntry() override;
 
   P2PManager* mgr_;
   const int rank_;
   const size_t nranks_;
-  shared_ptr<CudaStream> comm_stream_[2], stream_;
+  shared_ptr<CudaStream> comm_stream_, stream_;
   shared_ptr<CuBLASHandle> cublas_handle_;
   const int initial_iter_;
   shared_ptr<Solver> solver_, root_solver_;

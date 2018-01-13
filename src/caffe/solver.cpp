@@ -222,7 +222,7 @@ void Solver::Step(int iters) {
       }
       for (int type_id = 0; type_id < ltypes.size(); ++type_id) {
         callback_soft_barrier();
-        callback_->on_start(net_->learnable_params_mapped(), type_id, ltypes[type_id]);
+        callback_->on_start(net_->learnable_params_mapped(), ltypes[type_id]);
       }
     }
     callback_soft_barrier();

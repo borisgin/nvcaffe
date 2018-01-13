@@ -80,8 +80,8 @@ class Solver {
   // Invoked at specific points during an iteration
   class Callback {
    public:
-    virtual void allreduce(int type_id, int param_id) = 0;
-    virtual void allreduce_bucket(int type_id, size_t count, void* bucket, Type type) = 0;
+    virtual void allreduce(int param_id) = 0;
+    virtual void allreduce_bucket(size_t count, void* bucket, Type type) = 0;
     virtual void soft_barrier() = 0;
     virtual void reduce_barrier(int type_id) = 0;
     virtual void saveTestResults(float loss, const vector<float>& scores) = 0;
@@ -89,7 +89,7 @@ class Solver {
     virtual cublasHandle_t cublas_handle() const = 0;
 
    protected:
-    virtual void on_start(const vector<shared_ptr<Blob>>& net, int type_id, Type type) = 0;
+    virtual void on_start(const vector<shared_ptr<Blob>>& net, Type type) = 0;
     friend class Solver;
   };
 
