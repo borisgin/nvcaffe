@@ -808,7 +808,7 @@ void Net::ReduceAndUpdate(int type_id) {
   cublasHandle_t handle = nullptr;
   size_t bucket_size = 0UL;
   if (Caffe::mode() == Caffe::GPU) {
-    shared_ptr<CuBLASHandle> cublas_phandle = Caffe::cublas_phandle();
+    shared_ptr<CuBLASHandle> cublas_phandle = Caffe::cublas_phandle(type_id);
     handle = cublas_phandle->get();
     CHECK_GE(reduce_buckets_, 0);
     if (Caffe::solver_count() > 1 && reduce_buckets_ > 0) {
@@ -817,7 +817,10 @@ void Net::ReduceAndUpdate(int type_id) {
   }
   std::set<int> au_ids;
 
-  const bool clear_grads = !solver_->param().snapshot_diff();
+  const bool clip_grads = solver_->param().clip_gradients() >= 0.F;
+  const bool clear_grads = !solver_->param().snapshot_diff() && !clip_grads;
+  const bool use_buckets = reduce_buckets_ > 0;
+  float rate = -1.F;
   while (!solver_->stop_reducing_requested(type_id)) {
     const int param_id = reduction_queue_[type_id].pop();
     SolverAction::Enum request = solver_->GetRequestedAction();
@@ -828,29 +831,41 @@ void Net::ReduceAndUpdate(int type_id) {
     if (param_id == END_OF_TRAIN) {
       break;
     }
+    if (rate < 0.F) {
+      rate = solver_->GetLearningRate();
+    }
     if (param_id != END_OF_ITERATION) {
       if (Caffe::solver_count() > 1) {
-        if (reduce_buckets_ == 0) {  // no bucketing
+        if (!use_buckets && !clip_grads) {
           Reduce(type_id, param_id);
           if (solver_->stop_reducing_requested(type_id)) {
             break;
           }
-          add_wgrad_sq(solver_->ApplyUpdate(param_id, handle, clear_grads));
+          add_wgrad_sq(solver_->ApplyUpdate(param_id, handle, rate, true, clear_grads));
           continue;
         }
       } else {
-        this->learnable_params()[param_id]->scale_diff(1.F / global_grad_scale(), handle);
-        add_wgrad_sq(solver_->ApplyUpdate(param_id, handle, clear_grads));
+        if (!clip_grads) {
+          this->learnable_params()[param_id]->scale_diff(1.F / global_grad_scale(), handle);
+          add_wgrad_sq(solver_->ApplyUpdate(param_id, handle, rate, true, clear_grads));
+        }
         continue;
       }
+    } else if (clip_grads && Caffe::solver_count() == 1) {
+      solver_->ClipGradientsAndNormalize(handle, type_id, au_ids);
+      for (int i : au_ids) {
+        add_wgrad_sq(solver_->ApplyUpdate(i, handle, rate, false, clear_grads));
+      }
+      au_ids.clear();
     }
+
     if (!learnable_params_.empty() && Caffe::solver_count() > 1) {
       int id_from = -1;
       // Is bucket big enough? Done with iteration?
       const size_t received_count = received_contiguous_count(type_id, au_ids, id_from);
       if (id_from >= 0) {
         const size_t received_size = received_count * lp_size(id_from);
-        if (received_size >= bucket_size || param_id == END_OF_ITERATION) {
+        if ((received_size >= bucket_size && !clip_grads) || param_id == END_OF_ITERATION) {
 #ifdef DEBUG
           {
             size_t c = 0UL;
@@ -870,19 +885,23 @@ void Net::ReduceAndUpdate(int type_id) {
             break;
           }
 
+          if (clip_grads) {
+            solver_->ClipGradientsAndNormalize(handle, type_id, au_ids);
+          }
+
           for (int i : au_ids) {
-            add_wgrad_sq(solver_->ApplyUpdate(i, handle, clear_grads));
+            add_wgrad_sq(solver_->ApplyUpdate(i, handle, rate, !clip_grads, clear_grads));
           }
           au_ids.erase(au_ids.find(id_from), au_ids.end());
         }
       }
-      if (param_id != END_OF_ITERATION) {
-        au_ids.emplace(param_id);
-      }
     }
     if (param_id == END_OF_ITERATION) {
       CHECK(au_ids.empty());
+      rate = -1.F;
       solver_->iteration_complete_signal(type_id);
+    } else {
+      au_ids.emplace(param_id);
     }
   }
   DLOG(INFO) << "[" << Caffe::current_device()
@@ -1395,7 +1414,7 @@ void Net::InitializeLearnableDiffSpace(int type_id) {
           const int param_id = learnable_param_ids_[lip];
           if (learnable_params_[param_id]->diff_type() == t) {
             learnable_params_[param_id]->set_gpu_diff(ptr);
-            learnable_params_ptrs_[type_id][param_id] = static_cast<void *>(ptr);
+            learnable_params_ptrs_[type_id][param_id] = static_cast<void*>(ptr);
             ptr += lp_aligned_count(param_id) * lp_size(param_id);
             learnable_params_mapped_.push_back(learnable_params_[param_id]);
             ltop_[type_id][i].insert(param_id);

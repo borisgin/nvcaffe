@@ -89,7 +89,7 @@ class Solver {
     virtual cublasHandle_t cublas_handle() const = 0;
 
    protected:
-    virtual void on_start(const vector<shared_ptr<Blob>>& net) = 0;
+    virtual void on_start(const vector<shared_ptr<Blob>>& net, int type_id, Type type) = 0;
     friend class Solver;
   };
 
@@ -163,7 +163,11 @@ class Solver {
    */
   virtual const char* type() const { return ""; }
   virtual void PrintRate(float rate = 0) {}
-  virtual float ApplyUpdate(int param_id, void* handle, bool clear_grads) = 0;
+  virtual float GetLearningRate() = 0;
+  virtual void ClipGradientsAndNormalize(void* handle, int type_id,
+      const std::set<int>& param_ids) = 0;
+  virtual float ApplyUpdate(int param_id, void* handle, float rate, bool normalize,
+      bool clear_grads) = 0;
 
  protected:
   string SnapshotFilename(const string extension);

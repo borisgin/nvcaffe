@@ -167,21 +167,19 @@ void P2PSync::reduce_barrier(int type_id) {
   P2PManager::rbar_wait(type_id);
 }
 
-void P2PSync::on_start(const vector<shared_ptr<Blob>>& net) {
+void P2PSync::on_start(const vector<shared_ptr<Blob>>& net, int type_id, Type type) {
 #ifdef USE_NCCL
   int count = 0;
-  NCCL_CHECK(ncclCommCount(nccl_comm_[0], &count));
+  NCCL_CHECK(ncclCommCount(nccl_comm_[type_id], &count));
   CHECK_EQ(count, nranks_);
   for (int i = 0; i < net.size(); ++i) {
     const shared_ptr<Blob>& param = net[i];
-    NCCL_CHECK(ncclBcast(param->current_mutable_data_memory(true),
-        even(param->count()),
-        nccl::nccl_type(param->data_type()),
-        0,
-        nccl_comm_[0],
-        comm_stream_[0]->get()));
+    if (param->data_type() == type) {
+      NCCL_CHECK(ncclBcast(param->current_mutable_data_memory(true), even(param->count()),
+          nccl::nccl_type(type), 0, nccl_comm_[type_id], comm_stream_[type_id]->get()));
+    }
   }
-  CUDA_CHECK(cudaStreamSynchronize(comm_stream_[0]->get()));
+  CUDA_CHECK(cudaStreamSynchronize(comm_stream_[type_id]->get()));
 #endif  // USE_NCCL
 }
 

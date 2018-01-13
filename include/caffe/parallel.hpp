@@ -103,7 +103,7 @@ class P2PSync : public Solver::Callback, public InternalThread {
   }
 
  protected:
-  void on_start(const vector<shared_ptr<Blob>>& net) override;
+  void on_start(const vector<shared_ptr<Blob>>& net, int type_id, Type type) override;
 #ifdef USE_NCCL
   ncclComm_t nccl_comm_[2];
 #endif

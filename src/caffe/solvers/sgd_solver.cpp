@@ -131,21 +131,30 @@ void SGDSolver<Dtype>::PreSolve() {
 }
 
 template<typename Dtype>
-void SGDSolver<Dtype>::ClipGradients(void* handle) {
+void SGDSolver<Dtype>::ClipGradientsAndNormalize(void* handle, int type_id,
+    const std::set<int>& param_ids) {
   const float clip_gradients = this->param_.clip_gradients();
-  if (clip_gradients < 0) { return; }
+  if (clip_gradients < 0 && this->param_.iter_size() == 1) {
+    return;
+  }
+  const float accum_normalization = 1.F / this->param_.iter_size();
   const vector<shared_ptr<Blob>>& net_params = this->net_->learnable_params();
   float sumsq_diff = 0.F;
-  for (int i = 0; i < net_params.size(); ++i) {
-    sumsq_diff += net_params[i]->sumsq_diff();
+  for (int param_id : param_ids) {
+    sumsq_diff += net_params[param_id]->sumsq_diff(type_id);
   }
+
   const float l2norm_diff = std::sqrt(sumsq_diff);
   if (l2norm_diff > clip_gradients) {
     float scale_factor = clip_gradients / l2norm_diff;
     LOG(INFO) << "Gradient clipping: scaling down gradients (L2 norm " << l2norm_diff << " > "
               << clip_gradients << ") " << "by scale factor " << scale_factor;
-    for (int i = 0; i < net_params.size(); ++i) {
-      net_params[i]->scale_diff(scale_factor, handle);
+    for (int param_id : param_ids) {
+      net_params[param_id]->scale_diff(scale_factor * accum_normalization, handle);
+    }
+  } else if (this->param_.iter_size() != 1) {
+    for (int param_id : param_ids) {
+      net_params[param_id]->scale_diff(accum_normalization, handle);
     }
   }
 }
@@ -165,11 +174,12 @@ void SGDSolver<Dtype>::PrintRate(float rate) {
 
 // Note: this is asynchronous call
 template<typename Dtype>
-float SGDSolver<Dtype>::ApplyUpdate(int param_id, void* handle, bool clear_grads) {
-  float rate = GetLearningRate();  // TODO take it out
-  ClipGradients(handle);
-  Normalize(param_id, handle);
-  Regularize(param_id, handle);
+float SGDSolver<Dtype>::ApplyUpdate(int param_id, void* handle, float rate, bool normalize,
+    bool clear_grads) {
+  if (normalize) {
+    Normalize(param_id, handle);
+  }
+  Regularize(param_id);
   return ComputeUpdateValue(param_id, handle, rate, clear_grads);
 }
 
@@ -183,7 +193,7 @@ void SGDSolver<Dtype>::Normalize(int param_id, void* handle) {
 }
 
 template<typename Dtype>
-void SGDSolver<Dtype>::Regularize(int param_id, void* handle) {
+void SGDSolver<Dtype>::Regularize(int param_id) {
   if (Caffe::mode() == Caffe::CPU) {
     const vector<shared_ptr<Blob>>& net_params = this->net_->learnable_params();
     const vector<float>& net_params_weight_decay = this->net_->params_weight_decay();
@@ -229,7 +239,7 @@ float SGDSolver<Dtype>::ComputeUpdateValue(int param_id, void* handle, float rat
   float momentum = GetMomentum();
   float wgrad_sq = 0.F;
 
-  const bool larc =this->param_.larc();
+  const bool larc = this->param_.larc();
   const string& larc_policy = this->param_.larc_policy();
   float local_rate = GetLocalRate(param_id, wgrad_sq);
   if (larc) {

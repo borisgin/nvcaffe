@@ -220,8 +220,10 @@ void Solver::Step(int iters) {
       if (root_solver) {
         lock.reset(new unique_lock<shared_mutex>(GPUMemory::read_write_mutex()));
       }
-      callback_soft_barrier();
-      callback_->on_start(net_->learnable_params_mapped());
+      for (int type_id = 0; type_id < ltypes.size(); ++type_id) {
+        callback_soft_barrier();
+        callback_->on_start(net_->learnable_params_mapped(), type_id, ltypes[type_id]);
+      }
     }
     callback_soft_barrier();
     LOG(INFO) << "Starting Optimization on GPU " << Caffe::current_device();
@@ -241,7 +243,7 @@ void Solver::Step(int iters) {
   }
 
   while (iter_ < stop_iter) {
-    if (param_.snapshot_diff()) {
+    if (param_.snapshot_diff() || param_.clip_gradients() >= 0.F) {
       net_->ClearParamDiffs();
     }  // we clean them in ApplyUpdate otherwise
 

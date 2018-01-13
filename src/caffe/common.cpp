@@ -31,6 +31,7 @@ std::unordered_map<std::thread::id, std::shared_ptr<Caffe>> Caffe::thread_instan
 Caffe& Caffe::Get() {
   // Make sure each thread can have different values.
   std::thread::id tid = std::this_thread::get_id();
+  std::lock_guard<std::mutex> lock(caffe_mutex_);
   auto it = thread_instance_map_.find(tid);
   if (it != thread_instance_map_.end()) {
     Caffe& ret = *it->second.get();
@@ -38,7 +39,6 @@ Caffe& Caffe::Get() {
       return ret;
     }
   }
-  std::lock_guard<std::mutex> lock(caffe_mutex_);
   auto emp_pair = thread_instance_map_.emplace(tid, std::shared_ptr<Caffe>(new Caffe()));
   ++thread_count_;
   DLOG(INFO) << "[" << Caffe::current_device()
