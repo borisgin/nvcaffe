@@ -220,9 +220,9 @@ void Solver::Step(int iters) {
       if (root_solver) {
         lock.reset(new unique_lock<shared_mutex>(GPUMemory::read_write_mutex()));
       }
+      callback_soft_barrier();
       for (int type_id = 0; type_id < ltypes.size(); ++type_id) {
-        callback_soft_barrier();
-        callback_->on_start(net_->learnable_params_mapped(), ltypes[type_id]);
+        callback_->on_start(net_->learnable_params_mapped(), type_id, ltypes[type_id]);
       }
     }
     callback_soft_barrier();

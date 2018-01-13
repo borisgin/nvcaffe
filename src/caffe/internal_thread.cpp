@@ -10,7 +10,7 @@ namespace caffe {
 InternalThread::InternalThread(int target_device, size_t rank, size_t threads, bool delayed)
     : target_device_(target_device),
       rank_(rank),
-      aux_(nullptr),
+      aux_{nullptr, nullptr},
       threads_(threads),
       delay_flags_(threads, make_shared<Flag>(!delayed)) {}
 

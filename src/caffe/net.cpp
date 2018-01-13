@@ -941,7 +941,7 @@ void Net::Reduce(int type_id, int param_id) {
       lock.reset(new unique_lock<shared_mutex>(GPUMemory::read_write_mutex()));
     }
     cb->reduce_barrier(type_id);
-    cb->allreduce(param_id);
+    cb->allreduce(type_id, param_id);
     cb->reduce_barrier(type_id);
   }
   this->learnable_params()[param_id]->
@@ -962,7 +962,7 @@ void Net::ReduceBucket(int type_id, size_t count, Type bucket_type, void* bucket
       lock.reset(new unique_lock<shared_mutex>(GPUMemory::read_write_mutex()));
     }
     cb->reduce_barrier(type_id);
-    cb->allreduce_bucket(count, bucket, bucket_type);
+    cb->allreduce_bucket(type_id, count, bucket, bucket_type);
     cb->reduce_barrier(type_id);
   }
   Tensor::gpu_scal(count, bucket_type, bucket, 1.F / (Caffe::solver_count() * global_grad_scale()),
