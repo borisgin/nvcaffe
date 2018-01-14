@@ -229,7 +229,6 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
   size_t datum_sizeof_element = 0UL;
   int datum_len = top_shape[1] * top_shape[2] * top_shape[3];
   size_t datum_size = 0UL;
-  cudaStream_t stream = Caffe::thread_stream(Caffe::GPU_TRANSF_GROUP);
   const char *src_ptr = nullptr;
   vector<char> src_buf;
   cv::Mat img;
@@ -289,6 +288,7 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
     }
 
     if (use_gpu_transform) {
+      cudaStream_t stream = Caffe::thread_stream(Caffe::GPU_TRANSF_GROUP);
       if (datum->encoded()) {
         DecodeDatumToSignedBuf(*datum, color_mode, src_buf.data(), datum_size, false);
       } else {
@@ -340,7 +340,6 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
         dst_gptr,
         batch->data_->template mutable_gpu_data_c<Ftype>(false),
         random_vectors_[thread_id]->gpu_data(), true);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
     packing = NCHW;
   }
 

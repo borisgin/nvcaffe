@@ -14,6 +14,8 @@
 namespace caffe {
 
 // Must be set before brewing
+Caffe::Brew Caffe::mode_ = Caffe::GPU;
+int Caffe::solver_count_ = 1;
 int Caffe::root_device_ = -1;
 int Caffe::thread_count_ = 0;
 int Caffe::restored_iter_ = -1;
@@ -32,16 +34,21 @@ Caffe& Caffe::Get() {
   // Make sure each thread can have different values.
   std::thread::id tid = std::this_thread::get_id();
   std::lock_guard<std::mutex> lock(caffe_mutex_);
+  const int dev = current_device();
   auto it = thread_instance_map_.find(tid);
   if (it != thread_instance_map_.end()) {
     Caffe& ret = *it->second.get();
-    if (ret.device_ == current_device()) {
+    if (ret.device_ == dev) {
       return ret;
+    } else {
+      DLOG(INFO) << "Resetting Caffe instance " << &ret
+                 << ", count " << thread_count_ << ", thread " << tid
+                 << " from device " << ret.device_ << " to " << dev;
     }
   }
   auto emp_pair = thread_instance_map_.emplace(tid, std::shared_ptr<Caffe>(new Caffe()));
   ++thread_count_;
-  DLOG(INFO) << "[" << Caffe::current_device()
+  DLOG(INFO) << "[" << dev
              << "] New Caffe instance " << emp_pair.first->second.get()
              << ", count " << thread_count_ << ", thread " << tid;
   return *emp_pair.first->second.get();
@@ -74,7 +81,7 @@ void Caffe::set_root_seed(uint64_t random_seed) {
   }
 }
 
-void Caffe::set_random_seed(uint64_t random_seed) {
+void Caffe::set_random_seed_int(uint64_t random_seed) {
   if (root_seed_.load() == Caffe::SEED_NOT_SET) {
     root_seed_.store(random_seed);
   } else if (random_seed == Caffe::SEED_NOT_SET) {
@@ -86,12 +93,11 @@ void Caffe::set_random_seed(uint64_t random_seed) {
     if (random_seed == Caffe::SEED_NOT_SET) {
       random_seed = cluster_seedgen();
     }
-    curandGenerator_t curand_generator_handle = curand_generator();
-    CURAND_CHECK(curandSetPseudoRandomGeneratorSeed(curand_generator_handle, random_seed));
-    CURAND_CHECK(curandSetGeneratorOffset(curand_generator_handle, 0));
+    CURAND_CHECK(curandSetPseudoRandomGeneratorSeed(curand_generator_, random_seed));
+    CURAND_CHECK(curandSetGeneratorOffset(curand_generator_, 0));
   }
   // RNG seed
-  Get().random_generator_.reset(new RNG(random_seed));
+  random_generator_.reset(new RNG(random_seed));
 }
 
 uint64_t Caffe::next_seed() {
@@ -120,8 +126,6 @@ int Caffe::device_count() {
 
 Caffe::Caffe()
     : random_generator_(),
-      mode_(Caffe::GPU),
-      solver_count_(1),
       root_solver_(true),
       device_(current_device()) {
   CURAND_CHECK_ARG(curandCreateGenerator(&curand_generator_, CURAND_RNG_PSEUDO_DEFAULT),

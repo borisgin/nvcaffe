@@ -374,10 +374,9 @@ class Caffe {
     return count;
   }
 
-
   // Returns the mode: running on CPU or GPU.
   static Brew mode() {
-    return Get().mode_;
+    return mode_;
   }
   // The setters for the variables
   // Sets the mode. It is recommended that you don't change the mode halfway
@@ -385,20 +384,22 @@ class Caffe {
   // freed in a non-pinned way, which may cause problems - I haven't verified
   // it personally but better to note it here in the header file.
   static void set_mode(Brew mode) {
-    if (mode == Caffe::GPU && device_count() == 0) {
-      LOG(ERROR) << "Cannot set GPU mode: no device detected";
+    if (mode_ == mode) {
       return;
     }
-    DLOG(INFO) << "Caffe " << &Get() << "[" << Get().current_device() << "] old mode "
-               << (Get().mode_ == Caffe::GPU ? "GPU" : "CPU")  << " new mode "
+    std::lock_guard<std::mutex> lock(caffe_mutex_);
+    DLOG(INFO) << "Caffe " << " old mode "
+               << (mode_ == Caffe::GPU ? "GPU" : "CPU")  << " new mode "
                << (mode == Caffe::GPU ? "GPU" : "CPU");
-    Get().mode_ = mode;
+    mode_ = mode;
   }
   // Next seed. It's deterministic if root seed is already set.
   static uint64_t next_seed();
   // Sets the random seed of both boost and curand
   // Uses system generated one if -1 passed
-  static void set_random_seed(uint64_t random_seed = SEED_NOT_SET);
+  static void set_random_seed(uint64_t random_seed = SEED_NOT_SET) {
+    Get().set_random_seed_int(random_seed);
+  }
   // For correct determinism user should set a seed for a root solver
   // Note: it invokes set_random_seed internally
   static void set_root_seed(uint64_t random_seed);
@@ -416,8 +417,15 @@ class Caffe {
   static int FindDevice(const int start_id = 0);
   static int device_count();
   // Parallel training info
-  static int solver_count() { return Get().solver_count_; }
-  static void set_solver_count(int val) { Get().solver_count_ = val; }
+  static int solver_count() {
+    return solver_count_;
+  }
+  static void set_solver_count(int val) {
+    if (solver_count_ != val) {
+      std::lock_guard<std::mutex> lock(caffe_mutex_);
+      solver_count_ = val;
+    }
+  }
   static bool root_solver() { return Get().root_solver_; }
   static void set_root_solver(bool val) { Get().root_solver_ = val; }
   static int restored_iter() { return restored_iter_; }
@@ -492,13 +500,13 @@ class Caffe {
 #endif
 
   shared_ptr<RNG> random_generator_;
-  Brew mode_;
-  int solver_count_;
   bool root_solver_;
   const int device_;
 
   // Default device chosen by a user and associated with the main thread.
   // For example, if user runs `caffe train -gpu=1,0,3` then it has to be set to 1.
+  static Brew mode_;
+  static int solver_count_;
   static int root_device_;
   static int thread_count_;
   static int restored_iter_;
@@ -512,6 +520,8 @@ class Caffe {
  private:
   // The private constructor to avoid duplicate instantiation.
   Caffe();
+
+  void set_random_seed_int(uint64_t random_seed);
 
   DISABLE_COPY_MOVE_AND_ASSIGN(Caffe);
 
