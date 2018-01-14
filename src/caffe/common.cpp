@@ -22,7 +22,7 @@ int Caffe::thread_count_ = 0;
 int Caffe::restored_iter_ = -1;
 std::atomic<uint64_t> Caffe::root_seed_(Caffe::SEED_NOT_SET);
 // NOLINT_NEXT_LINE(runtime/int)
-std::atomic_ulong Caffe::epoch_count_(static_cast<unsigned long>(-1L));
+std::atomic<size_t> Caffe::epoch_count_(static_cast<size_t>(-1L));
 
 std::mutex Caffe::caffe_mutex_;
 std::mutex Caffe::pstream_mutex_;
