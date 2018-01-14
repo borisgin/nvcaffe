@@ -321,8 +321,9 @@ void Solver::Step(int iters) {
       size_t epoch_count = Caffe::epoch_count();
       if (epoch_count > 0UL) {
         unsigned int bps = net_->batch_per_solver();
+        double epochs = (double)(iters * bps * Caffe::solver_count()) / epoch_count;
         double epochs_passed = (double)(iter() * bps * Caffe::solver_count()) / epoch_count;
-        os_ep << f_round2(epochs_passed) << "ep, ";
+        os_ep << f_round2(epochs_passed) << "/" << epochs << "ep, ";
       }
 
       if (rel_iter > 2) {  // we skip 0,1,2 for correct benchmarking

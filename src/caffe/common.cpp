@@ -1,4 +1,5 @@
 #include <glog/logging.h>
+#include <syscall.h>
 #include <cmath>
 #include <ctime>
 #include <memory>
@@ -28,30 +29,36 @@ std::mutex Caffe::pstream_mutex_;
 std::mutex Caffe::cublas_mutex_;
 std::mutex Caffe::cudnn_mutex_;
 std::mutex Caffe::seed_mutex_;
-std::unordered_map<std::thread::id, std::shared_ptr<Caffe>> Caffe::thread_instance_map_;
+std::unordered_map<std::uint64_t, std::shared_ptr<Caffe>> Caffe::thread_instance_map_;
+
+
+std::uint32_t lwp_id() {
+#if defined(APPLE)
+  return static_cast<std::uint32_t>(mach_thread_self());
+#else
+  return static_cast<std::uint32_t>(syscall(SYS_gettid));
+#endif
+}
+
+std::uint64_t lwp_dev_id() {
+  std::uint64_t dev = static_cast<std::uint64_t>(Caffe::current_device());
+  return lwp_id() + (dev << 32);
+}
 
 Caffe& Caffe::Get() {
   // Make sure each thread can have different values.
-  std::thread::id tid = std::this_thread::get_id();
+  // We also need to care about device id.
+  std::uint64_t tid = lwp_dev_id();
   std::lock_guard<std::mutex> lock(caffe_mutex_);
-  const int dev = current_device();
   auto it = thread_instance_map_.find(tid);
   if (it != thread_instance_map_.end()) {
-    Caffe& ret = *it->second.get();
-    if (ret.device_ == dev) {
-      return ret;
-    } else {
-      DLOG(INFO) << "Resetting Caffe instance " << &ret
-                 << ", count " << thread_count_ << ", thread " << tid
-                 << " from device " << ret.device_ << " to " << dev;
-      thread_instance_map_.erase(it);
-    }
+    return *it->second.get();
   }
   auto emp_pair = thread_instance_map_.emplace(tid, std::shared_ptr<Caffe>(new Caffe()));
   ++thread_count_;
-  DLOG(INFO) << "[" << dev
+  DLOG(INFO) << "[" << current_device()
              << "] New Caffe instance " << emp_pair.first->second.get()
-             << ", count " << thread_count_ << ", thread " << tid;
+             << ", count " << thread_count_ << ", thread " << lwp_id();
   return *emp_pair.first->second.get();
 }
 
@@ -176,7 +183,7 @@ CudaStream::CudaStream(bool high_priority) {
   }
   DLOG(INFO) << "New " << (high_priority ? "high priority " : "") << "stream "
       << stream_ << ", device " << Caffe::current_device() << ", thread "
-      << std::this_thread::get_id();
+      << lwp_id();
 }
 
 CudaStream::~CudaStream() {
@@ -436,7 +443,7 @@ Caffe::Properties Caffe::props_;
 
 Caffe::Properties::Properties() :
       init_time_(std::time(nullptr)),
-      main_thread_id_(std::this_thread::get_id()),
+      main_thread_id_(lwp_id()),
       caffe_version_(AS_STRING(CAFFE_VERSION)) {
   const int count = Caffe::device_count();
   if (count == 0) {
@@ -501,7 +508,7 @@ NVMLInit::NVMLInit() {
     LOG(ERROR) << "NVML failed to initialize";
     return;
   } else {
-    LOG(INFO) << "NVML initialized, thread " << std::this_thread::get_id();
+    LOG(INFO) << "NVML initialized, thread " << lwp_id();
   }
   unsigned int deviceCount = 0U;
   if (nvmlDeviceGetCount(&deviceCount) == NVML_SUCCESS) {
@@ -509,11 +516,11 @@ NVMLInit::NVMLInit() {
       if (nvmlDeviceGetHandleByIndex(id, &device_) != NVML_SUCCESS ||
           nvmlDeviceSetCpuAffinity(device_) != NVML_SUCCESS) {
           LOG(ERROR) << "NVML failed to set CPU affinity on device " << id
-              << ", thread " << std::this_thread::get_id();
+              << ", thread " << lwp_id();
       }
     }
   } else {
-    LOG(ERROR) << "nvmlDeviceGetCount failed, thread " << std::this_thread::get_id();
+    LOG(ERROR) << "nvmlDeviceGetCount failed, thread " << lwp_id();
   }
 }
 

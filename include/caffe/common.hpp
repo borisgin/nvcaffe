@@ -237,6 +237,9 @@ using boost::upgrade_lock;
 using boost::unique_lock;
 using boost::upgrade_to_unique_lock;
 
+std::uint32_t lwp_id();
+std::uint64_t lwp_dev_id();
+
 template<typename Dtype>
 void atomic_maximum(std::atomic<Dtype>& max_val, Dtype const& new_val) noexcept {
   Dtype prev_val = std::atomic_load(&max_val);
@@ -452,11 +455,11 @@ class Caffe {
   static const std::string& cuda_driver_version() {
     return props().cuda_driver_version();
   }
-  static std::thread::id main_thread_id() {
+  static std::uint32_t main_thread_id() {
     return props().main_thread_id();
   }
   static bool is_main_thread() {
-    return props().main_thread_id() == std::this_thread::get_id();
+    return props().main_thread_id() == lwp_id();
   }
   static std::string start_time() {
     return props().start_time();
@@ -512,7 +515,7 @@ class Caffe {
   static int restored_iter_;
   static std::atomic<uint64_t> root_seed_;
   static std::mutex caffe_mutex_, pstream_mutex_, cublas_mutex_, cudnn_mutex_, seed_mutex_;
-  static std::unordered_map<std::thread::id, std::shared_ptr<Caffe>> thread_instance_map_;
+  static std::unordered_map<std::uint64_t, std::shared_ptr<Caffe>> thread_instance_map_;
 
   static std::atomic_ulong epoch_count_;
   shared_ptr<CudaStream> curand_stream_;
@@ -544,7 +547,7 @@ class Caffe {
     const std::string& cuda_driver_version() const {
       return cuda_driver_version_;
     }
-    std::thread::id main_thread_id() const {
+    std::uint32_t main_thread_id() const {
       return main_thread_id_;
     }
     std::string start_time() const {
@@ -561,7 +564,7 @@ class Caffe {
    private:
     std::vector<int> gpus_;
     std::time_t init_time_;
-    std::thread::id main_thread_id_;
+    std::uint32_t main_thread_id_;
     std::string caffe_version_;
     std::string cudnn_version_;
     std::string cublas_version_;

@@ -802,7 +802,7 @@ size_t Net::received_contiguous_count(int type_id, const std::set<int>& au_ids, 
 
 void Net::ReduceAndUpdate(int type_id) {
   DLOG(INFO) << "[" << Caffe::current_device()
-             << "] Entering ReduceAndUpdate thread " << std::this_thread::get_id()
+             << "] Entering ReduceAndUpdate thread " << lwp_id()
              <<  ", type_id " << type_id;
 
   cublasHandle_t handle = nullptr;
@@ -905,7 +905,7 @@ void Net::ReduceAndUpdate(int type_id) {
     }
   }
   DLOG(INFO) << "[" << Caffe::current_device()
-             << "] Leaving ReduceAndUpdate thread " << std::this_thread::get_id();
+             << "] Leaving ReduceAndUpdate thread " << lwp_id();
 }
 
 void Net::add_wgrad_sq(float wgrad_sq) {

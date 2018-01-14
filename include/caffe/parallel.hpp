@@ -101,6 +101,7 @@ class P2PSync : public Solver::Callback, public InternalThread {
   cudaStream_t comm_stream(int type_id) {
     return comm_stream_[type_id]->get();
   }
+
  protected:
   void on_start(const vector<shared_ptr<Blob>>& net) override;
 #ifdef USE_NCCL

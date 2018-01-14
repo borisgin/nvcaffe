@@ -179,7 +179,7 @@ shared_ptr<Datum>& DataReader::DataCache::next_cached(DataReader& reader) {
 
 void DataReader::DataCache::just_cached() {
   just_cached_.store(true);
-  cached_flags_[std::this_thread::get_id()]->set();
+  cached_flags_[lwp_id()]->set();
 }
 
 bool DataReader::DataCache::check_memory() {
