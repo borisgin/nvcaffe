@@ -805,15 +805,12 @@ void Net::ReduceAndUpdate(int type_id) {
              << "] Entering ReduceAndUpdate thread " << lwp_id()
              <<  ", type_id " << type_id;
 
-  cublasHandle_t handle = nullptr;
   size_t bucket_size = 0UL;
-  if (Caffe::mode() == Caffe::GPU) {
-    shared_ptr<CuBLASHandle> cublas_phandle = Caffe::cublas_phandle(type_id);
-    handle = cublas_phandle->get();
-    CHECK_GE(reduce_buckets_, 0);
-    if (Caffe::solver_count() > 1 && reduce_buckets_ > 0) {
-      bucket_size = align_up<6>(learnable_space_size_[type_id] / reduce_buckets_);
-    }
+  shared_ptr<CuBLASHandle> cublas_phandle = Caffe::cublas_phandle(type_id);
+  cublasHandle_t handle = cublas_phandle->get();
+  CHECK_GE(reduce_buckets_, 0);
+  if (Caffe::solver_count() > 1 && reduce_buckets_ > 0) {
+    bucket_size = align_up<6>(learnable_space_size_[type_id] / reduce_buckets_);
   }
   std::set<int> au_ids;
 

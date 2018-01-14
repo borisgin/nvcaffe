@@ -906,6 +906,11 @@ std::string mem_fmt(Dtype val) {
 }
 
 template <typename Dtype>
+float f_round1(Dtype val) {
+  return std::round(val * 10.F) * 0.1F;
+}
+
+template <typename Dtype>
 float f_round2(Dtype val) {
   return std::round(val * 100.F) * 0.01F;
 }

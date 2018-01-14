@@ -323,7 +323,7 @@ void Solver::Step(int iters) {
         unsigned int bps = net_->batch_per_solver();
         double epochs = (double)(iters * bps * Caffe::solver_count()) / epoch_count;
         double epochs_passed = (double)(iter() * bps * Caffe::solver_count()) / epoch_count;
-        os_ep << f_round2(epochs_passed) << "/" << epochs << "ep, ";
+        os_ep << f_round1(epochs_passed) << "/" << f_round1(epochs) << "ep, ";
       }
 
       if (rel_iter > 2) {  // we skip 0,1,2 for correct benchmarking
