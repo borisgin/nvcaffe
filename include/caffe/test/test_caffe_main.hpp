@@ -74,6 +74,13 @@ typedef ::testing::Types<CPUDevice<float>, CPUDevice<double>,
                          >
                          TestDtypesAndDevices;
 
+typedef ::testing::Types<GPUDevice<float>, GPUDevice<double>
+#if defined(TEST_FP16)
+                         , GPUDevice<float16>
+#endif
+                         >
+                         TestDtypesGPUOnly;
+
 typedef ::testing::Types<CPUDevice<float>, CPUDevice<double>,
                          GPUDevice<float>, GPUDevice<double>>
                          TestDtypesAndDevicesNoFP16;

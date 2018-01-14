@@ -44,6 +44,7 @@ Caffe& Caffe::Get() {
       DLOG(INFO) << "Resetting Caffe instance " << &ret
                  << ", count " << thread_count_ << ", thread " << tid
                  << " from device " << ret.device_ << " to " << dev;
+      thread_instance_map_.erase(it);
     }
   }
   auto emp_pair = thread_instance_map_.emplace(tid, std::shared_ptr<Caffe>(new Caffe()));

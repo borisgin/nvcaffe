@@ -20,7 +20,7 @@ using std::ostringstream;
 namespace caffe {
 
 template <typename TypeParam>
-class GradientBasedSolverTest : public GPUDeviceTest<TypeParam> {
+class GradientBasedSolverTest : public MultiDeviceTest<TypeParam> {
   typedef typename TypeParam::Dtype Dtype;
 
  protected:
@@ -589,7 +589,7 @@ class SGDSolverTest : public GradientBasedSolverTest<TypeParam> {
   }
 };
 
-TYPED_TEST_CASE(SGDSolverTest, TestDtypesAndDevicesNoFP16);
+TYPED_TEST_CASE(SGDSolverTest, TestDtypesGPUOnly);
 
 TYPED_TEST(SGDSolverTest, TestLeastSquaresUpdate) {
   this->TestLeastSquaresUpdate();
@@ -721,7 +721,7 @@ class AdaGradSolverTest : public GradientBasedSolverTest<TypeParam> {
   }
 };
 
-TYPED_TEST_CASE(AdaGradSolverTest, TestDtypesAndDevices);
+TYPED_TEST_CASE(AdaGradSolverTest, TestDtypesGPUOnly);
 
 TYPED_TEST(AdaGradSolverTest, TestAdaGradLeastSquaresUpdate) {
   this->TestLeastSquaresUpdate();
@@ -816,7 +816,7 @@ class NesterovSolverTest : public GradientBasedSolverTest<TypeParam> {
   }
 };
 
-TYPED_TEST_CASE(NesterovSolverTest, TestDtypesAndDevices);
+TYPED_TEST_CASE(NesterovSolverTest, TestDtypesGPUOnly);
 
 TYPED_TEST(NesterovSolverTest, TestNesterovLeastSquaresUpdate) {
   this->TestLeastSquaresUpdate();
@@ -942,7 +942,7 @@ class AdaDeltaSolverTest : public GradientBasedSolverTest<TypeParam> {
   }
 };
 
-TYPED_TEST_CASE(AdaDeltaSolverTest, TestDtypesAndDevices);
+TYPED_TEST_CASE(AdaDeltaSolverTest, TestDtypesGPUOnly);
 
 TYPED_TEST(AdaDeltaSolverTest, TestAdaDeltaLeastSquaresUpdate) {
   const float kLearningRate = 0.1;
@@ -1067,7 +1067,7 @@ class AdamSolverTest : public GradientBasedSolverTest<TypeParam> {
   }
 };
 
-TYPED_TEST_CASE(AdamSolverTest, TestDtypesAndDevices);
+TYPED_TEST_CASE(AdamSolverTest, TestDtypesGPUOnly);
 
 TYPED_TEST(AdamSolverTest, TestAdamLeastSquaresUpdate) {
   const float kLearningRate = 0.01;
@@ -1162,7 +1162,7 @@ class RMSPropSolverTest : public GradientBasedSolverTest<TypeParam> {
   }
 };
 
-TYPED_TEST_CASE(RMSPropSolverTest, TestDtypesAndDevices);
+TYPED_TEST_CASE(RMSPropSolverTest, TestDtypesGPUOnly);
 
 TYPED_TEST(RMSPropSolverTest, TestRMSPropLeastSquaresUpdateWithWeightDecay) {
   const float kLearningRate = 1.0;
