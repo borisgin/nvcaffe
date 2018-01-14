@@ -213,6 +213,7 @@ int train() {
   }
 
   if (gpus.size() > 1) {
+    Caffe::set_solver_count(gpus.size());
     caffe::P2PManager p2p_mgr(solver, gpus.size(), solver->param());
     p2p_mgr.Run(gpus);
   } else {
