@@ -38,14 +38,14 @@ SyncedMemory::~SyncedMemory() {
     FreeHost(cpu_ptr_, cpu_malloc_use_cuda_);
   }
   if (gpu_ptr_ && own_gpu_data_) {
-#ifdef DEBUG
-    cudaPointerAttributes attr;
-    cudaError_t status = cudaPointerGetAttributes(&attr, gpu_ptr_);
-    if (status == cudaSuccess) {
-      CHECK_EQ(attr.memoryType, cudaMemoryTypeDevice);
-      CHECK_EQ(attr.device, device_);
-    }
-#endif
+//#ifdef DEBUG
+//    cudaPointerAttributes attr;
+//    cudaError_t status = cudaPointerGetAttributes(&attr, gpu_ptr_);
+//    if (status == cudaSuccess) {
+//      CHECK_EQ(attr.memoryType, cudaMemoryTypeDevice);
+//      CHECK_EQ(attr.device, device_);
+//    }
+//#endif
     GPUMemory::deallocate(gpu_ptr_, device_);
   }
 }
@@ -59,7 +59,6 @@ void SyncedMemory::to_cpu(bool copy_from_gpu) {
       own_cpu_data_ = true;
       break;
     case HEAD_AT_GPU:
-      CHECK(Caffe::mode() == Caffe::GPU);
       if (cpu_ptr_ == NULL) {
         MallocHost(&cpu_ptr_, size_, &cpu_malloc_use_cuda_);
         own_cpu_data_ = true;
@@ -78,7 +77,6 @@ void SyncedMemory::to_cpu(bool copy_from_gpu) {
 }
 
 void SyncedMemory::to_gpu(bool copy_from_cpu) {
-  CHECK(Caffe::mode() == Caffe::GPU);
   switch (head_) {
     case UNINITIALIZED:
       CUDA_CHECK(cudaGetDevice(&device_));
@@ -122,13 +120,11 @@ void SyncedMemory::set_cpu_data(void* data) {
 }
 
 const void* SyncedMemory::gpu_data() {
-  CHECK(Caffe::mode() == Caffe::GPU);
   to_gpu();
   return (const void*) gpu_ptr_;
 }
 
 void SyncedMemory::set_gpu_data(void* data) {
-  CHECK(Caffe::mode() == Caffe::GPU);
   CHECK(data);
   if (gpu_ptr_ && own_gpu_data_) {
     GPUMemory::deallocate(gpu_ptr_, device_);
@@ -139,16 +135,12 @@ void SyncedMemory::set_gpu_data(void* data) {
 }
 
 void* SyncedMemory::mutable_cpu_data(bool copy_from_gpu) {
-  if (Caffe::mode() != Caffe::GPU) {
-    copy_from_gpu = false;
-  }
   to_cpu(copy_from_gpu);
   head_ = HEAD_AT_CPU;
   return cpu_ptr_;
 }
 
 void* SyncedMemory::mutable_gpu_data(bool copy_from_cpu) {
-  CHECK(Caffe::mode() == Caffe::GPU);
   to_gpu(copy_from_cpu);
   head_ = HEAD_AT_GPU;
   return gpu_ptr_;

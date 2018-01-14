@@ -71,7 +71,7 @@ class P2PManager {
   shared_ptr<SharedScores<float>> shared_;
   shared_ptr<Solver> root_solver_;
 #ifdef USE_NCCL
-  ncclUniqueId nccl_id_[2];
+  ncclUniqueId nccl_id_;
 #endif
 
   static unique_ptr<boost::barrier> dl_bar;  // DataLayer sync helper
@@ -98,25 +98,23 @@ class P2PSync : public Solver::Callback, public InternalThread {
   void saveTestResults(float loss, const vector<float>& scores) override;
   void aggregateTestResults(float* loss, vector<float>* scores) override;
 
-  cublasHandle_t cublas_handle() const override {
-    return cublas_handle_->get();
+  cudaStream_t comm_stream(int type_id) {
+    return comm_stream_[type_id]->get();
   }
-
  protected:
-  void on_start(const vector<shared_ptr<Blob>>& net, int type_id, Type type) override;
+  void on_start(const vector<shared_ptr<Blob>>& net) override;
 #ifdef USE_NCCL
-  ncclComm_t nccl_comm_[2];
+  ncclComm_t nccl_comm_;
 #endif
   void InternalThreadEntry() override;
 
   P2PManager* mgr_;
   const int rank_;
   const size_t nranks_;
-  shared_ptr<CudaStream> comm_stream_[2], stream_;
-  shared_ptr<CuBLASHandle> cublas_handle_;
   const int initial_iter_;
   shared_ptr<Solver> solver_, root_solver_;
   SolverParameter solver_param_;
+  shared_ptr<CudaStream> comm_stream_[2];
 
   // memory shared between threads
   shared_ptr<SharedScores<float>> shared_;

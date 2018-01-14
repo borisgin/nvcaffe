@@ -229,7 +229,7 @@ ifeq ($(python_version_major), 3)
 	python_lib_suffix := m
 endif
 
-PYTHON_LIBRARIES ?= boost_python python${python_version_major}.${python_version_minor}${python_lib_suffix} boost_regex
+PYTHON_LIBRARIES ?= boost_python-py${python_version_major}${python_version_minor} python${python_version_major}.${python_version_minor}${python_lib_suffix} boost_regex
 WARNINGS := -Wall -Wno-sign-compare
 
 ##############################

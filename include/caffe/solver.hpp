@@ -86,10 +86,9 @@ class Solver {
     virtual void reduce_barrier(int type_id) = 0;
     virtual void saveTestResults(float loss, const vector<float>& scores) = 0;
     virtual void aggregateTestResults(float* loss, vector<float>* scores) = 0;
-    virtual cublasHandle_t cublas_handle() const = 0;
 
    protected:
-    virtual void on_start(const vector<shared_ptr<Blob>>& net, int type_id, Type type) = 0;
+    virtual void on_start(const vector<shared_ptr<Blob>>& net) = 0;
     friend class Solver;
   };
 

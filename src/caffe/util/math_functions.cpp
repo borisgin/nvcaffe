@@ -414,6 +414,7 @@ void caffe_rng_uniform<float16>(int n, float16 a, float16 b, float16* r) {
   }
 }
 
+// TODO refactor this
 template <typename Ftype>
 void caffe_rng_gaussian(int n, Ftype mu, Ftype sigma, Blob* blob) {
   CHECK_GE(n, 0);
@@ -421,8 +422,25 @@ void caffe_rng_gaussian(int n, Ftype mu, Ftype sigma, Blob* blob) {
   boost::normal_distribution<float> random_distribution(mu, sigma);
   boost::variate_generator<caffe::rng_t*, boost::normal_distribution<float> >
       variate_generator(caffe_rng(), random_distribution);
-  for (int i = 0; i < n; ++i) {
-    blob->set_value_at(true, i, variate_generator());
+
+  void* ptr = blob->current_mutable_data_memory(false, false);
+  if (blob->data_type() == FLOAT16) {
+    float16* pd = reinterpret_cast<float16*>(ptr);
+    for (int i = 0; i < n; ++i) {
+      pd[i] = variate_generator();
+    }
+  } else if (blob->data_type() == FLOAT) {
+    float* pd = reinterpret_cast<float*>(ptr);
+    for (int i = 0; i < n; ++i) {
+      pd[i] = variate_generator();
+    }
+  } else if (blob->data_type() == DOUBLE) {
+    double* pd = reinterpret_cast<double*>(ptr);
+    for (int i = 0; i < n; ++i) {
+      pd[i] = variate_generator();
+    }
+  } else {
+    LOG(FATAL) << "Unsupported data type " << Type_Name(blob->data_type());
   }
 }
 

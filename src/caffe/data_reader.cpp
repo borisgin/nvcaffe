@@ -149,20 +149,20 @@ shared_ptr<Datum>& DataReader::DataCache::next_cached(DataReader& reader) {
     just_cached_.store(false);
     LOG_FIRST_N(INFO, 1) << "Cached " << cache_buffer_.size() << " records by "
           << cached_flags_.size() << " threads";
-#ifdef DEBUG
-    {
-      std::lock_guard<std::mutex> lock(cache_mutex_);
-      std::multiset<size_t> pk;
-      for (auto &entry : cache_buffer_) {
-        pk.insert(entry->record_id());
-        if (pk.count(entry->record_id()) > 1) {
-          LOG(ERROR) << "Record " << entry->record_id() << " duplicated "
-              << entry->record_id() << " times";
-        }
-      }
-      LOG(INFO) << "Recorded " << pk.size() << " from " << *pk.begin() << " to " << *pk.rbegin();
-    }
-#endif
+//#ifdef DEBUG
+//    {
+//      std::lock_guard<std::mutex> lock(cache_mutex_);
+//      std::multiset<size_t> pk;
+//      for (auto &entry : cache_buffer_) {
+//        pk.insert(entry->record_id());
+//        if (pk.count(entry->record_id()) > 1) {
+//          LOG(ERROR) << "Record " << entry->record_id() << " duplicated "
+//              << entry->record_id() << " times";
+//        }
+//      }
+//      LOG(INFO) << "Recorded " << pk.size() << " from " << *pk.begin() << " to " << *pk.rbegin();
+//    }
+//#endif
     cache_bar_.wait();
   }
   std::lock_guard<std::mutex> lock(cache_mutex_);

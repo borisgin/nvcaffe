@@ -866,18 +866,18 @@ void Net::ReduceAndUpdate(int type_id) {
       if (id_from >= 0) {
         const size_t received_size = received_count * lp_size(id_from);
         if ((received_size >= bucket_size && !clip_grads) || param_id == END_OF_ITERATION) {
-#ifdef DEBUG
-          {
-            size_t c = 0UL;
-            for (int i : au_ids) {
-              if (i < id_from) {
-                continue;
-              }
-              c += lp_aligned_count(i);
-            }
-            CHECK_EQ(c, received_count);
-          }
-#endif
+//#ifdef DEBUG
+//          {
+//            size_t c = 0UL;
+//            for (int i : au_ids) {
+//              if (i < id_from) {
+//                continue;
+//              }
+//              c += lp_aligned_count(i);
+//            }
+//            CHECK_EQ(c, received_count);
+//          }
+//#endif
           CHECK_EQ((int) learnable_params_[id_from]->diff_type(), learnable_types_[type_id]);
           ReduceBucket(type_id, received_count, learnable_params_[id_from]->diff_type(),
               learnable_params_ptrs_[type_id][id_from]);
