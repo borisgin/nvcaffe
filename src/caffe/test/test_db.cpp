@@ -23,7 +23,7 @@ class DBTest : public ::testing::Test {
       root_images_(string(EXAMPLES_SOURCE_DIR) + string("images/")) {}
 
   virtual void SetUp() {
-    MakeTempDir(&source_);
+    source_ = MakeTempDir();
     source_ += "/db";
     string keys[] = {"cat.jpg", "fish-bike.jpg"};
     LOG(INFO) << "Using temporary db " << source_;

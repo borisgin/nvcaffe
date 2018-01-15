@@ -179,7 +179,7 @@ class GradientBasedSolverTest : public MultiDeviceTest<TypeParam> {
     if (momentum != 0) {
       proto << "momentum: " << momentum << " ";
     }
-    MakeTempDir(&snapshot_prefix_);
+    snapshot_prefix_ = MakeTempDir();
     proto << "snapshot_prefix: '" << snapshot_prefix_ << "/' ";
     if (snapshot) {
       proto << "snapshot: " << num_iters << " ";

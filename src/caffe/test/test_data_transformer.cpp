@@ -313,8 +313,7 @@ TYPED_TEST(DataTransformTest, TestMeanFile) {
   const int size = channels * height * width;
 
   // Create a mean file
-  string mean_file;
-  MakeTempFilename(&mean_file);
+  string mean_file = MakeTempFilename();
   BlobProto blob_mean;
   blob_mean.set_num(1);
   blob_mean.set_channels(channels);
@@ -644,8 +643,7 @@ TYPED_TEST(GPUDataTransformTest, TestMeanFile) {
   const int size = channels * height * width;
 
   // Create a mean file
-  string mean_file;
-  MakeTempFilename(&mean_file);
+  string mean_file = MakeTempFilename();
   BlobProto blob_mean;
   blob_mean.set_num(1);
   blob_mean.set_channels(channels);

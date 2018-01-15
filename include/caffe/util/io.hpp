@@ -64,32 +64,24 @@ inline void chw2hwc(size_t ch, size_t w, size_t h, const Stype* src, Dtype* dst)
   }
 }
 
-inline void MakeTempDir(string* temp_dirname) {
-  temp_dirname->clear();
-  const path& model =
-    boost::filesystem::temp_directory_path()/"caffe_test.%%%%-%%%%";
-  for ( int i = 0; i < CAFFE_TMP_DIR_RETRIES; i++ ) {
-    const path& dir = boost::filesystem::unique_path(model).string();
-    bool done = boost::filesystem::create_directory(dir);
-    if ( done ) {
-      *temp_dirname = dir.string();
-      return;
+inline string MakeTempDir() {
+  const path model = boost::filesystem::temp_directory_path()/"caffe_test.%%%%-%%%%";
+  for (int i = 0; i < CAFFE_TMP_DIR_RETRIES; ++i) {
+    string dir = boost::filesystem::unique_path(model).string();
+    if (boost::filesystem::create_directory(dir)) {
+      DLOG(INFO) << "Temp dir created: " << dir;
+      return dir;
     }
   }
   LOG(FATAL) << "Failed to create a temporary directory.";
+  return string();
 }
 
-inline void MakeTempFilename(string* temp_filename) {
-  static path temp_files_subpath;
+inline string MakeTempFilename() {
+  // For unit tests only
+  static path temp_files_subpath = MakeTempDir();
   static uint64_t next_temp_file = 0;
-  temp_filename->clear();
-  if ( temp_files_subpath.empty() ) {
-    string path_string="";
-    MakeTempDir(&path_string);
-    temp_files_subpath = path_string;
-  }
-  *temp_filename =
-    (temp_files_subpath/caffe::format_int(next_temp_file++, 9)).string();
+  return (temp_files_subpath / caffe::format_int(next_temp_file++, 9)).string();
 }
 
 bool ReadProtoFromTextFile(const char* filename, Message* proto);

@@ -29,9 +29,8 @@ class DataLayerTest : public MultiDeviceTest<TypeParam> {
                     blob_top_label_(make_shared<TBlob<Dtype>>()), seed_(1701) {}
 
   virtual void SetUp() {
-    filename_.reset(new string());
-    MakeTempDir(filename_.get());
-    *filename_ += "/db";
+    filename_ = MakeTempDir();
+    filename_ += "/db";
     blob_top_vec_.push_back(blob_top_data_.get());
     blob_top_vec_.push_back(blob_top_label_.get());
   }
@@ -41,9 +40,9 @@ class DataLayerTest : public MultiDeviceTest<TypeParam> {
   // an image are the same.
   void Fill(const bool unique_pixels, DataParameter_DB backend) {
     backend_ = backend;
-    LOG(INFO) << "Using temporary dataset " << *filename_;
+    LOG(INFO) << "Using temporary dataset " << filename_;
     unique_ptr<db::DB> db(db::GetDB(backend));
-    db->Open(*filename_, db::NEW);
+    db->Open(filename_, db::NEW);
     unique_ptr<db::Transaction> txn(db->NewTransaction());
     for (int i = 0; i < 5; ++i) {
       Datum datum;
@@ -73,7 +72,7 @@ class DataLayerTest : public MultiDeviceTest<TypeParam> {
     param.set_phase(TRAIN);
     DataParameter* data_param = param.mutable_data_param();
     data_param->set_batch_size(5);
-    data_param->set_source(filename_->c_str());
+    data_param->set_source(filename_.c_str());
     data_param->set_backend(backend_);
     data_param->set_threads(data_param->backend() == DataParameter_DB_LEVELDB ? 1 : 3);
 
@@ -109,9 +108,9 @@ class DataLayerTest : public MultiDeviceTest<TypeParam> {
   void TestReshape(DataParameter_DB backend) {
     const int num_inputs = 5;
     // Save data of varying shapes.
-    LOG(INFO) << "Using temporary dataset " << *filename_;
+    LOG(INFO) << "Using temporary dataset " << filename_;
     unique_ptr<db::DB> db(db::GetDB(backend));
-    db->Open(*filename_, db::NEW);
+    db->Open(filename_, db::NEW);
     unique_ptr<db::Transaction> txn(db->NewTransaction());
     for (int i = 0; i < num_inputs; ++i) {
       Datum datum;
@@ -138,7 +137,7 @@ class DataLayerTest : public MultiDeviceTest<TypeParam> {
     param.set_phase(TEST);
     DataParameter* data_param = param.mutable_data_param();
     data_param->set_batch_size(1);
-    data_param->set_source(filename_->c_str());
+    data_param->set_source(filename_.c_str());
     data_param->set_backend(backend);
     data_param->set_threads(data_param->backend() == DataParameter_DB_LEVELDB ? 1 : 3);
 
@@ -179,7 +178,7 @@ class DataLayerTest : public MultiDeviceTest<TypeParam> {
 
     DataParameter* data_param = param.mutable_data_param();
     data_param->set_batch_size(5);
-    data_param->set_source(filename_->c_str());
+    data_param->set_source(filename_.c_str());
     data_param->set_backend(backend_);
     data_param->set_threads(data_param->backend() == DataParameter_DB_LEVELDB ? 1 : 3);
 
@@ -234,7 +233,7 @@ class DataLayerTest : public MultiDeviceTest<TypeParam> {
     param.set_backward_math(tp<Dtype>());
     DataParameter* data_param = param.mutable_data_param();
     data_param->set_batch_size(5);
-    data_param->set_source(filename_->c_str());
+    data_param->set_source(filename_.c_str());
     data_param->set_backend(backend_);
     data_param->set_prefetch(2);
     data_param->set_threads(data_param->backend() == DataParameter_DB_LEVELDB ? 1 : 3);
@@ -289,7 +288,7 @@ class DataLayerTest : public MultiDeviceTest<TypeParam> {
     param.set_phase(TRAIN);
     DataParameter* data_param = param.mutable_data_param();
     data_param->set_batch_size(5);
-    data_param->set_source(filename_->c_str());
+    data_param->set_source(filename_.c_str());
     data_param->set_backend(backend_);
     data_param->set_prefetch(2);
     data_param->set_threads(data_param->backend() == DataParameter_DB_LEVELDB ? 1 : 2);
@@ -343,7 +342,7 @@ class DataLayerTest : public MultiDeviceTest<TypeParam> {
   }
 
   DataParameter_DB backend_;
-  shared_ptr<string> filename_;
+  string filename_;
   shared_ptr<TBlob<Dtype>> blob_top_data_;
   shared_ptr<TBlob<Dtype>> blob_top_label_;
   vector<Blob*> blob_bottom_vec_;

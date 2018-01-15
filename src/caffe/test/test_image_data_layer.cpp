@@ -29,7 +29,7 @@ class ImageDataLayerTest : public MultiDeviceTest<TypeParam> {
     blob_top_vec_.push_back(blob_top_label_);
     Caffe::set_random_seed(seed_);
     // Create test input file.
-    MakeTempFilename(&filename_);
+    filename_ = MakeTempFilename();
     std::ofstream outfile(filename_.c_str(), std::ofstream::out);
     LOG(INFO) << "Using temporary file " << filename_;
     for (int i = 0; i < 5; ++i) {
@@ -37,7 +37,7 @@ class ImageDataLayerTest : public MultiDeviceTest<TypeParam> {
     }
     outfile.close();
     // Create test input file for images of distinct sizes.
-    MakeTempFilename(&filename_reshape_);
+    filename_reshape_ = MakeTempFilename();
     std::ofstream reshapefile(filename_reshape_.c_str(), std::ofstream::out);
     LOG(INFO) << "Using temporary file " << filename_reshape_;
     reshapefile << EXAMPLES_SOURCE_DIR "images/cat.jpg " << 0;

@@ -28,7 +28,7 @@ class HDF5OutputLayerTest : public MultiDeviceTest<TypeParam> {
         channels_(8),
         height_(5),
         width_(5) {
-    MakeTempFilename(&output_file_name_);
+    output_file_name_ = MakeTempFilename();
   }
 
   virtual ~HDF5OutputLayerTest() {

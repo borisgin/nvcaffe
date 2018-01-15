@@ -265,9 +265,6 @@ void Solver::Step(int iters) {
     const bool first_loop = iter_ == 0 || iterations_last_ < 0;
     if (iter_ == 0) {
       scores = TestAll(1, use_multi_gpu_testing);
-      if (scores.size() == 0UL) {
-        break;
-      }
       callback_soft_barrier();
       LOG_IF(INFO, Caffe::root_solver()) << mgpu_str << "Initial Test completed";
     } else if (test_and_snapshot || (param_.test_interval()
@@ -275,9 +272,6 @@ void Solver::Step(int iters) {
         && iterations_last_ >= 0)) {
       iteration_timer_->Start();
       scores = TestAll(0, use_multi_gpu_testing);
-      if (scores.size() == 0UL) {
-        break;
-      }
       callback_soft_barrier();
       float lapse = iteration_timer_->Seconds();
       LOG_IF(INFO, Caffe::root_solver()) << mgpu_str << "Tests completed in "
@@ -388,11 +382,12 @@ void Solver::Step(int iters) {
 
     SolverAction::Enum request = GetRequestedAction();
     // Save a snapshot if needed.
-    if (Caffe::root_solver() && test_and_snapshot) {
-      SnapshotWithScores(scores);
-    } else if ((param_.snapshot() && iter_ % param_.snapshot() == 0 && Caffe::root_solver()) ||
+    if ((param_.snapshot() && iter_ % param_.snapshot() == 0 && Caffe::root_solver()) ||
         request == SolverAction::SNAPSHOT) {
       Snapshot();
+    }
+    if (Caffe::root_solver() && test_and_snapshot && scores.size() > 0) {
+      SnapshotWithScores(scores);
     }
     if (SolverAction::STOP == request) {
       requested_early_exit_ = true;

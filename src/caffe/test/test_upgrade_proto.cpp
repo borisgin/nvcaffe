@@ -2906,8 +2906,7 @@ TEST_F(NetUpgradeTest, TestUpgradeV1LayerType) {
     // Data layers expect a DB
     if (v2_layer_type == "Data") {
       #ifdef USE_LEVELDB
-      string tmp;
-      MakeTempDir(&tmp);
+      string tmp = MakeTempDir();
       std::unique_ptr<db::DB> db(db::GetDB(DataParameter_DB_LEVELDB));
       db->Open(tmp, db::NEW);
       db->Close();
