@@ -202,7 +202,7 @@ message NetParameter {
 // NOTE
 // Update the next available ID when you add a new SolverParameter field.
 //
-// SolverParameter next available ID: 54 (last added: weight_decay_power)
+// SolverParameter next available ID: 55 (last added: test_and_snapshot_last_epochs)
 message SolverParameter {
   //////////////////////////////////////////////////////////////////////////////
   // Specifying the train and test networks
@@ -370,6 +370,8 @@ message SolverParameter {
   // * FP32 blobs are stored in 'data' container.
   // * FP64 blobs are stored in 'double_data' container.
   optional bool store_blobs_in_old_format = 45 [default = false];
+  // If set to N>0, makes Caffe to test and snapshot last N epochs
+  optional int32 test_and_snapshot_last_epochs = 54 [default = 0];
 }
 
 // A message that stores the solver snapshots

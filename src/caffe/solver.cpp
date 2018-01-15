@@ -240,24 +240,41 @@ void Solver::Step(int iters) {
         Caffe::current_device(), mode, random_seed, solver_count, root_solver, 1));
   }
 
+  size_t epoch_count = 0UL;
+  unsigned int bps = net_->batch_per_solver();
+  double epochs = 0.;
+  double epochs_passed = 0.;
+  int ts_epochs_remaining = param_.test_and_snapshot_last_epochs();
+  const bool test_and_snapshot_enabled = ts_epochs_remaining > 0;
+  --ts_epochs_remaining;
+
   while (iter_ < stop_iter) {
     if (param_.snapshot_diff() || param_.clip_gradients() >= 0.F) {
       net_->ClearParamDiffs();
     }  // we clean them in ApplyUpdate otherwise
 
+    bool test_and_snapshot = false;
+    if (test_and_snapshot_enabled &&
+        (iter_ + 1 == stop_iter || (epochs > 0. && epochs_passed + ts_epochs_remaining > epochs))) {
+      --ts_epochs_remaining;
+      test_and_snapshot = true;
+    }
+    float score = 0.F;
+
     // Just started or restored?
     const bool first_loop = iter_ == 0 || iterations_last_ < 0;
     if (iter_ == 0) {
-      if (TestAll(1, use_multi_gpu_testing)) {
+      if (TestAll(1, use_multi_gpu_testing) < 0.F) {
         break;
       }
       callback_soft_barrier();
       LOG_IF(INFO, Caffe::root_solver()) << mgpu_str << "Initial Test completed";
-    } else if (param_.test_interval()
+    } else if (test_and_snapshot || (param_.test_interval()
         && iter_ % param_.test_interval() == 0
-        && iterations_last_ >= 0) {
+        && iterations_last_ >= 0)) {
       iteration_timer_->Start();
-      if (TestAll(0, use_multi_gpu_testing)) {
+      score = TestAll(0, use_multi_gpu_testing);
+      if (score < 0.F) {
         break;
       }
       callback_soft_barrier();
@@ -311,6 +328,13 @@ void Solver::Step(int iters) {
       break;
     }
 
+    epoch_count = Caffe::epoch_count();
+    if (epoch_count > 0UL) {
+      epochs = (double) (iters * param_.iter_size() * bps *
+          Caffe::solver_count()) / epoch_count;
+      epochs_passed = (double) (iter() * param_.iter_size() * bps *
+          Caffe::solver_count()) / epoch_count;
+    }
     // average the loss across iterations for smoothed reporting
     UpdateSmoothedLoss(loss, start_iter, average_loss);
     if (this->param_display() && (display || rel_iter <= 2 || iter_ + 1 >= stop_iter)) {
@@ -318,11 +342,7 @@ void Solver::Step(int iters) {
       iteration_timer_->Start();
 
       std::ostringstream os_ep;
-      size_t epoch_count = Caffe::epoch_count();
       if (epoch_count > 0UL) {
-        unsigned int bps = net_->batch_per_solver();
-        double epochs = (double)(iters * bps * Caffe::solver_count()) / epoch_count;
-        double epochs_passed = (double)(iter() * bps * Caffe::solver_count()) / epoch_count;
         os_ep << f_round1(epochs_passed) << "/" << f_round1(epochs) << "ep, ";
       }
 
@@ -367,11 +387,10 @@ void Solver::Step(int iters) {
 
     SolverAction::Enum request = GetRequestedAction();
     // Save a snapshot if needed.
-    if ((param_.snapshot()
-         && iter_ % param_.snapshot() == 0
-         && Caffe::root_solver()) ||
-         (request == SolverAction::SNAPSHOT)) {
-      Snapshot();
+    if ((param_.snapshot() && iter_ % param_.snapshot() == 0 && Caffe::root_solver()) ||
+        (Caffe::root_solver() && test_and_snapshot) ||
+        request == SolverAction::SNAPSHOT) {
+      Snapshot(score);
     }
     if (SolverAction::STOP == request) {
       requested_early_exit_ = true;
@@ -470,18 +489,25 @@ bool Solver::Solve(const char* resume_file) {
   return false;
 }
 
-bool Solver::TestAll(const int iters, bool use_multi_gpu) {
+// Returns a score for net #0 output #0 or negative value if interrupted
+float Solver::TestAll(const int iters, bool use_multi_gpu) {
+  float ret_score = 0.F;
   for (int test_net_id = 0;
        test_net_id < test_nets_.size() && !requested_early_exit_;
        ++test_net_id) {
-    if (Test(test_net_id, iters, use_multi_gpu)) {
-      return true;
+    float score = Test(test_net_id, iters, use_multi_gpu);
+    if (score < 0.F) {
+      return score;
+    }
+    if (ret_score == 0.F) {
+      ret_score = score;
     }
   }
-  return false;
+  return ret_score;
 }
 
-bool Solver::Test(const int test_net_id, const int iters, bool use_multi_gpu) {
+// Returns a score for net output #0 or negative value if interrupted
+float Solver::Test(const int test_net_id, const int iters, bool use_multi_gpu) {
   LOG_IF(INFO, Caffe::root_solver()) << "Iteration " << iter_
             << ", Testing net (#" << test_net_id << ")";
   if (!test_nets_[test_net_id]->trained_layers_shared()) {
@@ -507,7 +533,7 @@ bool Solver::Test(const int test_net_id, const int iters, bool use_multi_gpu) {
     if (requested_early_exit_) {
       LOG(INFO) << "Test interrupted.";
       Finalize();
-      return true;
+      return -1.F;
     }
 
     float iter_loss;
@@ -556,6 +582,7 @@ bool Solver::Test(const int test_net_id, const int iters, bool use_multi_gpu) {
     loss /= param_.test_iter(test_net_id);
     LOG(INFO) << "Test loss: " << loss;
   }
+  float score = 0.F;
   for (int i = 0; i < test_score.size(); ++i) {
     const int output_blob_index =
         test_net->output_blob_indices()[test_score_output_id[i]];
@@ -569,19 +596,22 @@ bool Solver::Test(const int test_net_id, const int iters, bool use_multi_gpu) {
     }
     LOG_IF(INFO, Caffe::root_solver()) << "    Test net output #" << i <<
         ": " << output_name << " = " << mean_score << loss_msg_stream.str();
+    if (i == 0) {
+      score = mean_score;
+    }
   }
-  return false;
+  return score;
 }
 
-void Solver::Snapshot() {
+void Solver::Snapshot(float score) {
   CHECK(Caffe::root_solver());
   string model_filename;
   switch (param_.snapshot_format()) {
   case caffe::SolverParameter_SnapshotFormat_BINARYPROTO:
-    model_filename = SnapshotToBinaryProto();
+    model_filename = SnapshotToBinaryProto(score);
     break;
   case caffe::SolverParameter_SnapshotFormat_HDF5:
-    model_filename = SnapshotToHDF5();
+    model_filename = SnapshotToHDF5(score);
     break;
   default:
     LOG(FATAL) << "Unsupported snapshot format.";
@@ -606,12 +636,18 @@ void Solver::CheckSnapshotWritePermissions() {
   }
 }
 
-string Solver::SnapshotFilename(const string extension) {
-  return param_.snapshot_prefix() + "_iter_" + caffe::format_int(iter_) + extension;
+string Solver::SnapshotFilename(const string& extension, float score) const {
+  std::ostringstream os;
+  os << param_.snapshot_prefix() << "_iter_" << caffe::format_int(iter_);
+  if (score > 0.F) {
+    os << "_score_" << score;
+  }
+  os << extension;
+  return os.str();
 }
 
-string Solver::SnapshotToBinaryProto() {
-  string model_filename = SnapshotFilename(".caffemodel");
+string Solver::SnapshotToBinaryProto(float score) {
+  string model_filename = SnapshotFilename(".caffemodel", score);
   LOG(INFO) << "Snapshotting to binary proto file " << model_filename;
   NetParameter net_param;
   net_->ToProto(&net_param, param_.snapshot_diff());
@@ -619,8 +655,8 @@ string Solver::SnapshotToBinaryProto() {
   return model_filename;
 }
 
-string Solver::SnapshotToHDF5() {
-  string model_filename = SnapshotFilename(".caffemodel.h5");
+string Solver::SnapshotToHDF5(float score) {
+  string model_filename = SnapshotFilename(".caffemodel.h5", score);
   LOG(INFO) << "Snapshotting to HDF5 file " << model_filename;
   net_->ToHDF5(model_filename, param_.snapshot_diff());
   return model_filename;
