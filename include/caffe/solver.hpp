@@ -66,7 +66,10 @@ class Solver {
   // that stores the learned net. You should implement the SnapshotSolverState()
   // function that produces a SolverState protocol buffer that needs to be
   // written to disk together with the learned net.
-  void Snapshot(float score = 0.F);
+  void Snapshot() {
+    SnapshotWithScores(vector<float>());
+  }
+  void SnapshotWithScores(const vector<float>& scores);
   virtual ~Solver();
   const SolverParameter& param() const { return param_; }
   shared_ptr<Net> net() { return net_; }
@@ -169,12 +172,12 @@ class Solver {
       bool clear_grads) = 0;
 
  protected:
-  string SnapshotFilename(const string& extension, float score = 0.F) const;
-  string SnapshotToBinaryProto(float score);
-  string SnapshotToHDF5(float score);
+  string SnapshotFilename(const string& extension, const vector<float>& scores) const;
+  string SnapshotToBinaryProto(const vector<float>& scores);
+  string SnapshotToHDF5(const vector<float>& scores);
   // The test routine
-  float TestAll(const int iters = 0, bool use_multi_gpu = false);
-  float Test(const int test_net_id = 0, const int iters = 0, bool use_multi_gpu = false);
+  vector<float> TestAll(const int iters = 0, bool use_multi_gpu = false);
+  vector<float> Test(const int test_net_id = 0, const int iters = 0, bool use_multi_gpu = false);
   virtual void SnapshotSolverState(const string& model_filename) = 0;
   virtual void RestoreSolverStateFromHDF5(const string& state_file) = 0;
   virtual void RestoreSolverStateFromBinaryProto(const string& state_file) = 0;
@@ -223,6 +226,8 @@ class Solver {
   shared_ptr<Timer> test_timer_;
   int iterations_last_;
   int iterations_restored_;
+
+  static constexpr size_t MAX_SNAPSHOT_SCORES = 5;
 
   DISABLE_COPY_MOVE_AND_ASSIGN(Solver);
 };

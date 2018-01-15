@@ -392,14 +392,14 @@ void SGDSolver<Dtype>::SnapshotSolverStateToBinaryProto(const string& model_file
     // Add history
     history_[i]->ToProto(state.add_history(), param().store_blobs_in_old_format());
   }
-  string snapshot_filename = Solver::SnapshotFilename(".solverstate");
+  string snapshot_filename = Solver::SnapshotFilename(".solverstate", vector<float>());
   LOG(INFO) << "Snapshotting solver state to binary proto file " << snapshot_filename;
   WriteProtoToBinaryFile(state, snapshot_filename.c_str());
 }
 
 template<typename Dtype>
 void SGDSolver<Dtype>::SnapshotSolverStateToHDF5(const string& model_filename) {
-  string snapshot_filename = Solver::SnapshotFilename(".solverstate.h5");
+  string snapshot_filename = Solver::SnapshotFilename(".solverstate.h5", vector<float>());
   LOG(INFO) << "Snapshotting solver state to HDF5 file " << snapshot_filename;
   hid_t file_hid = H5Fcreate(snapshot_filename.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
   CHECK_GE(file_hid, 0) << "Couldn't open " << snapshot_filename << " to save solver state.";
