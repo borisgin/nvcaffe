@@ -29,7 +29,7 @@ std::mutex Caffe::pstream_mutex_;
 std::mutex Caffe::cublas_mutex_;
 std::mutex Caffe::cudnn_mutex_;
 std::mutex Caffe::seed_mutex_;
-std::unordered_map<std::uint64_t, std::shared_ptr<Caffe>> Caffe::thread_instance_map_;
+std::unordered_map<std::int64_t, std::shared_ptr<Caffe>> Caffe::thread_instance_map_;
 
 
 std::uint32_t lwp_id() {
@@ -47,9 +47,12 @@ std::uint64_t lwp_dev_id() {
 
 Caffe& Caffe::Get() {
   // Make sure each thread can have different values.
-  // We also need to care about device id.
-  std::uint64_t tid = lwp_dev_id();
+  // We also need to care about device id...
+  std::uint64_t utid = lwp_dev_id();
   std::lock_guard<std::mutex> lock(caffe_mutex_);
+  // ...and Brew mode too
+  std::int64_t tid = mode_ == GPU ?
+                     static_cast<std::int64_t>(utid) : - static_cast<std::int64_t>(utid);
   auto it = thread_instance_map_.find(tid);
   if (it != thread_instance_map_.end()) {
     return *it->second.get();
@@ -58,7 +61,7 @@ Caffe& Caffe::Get() {
   ++thread_count_;
   DLOG(INFO) << "[" << current_device()
              << "] New Caffe instance " << emp_pair.first->second.get()
-             << ", count " << thread_count_ << ", thread " << lwp_id();
+             << ", count " << thread_count_ << ", thread " << lwp_id() << ", tid " << tid;
   return *emp_pair.first->second.get();
 }
 

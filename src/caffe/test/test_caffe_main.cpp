@@ -23,7 +23,7 @@ int main(int argc, char** argv) {
 
   // Before starting testing, let's first print out a few cuda defice info.
   std::vector<int> devices;
-  int device_count;
+  int device_count = 0;
 
   cudaGetDeviceCount(&device_count);
   cout << "Cuda number of devices: " << device_count << endl;
@@ -45,7 +45,7 @@ int main(int argc, char** argv) {
       devices.push_back(i);
   }
 
-  int device;
+  int device = 0;
   CUDA_CHECK(cudaGetDevice(&device));
   cout << "Current device id: " << device << endl;
   CUDA_CHECK(cudaGetDeviceProperties(&CAFFE_TEST_CUDA_PROP, device));

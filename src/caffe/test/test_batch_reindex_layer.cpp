@@ -60,6 +60,10 @@ class BatchReindexLayerTest : public MultiDeviceTest<TypeParam> {
 
   void TestForward() {
     LayerParameter layer_param;
+    layer_param.set_forward_type(tp<Dtype>());
+    layer_param.set_backward_type(tp<Dtype>());
+    layer_param.set_forward_math(tp<Dtype>());
+    layer_param.set_backward_math(tp<Dtype>());
 
     vector<int> sz;
     sz.push_back(5);
@@ -109,10 +113,19 @@ TYPED_TEST(BatchReindexLayerTest, TestForward) {
 TYPED_TEST(BatchReindexLayerTest, TestGradient) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter layer_param;
+  layer_param.set_forward_type(tp<Dtype>());
+  layer_param.set_backward_type(tp<Dtype>());
+  layer_param.set_forward_math(tp<Dtype>());
+  layer_param.set_backward_math(tp<Dtype>());
   BatchReindexLayer<Dtype, Dtype> layer(layer_param);
-  GradientChecker<Dtype> checker(tol<Dtype>(1e-4, 1e-2), tol<Dtype>(1e-2, 1e-1));
-  checker.CheckGradientExhaustive(&layer, this->blob_bottom_vec_,
+
+  GradientChecker<Dtype> checker1(tol<Dtype>(0.1, 1e-2), tol<Dtype>(1e-1, 1e-1), 1371, 0, 100);
+  checker1.CheckGradientExhaustive(&layer, this->blob_bottom_vec_,
       this->blob_top_vec_, 0);
-  }
+
+  GradientChecker<Dtype> checker2(tol<Dtype>(0.1, 1e-2), tol<Dtype>(1e-1, 1e-1));
+  checker2.CheckGradientExhaustive(&layer, this->blob_bottom_vec_,
+      this->blob_top_vec_, 0);
+}
 
 }  // namespace caffe

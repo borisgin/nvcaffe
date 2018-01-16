@@ -515,7 +515,7 @@ class Caffe {
   static int restored_iter_;
   static std::atomic<uint64_t> root_seed_;
   static std::mutex caffe_mutex_, pstream_mutex_, cublas_mutex_, cudnn_mutex_, seed_mutex_;
-  static std::unordered_map<std::uint64_t, std::shared_ptr<Caffe>> thread_instance_map_;
+  static std::unordered_map<std::int64_t, std::shared_ptr<Caffe>> thread_instance_map_;
 
   static std::atomic<size_t> epoch_count_;
   shared_ptr<CudaStream> curand_stream_;
