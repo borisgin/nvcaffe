@@ -22,6 +22,14 @@
       << cudnnGetErrorString(status) << ", device " << Caffe::current_device(); \
   } while (0)
 
+#define CUDNN_CHECK2(condition, arg1, arg2) \
+  do { \
+    cudnnStatus_t status = condition; \
+    CHECK_EQ(status, CUDNN_STATUS_SUCCESS) << " "\
+      << cudnnGetErrorString(status) << ", device " << Caffe::current_device() \
+      << " " << arg1 << " " << arg2; \
+  } while (0)
+
 const char* cudnnGetErrorString(cudnnStatus_t status);
 
 namespace caffe {

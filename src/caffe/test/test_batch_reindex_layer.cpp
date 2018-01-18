@@ -119,10 +119,6 @@ TYPED_TEST(BatchReindexLayerTest, TestGradient) {
   layer_param.set_backward_math(tp<Dtype>());
   BatchReindexLayer<Dtype, Dtype> layer(layer_param);
 
-  GradientChecker<Dtype> checker1(tol<Dtype>(0.1, 1e-2), tol<Dtype>(1e-1, 1e-1), 1371, 0, 100);
-  checker1.CheckGradientExhaustive(&layer, this->blob_bottom_vec_,
-      this->blob_top_vec_, 0);
-
   GradientChecker<Dtype> checker2(tol<Dtype>(0.1, 1e-2), tol<Dtype>(1e-1, 1e-1));
   checker2.CheckGradientExhaustive(&layer, this->blob_bottom_vec_,
       this->blob_top_vec_, 0);

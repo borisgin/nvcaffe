@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <utility>
 #include <vector>
+#include <device_launch_parameters.h>
 
 #include "caffe/layers/batch_reindex_layer.hpp"
 #include "caffe/util/math_functions.hpp"
@@ -38,18 +39,19 @@ void BatchReindexLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom,
 
 template<typename Dtype>
 __global__ void BRBackward(const int count, const int inner_dim,
-                           const Dtype* in, const Dtype* top_indexes,
-                           const Dtype* begins, const Dtype* counts,
+                           const Dtype* in, const int* top_indexes,
+                           const int* begins, const int* counts,
                            Dtype* out) {
   CUDA_KERNEL_LOOP(index, count) {
-    int n = index / (inner_dim);
-    out[index] = 0;
-    int lower = static_cast<int>(begins[n]);
-    int upper = lower + static_cast<int>(counts[n]);
+    int n = index / inner_dim;
+    int nr = index % inner_dim;
+    Dtype oi = Dtype(0.);
+    int lower = begins[n];
+    int upper = lower + counts[n];
     for (int i = lower; i < upper; ++i) {
-      int in_n = static_cast<int>(top_indexes[i]);
-      out[index] += in[in_n * (inner_dim) + index % (inner_dim)];
+      oi += in[top_indexes[i] * inner_dim + nr];
     }
+    out[index] = oi;
   }
 }
 
@@ -65,7 +67,7 @@ void BatchReindexLayer<Ftype, Btype>::Backward_gpu(
   vector<std::pair<int, int> > mapping;
   const Btype* perm = bottom[1]->cpu_data<Btype>();
   for (int i = 0; i < bottom[1]->count(); ++i) {
-    mapping.push_back(pair<int, int>(static_cast<int>(perm[i]), i));
+    mapping.emplace_back(make_pair(static_cast<int>(perm[i]), i));
   }
   std::sort(mapping.begin(), mapping.end(), pair_sort_first());
 
@@ -78,15 +80,15 @@ void BatchReindexLayer<Ftype, Btype>::Backward_gpu(
   // length of that list.
   vector<int> shape;
   shape.push_back(bottom[1]->count());
-  TBlob<Btype> top_indexes(shape);
+  TBlob<int> top_indexes(shape);
   shape[0] = bottom[0]->shape(0);
-  TBlob<Btype> counts(shape);
-  TBlob<Btype> begins(shape);
-  Btype* t_i_data = top_indexes.mutable_cpu_data();
-  Btype* c_data = counts.mutable_cpu_data();
-  Btype* b_data = begins.mutable_cpu_data();
-  caffe_set(begins.count(), Btype(-1), b_data);
-  caffe_set(counts.count(), Btype(0), c_data);
+  TBlob<int> counts(shape);
+  TBlob<int> begins(shape);
+  int* t_i_data = top_indexes.mutable_cpu_data();
+  int* c_data = counts.mutable_cpu_data();
+  int* b_data = begins.mutable_cpu_data();
+  caffe_set(begins.count(), -1, b_data);
+  caffe_set(counts.count(), 0, c_data);
   for (int i = 0; i < mapping.size(); ++i) {
     t_i_data[i] = mapping[i].second;
     if (b_data[mapping[i].first] == -1) {

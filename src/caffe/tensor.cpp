@@ -312,11 +312,11 @@ std::string Tensor::to_string(int indent) const {  // debug helper
       os << std::endl << idt << " data:" << std::endl;
       os << synced_arrays_->at(i)->to_string(indent + 2, (Type) i);
 
-      if (synced_arrays_->at(i)->is_valid()) {
-        os << idt << "ASUM: " << asum(0) << std::endl;
-      } else {
-        os << idt << "NOT VALID" << std::endl;
-      }
+//      if (synced_arrays_->at(i)->is_valid()) {
+//        os << idt << "ASUM: " << asum(0) << std::endl;
+//      } else {
+//        os << idt << "NOT VALID" << std::endl;
+//      }
     }
   }
   return os.str();

@@ -44,11 +44,11 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& botto
       for (int g = 0; g < groups(); ++g) {
         unsigned char* pspace = static_cast<unsigned char*>(ws->data()) + gsize * idxg(g);
         // Filters.
-        CUDNN_CHECK(cudnnConvolutionForward(Caffe::cudnn_handle(idxg(g)),
+        CUDNN_CHECK2(cudnnConvolutionForward(Caffe::cudnn_handle(idxg(g)),
             cudnn::dataType<Ftype>::one, fwd_bottom_descs_[i], bottom_data + bottom_offset_ * g,
             fwd_filter_desc_, weight + this->weight_offset_ * g,
             fwd_conv_descs_[i], fwd_algo_[i], pspace, gsize,
-            cudnn::dataType<Ftype>::zero, fwd_top_descs_[i], top_data + top_offset_ * g));
+            cudnn::dataType<Ftype>::zero, fwd_top_descs_[i], top_data + top_offset_ * g), pspace, gsize);
       }
       // NOLINT_NEXT_LINE(whitespace/operators)
       for (int ig = 0; ig < ws_groups(); ++ig) {
