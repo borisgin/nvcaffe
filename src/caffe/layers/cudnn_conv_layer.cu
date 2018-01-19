@@ -12,7 +12,7 @@ template<typename Ftype, typename Btype>
 void CuDNNConvolutionLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom,
     const vector<Blob*>& top) {
   const Ftype* weight = this->blobs_[0]->template gpu_data<Ftype>();
-  shared_ptr<GPUMemory::Workspace> ws = GPUMemory::workspace_[Caffe::current_device()];
+  shared_ptr<GPUMemory::Workspace>& ws = GPUMemory::workspace_[Caffe::current_device()];
   if (use_v7grouping()) {
     for (int i = 0; i < bottom.size(); ++i) {
       const Ftype *bottom_data = bottom[i]->gpu_data<Ftype>();
@@ -42,13 +42,14 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& botto
       const size_t gsize = ws->size() / ws_groups();
       CHECK(is_even(gsize));
       for (int g = 0; g < groups(); ++g) {
-        unsigned char* pspace = static_cast<unsigned char*>(ws->data()) + gsize * idxg(g);
+        void* pspace = static_cast<unsigned char*>(ws->data()) + gsize * idxg(g);
         // Filters.
-        CUDNN_CHECK2(cudnnConvolutionForward(Caffe::cudnn_handle(idxg(g)),
+        CUDNN_CHECK3(cudnnConvolutionForward(Caffe::cudnn_handle(idxg(g)),
             cudnn::dataType<Ftype>::one, fwd_bottom_descs_[i], bottom_data + bottom_offset_ * g,
             fwd_filter_desc_, weight + this->weight_offset_ * g,
             fwd_conv_descs_[i], fwd_algo_[i], pspace, gsize,
-            cudnn::dataType<Ftype>::zero, fwd_top_descs_[i], top_data + top_offset_ * g), pspace, gsize);
+            cudnn::dataType<Ftype>::zero, fwd_top_descs_[i], top_data + top_offset_ * g),
+            pspace, gsize, (int)fwd_algo_[i]);
       }
       // NOLINT_NEXT_LINE(whitespace/operators)
       for (int ig = 0; ig < ws_groups(); ++ig) {

@@ -30,6 +30,7 @@ template<unsigned int BlockSize, typename TR>
 __device__ void asum_reduce_block(volatile TR *sdata, TR my_sum, unsigned int tid) {
   const int thread_count = blockDim.x * blockDim.y * blockDim.z;
   volatile TR* st = sdata + tid;
+  __syncthreads();
   tassign(st, my_sum);
   __syncthreads();
   // do reduction in shared mem
