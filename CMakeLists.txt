@@ -38,9 +38,11 @@ caffe_option(USE_CUDNN "Build Caffe with cuDNN library support" ON)
 # 2. User explicitly set USE_NCCL=ON option =>
 #   1.1 We try to find it with *required* option, thus CMake fails if not found.
 # 3. User explicitly set USE_NCCL=OFF option => we do nothing.
-SET(USE_NCCL)
-if(DEFINED USE_NCCL)
-  STRING(TOUPPER "${USE_NCCL}" USE_NCCL)
+set(USE_NCCL "NONE" CACHE STRING "Link Caffe with NCCL Library for Multi-GPU support")
+if(USE_NCCL STREQUAL "NONE")
+  set(USE_NCCL_SET OFF)
+else()
+  set(USE_NCCL_SET ON)
 endif()
 
 caffe_option(BUILD_SHARED_LIBS "Build shared libraries" ON)
