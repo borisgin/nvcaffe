@@ -12,38 +12,40 @@ namespace caffe {
 SHMEM(amax);
 CAFFE_GPU_SHMEM(amax);
 
+#define BLOCK_REDUCE_AMAX(TNUM) \
+if (BlockSize >= (TNUM) * 2) { \
+  if (tid < (TNUM)) { \
+    tmax_replace(st, sdata[tid + (TNUM)]); \
+  } \
+  __syncthreads(); \
+}
+
+#define REDUCE_AMAX(TNUM) \
+if (tid + (TNUM) < thread_count) { \
+  tmax_replace(st, sdata[tid + (TNUM)]); \
+  __syncthreads(); \
+}
+
 ///////////////////////////////////// AMAX REDUCTION ///////////////////////////////////
 
 template<unsigned int BlockSize, typename T>
 __device__ void amax_reduce_block(volatile T *sdata, T my_max, unsigned int tid) {
+  const int thread_count = blockDim.x * blockDim.y * blockDim.z;
   volatile T* st = sdata + tid;
-
   tassign(st, my_max);
   __syncthreads();
 
   // do reduction in shared mem
-  if (BlockSize >= 512) {
-    if (tid < 256) {
-      tmax_replace(st, sdata[tid + 256]);
-    }
-    __syncthreads();
-  }
-  if (BlockSize >= 256) {
-    if (tid < 128) {
-      tmax_replace(st, sdata[tid + 128]);
-    }
-    __syncthreads();
-  }
-  if (BlockSize >= 128) {
-    if (tid < 64) {
-      tmax_replace(st, sdata[tid + 64]);
-    }
-    __syncthreads();
-  }
+  BLOCK_REDUCE_AMAX(256)
+  BLOCK_REDUCE_AMAX(128)
+  BLOCK_REDUCE_AMAX(64)
   if (tid < 32) {
-    for (int i = 32; i > 0; i >>= 1) {
-      tmax_replace(st, sdata[tid + i]);
-    }
+    REDUCE_AMAX(32)
+    REDUCE_AMAX(16)
+    REDUCE_AMAX(8)
+    REDUCE_AMAX(4)
+    REDUCE_AMAX(2)
+    REDUCE_AMAX(1)
   }
 }
 
@@ -122,7 +124,7 @@ __global__ void amax_reduce_kernel(unsigned int n, const T *in, TR *out, int gro
 template <typename T, typename TR>
 void gpu_amax_t(const int n, const T* x, TR* result, int group) {
   CHECK_LT(group, REGRESSION_GROUPS_MAX);
-  cudaStream_t stream = Caffe::thread_stream();
+  cudaStream_t stream = Caffe::thread_stream(group);
   const bool po2 = is_pow2(n);
   // See kernel for details
   CHECK_LE(CAFFE_CUDA_NUM_THREADS_HALF, 512);
@@ -159,7 +161,7 @@ template<>
 void caffe_gpu_amax<float16>(const int n, const float16* x, float* y, int group) {
   // For odd counts we allocate extra element to speed up kernels.
   // We have to keep it clean.
-  cudaStream_t stream = Caffe::thread_stream();
+  cudaStream_t stream = Caffe::thread_stream(group);
   if (n & 1) {
     clean_last_element(const_cast<float16*>(x) + n, stream);
   }
