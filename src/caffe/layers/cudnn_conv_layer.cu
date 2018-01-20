@@ -12,6 +12,9 @@ template<typename Ftype, typename Btype>
 void CuDNNConvolutionLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom,
     const vector<Blob*>& top) {
   const Ftype* weight = this->blobs_[0]->template gpu_data<Ftype>();
+  if (fwd_count_ < 4) {
+    AllocateWorkspace(bottom.size());
+  }
   shared_ptr<GPUMemory::Workspace>& ws = GPUMemory::workspace_[Caffe::current_device()];
   if (use_v7grouping()) {
     for (int i = 0; i < bottom.size(); ++i) {
@@ -81,8 +84,10 @@ template <typename Ftype, typename Btype>
 void CuDNNConvolutionLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
     const vector<bool>& propagate_down, const vector<Blob*>& bottom) {
   propagate_down_ = propagate_down;
-  const int dev = Caffe::current_device();
-  shared_ptr<GPUMemory::Workspace> ws = GPUMemory::workspace_[Caffe::current_device()];
+  if (bwd_count_ < 4) {
+    AllocateWorkspace(bottom.size());
+  }
+  shared_ptr<GPUMemory::Workspace>& ws = GPUMemory::workspace_[Caffe::current_device()];
   if (use_v7grouping()) {
     // compute dE/dB = sum_c(dE/dy)
     if (this->bias_term_ && this->param_propagate_down_[1]) {

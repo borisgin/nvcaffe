@@ -98,7 +98,7 @@ void Caffe::set_random_seed_int(uint64_t random_seed) {
   } else if (random_seed == Caffe::SEED_NOT_SET) {
     return;  // i.e. root solver was previously set to 0+ and there is no need to re-generate
   }
-  if (device_count() > 0) {
+  if (mode_ == GPU && device_count() > 0) {
     // Curand seed
     std::lock_guard<std::mutex> lock(seed_mutex_);
     if (random_seed == Caffe::SEED_NOT_SET) {
@@ -136,22 +136,25 @@ int Caffe::device_count() {
 }
 
 Caffe::Caffe()
-    : random_generator_(),
+    : curand_generator_(nullptr),
+      random_generator_(),
       root_solver_(true),
       device_(current_device()) {
-  CURAND_CHECK_ARG(curandCreateGenerator(&curand_generator_, CURAND_RNG_PSEUDO_DEFAULT),
-      current_device());
-  CURAND_CHECK_ARG(curandSetPseudoRandomGeneratorSeed(curand_generator_, cluster_seedgen()),
-      current_device());
-  curand_stream_ = pstream();
-  CURAND_CHECK_ARG(curandSetStream(curand_generator_, curand_stream_->get()), current_device());
+  if (mode_ == GPU) {
+    CURAND_CHECK_ARG(curandCreateGenerator(&curand_generator_, CURAND_RNG_PSEUDO_DEFAULT),
+        current_device());
+    CURAND_CHECK_ARG(curandSetPseudoRandomGeneratorSeed(curand_generator_, cluster_seedgen()),
+        current_device());
+    curand_stream_ = CudaStream::create();
+    CURAND_CHECK_ARG(curandSetStream(curand_generator_, curand_stream_->get()), current_device());
+  }
 }
 
 Caffe::~Caffe() {
   int current_device;  // Just to check CUDA status:
   cudaError_t status = cudaGetDevice(&current_device);
   // Preventing crash while Caffe shutting down.
-  if (status != cudaErrorCudartUnloading) {
+  if (status != cudaErrorCudartUnloading && curand_generator_ != nullptr) {
     CURAND_CHECK(curandDestroyGenerator(curand_generator_));
   }
 }

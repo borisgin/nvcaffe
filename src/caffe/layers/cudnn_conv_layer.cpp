@@ -288,38 +288,38 @@ size_t CuDNNConvolutionLayer<Ftype, Btype>::AllocateWorkspace(size_t bottom_size
   cudnnHandle_t handle = Caffe::cudnn_handle();
   for (int i = 0; i < bottom_size; ++i) {
     if (this->phase_ == TRAIN) {
-      // get workspace for backwards data algorithm
-      if (CUDNN_STATUS_SUCCESS !=
-          cudnnGetConvolutionBackwardDataWorkspaceSize(handle,
-          bwd_filter_desc_, bwd_top_descs_[i], bwd_conv_data_descs_[i], bwd_bottom_descs_[i],
-          bwd_data_algo_[i], &workspace_bwd_data_sizes_[i])) {
-        // in case of wrong user override
-        bwd_data_algo_[i] = CUDNN_CONVOLUTION_BWD_DATA_ALGO_1;
+      // get workspace for backwards data algorithm TODO
+//      if (CUDNN_STATUS_SUCCESS !=
+//          cudnnGetConvolutionBackwardDataWorkspaceSize(handle,
+//          bwd_filter_desc_, bwd_top_descs_[i], bwd_conv_data_descs_[i], bwd_bottom_descs_[i],
+//          bwd_data_algo_[i], &workspace_bwd_data_sizes_[i])) {
+//        // in case of wrong user override
+//        bwd_data_algo_[i] = CUDNN_CONVOLUTION_BWD_DATA_ALGO_1;
         CUDNN_CHECK(cudnnGetConvolutionBackwardDataWorkspaceSize(handle,
             bwd_filter_desc_, bwd_top_descs_[i], bwd_conv_data_descs_[i], bwd_bottom_descs_[i],
             bwd_data_algo_[i], &workspace_bwd_data_sizes_[i]));
-      }
+//      }
       // get workspace for backwards filter algorithm
-      if (CUDNN_STATUS_SUCCESS !=
-          cudnnGetConvolutionBackwardFilterWorkspaceSize(handle,
-          bwd_bottom_descs_[i], bwd_top_descs_[i], bwd_conv_filter_descs_[i], bwd_filter_desc_,
-          bwd_filter_algo_[i], &workspace_bwd_filter_sizes_[i])) {
-        bwd_filter_algo_[i] = CUDNN_CONVOLUTION_BWD_FILTER_ALGO_1;
+//      if (CUDNN_STATUS_SUCCESS !=
+//          cudnnGetConvolutionBackwardFilterWorkspaceSize(handle,
+//          bwd_bottom_descs_[i], bwd_top_descs_[i], bwd_conv_filter_descs_[i], bwd_filter_desc_,
+//          bwd_filter_algo_[i], &workspace_bwd_filter_sizes_[i])) {
+//        bwd_filter_algo_[i] = CUDNN_CONVOLUTION_BWD_FILTER_ALGO_1;
         CUDNN_CHECK(cudnnGetConvolutionBackwardFilterWorkspaceSize(handle,
             bwd_bottom_descs_[i], bwd_top_descs_[i], bwd_conv_filter_descs_[i], bwd_filter_desc_,
             bwd_filter_algo_[i], &workspace_bwd_filter_sizes_[i]));
-      }
+//      }
     }
     // get workspace for forwards
-    if (CUDNN_STATUS_SUCCESS !=
-        cudnnGetConvolutionForwardWorkspaceSize(handle,
-        fwd_bottom_descs_[i], fwd_filter_desc_, fwd_conv_descs_[i], fwd_top_descs_[i],
-        fwd_algo_[i], &(workspace_fwd_sizes_[i]))) {
-      fwd_algo_[i] = CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_PRECOMP_GEMM;
+//    if (CUDNN_STATUS_SUCCESS !=
+//        cudnnGetConvolutionForwardWorkspaceSize(handle,
+//        fwd_bottom_descs_[i], fwd_filter_desc_, fwd_conv_descs_[i], fwd_top_descs_[i],
+//        fwd_algo_[i], &(workspace_fwd_sizes_[i]))) {
+//      fwd_algo_[i] = CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_PRECOMP_GEMM;
       CUDNN_CHECK(cudnnGetConvolutionForwardWorkspaceSize(handle,
           fwd_bottom_descs_[i], fwd_filter_desc_, fwd_conv_descs_[i], fwd_top_descs_[i],
           fwd_algo_[i], &(workspace_fwd_sizes_[i])));
-    }
+//    }
   }
   CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
 
@@ -336,7 +336,7 @@ size_t CuDNNConvolutionLayer<Ftype, Btype>::AllocateWorkspace(size_t bottom_size
           align_up<7>(workspace_fwd_sizes_[i]) * ws_groups());
     }
   }
-  shared_ptr<GPUMemory::Workspace> ws = GPUMemory::workspace_[dev];
+  shared_ptr<GPUMemory::Workspace>& ws = GPUMemory::workspace_[dev];
   ws->safe_reserve(this->phase_ == TRAIN ?
       train_mem_req_all_grps_[dev] : test_mem_req_all_grps_[dev]);
   return ws->size();
