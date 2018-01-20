@@ -32,8 +32,8 @@ template<unsigned int BlockSize, typename T>
 __device__ void amax_reduce_block(volatile T *sdata, T my_max, unsigned int tid) {
   const int thread_count = blockDim.x * blockDim.y * blockDim.z;
   volatile T* st = sdata + tid;
-  __syncthreads();
-  tassign(st, my_max);
+  __syncwarp();
+  *st = my_max;
   __syncthreads();
   // do reduction in shared mem
   BLOCK_REDUCE_AMAX(256)
@@ -108,7 +108,9 @@ __global__ void amax_reduce_kernel(unsigned int n, const T *in, TR *out, int gro
       TR my_max = tzero<TR>();
 
       while (i < gridDim.x) {
-        tmax_replace(&my_max, out[i]);
+        if (my_max < out[i]) {
+          my_max = out[i];
+        }
         i += BlockSize;
       }
       amax_reduce_block<BlockSize>(amax_reduce_shmem.getPtr(), my_max, tid);
