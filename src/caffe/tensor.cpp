@@ -134,7 +134,7 @@ void Tensor::scale(float scale, void* handle) {
   shared_ptr<SyncedMemory>& mem = mutable_synced_mem();
   if (Caffe::mode() == Caffe::GPU) {
     cublasHandle_t cublas_handle =
-        handle == nullptr ? Caffe::cublas_handle() : reinterpret_cast<cublasHandle_t>(handle);
+        handle == nullptr ? Caffe::cublas_handle(0) : reinterpret_cast<cublasHandle_t>(handle);
     gpu_scal(count_, type_, mem->mutable_gpu_data(), scale, cublas_handle);
   } else {
     cpu_scal(count_, type_, mem->mutable_cpu_data(), scale);

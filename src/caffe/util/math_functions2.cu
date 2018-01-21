@@ -249,7 +249,7 @@ void caffe_gpu_powx<float16>(const int N, const float16* a,
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
-DEFINE_AND_INSTANTIATE_GPU_UNARY_FUNC_AUX(sign,
+DEFINE_AND_INSTANTIATE_GPU_UNARY_FUNC(sign,
     y[index] = (Dtype(0) < x[index]) - (x[index] < Dtype(0)));
 DEFINE_AND_INSTANTIATE_GPU_UNARY_FUNC(sgnbit, y[index] = signbit(x[index]));
 

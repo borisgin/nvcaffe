@@ -21,7 +21,7 @@ if (BlockSize >= (TNUM) * 2) { \
 #define REDUCE_ASUM(TNUM) \
 if (tid + (TNUM) < thread_count) { \
   tsum_replace(st, sdata[tid + (TNUM)]); \
-  __syncthreads(); \
+  __syncwarp(); \
 }
 
 
@@ -31,7 +31,6 @@ template<unsigned int BlockSize, typename TR>
 __device__ void sumsq_reduce_block(volatile TR *sdata, TR my_sum, unsigned int tid) {
   const int thread_count = blockDim.x * blockDim.y * blockDim.z;
   volatile TR* st = sdata + tid;
-  __syncwarp();
   *st = my_sum;
   __syncthreads();
   // do reduction in shared mem
@@ -49,7 +48,7 @@ __device__ void sumsq_reduce_block(volatile TR *sdata, TR my_sum, unsigned int t
 }
 
 // Global variable used by sumsq_reduce_kernel to count how many blocks have finished
-__device__ unsigned int sumsq_blocks_count[REGRESSION_GROUPS_MAX];
+__device__ unsigned int sumsq_blocks_count[REDUCTION_GROUPS_MAX];
 
 void set_sumsq_blocks_count(unsigned int cnt, int group, cudaStream_t stream) {
   CUDA_CHECK_ARG(cudaMemcpyToSymbolAsync(sumsq_blocks_count, &cnt, sizeof(unsigned int),
@@ -127,7 +126,7 @@ __global__ void sumsq_reduce_kernel(unsigned int n, const T *in, TR *out, int gr
 
 template<typename T, typename TR>
 void gpu_sumsq_t(const int n, const T* x, TR* sum, int group) {
-  CHECK_LT(group, REGRESSION_GROUPS_MAX);
+  CHECK_LT(group, REDUCTION_GROUPS_MAX);
   cudaStream_t stream = Caffe::thread_stream(group);
   const bool po2 = is_pow2(n);
   // See kernel for details

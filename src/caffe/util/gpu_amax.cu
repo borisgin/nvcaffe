@@ -23,7 +23,7 @@ if (BlockSize >= (TNUM) * 2) { \
 #define REDUCE_AMAX(TNUM) \
 if (tid + (TNUM) < thread_count) { \
   tmax_replace(st, sdata[tid + (TNUM)]); \
-  __syncthreads(); \
+  __syncwarp(); \
 }
 
 ///////////////////////////////////// AMAX REDUCTION ///////////////////////////////////
@@ -32,7 +32,6 @@ template<unsigned int BlockSize, typename T>
 __device__ void amax_reduce_block(volatile T *sdata, T my_max, unsigned int tid) {
   const int thread_count = blockDim.x * blockDim.y * blockDim.z;
   volatile T* st = sdata + tid;
-  __syncwarp();
   *st = my_max;
   __syncthreads();
   // do reduction in shared mem
@@ -50,7 +49,7 @@ __device__ void amax_reduce_block(volatile T *sdata, T my_max, unsigned int tid)
 }
 
 // Global variable used by amax_reduce_kernel to count how many blocks have finished
-__device__ unsigned int amax_blocks_count[REGRESSION_GROUPS_MAX];
+__device__ unsigned int amax_blocks_count[REDUCTION_GROUPS_MAX];
 
 void set_amax_blocks_count(unsigned int cnt, int group, cudaStream_t stream) {
   CUDA_CHECK_ARG(cudaMemcpyToSymbolAsync(amax_blocks_count, &cnt, sizeof(unsigned int),
@@ -125,7 +124,7 @@ __global__ void amax_reduce_kernel(unsigned int n, const T *in, TR *out, int gro
 
 template <typename T, typename TR>
 void gpu_amax_t(const int n, const T* x, TR* result, int group) {
-  CHECK_LT(group, REGRESSION_GROUPS_MAX);
+  CHECK_LT(group, REDUCTION_GROUPS_MAX);
   cudaStream_t stream = Caffe::thread_stream(group);
   const bool po2 = is_pow2(n);
   // See kernel for details

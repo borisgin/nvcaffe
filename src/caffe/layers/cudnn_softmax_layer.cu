@@ -10,13 +10,13 @@ void CuDNNSoftmaxLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom,
     const vector<Blob*>& top) {
   const Ftype* bottom_data = bottom[0]->gpu_data<Ftype>();
   Ftype* top_data = top[0]->mutable_gpu_data<Ftype>();
-  CUDNN_CHECK(cudnnSoftmaxForward(Caffe::cudnn_handle(), CUDNN_SOFTMAX_ACCURATE,
+  CUDNN_CHECK(cudnnSoftmaxForward(Caffe::cudnn_handle(0), CUDNN_SOFTMAX_ACCURATE,
         CUDNN_SOFTMAX_MODE_CHANNEL,
         cudnn::dataType<Ftype>::one,
         fwd_bottom_desc_, bottom_data,
         cudnn::dataType<Ftype>::zero,
         fwd_top_desc_, top_data));
-  CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
+  CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream(0)));
 }
 
 template <typename Ftype, typename Btype>
@@ -29,13 +29,13 @@ void CuDNNSoftmaxLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
     Btype* bottom_diff = bottom[0]->mutable_gpu_diff<Btype>();
 
     CUDNN_CHECK(cudnnSoftmaxBackward(
-          Caffe::cudnn_handle(), CUDNN_SOFTMAX_ACCURATE,
+          Caffe::cudnn_handle(0), CUDNN_SOFTMAX_ACCURATE,
           CUDNN_SOFTMAX_MODE_CHANNEL,
           cudnn::dataType<Btype>::one,
           bwd_top_desc_, top_data, bwd_top_desc_, top_diff,
           cudnn::dataType<Btype>::zero,
           bwd_bottom_desc_, bottom_diff));
-    CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
+    CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream(0)));
   }
 }
 

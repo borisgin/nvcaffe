@@ -65,13 +65,13 @@ void CuDNNBatchNormLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom,
     if (this->iter() == 0) {
       factor = 1.0;
     }
-    CUDNN_CHECK(cudnnBatchNormalizationForwardTraining(Caffe::cudnn_handle(), mode_,
+    CUDNN_CHECK(cudnnBatchNormalizationForwardTraining(Caffe::cudnn_handle(0), mode_,
       cudnn::dataType<Ftype>::one, cudnn::dataType<Ftype>::zero,
         fwd_bottom_desc_, bottom_data, fwd_top_desc_, top_data,
         fwd_scale_bias_mean_var_desc_, scale_data, bias_data,
         factor, global_mean, global_var, epsilon, save_mean, save_inv_var));
   } else if (this->phase_ == TEST) {
-    CUDNN_CHECK(cudnnBatchNormalizationForwardInference(Caffe::cudnn_handle(),
+    CUDNN_CHECK(cudnnBatchNormalizationForwardInference(Caffe::cudnn_handle(0),
         CUDNN_BATCHNORM_SPATIAL,
         cudnn::dataType<Ftype>::one, cudnn::dataType<Ftype>::zero,
         fwd_bottom_desc_, bottom_data, fwd_top_desc_, top_data,
@@ -135,13 +135,13 @@ void CuDNNBatchNormLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
      top_diff = private_top_->gpu_diff<Btype>();
   }
 
-  CUDNN_CHECK(cudnnBatchNormalizationBackward(Caffe::cudnn_handle(), mode_,
+  CUDNN_CHECK(cudnnBatchNormalizationBackward(Caffe::cudnn_handle(0), mode_,
       cudnn::dataType<Btype>::one, cudnn::dataType<Btype>::zero,
       cudnn::dataType<Btype>::one, cudnn::dataType<Btype>::one,
       bwd_bottom_desc_, bottom_data, bwd_bottom_desc_, top_diff, bwd_bottom_desc_, bottom_diff,
       bwd_scale_bias_mean_var_desc_, scale_data, scale_diff, bias_diff,
       epsilon, save_mean, save_inv_var));
-  CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
+  CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream(0)));
 }
 
 INSTANTIATE_LAYER_GPU_FUNCS_FB(CuDNNBatchNormLayer);

@@ -29,12 +29,12 @@ std::mutex Caffe::pstream_mutex_;
 std::mutex Caffe::cublas_mutex_;
 std::mutex Caffe::cudnn_mutex_;
 std::mutex Caffe::seed_mutex_;
-std::unordered_map<std::int64_t, std::shared_ptr<Caffe>> Caffe::thread_instance_map_;
+std::unordered_map<std::uint64_t, std::shared_ptr<Caffe>> Caffe::thread_instance_map_;
 
 
 std::uint32_t lwp_id() {
 #if defined(APPLE)
-  return static_cast<std::uint32_t>(mach_thread_self());
+  return static_cast<std::uint32_t>(std::this_thread::get_id());
 #else
   return static_cast<std::uint32_t>(syscall(SYS_gettid));
 #endif
@@ -47,21 +47,18 @@ std::uint64_t lwp_dev_id() {
 
 Caffe& Caffe::Get() {
   // Make sure each thread can have different values.
-  // We also need to care about device id...
+  // We also need to care about device id.
   std::uint64_t utid = lwp_dev_id();
   std::lock_guard<std::mutex> lock(caffe_mutex_);
-  // ...and Brew mode too
-  std::int64_t tid = //mode_ == GPU ?
-                     static_cast<std::int64_t>(utid);// : - static_cast<std::int64_t>(utid);
-  auto it = thread_instance_map_.find(tid);
+  auto it = thread_instance_map_.find(utid);
   if (it != thread_instance_map_.end()) {
     return *it->second.get();
   }
-  auto emp_pair = thread_instance_map_.emplace(tid, std::shared_ptr<Caffe>(new Caffe()));
+  auto emp_pair = thread_instance_map_.emplace(utid, std::shared_ptr<Caffe>(new Caffe()));
   ++thread_count_;
   DLOG(INFO) << "[" << current_device()
              << "] New Caffe instance " << emp_pair.first->second.get()
-             << ", count " << thread_count_ << ", thread " << lwp_id() << ", tid " << tid;
+             << ", count " << thread_count_ << ", thread " << lwp_id() << ", tid " << utid;
   return *emp_pair.first->second.get();
 }
 
@@ -212,7 +209,9 @@ shared_ptr<CudaStream> Caffe::pstream(int group) {
     return streams_[group];
   }
   std::lock_guard<std::mutex> lock(pstream_mutex_);
-  streams_.resize(group + 1UL);
+  if (group >= streams_.size()) {
+    streams_.resize(group + 1UL);
+  }
   if (!streams_[group]) {
     streams_[group] = CudaStream::create();
   }
@@ -225,7 +224,9 @@ shared_ptr<CuBLASHandle> Caffe::th_cublas_handle(int group) {
     return cublas_handles_[group];
   }
   std::lock_guard<std::mutex> lock(cublas_mutex_);
-  cublas_handles_.resize(group + 1UL);
+  if (group >= cublas_handles_.size()) {
+    cublas_handles_.resize(group + 1UL);
+  }
   if (!cublas_handles_[group]) {
     cublas_handles_[group] = make_shared<CuBLASHandle>(pstream(group)->get());
   }
@@ -239,7 +240,9 @@ cudnnHandle_t Caffe::th_cudnn_handle(int group) {
     return cudnn_handles_[group]->get();
   }
   std::lock_guard<std::mutex> lock(cudnn_mutex_);
-  cudnn_handles_.resize(group + 1UL);
+  if (group >= cudnn_handles_.size()) {
+    cudnn_handles_.resize(group + 1UL);
+  }
   if (!cudnn_handles_[group]) {
     cudnn_handles_[group] = make_shared<CuDNNHandle>(pstream(group)->get());
   }

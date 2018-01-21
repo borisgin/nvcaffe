@@ -81,11 +81,11 @@ void SoftmaxWithLossLayer<Ftype, Btype>::Forward_gpu(
   }
   CUDA_CHECK(cudaStreamSynchronize(stream));
   float loss;
-  caffe_gpu_asum(nthreads, loss_data, &loss);
+  caffe_gpu_asum(nthreads, loss_data, &loss, 0);
   float valid_count = -1;
   // Only launch another CUDA kernel if we actually need the count of valid outputs.
   if (normalization_ == LossParameter_NormalizationMode_VALID && has_ignore_label_) {
-    caffe_gpu_asum(nthreads, counts, &valid_count);
+    caffe_gpu_asum(nthreads, counts, &valid_count, 0);
   }
   top[0]->mutable_cpu_data<Ftype>()[0] = loss / get_normalizer(normalization_, valid_count);
   if (top.size() == 2) {
@@ -171,7 +171,7 @@ void SoftmaxWithLossLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
     // outputs.
     if (normalization_ == LossParameter_NormalizationMode_VALID && has_ignore_label_) {
       float float_count;
-      caffe_gpu_asum(nthreads, counts, &float_count);
+      caffe_gpu_asum(nthreads, counts, &float_count, 0);
       valid_count = int(float_count);
     }
     float loss_weight = float(top[0]->cpu_diff<Btype>()[0]) /

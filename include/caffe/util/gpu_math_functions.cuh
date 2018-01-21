@@ -418,24 +418,6 @@ SHMEMN(12, FN);  \
 SHMEMN(14, FN);  \
 SHMEMN(16, FN)
 
-#define REDUCTION_GROUP_AMAX   0
-#define REDUCTION_GROUP_ASUM   1
-#define REDUCTION_GROUP_SQ     2
-#define REDUCTION_GROUP_DOT    3
-
-#define TOTAL_REDUCTION_GROUPS 4
-#define TOTAL_TYPES 5  // Type_ARRAYSIZE
-
-namespace caffe {
-
-inline int reduction_group(int tp, int id) {
-  CHECK_LT(tp, TOTAL_TYPES);
-  CHECK_LT(id, TOTAL_REDUCTION_GROUPS);
-  return tp * TOTAL_REDUCTION_GROUPS + id;
-}
-
-#define REGRESSION_GROUPS_MAX 16
-
-}
+#define REDUCTION_GROUPS_MAX 16
 
 #endif  // INCLUDE_CAFFE_GPU_MATH_FUNCTIONS_H_

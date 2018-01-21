@@ -14,17 +14,17 @@ void CuDNNDropoutLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bottom,
 
   // initialize dropout state
   CUDNN_CHECK(cudnnCreateDropoutDescriptor(&dropout_desc_));
-  CUDNN_CHECK(cudnnDropoutGetStatesSize(Caffe::cudnn_handle(), &state_size_));
+  CUDNN_CHECK(cudnnDropoutGetStatesSize(Caffe::cudnn_handle(0), &state_size_));
   states_.reserve(state_size_);
 
   // setup dropout descriptor
   CUDNN_CHECK(cudnnSetDropoutDescriptor(dropout_desc_,
-                                        Caffe::cudnn_handle(),
+                                        Caffe::cudnn_handle(0),
                                         this->threshold_,
                                         states_.data(),
                                         state_size_,
                                         seed_));
-  CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
+  CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream(0)));
 
   handles_setup_ = true;
 }

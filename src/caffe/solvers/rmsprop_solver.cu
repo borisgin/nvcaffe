@@ -54,7 +54,7 @@ void rmsprop_reg_update_and_clear_gpu(int N,
   float rms_decay, float delta, float local_rate, const std::string& reg_type,
   float local_decay, void* handle, bool clear_grads) {
   cublasHandle_t cublas_handle =
-      handle == nullptr ? Caffe::cublas_handle() : reinterpret_cast<cublasHandle_t>(handle);
+      handle == nullptr ? Caffe::cublas_handle(0) : reinterpret_cast<cublasHandle_t>(handle);
   cudaStream_t stream;
   CUBLAS_CHECK(cublasGetStream(cublas_handle, &stream));
   RMSPropRegUpdateAllAndClear  // NOLINT_NEXT_LINE(whitespace/operators)
@@ -71,7 +71,7 @@ void rmsprop_reg_update_and_clear_gpu<float16, float16>(int N,
   float rms_decay, float delta, float local_rate, const std::string& reg_type,
   float local_decay, void* handle, bool clear_grads) {
   cublasHandle_t cublas_handle =
-      handle == nullptr ? Caffe::cublas_handle() : reinterpret_cast<cublasHandle_t>(handle);
+      handle == nullptr ? Caffe::cublas_handle(0) : reinterpret_cast<cublasHandle_t>(handle);
   cudaStream_t stream;
   CUBLAS_CHECK(cublasGetStream(cublas_handle, &stream));
   RMSPropRegUpdateAllAndClear  // NOLINT_NEXT_LINE(whitespace/operators)

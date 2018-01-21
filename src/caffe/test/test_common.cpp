@@ -14,7 +14,7 @@ class CommonTest : public ::testing::Test {};
 TEST_F(CommonTest, TestCublasHandlerGPU) {
   int cuda_device_id;
   CUDA_CHECK(cudaGetDevice(&cuda_device_id));
-  EXPECT_TRUE(Caffe::cublas_handle());
+  EXPECT_TRUE(Caffe::cublas_handle(0));
 }
 
 TEST_F(CommonTest, TestDeviceQuery) {

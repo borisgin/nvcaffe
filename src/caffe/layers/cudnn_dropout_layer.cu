@@ -12,7 +12,7 @@ void CuDNNDropoutLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom,
   const Ftype* bottom_data = bottom[0]->gpu_data<Ftype>();
   Ftype* top_data = top[0]->mutable_gpu_data<Ftype>();
   if (this->phase_ == TRAIN) {
-    CUDNN_CHECK(cudnnDropoutForward(Caffe::cudnn_handle(),
+    CUDNN_CHECK(cudnnDropoutForward(Caffe::cudnn_handle(0),
         dropout_desc_,
         this->bottom_desc_, bottom_data,
         this->top_desc_, top_data,
@@ -31,7 +31,7 @@ void CuDNNDropoutLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
   Btype* bottom_diff = bottom[0]->mutable_gpu_diff<Btype>();
   if (propagate_down[0]) {
     if (this->phase_ == TRAIN) {
-      CUDNN_CHECK(cudnnDropoutBackward(Caffe::cudnn_handle(),
+      CUDNN_CHECK(cudnnDropoutBackward(Caffe::cudnn_handle(0),
           dropout_desc_,
           this->top_desc_, top_diff,
           this->bottom_desc_, bottom_diff,

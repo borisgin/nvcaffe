@@ -806,8 +806,7 @@ void Net::ReduceAndUpdate(int type_id) {
              <<  ", type_id " << type_id;
 
   size_t bucket_size = 0UL;
-  shared_ptr<CuBLASHandle> cublas_phandle = Caffe::cublas_phandle(type_id);
-  cublasHandle_t handle = cublas_phandle->get();
+  cublasHandle_t handle = Caffe::cublas_handle(type_id);
   CHECK_GE(reduce_buckets_, 0);
   if (Caffe::solver_count() > 1 && reduce_buckets_ > 0) {
     bucket_size = align_up<6>(learnable_space_size_[type_id] / reduce_buckets_);
@@ -943,7 +942,7 @@ void Net::Reduce(int type_id, int param_id) {
   }
   this->learnable_params()[param_id]->
       scale_diff(1.F / (Caffe::solver_count() * global_grad_scale()),
-      Caffe::cublas_handle());
+      Caffe::cublas_handle(type_id));
   // Also need to barrier to make sure lock isn't undone
   // until all have completed, but the current nature of
   // NCCL makes this unnecessary.
@@ -963,7 +962,7 @@ void Net::ReduceBucket(int type_id, size_t count, Type bucket_type, void* bucket
     cb->reduce_barrier(type_id);
   }
   Tensor::gpu_scal(count, bucket_type, bucket, 1.F / (Caffe::solver_count() * global_grad_scale()),
-      Caffe::cublas_handle());
+      Caffe::cublas_handle(type_id));
 }
 
 void Net::ForwardDebugInfo(const int layer_id) {

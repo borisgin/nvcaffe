@@ -224,7 +224,7 @@ TYPED_TEST(GPUMathFunctionsTest, TestAmax) {
     }
   }
   float gpu_amax;
-  caffe_gpu_amax(n, this->blob_bottom_->gpu_data(), &gpu_amax);
+  caffe_gpu_amax(n, this->blob_bottom_->gpu_data(), &gpu_amax, 0);
   EXPECT_LT((gpu_amax - std_amax) / std_amax, 1e-5);
 
   // pow 2
@@ -236,7 +236,7 @@ TYPED_TEST(GPUMathFunctionsTest, TestAmax) {
       std_amax = pmax;
     }
   }
-  caffe_gpu_amax(n, this->blob_bottom_->gpu_data(), &gpu_amax);
+  caffe_gpu_amax(n, this->blob_bottom_->gpu_data(), &gpu_amax, 0);
   EXPECT_LT((gpu_amax - std_amax) / std_amax, 1e-5);
 }
 
@@ -248,7 +248,7 @@ TYPED_TEST(GPUMathFunctionsTest, TestAsum) {
     std_asum += std::fabs(x[i]);
   }
   TypeParam gpu_asum;
-  caffe_gpu_asum(n, this->blob_bottom_->gpu_data(), &gpu_asum);
+  caffe_gpu_asum(n, this->blob_bottom_->gpu_data(), &gpu_asum, 0);
   EXPECT_LT((gpu_asum - std_asum) / std_asum, 1e-2);
 }
 

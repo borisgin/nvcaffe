@@ -13,7 +13,7 @@ void CuDNNReLULayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom,
   if (ReLULayer<Ftype, Btype>::layer_param_.relu_param().negative_slope() != 0) {
     return ReLULayer<Ftype, Btype>::Forward_gpu(bottom, top);
   }
-  CUDNN_CHECK(cudnnActivationForward(Caffe::cudnn_handle(),
+  CUDNN_CHECK(cudnnActivationForward(Caffe::cudnn_handle(0),
         activ_desc_,
         cudnn::dataType<Ftype>::one,
         fwd_bottom_desc_, bottom_data,
@@ -37,7 +37,7 @@ void CuDNNReLULayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
   if (ReLULayer<Ftype, Btype>::layer_param_.relu_param().negative_slope() != 0) {
     return ReLULayer<Ftype, Btype>::Backward_gpu(top, propagate_down, bottom);
   }
-  CUDNN_CHECK(cudnnActivationBackward(Caffe::cudnn_handle(),
+  CUDNN_CHECK(cudnnActivationBackward(Caffe::cudnn_handle(0),
         activ_desc_,
         cudnn::dataType<Btype>::one,
         bwd_top_desc_, top_data, bwd_top_desc_, top_diff,

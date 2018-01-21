@@ -11,7 +11,7 @@ void CuDNNPoolingLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom,
   const Ftype* bottom_data = bottom[0]->gpu_data<Ftype>();
   Ftype* top_data = top[0]->mutable_gpu_data<Ftype>();
 
-  CUDNN_CHECK(cudnnPoolingForward(Caffe::cudnn_handle(), pooling_desc_,
+  CUDNN_CHECK(cudnnPoolingForward(Caffe::cudnn_handle(0), pooling_desc_,
       cudnn::dataType<Ftype>::one, fwd_bottom_desc_, bottom_data,
       cudnn::dataType<Ftype>::zero, fwd_top_desc_, top_data));
   CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
@@ -36,7 +36,7 @@ void CuDNNPoolingLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
   Blob* top_blob = this->is_max_pooling_ ? private_top_[0].get() : top[0];
   const Btype* top_data = top_blob->gpu_data<Btype>();
 
-  CUDNN_CHECK(cudnnPoolingBackward(Caffe::cudnn_handle(),  pooling_desc_,
+  CUDNN_CHECK(cudnnPoolingBackward(Caffe::cudnn_handle(0),  pooling_desc_,
       cudnn::dataType<Btype>::one, bwd_top_desc_, top_data, bwd_top_desc_, top_diff,
       bwd_bottom_desc_, bottom_data, cudnn::dataType<Btype>::zero, bwd_bottom_desc_, bottom_diff));
   CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
