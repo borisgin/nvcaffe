@@ -11,10 +11,12 @@ max_iter: 500000 	# 100 epoch B=256
 base_lr:  0.2 		# B=256
 # ======================================
 
-local_lr_auto: true
+larc: true
+larc_policy: "clip"
+larc_eta: 0.001
 
-rampup_lr: 0.001
-rampup_interval: 10000
+#rampup_lr: 0.001
+#rampup_interval: 10000
 
 lr_policy: "poly"
 power: 2.0

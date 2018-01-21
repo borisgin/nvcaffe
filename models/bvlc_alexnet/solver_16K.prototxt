@@ -14,11 +14,12 @@ base_lr:   16            # B=16
 
 #min_lr:  0.005
 
-local_lr_auto:  true
-local_gw_ratio: 0.001
+larc: true
+larc_policy: "clip"
+larc_eta: 0.001
 
-rampup_lr: 1
-rampup_interval: 400   
+#rampup_lr: 1
+#rampup_interval: 400
 
 lr_policy: "poly"
 power: 2.

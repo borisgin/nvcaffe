@@ -16,8 +16,9 @@ base_lr:   2                # B=1024
 #rampup_lr: 0.1
 #rampup_interval:  2500
 
-local_lr_auto: true
-local_gw_ratio: 0.001
+larc: true
+larc_policy: "clip"
+larc_eta: 0.001
 
 momentum: 0.9
 weight_decay: 0.0005
