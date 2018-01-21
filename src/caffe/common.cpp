@@ -51,8 +51,8 @@ Caffe& Caffe::Get() {
   std::uint64_t utid = lwp_dev_id();
   std::lock_guard<std::mutex> lock(caffe_mutex_);
   // ...and Brew mode too
-  std::int64_t tid = mode_ == GPU ?
-                     static_cast<std::int64_t>(utid) : - static_cast<std::int64_t>(utid);
+  std::int64_t tid = //mode_ == GPU ?
+                     static_cast<std::int64_t>(utid);// : - static_cast<std::int64_t>(utid);
   auto it = thread_instance_map_.find(tid);
   if (it != thread_instance_map_.end()) {
     return *it->second.get();
@@ -104,6 +104,7 @@ void Caffe::set_random_seed_int(uint64_t random_seed) {
     if (random_seed == Caffe::SEED_NOT_SET) {
       random_seed = cluster_seedgen();
     }
+    init();
     CURAND_CHECK(curandSetPseudoRandomGeneratorSeed(curand_generator_, random_seed));
     CURAND_CHECK(curandSetGeneratorOffset(curand_generator_, 0));
   }
@@ -140,7 +141,11 @@ Caffe::Caffe()
       random_generator_(),
       root_solver_(true),
       device_(current_device()) {
-  if (mode_ == GPU) {
+  init();
+}
+
+void Caffe::init() {
+  if (mode_ == GPU && curand_generator_ == nullptr) {
     CURAND_CHECK_ARG(curandCreateGenerator(&curand_generator_, CURAND_RNG_PSEUDO_DEFAULT),
         current_device());
     CURAND_CHECK_ARG(curandSetPseudoRandomGeneratorSeed(curand_generator_, cluster_seedgen()),

@@ -246,7 +246,7 @@ void Blob::CopyFrom(const Blob& source, bool copy_diff, bool reshape,
     CUDNN_CHECK(cudnnTransformTensor(handle,
         cudnn::one(src_type), src_desc, src->gpu_data(),
         cudnn::zero(dst_type), dst_desc, dst->mutable_gpu_data(false)));
-    CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
+    CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream(group)));
     CUDNN_CHECK(cudnnDestroyTensorDescriptor(src_desc));
     CUDNN_CHECK(cudnnDestroyTensorDescriptor(dst_desc));
   }

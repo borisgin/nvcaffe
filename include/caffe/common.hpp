@@ -390,11 +390,14 @@ class Caffe {
     if (mode_ == mode) {
       return;
     }
-    std::lock_guard<std::mutex> lock(caffe_mutex_);
-    DLOG(INFO) << "Caffe " << " old mode "
-               << (mode_ == Caffe::GPU ? "GPU" : "CPU")  << " new mode "
-               << (mode == Caffe::GPU ? "GPU" : "CPU");
-    mode_ = mode;
+    {
+      std::lock_guard<std::mutex> lock(caffe_mutex_);
+      DLOG(INFO) << "Caffe " << " old mode "
+                 << (mode_ == Caffe::GPU ? "GPU" : "CPU") << " new mode "
+                 << (mode == Caffe::GPU ? "GPU" : "CPU");
+      mode_ = mode;
+    }
+    Get().init();
   }
   // Next seed. It's deterministic if root seed is already set.
   static uint64_t next_seed();
@@ -524,6 +527,7 @@ class Caffe {
   // The private constructor to avoid duplicate instantiation.
   Caffe();
 
+  void init();  // when Brew mode changes
   void set_random_seed_int(uint64_t random_seed);
 
   DISABLE_COPY_MOVE_AND_ASSIGN(Caffe);
