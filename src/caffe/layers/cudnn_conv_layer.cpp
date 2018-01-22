@@ -472,9 +472,11 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
     }
   }
 
+//  DLOG(INFO) << "CuDNNConvolutionLayer " << this << " ws " << GPUMemory::workspace_[Caffe::current_device()]->size();
+
   if (ok_to_release() && this->phase_ == TRAIN) {
     const int dev = Caffe::current_device();
-    shared_ptr<GPUMemory::Workspace> ws = GPUMemory::workspace_[dev];
+    shared_ptr<GPUMemory::Workspace>& ws = GPUMemory::workspace_[dev];
     if (!ws_released_[dev] && ws_allocated_[dev] > 0UL) {
       // Housekeeping: release excessive amount of device memory after FindEx calls
       size_t mem_req = align_up<7>(std::max(train_mem_req_all_grps_[dev],

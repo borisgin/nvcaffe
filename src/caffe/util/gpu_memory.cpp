@@ -218,7 +218,7 @@ void GPUMemory::Manager::update_dev_info(int device) {
     dev_info_.resize(device + 1);
   }
   CUDA_CHECK(cudaSetDevice(device));
-  CUDA_CHECK(cudaFree(nullptr));  // initialize the context at start up
+//  CUDA_CHECK(cudaFree(nullptr));  // initialize the context at start up
   cudaDeviceProp props;
   CUDA_CHECK(cudaGetDeviceProperties(&props, device));
   CUDA_CHECK(cudaMemGetInfo(&dev_info_[device].free_, &dev_info_[device].total_));

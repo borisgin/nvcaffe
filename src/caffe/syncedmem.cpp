@@ -76,12 +76,12 @@ void SyncedMemory::to_cpu(bool copy_from_gpu) {
   }
 }
 
-void SyncedMemory::to_gpu(bool copy_from_cpu) {
+void SyncedMemory::to_gpu(bool copy_from_cpu, int group) {
   switch (head_) {
     case UNINITIALIZED:
       CUDA_CHECK(cudaGetDevice(&device_));
       GPUMemory::allocate(&gpu_ptr_, size_, device_);
-      caffe_gpu_memset(size_, 0, gpu_ptr_);
+      caffe_gpu_memset(size_, 0, gpu_ptr_, group);
       head_ = HEAD_AT_GPU;
       own_gpu_data_ = true;
       break;
@@ -92,7 +92,7 @@ void SyncedMemory::to_gpu(bool copy_from_cpu) {
         own_gpu_data_ = true;
       }
       if (copy_from_cpu) {
-        caffe_gpu_memcpy(size_, cpu_ptr_, gpu_ptr_);
+        caffe_gpu_memcpy(size_, cpu_ptr_, gpu_ptr_, group);
         head_ = SYNCED;
       } else {
         head_ = HEAD_AT_GPU;
@@ -119,8 +119,8 @@ void SyncedMemory::set_cpu_data(void* data) {
   own_cpu_data_ = false;
 }
 
-const void* SyncedMemory::gpu_data() {
-  to_gpu();
+const void* SyncedMemory::gpu_data(int group) {
+  to_gpu(true, group);
   return (const void*) gpu_ptr_;
 }
 
@@ -140,8 +140,8 @@ void* SyncedMemory::mutable_cpu_data(bool copy_from_gpu) {
   return cpu_ptr_;
 }
 
-void* SyncedMemory::mutable_gpu_data(bool copy_from_cpu) {
-  to_gpu(copy_from_cpu);
+void* SyncedMemory::mutable_gpu_data(bool copy_from_cpu, int group) {
+  to_gpu(copy_from_cpu, group);
   head_ = HEAD_AT_GPU;
   return gpu_ptr_;
 }

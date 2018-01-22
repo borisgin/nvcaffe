@@ -97,11 +97,11 @@ void ImageDataLayer<Ftype, Btype>::InitializePrefetch() {}
 // This function is called on prefetch thread
 template <typename Ftype, typename Btype>
 void ImageDataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t queue_id) {
-  CPUTimer batch_timer;
-  batch_timer.Start();
-  double read_time = 0;
-  double trans_time = 0;
-  CPUTimer timer;
+//  CPUTimer batch_timer;
+//  batch_timer.Start();
+//  double read_time = 0;
+//  double trans_time = 0;
+//  CPUTimer timer;
   CHECK(batch->data_->count());
   ImageDataParameter image_data_param = this->layer_param_.image_data_param();
   const int batch_size = image_data_param.batch_size();
@@ -112,9 +112,9 @@ void ImageDataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_
   const bool is_color = image_data_param.is_color();
   string root_folder = image_data_param.root_folder();
 
-#if CV_VERSION_EPOCH == 2
-  cv::setNumThreads(0);  // cv::resize crashes otherwise
-#endif
+//#if CV_VERSION_EPOCH == 2
+//  cv::setNumThreads(0);  // cv::resize crashes otherwise
+//#endif
 
   // Reshape according to the first image of each batch
   // on single input batches allows for inputs of varying dimension.
@@ -128,36 +128,36 @@ void ImageDataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_
   batch->data_->Reshape(top_shape);
   vector<int> label_shape(1, batch_size);
   batch->label_->Reshape(label_shape);
+  vector<Btype> tmp(top_shape[1] * top_shape[2] * top_shape[3]);
 
   Ftype* prefetch_data = batch->data_->mutable_cpu_data<Ftype>();
   Ftype* prefetch_label = batch->label_->mutable_cpu_data<Ftype>();
-  Packing packing = NHWC;
+  Packing packing = NCHW; //NHWC;
 
   // datum scales
   const int lines_size = lines_.size();
   const size_t buf_len = batch->data_->offset(1);
   for (int item_id = 0; item_id < batch_size; ++item_id) {
     // get a blob
-    timer.Start();
+//    timer.Start();
     CHECK_GT(lines_size, lines_id_);
     cv::Mat cv_img = ReadImageToCVMat(root_folder + lines_[lines_id_].first,
         new_height, new_width, is_color, short_side);
     CHECK(cv_img.data) << "Could not load " << lines_[lines_id_].first;
-    read_time += timer.MicroSeconds();
-    timer.Start();
+//    read_time += timer.MicroSeconds();
+//    timer.Start();
     // Apply transformations (mirror, crop...) to the image
     int offset = batch->data_->offset(item_id);
 
-#if defined(USE_CUDNN)
-    this->dt(0)->Transform(cv_img, prefetch_data + offset, buf_len, false);
-#else
-    vector<Btype> tmp(top_shape[1] * top_shape[2] * top_shape[3]);
+//#if defined(USE_CUDNN)
+//    this->dt(thread_id)->Transform(cv_img, prefetch_data + offset, buf_len, true);
+//#else
     CHECK_EQ(buf_len, tmp.size());
-    this->dt(0)->Transform(cv_img, prefetch_data + offset, buf_len, false);
+    this->dt(thread_id)->Transform(cv_img, prefetch_data + offset, buf_len, false);
     hwc2chw(top_shape[1], top_shape[3], top_shape[2], tmp.data(), prefetch_data + offset);
-    packing = NCHW;
-#endif
-    trans_time += timer.MicroSeconds();
+//    packing = NCHW;
+//#endif
+//    trans_time += timer.MicroSeconds();
     prefetch_label[item_id] = lines_[lines_id_].second;
     // go to the next iter
     lines_id_++;
@@ -170,13 +170,13 @@ void ImageDataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_
       }
     }
   }
-  batch_timer.Stop();
-  DLOG(INFO) << this->print_current_device()
-             << "Prefetch batch: " << batch_timer.MilliSeconds() << " ms.";
-  DLOG(INFO) << this->print_current_device()
-             << "     Read time: " << read_time / 1000 << " ms.";
-  DLOG(INFO) << this->print_current_device()
-             << "Transform time: " << trans_time / 1000 << " ms.";
+//  batch_timer.Stop();
+//  DLOG(INFO) << this->print_current_device()
+//             << "Prefetch batch: " << batch_timer.MilliSeconds() << " ms.";
+//  DLOG(INFO) << this->print_current_device()
+//             << "     Read time: " << read_time / 1000 << " ms.";
+//  DLOG(INFO) << this->print_current_device()
+//             << "Transform time: " << trans_time / 1000 << " ms.";
 
   batch->set_data_packing(packing);
   batch->set_id(this->batch_id(thread_id));

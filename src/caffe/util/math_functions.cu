@@ -208,9 +208,9 @@ void caffe_gpu_axpy<float16>(const int N, const float16 alpha, const float16* x,
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
-void caffe_gpu_memcpy(const size_t N, const void* X, void* Y) {
+void caffe_gpu_memcpy(const size_t N, const void* X, void* Y, int group) {
   if (X != Y) {
-    cudaStream_t stream = Caffe::thread_stream();
+    cudaStream_t stream = Caffe::thread_stream(group);
     CUDA_CHECK(cudaMemcpyAsync(Y, X, N, cudaMemcpyDefault, stream));
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }

@@ -56,7 +56,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& botto
       }
       // NOLINT_NEXT_LINE(whitespace/operators)
       for (int ig = 0; ig < ws_groups(); ++ig) {
-        CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream(ig)));
+//        CUDA_CHECK_ARG(cudaStreamSynchronize(Caffe::thread_stream(ig)), top[i]);
       }
 
       if (this->bias_term_) {
@@ -78,6 +78,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& botto
   }
 
   ++fwd_count_;
+//  DLOG(INFO) << "CuDNNConvolutionLayer " << this << " " << fwd_count_;
 }
 
 template <typename Ftype, typename Btype>
