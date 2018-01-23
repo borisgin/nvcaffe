@@ -211,6 +211,7 @@ void Net::Init(const NetParameter& in_param) {
     // specified fewer than the required number (as specified by
     // ExactNumTopBlobs() or MinTopBlobs()), allocate them here.
     LayerBase* layer = layers_[layer_id].get();
+    layer->set_solver_rank(solver_rank_);
     if (layer->AutoTopBlobs()) {
       const int needed_num_top =
           std::max(layer->MinTopBlobs(), layer->ExactNumTopBlobs());
@@ -223,7 +224,6 @@ void Net::Init(const NetParameter& in_param) {
     }
     layer->fm_by_user(fm_by_user);
     layer->bm_by_user(bm_by_user);
-    layer->set_solver_rank(solver_rank_);
 
     layers_[layer_id]->set_net_initialized_flag(solver_init_flag_);
     layers_[layer_id]->set_net_iteration0_flag(solver_iter0_flag_);

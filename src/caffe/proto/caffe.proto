@@ -1145,6 +1145,8 @@ message ImageDataParameter {
   // Resize while reading to adjust images by short side.
   // Has priority over new_height and new_width.
   optional uint32 short_side = 13 [default = 0];
+  // Number of Data Transformer threads per GPU.
+  optional uint32 threads  = 14 [default = 4];
 }
 
 message InfogainLossParameter {

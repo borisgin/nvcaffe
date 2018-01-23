@@ -71,13 +71,32 @@ class Solver {
   }
   void SnapshotWithScores(const vector<float>& scores);
   virtual ~Solver();
-  const SolverParameter& param() const { return param_; }
-  shared_ptr<Net> net() { return net_; }
-  const vector<shared_ptr<Net>>& test_nets() { return test_nets_; }
-  int iter() const { return iter_; }
-  int relative_iter() const { return iter_ - iterations_restored_; }
-  float total_lapse() const { return total_lapse_; }
-  bool is_root() const { return rank_ == 0; }
+
+  const SolverParameter& param() const {
+    return param_;
+  }
+  shared_ptr<Net> net() {
+    return net_;
+  }
+  const vector<shared_ptr<Net>>& test_nets() {
+    return test_nets_;
+  }
+  int iter() const {
+    return iter_;
+  }
+  int relative_iter() const {
+    return iter_ - iterations_restored_;
+  }
+  float total_lapse() const {
+    return total_lapse_;
+  }
+  bool is_root() const {
+    return rank_ == 0;
+  }
+  int rank() const {
+    return rank_;
+  }
+
   float perf_report(std::ostream& os, int device, int align = 0) const;
 
   // Invoked at specific points during an iteration

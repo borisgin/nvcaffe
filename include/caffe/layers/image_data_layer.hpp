@@ -45,11 +45,14 @@ class ImageDataLayer : public BasePrefetchingDataLayer<Ftype, Btype> {
   }
 
   shared_ptr<Caffe::RNG> prefetch_rng_;
-  vector<std::pair<std::string, int> > lines_;
-  int lines_id_;
+  size_t lines_id_;
   Flag layer_inititialized_flag_;
+
+  static vector<std::pair<std::string, int>> lines_;
 };
 
+template <typename Ftype, typename Btype>
+vector<std::pair<std::string, int>> ImageDataLayer<Ftype, Btype>::lines_;
 
 }  // namespace caffe
 

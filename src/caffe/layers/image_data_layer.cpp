@@ -6,12 +6,13 @@
 #include <utility>
 #include <vector>
 
+#include "caffe/solver.hpp"
 #include "caffe/data_transformer.hpp"
 #include "caffe/layers/base_data_layer.hpp"
 #include "caffe/layers/image_data_layer.hpp"
-#include "caffe/util/benchmark.hpp"
-#include "caffe/util/io.hpp"
-#include "caffe/util/math_functions.hpp"
+//#include "caffe/util/benchmark.hpp"
+//#include "caffe/util/io.hpp"
+//#include "caffe/util/math_functions.hpp"
 #include "caffe/util/rng.hpp"
 
 namespace caffe {
@@ -36,14 +37,18 @@ void ImageDataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom,
   CHECK((new_height == 0 && new_width == 0) ||
       (new_height > 0 && new_width > 0)) << "Current implementation requires "
       "new_height and new_width to be set at the same time.";
-  // Read the file with filenames and labels
-  const string& source = this->layer_param_.image_data_param().source();
-  LOG(INFO) << "Opening file " << source;
-  std::ifstream infile(source.c_str());
-  string filename;
-  int label;
-  while (infile >> filename >> label) {
-    lines_.push_back(std::make_pair(filename, label));
+
+  if (this->solver_rank_ == 0) {
+    // Read the file with filenames and labels
+    ImageDataLayer<Ftype, Btype>::lines_.clear();
+    const string &source = this->layer_param_.image_data_param().source();
+    LOG(INFO) << "Opening file " << source;
+    std::ifstream infile(source.c_str());
+    string filename;
+    int label;
+    while (infile >> filename >> label) {
+      ImageDataLayer<Ftype, Btype>::lines_.emplace_back(std::make_pair(filename, label));
+    }
   }
 
   if (this->layer_param_.image_data_param().shuffle()) {
@@ -54,14 +59,18 @@ void ImageDataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom,
   }
   LOG(INFO) << "A total of " << lines_.size() << " images.";
 
-  lines_id_ = 0;
+  lines_id_ = this->solver_rank_;
   // Check if we would need to randomly skip a few data points
   if (this->layer_param_.image_data_param().rand_skip()) {
-    unsigned int skip = caffe_rng_rand() %
-        this->layer_param_.image_data_param().rand_skip();
-    LOG(INFO) << "Skipping first " << skip << " data points.";
-    CHECK_GT(lines_.size(), skip) << "Not enough points to skip";
-    lines_id_ = skip;
+    if (Caffe::device_count() > 1) {
+      LOG(WARNING) << "Skipping data points is not supported in multiGPU mode";
+    } else {
+      unsigned int skip = caffe_rng_rand() %
+                          this->layer_param_.image_data_param().rand_skip();
+      LOG(INFO) << "Skipping first " << skip << " data points";
+      CHECK_GT(lines_.size(), skip) << "Not enough points to skip";
+      lines_id_ += skip;
+    }
   }
   // Read an image, and use it to initialize the top blob.
   cv::Mat cv_img = ReadImageToCVMat(root_folder + lines_[lines_id_].first,
@@ -86,9 +95,12 @@ void ImageDataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom,
 
 template <typename Ftype, typename Btype>
 void ImageDataLayer<Ftype, Btype>::ShuffleImages() {
-  caffe::rng_t* prefetch_rng =
-      static_cast<caffe::rng_t*>(prefetch_rng_->generator());
-  shuffle(lines_.begin(), lines_.end(), prefetch_rng);
+  if (Caffe::root_solver()) {
+    caffe::rng_t *prefetch_rng =
+        static_cast<caffe::rng_t *>(prefetch_rng_->generator());
+    shuffle(ImageDataLayer<Ftype, Btype>::lines_.begin(),
+            ImageDataLayer<Ftype, Btype>::lines_.end(), prefetch_rng);
+  }
 }
 
 template<typename Ftype, typename Btype>
@@ -160,12 +172,12 @@ void ImageDataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_
 //    trans_time += timer.MicroSeconds();
     prefetch_label[item_id] = lines_[lines_id_].second;
     // go to the next iter
-    lines_id_++;
+    lines_id_ += Caffe::device_count();
     if (lines_id_ >= lines_size) {
       // We have reached the end. Restart from the first.
       DLOG(INFO) << this->print_current_device() << "Restarting data prefetching from start.";
-      lines_id_ = 0;
-      if (this->layer_param_.image_data_param().shuffle()) {
+      lines_id_ -= lines_size;
+      if (this->solver_rank_ == 0 && this->layer_param_.image_data_param().shuffle()) {
         ShuffleImages();
       }
     }
@@ -183,5 +195,6 @@ void ImageDataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_
 }
 
 INSTANTIATE_CLASS_CPU_FB(ImageDataLayer);
+REGISTER_LAYER_CLASS(ImageData);
 
 }  // namespace caffe
