@@ -7,8 +7,8 @@
 #include <vector>
 
 #include "caffe/solver.hpp"
-#include "caffe/data_transformer.hpp"
-#include "caffe/layers/base_data_layer.hpp"
+//#include "caffe/data_transformer.hpp"
+//#include "caffe/layers/base_data_layer.hpp"
 #include "caffe/layers/image_data_layer.hpp"
 //#include "caffe/util/benchmark.hpp"
 //#include "caffe/util/io.hpp"
@@ -34,6 +34,22 @@ void ImageDataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom,
   const bool is_color  = this->layer_param_.image_data_param().is_color();
   string root_folder = this->layer_param_.image_data_param().root_folder();
 
+  size_t skip = 0UL;
+  // Check if we would need to randomly skip a few data points
+  if (this->layer_param_.image_data_param().rand_skip()) {
+    if (Caffe::device_count() > 1) {
+      LOG(WARNING) << "Skipping data points is not supported in multiGPU mode";
+    } else {
+      skip = caffe_rng_rand() % this->layer_param_.image_data_param().rand_skip();
+      LOG(INFO) << "Skipping first " << skip << " data points";
+      CHECK_GT(lines_.size(), skip) << "Not enough points to skip";
+    }
+  }
+  line_ids_.resize(this->threads_num());
+  for (size_t i = 0; i < this->threads_num(); ++i) {
+    line_ids_[i] = this->solver_rank_ * this->threads_num() + i + skip;
+  }
+
   CHECK((new_height == 0 && new_width == 0) ||
       (new_height > 0 && new_width > 0)) << "Current implementation requires "
       "new_height and new_width to be set at the same time.";
@@ -51,31 +67,18 @@ void ImageDataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom,
     }
   }
 
-  if (this->layer_param_.image_data_param().shuffle()) {
-    // randomly shuffle data
-    LOG(INFO) << "Shuffling data";
-    prefetch_rng_.reset(new Caffe::RNG(caffe_rng_rand()));
-    ShuffleImages();
-  }
+//  if (this->layer_param_.image_data_param().shuffle()) {
+//    // randomly shuffle data
+//    LOG(INFO) << "Shuffling data";
+//    prefetch_rng_.reset(new Caffe::RNG(caffe_rng_rand()));
+//    ShuffleImages();
+//  }
   LOG(INFO) << "A total of " << lines_.size() << " images.";
 
-  lines_id_ = this->solver_rank_;
-  // Check if we would need to randomly skip a few data points
-  if (this->layer_param_.image_data_param().rand_skip()) {
-    if (Caffe::device_count() > 1) {
-      LOG(WARNING) << "Skipping data points is not supported in multiGPU mode";
-    } else {
-      unsigned int skip = caffe_rng_rand() %
-                          this->layer_param_.image_data_param().rand_skip();
-      LOG(INFO) << "Skipping first " << skip << " data points";
-      CHECK_GT(lines_.size(), skip) << "Not enough points to skip";
-      lines_id_ += skip;
-    }
-  }
   // Read an image, and use it to initialize the top blob.
-  cv::Mat cv_img = ReadImageToCVMat(root_folder + lines_[lines_id_].first,
+  cv::Mat cv_img = ReadImageToCVMat(root_folder + lines_[line_ids_[0]].first,
       new_height, new_width, is_color, short_side);
-  CHECK(cv_img.data) << "Could not load " << lines_[lines_id_].first;
+  CHECK(cv_img.data) << "Could not load " << lines_[line_ids_[0]].first;
   // Reshape prefetch_data and top[0] according to the batch_size.
   const int batch_size = this->layer_param_.image_data_param().batch_size();
   CHECK_GT(batch_size, 0) << "Positive batch size required";
@@ -93,22 +96,29 @@ void ImageDataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom,
   layer_inititialized_flag_.set();
 }
 
-template <typename Ftype, typename Btype>
-void ImageDataLayer<Ftype, Btype>::ShuffleImages() {
-  if (Caffe::root_solver()) {
-    caffe::rng_t *prefetch_rng =
-        static_cast<caffe::rng_t *>(prefetch_rng_->generator());
-    shuffle(ImageDataLayer<Ftype, Btype>::lines_.begin(),
-            ImageDataLayer<Ftype, Btype>::lines_.end(), prefetch_rng);
-  }
-}
+//template <typename Ftype, typename Btype>
+//void ImageDataLayer<Ftype, Btype>::ShuffleImages() {
+//  if (Caffe::root_solver()) {
+//    caffe::rng_t *prefetch_rng =
+//        static_cast<caffe::rng_t *>(prefetch_rng_->generator());
+//    shuffle(ImageDataLayer<Ftype, Btype>::lines_.begin(),
+//            ImageDataLayer<Ftype, Btype>::lines_.end(), prefetch_rng);
+//  }
+//}
 
 template<typename Ftype, typename Btype>
 void ImageDataLayer<Ftype, Btype>::InitializePrefetch() {}
 
+// Borrowed this one to count line_id
+//template<typename Ftype, typename Btype>
+//size_t ImageDataLayer<Ftype, Btype>::queue_id(size_t thread_id) const {
+//
+//
+//}
+
 // This function is called on prefetch thread
 template <typename Ftype, typename Btype>
-void ImageDataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t queue_id) {
+void ImageDataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t) {
 //  CPUTimer batch_timer;
 //  batch_timer.Start();
 //  double read_time = 0;
@@ -128,11 +138,14 @@ void ImageDataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_
 //  cv::setNumThreads(0);  // cv::resize crashes otherwise
 //#endif
 
+  size_t line_id = line_ids_[thread_id];
+  const size_t line_bucket = Caffe::device_count() * this->threads_num();
+  const size_t lines_size = lines_.size();
   // Reshape according to the first image of each batch
   // on single input batches allows for inputs of varying dimension.
-  cv::Mat cv_img = ReadImageToCVMat(root_folder + lines_[lines_id_].first,
+  cv::Mat cv_img = ReadImageToCVMat(root_folder + lines_[line_id].first,
       new_height, new_width, is_color, short_side);
-  CHECK(cv_img.data) << "Could not load " << lines_[lines_id_].first;
+  CHECK(cv_img.data) << "Could not load " << lines_[line_id].first;
   const int crop_height = crop <= 0 ? cv_img.rows : std::min(cv_img.rows, crop);
   const int crop_width = crop <= 0 ? cv_img.cols : std::min(cv_img.cols, crop);
   // Infer the expected blob shape from a cv_img.
@@ -142,20 +155,19 @@ void ImageDataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_
   batch->label_->Reshape(label_shape);
   vector<Btype> tmp(top_shape[1] * top_shape[2] * top_shape[3]);
 
-  Ftype* prefetch_data = batch->data_->mutable_cpu_data<Ftype>();
-  Ftype* prefetch_label = batch->label_->mutable_cpu_data<Ftype>();
+  Btype* prefetch_data = batch->data_->mutable_cpu_data<Btype>();
+  Btype* prefetch_label = batch->label_->mutable_cpu_data<Btype>();
   Packing packing = NCHW; //NHWC;
 
   // datum scales
-  const int lines_size = lines_.size();
   const size_t buf_len = batch->data_->offset(1);
   for (int item_id = 0; item_id < batch_size; ++item_id) {
     // get a blob
 //    timer.Start();
-    CHECK_GT(lines_size, lines_id_);
-    cv::Mat cv_img = ReadImageToCVMat(root_folder + lines_[lines_id_].first,
+    CHECK_GT(lines_size, line_id);
+    cv::Mat cv_img = ReadImageToCVMat(root_folder + lines_[line_id].first,
         new_height, new_width, is_color, short_side);
-    CHECK(cv_img.data) << "Could not load " << lines_[lines_id_].first;
+    CHECK(cv_img.data) << "Could not load " << lines_[line_id].first;
 //    read_time += timer.MicroSeconds();
 //    timer.Start();
     // Apply transformations (mirror, crop...) to the image
@@ -170,17 +182,21 @@ void ImageDataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_
 //    packing = NCHW;
 //#endif
 //    trans_time += timer.MicroSeconds();
-    prefetch_label[item_id] = lines_[lines_id_].second;
+    prefetch_label[item_id] = lines_[line_id].second;
+
+//    unsigned int Rand(int n) const
+
     // go to the next iter
-    lines_id_ += Caffe::device_count();
-    if (lines_id_ >= lines_size) {
-      // We have reached the end. Restart from the first.
-      DLOG(INFO) << this->print_current_device() << "Restarting data prefetching from start.";
-      lines_id_ -= lines_size;
-      if (this->solver_rank_ == 0 && this->layer_param_.image_data_param().shuffle()) {
-        ShuffleImages();
-      }
+    if (this->layer_param_.image_data_param().shuffle()) {
+      const unsigned int rn = this->dt(thread_id)->Rand(lines_size / line_bucket + 1);
+      line_ids_[thread_id] = rn * line_bucket;
+    } else {
+      line_ids_[thread_id] += line_bucket;
     }
+    if (line_ids_[thread_id] >= lines_size) {
+      line_ids_[thread_id] -= lines_size;
+    }
+    line_id = line_ids_[thread_id];
   }
 //  batch_timer.Stop();
 //  DLOG(INFO) << this->print_current_device()

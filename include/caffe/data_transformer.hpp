@@ -185,6 +185,19 @@ class DataTransformer {
     }
   }
 
+  /**
+   * @brief Generates a random integer from Uniform({0, 1, ..., n-1}).
+   *
+   * @param n
+   *    The upperbound (exclusive) value of the random number.
+   * @return
+   *    A uniformly random integer value from ({0, 1, ..., n-1}).
+   */
+  unsigned int Rand(int n) const {
+    CHECK_GT(n, 0);
+    return Rand() % n;
+  }
+
   // tests only, TODO: clean
   template<typename Dtype>
   void Transform(Datum& datum, TBlob<Dtype>* transformed_blob) {
@@ -342,20 +355,6 @@ class DataTransformer {
 
   void image_random_resize(const cv::Mat& src, cv::Mat& dst);
   static void image_center_crop(int crop_w, int crop_h, cv::Mat& img);
-
-  /**
-   * @brief Generates a random integer from Uniform({0, 1, ..., n-1}).
-   *
-   * @param n
-   *    The upperbound (exclusive) value of the random number.
-   * @return
-   *    A uniformly random integer value from ({0, 1, ..., n-1}).
-   */
-  unsigned int Rand(int n) const {
-    CHECK_GT(n, 0);
-    return Rand() % n;
-  }
-
   unsigned int Rand() const;
   float Rand(float lo, float up) const;
 

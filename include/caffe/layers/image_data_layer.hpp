@@ -32,7 +32,7 @@ class ImageDataLayer : public BasePrefetchingDataLayer<Ftype, Btype> {
   int ExactNumTopBlobs() const override { return 2; }
 
  protected:
-  void ShuffleImages();
+//  void ShuffleImages();
   void load_batch(Batch* batch, int thread_id, size_t queue_id = 0UL) override;
   void start_reading() override {}
   void InitializePrefetch() override;
@@ -40,19 +40,21 @@ class ImageDataLayer : public BasePrefetchingDataLayer<Ftype, Btype> {
     return false;
   }
 
+  //size_t queue_id(size_t thread_id) const override;
+
   Flag* layer_inititialized_flag() override {
     return this->phase_ == TRAIN ? &layer_inititialized_flag_ : nullptr;
   }
 
   shared_ptr<Caffe::RNG> prefetch_rng_;
-  size_t lines_id_;
+//  size_t lines_id_;
   Flag layer_inititialized_flag_;
-
-  static vector<std::pair<std::string, int>> lines_;
+  vector<size_t> line_ids_;
+  vector<std::pair<std::string, int>> lines_;
 };
 
-template <typename Ftype, typename Btype>
-vector<std::pair<std::string, int>> ImageDataLayer<Ftype, Btype>::lines_;
+//template <typename Ftype, typename Btype>
+//vector<std::pair<std::string, int>> ImageDataLayer<Ftype, Btype>::lines_;
 
 }  // namespace caffe
 
