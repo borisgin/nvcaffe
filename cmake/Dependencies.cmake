@@ -69,7 +69,7 @@ endif()
 # ---[ OpenCV
 find_package(OpenCV QUIET COMPONENTS imgcodecs)
 if(OPENCV_IMGCODECS_FOUND)
-  find_package(OpenCV REQUIRED COMPONENTS core imgcodecs imgproc)
+  find_package(OpenCV REQUIRED COMPONENTS core imgcodecs highgui imgproc)
   message(STATUS "Found OpenCV 3.x: ${OpenCV_CONFIG_PATH}")
 else()
   find_package(OpenCV REQUIRED COMPONENTS core highgui imgproc)

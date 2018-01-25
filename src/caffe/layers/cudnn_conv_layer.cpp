@@ -670,7 +670,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
 #endif
       if (user_algos_override_[2] < 0) {
         const size_t tmp_weights_size = train_tmp_weights_mem_[dev];
-        shared_ptr<GPUMemory::Workspace> tmp_ws = GPUMemory::weights_workspace_[dev];
+        shared_ptr<GPUMemory::Workspace>& tmp_ws = GPUMemory::weights_workspace_[dev];
         tmp_ws->safe_reserve(tmp_weights_size);
         float algo_time = 0.F;
         for (int m = 0; m < 2; ++m) {

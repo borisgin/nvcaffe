@@ -195,18 +195,18 @@ bool GPUMemory::Manager::try_allocate(void** ptr, size_t size, int device, int g
 
 void GPUMemory::Manager::deallocate(void* ptr, int device) {
   // allow for null pointer deallocation
-  if (!ptr || !cub_allocator_) {
+  if (ptr == nullptr || cub_allocator_ == nullptr) {
     return;
   }
+  // wait for "writers" like NCCL and potentially others...
+  shared_lock<shared_mutex> lock(GPUMemory::read_write_mutex());
   int current_device;  // Just to check CUDA status:
   cudaError_t status = cudaGetDevice(&current_device);
   // Preventing dead lock while Caffe shutting down.
   if (status != cudaErrorCudartUnloading) {
     size_t size_deallocated = 0;
-    // wait for "writers" like NCCL and potentially others...
-    shared_lock<shared_mutex> lock(GPUMemory::read_write_mutex());
-    CUDA_CHECK(cub_allocator_->DeviceFree(device, ptr, size_deallocated));
-    if (size_deallocated > 0) {
+    status = cub_allocator_->DeviceFree(device, ptr, size_deallocated);
+    if (status == cudaSuccess && size_deallocated > 0) {
       dev_info_[device].free_ += size_deallocated;
     }
   }
