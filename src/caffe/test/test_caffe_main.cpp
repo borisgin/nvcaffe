@@ -52,6 +52,7 @@ int main(int argc, char** argv) {
 
   cout << "Current device name: " << CAFFE_TEST_CUDA_PROP.name << endl;
   caffe::Caffe::SetDevice(device);
+  caffe::Caffe::set_gpus(std::vector<int>(1, device));
   caffe::GPUMemory::Scope gpu_memory_scope(devices);
 
   // invoke the test.

@@ -65,6 +65,7 @@ TYPED_TEST(ImageDataLayerTest, TestRead) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter param;
   ImageDataParameter* image_data_param = param.mutable_image_data_param();
+  image_data_param->set_threads(1);
   image_data_param->set_batch_size(5);
   image_data_param->set_source(this->filename_.c_str());
   image_data_param->set_shuffle(false);
@@ -91,6 +92,7 @@ TYPED_TEST(ImageDataLayerTest, TestResize) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter param;
   ImageDataParameter* image_data_param = param.mutable_image_data_param();
+  image_data_param->set_threads(1);
   image_data_param->set_batch_size(5);
   image_data_param->set_source(this->filename_.c_str());
   image_data_param->set_new_height(256);
@@ -119,6 +121,7 @@ TYPED_TEST(ImageDataLayerTest, TestReshape) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter param;
   ImageDataParameter* image_data_param = param.mutable_image_data_param();
+  image_data_param->set_threads(1);
   image_data_param->set_batch_size(1);
   image_data_param->set_source(this->filename_reshape_.c_str());
   image_data_param->set_shuffle(false);
@@ -146,6 +149,7 @@ TYPED_TEST(ImageDataLayerTest, TestShuffle) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter param;
   ImageDataParameter* image_data_param = param.mutable_image_data_param();
+  image_data_param->set_threads(1);
   image_data_param->set_batch_size(5);
   image_data_param->set_source(this->filename_.c_str());
   image_data_param->set_shuffle(true);

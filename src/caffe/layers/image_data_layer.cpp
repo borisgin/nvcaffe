@@ -30,7 +30,7 @@ void ImageDataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom,
   size_t skip = 0UL;
   // Check if we would need to randomly skip a few data points
   if (this->layer_param_.image_data_param().rand_skip()) {
-    if (Caffe::device_count() > 1) {
+    if (Caffe::gpus().size() > 1) {
       LOG(WARNING) << "Skipping data points is not supported in multiGPU mode";
     } else {
       skip = caffe_rng_rand() % this->layer_param_.image_data_param().rand_skip();
@@ -59,6 +59,12 @@ void ImageDataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom,
       ImageDataLayer<Ftype, Btype>::lines_.emplace_back(std::make_pair(filename, label));
     }
   }
+  if (is_root() && this->layer_param_.image_data_param().shuffle()) {
+    // randomly shuffle data
+    LOG(INFO) << "Shuffling data";
+    prefetch_rng_.reset(new Caffe::RNG(caffe_rng_rand()));
+    ShuffleImages();
+  }
   LOG(INFO) << "A total of " << lines_.size() << " images.";
 
   // Read an image, and use it to initialize the top blob.
@@ -82,8 +88,27 @@ void ImageDataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom,
   layer_inititialized_flag_.set();
 }
 
+template <typename Ftype, typename Btype>
+void ImageDataLayer<Ftype, Btype>::ShuffleImages() {
+  caffe::rng_t* prefetch_rng =
+      static_cast<caffe::rng_t*>(prefetch_rng_->generator());
+  shuffle(lines_.begin(), lines_.end(), prefetch_rng);
+}
+
 template<typename Ftype, typename Btype>
 void ImageDataLayer<Ftype, Btype>::InitializePrefetch() {}
+
+template<typename Ftype, typename Btype>
+bool ImageDataLayer<Ftype, Btype>::is_root() const {
+  const Solver* psolver = this->parent_solver();
+  if (psolver != nullptr) {
+    return psolver->is_root();
+  }
+  if (Caffe::gpus().size() > 0) {
+    return Caffe::gpus()[0] == Caffe::current_device();
+  }
+  return true;
+}
 
 template <typename Ftype, typename Btype>
 void ImageDataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t) {
@@ -98,7 +123,7 @@ void ImageDataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_
   string root_folder = image_data_param.root_folder();
 
   size_t line_id = line_ids_[thread_id];
-  const size_t line_bucket = Caffe::device_count() * this->threads_num();
+  const size_t line_bucket = Caffe::gpus().size() * this->threads_num();
   const size_t lines_size = lines_.size();
   // Reshape according to the first image of each batch
   // on single input batches allows for inputs of varying dimension.
@@ -144,14 +169,16 @@ void ImageDataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_
       prefetch_label[item_id] = lines_[line_id].second;
     }
     // go to the next iter
-    if (this->layer_param_.image_data_param().shuffle()) {
-      const unsigned int rn = this->dt(thread_id)->Rand(lines_size / line_bucket + 1);
-      line_ids_[thread_id] = rn * line_bucket;
-    } else {
-      line_ids_[thread_id] += line_bucket;
-    }
+    line_ids_[thread_id] += line_bucket;
     if (line_ids_[thread_id] >= lines_size) {
-      line_ids_[thread_id] -= lines_size;
+      // We have reached the end. Restart from the first.
+      DLOG(INFO) << this->print_current_device() << "Restarting data prefetching from start.";
+      while (line_ids_[thread_id] >= lines_size) {
+        line_ids_[thread_id] -= lines_size;
+      }
+      if (thread_id == 0 && is_root() && this->layer_param_.image_data_param().shuffle()) {
+        ShuffleImages();
+      }
     }
     line_id = line_ids_[thread_id];
   }
