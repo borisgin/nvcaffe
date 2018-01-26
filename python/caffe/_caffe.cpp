@@ -67,6 +67,9 @@ void initialize_gpu_memory_scope(const vector<int>& gpus) {
       Caffe::SetDevice(gpus[0]);
     }
   }
+  if (gpus.size() > 0) {
+    Caffe::set_gpus(gpus);
+  }
 }
 
 // Selecting mode.
