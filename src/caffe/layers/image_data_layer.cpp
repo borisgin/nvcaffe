@@ -2,18 +2,10 @@
 
 #include <fstream>  // NOLINT(readability/streams)
 #include <iostream>  // NOLINT(readability/streams)
-#include <string>
-#include <utility>
-#include <vector>
 #include <cv.hpp>
 
 #include "caffe/solver.hpp"
-//#include "caffe/data_transformer.hpp"
-//#include "caffe/layers/base_data_layer.hpp"
 #include "caffe/layers/image_data_layer.hpp"
-//#include "caffe/util/benchmark.hpp"
-//#include "caffe/util/io.hpp"
-//#include "caffe/util/math_functions.hpp"
 #include "caffe/util/rng.hpp"
 
 namespace caffe {
@@ -67,13 +59,6 @@ void ImageDataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom,
       ImageDataLayer<Ftype, Btype>::lines_.emplace_back(std::make_pair(filename, label));
     }
   }
-
-//  if (this->layer_param_.image_data_param().shuffle()) {
-//    // randomly shuffle data
-//    LOG(INFO) << "Shuffling data";
-//    prefetch_rng_.reset(new Caffe::RNG(caffe_rng_rand()));
-//    ShuffleImages();
-//  }
   LOG(INFO) << "A total of " << lines_.size() << " images.";
 
   // Read an image, and use it to initialize the top blob.
@@ -97,38 +82,11 @@ void ImageDataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom,
   layer_inititialized_flag_.set();
 }
 
-//template <typename Ftype, typename Btype>
-//void ImageDataLayer<Ftype, Btype>::ShuffleImages() {
-//  if (Caffe::root_solver()) {
-//    caffe::rng_t *prefetch_rng =
-//        static_cast<caffe::rng_t *>(prefetch_rng_->generator());
-//    shuffle(ImageDataLayer<Ftype, Btype>::lines_.begin(),
-//            ImageDataLayer<Ftype, Btype>::lines_.end(), prefetch_rng);
-//  }
-//}
-
 template<typename Ftype, typename Btype>
 void ImageDataLayer<Ftype, Btype>::InitializePrefetch() {}
 
-// Borrowed this one to count line_id
-//template<typename Ftype, typename Btype>
-//size_t ImageDataLayer<Ftype, Btype>::queue_id(size_t thread_id) const {
-//
-//
-//}
-
-
-std::set<std::string> S;
-std::mutex M;
-
-// This function is called on prefetch thread
 template <typename Ftype, typename Btype>
 void ImageDataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t) {
-//  CPUTimer batch_timer;
-//  batch_timer.Start();
-//  double read_time = 0;
-//  double trans_time = 0;
-//  CPUTimer timer;
   CHECK(batch->data_->count());
   ImageDataParameter image_data_param = this->layer_param_.image_data_param();
   const int batch_size = image_data_param.batch_size();
@@ -139,10 +97,6 @@ void ImageDataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_
   const bool is_color = image_data_param.is_color();
   string root_folder = image_data_param.root_folder();
 
-//#if CV_VERSION_EPOCH == 2
-//  cv::setNumThreads(0);//this->threads_num());  // cv::resize crashes otherwise
-//#endif
-
   size_t line_id = line_ids_[thread_id];
   const size_t line_bucket = Caffe::device_count() * this->threads_num();
   const size_t lines_size = lines_.size();
@@ -151,8 +105,15 @@ void ImageDataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_
   cv::Mat cv_img = ReadImageToCVMat(root_folder + lines_[line_id].first,
       new_height, new_width, is_color, short_side);
   CHECK(cv_img.data) << "Could not load " << lines_[line_id].first;
-  const int crop_height = crop <= 0 ? cv_img.rows : std::min(cv_img.rows, crop);
-  const int crop_width = crop <= 0 ? cv_img.cols : std::min(cv_img.cols, crop);
+  int crop_height = crop;
+  int crop_width = crop;
+  if (crop <= 0) {
+    LOG(INFO) << "Crop is not set. Using '" << (root_folder + lines_[line_id].first)
+              << "' as a model, w=" << cv_img.rows << ", h=" << cv_img.cols;
+    crop_height = cv_img.rows;
+    crop_width = cv_img.cols;
+  }
+
   // Infer the expected blob shape from a cv_img.
   vector<int> top_shape { batch_size, cv_img.channels(), crop_height, crop_width };
   batch->data_->Reshape(top_shape);
@@ -167,68 +128,24 @@ void ImageDataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_
   // datum scales
   const size_t buf_len = batch->data_->offset(1);
   for (int item_id = 0; item_id < batch_size; ++item_id) {
-
-
-
-
-//    std::lock_guard<std::mutex> lock(M);
-//    if (S.find(lines_[line_id].first) != S.end()) {
-//      LOG(FATAL) <<lines_[line_id].first;
-//    }
-//    S.insert(lines_[line_id].first);
-
-
-
-
-
-
-
-//  cv::Mat im;
-//  im.create(img_height, img_width, CVFC<float>(img_channels));
-//  chw2hwc(img_channels, img_width, img_height, buf, im.ptr<float>(0));
-//  cv::Mat dsp;
-////  im.convertTo(dsp, CV_32F);
-//  cv::normalize(im, dsp, 0, 1, cv::NORM_MINMAX);
-//  cv::imshow("testCR", dsp);
-//  cv::waitKey(0);
-
-
-    // get a blob
-//    timer.Start();
     CHECK_GT(lines_size, line_id);
     cv::Mat cv_img = ReadImageToCVMat(root_folder + lines_[line_id].first,
         new_height, new_width, is_color, short_side);
-    CHECK(cv_img.data) << "Could not load " << lines_[line_id].first;
-
-//    try {
-//      cv::namedWindow("testCR", cv::WINDOW_AUTOSIZE);
-//      cv::imshow("testCR", cv_img);
-// //     cv::waitKey(0);
-//    }
-//    catch (std::exception& e) {
-//      LOG(INFO) << e.what();
-//    }
-//    read_time += timer.MicroSeconds();
-//    timer.Start();
-    // Apply transformations (mirror, crop...) to the image
-    int offset = batch->data_->offset(item_id);
-
+    if (cv_img.data) {
+      int offset = batch->data_->offset(item_id);
 #if defined(USE_CUDNN)
-    this->dt(thread_id)->Transform(cv_img, prefetch_data + offset, buf_len, false);
+      this->dt(thread_id)->Transform(cv_img, prefetch_data + offset, buf_len, false);
 #else
-    CHECK_EQ(buf_len, tmp.size());
-    this->dt(thread_id)->Transform(cv_img, prefetch_data + offset, buf_len, false);
-    hwc2chw(top_shape[1], top_shape[3], top_shape[2], tmp.data(), prefetch_data + offset);
-    packing = NCHW;
+      CHECK_EQ(buf_len, tmp.size());
+      this->dt(thread_id)->Transform(cv_img, prefetch_data + offset, buf_len, false);
+      hwc2chw(top_shape[1], top_shape[3], top_shape[2], tmp.data(), prefetch_data + offset);
+      packing = NCHW;
 #endif
-//    trans_time += timer.MicroSeconds();
-    prefetch_label[item_id] = lines_[line_id].second;
-
-//    unsigned int Rand(int n) const
-
+      prefetch_label[item_id] = lines_[line_id].second;
+    }
     // go to the next iter
     if (this->layer_param_.image_data_param().shuffle()) {
-      const unsigned int rn = this->dt(thread_id)->Rand(lines_size);
+      const unsigned int rn = this->dt(thread_id)->Rand(lines_size / line_bucket + 1);
       line_ids_[thread_id] = rn * line_bucket;
     } else {
       line_ids_[thread_id] += line_bucket;
@@ -238,14 +155,6 @@ void ImageDataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_
     }
     line_id = line_ids_[thread_id];
   }
-//  batch_timer.Stop();
-//  DLOG(INFO) << this->print_current_device()
-//             << "Prefetch batch: " << batch_timer.MilliSeconds() << " ms.";
-//  DLOG(INFO) << this->print_current_device()
-//             << "     Read time: " << read_time / 1000 << " ms.";
-//  DLOG(INFO) << this->print_current_device()
-//             << "Transform time: " << trans_time / 1000 << " ms.";
-
   batch->set_data_packing(packing);
   batch->set_id(this->batch_id(thread_id));
 }

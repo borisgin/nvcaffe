@@ -294,19 +294,6 @@ shared_ptr<LayerBase> GetMemoryDataLayer(const LayerParameter& param, Type ftype
 }
 REGISTER_LAYER_CREATOR(MemoryData, GetMemoryDataLayer);
 
-//shared_ptr<LayerBase> GetImageDataLayer(const LayerParameter& param, Type ftype, Type btype) {
-//  LayerParameter lparam(param);
-//  check_precision_support(ftype, btype, lparam);
-//  shared_ptr<LayerBase> ret;
-//  if (is_type<double>(ftype)) {
-//    ret.reset(new ImageDataLayer<double, double>(lparam));
-//  } else {
-//    ret.reset(new ImageDataLayer<float, float>(lparam));
-//  }
-//  return ret;
-//}
-//REGISTER_LAYER_CREATOR(ImageData, GetImageDataLayer);
-
 shared_ptr<LayerBase> GetWindowDataLayer(const LayerParameter& param, Type ftype, Type btype) {
   LayerParameter lparam(param);
   check_precision_support(ftype, btype, lparam);
@@ -349,10 +336,6 @@ shared_ptr<LayerBase> GetPythonLayer(const LayerParameter& param, Type, Type) {
     PyGILAquire gil;
     bp::object globals = bp::import("__main__").attr("__dict__");
     bp::exec(("import " + module_name).c_str(), globals, globals);
-
-//    bp::object module = bp::import(param.python_param().module().c_str());
-//    bp::object layer = module.attr(param.python_param().layer().c_str())(param);
-
     bp::object layer_class = bp::eval((module_name + "." + layer_name).c_str(), globals, globals);
     bp::object layer = layer_class(param);
     return bp::extract<shared_ptr<LayerBase>>(layer)();

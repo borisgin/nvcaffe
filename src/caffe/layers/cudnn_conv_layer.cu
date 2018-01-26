@@ -47,16 +47,15 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& botto
       for (int g = 0; g < groups(); ++g) {
         void* pspace = static_cast<unsigned char*>(ws->data()) + gsize * idxg(g);
         // Filters.
-        CUDNN_CHECK3(cudnnConvolutionForward(Caffe::cudnn_handle(idxg(g)),
+        CUDNN_CHECK(cudnnConvolutionForward(Caffe::cudnn_handle(idxg(g)),
             cudnn::dataType<Ftype>::one, fwd_bottom_descs_[i], bottom_data + bottom_offset_ * g,
             fwd_filter_desc_, weight + this->weight_offset_ * g,
             fwd_conv_descs_[i], fwd_algo_[i], pspace, gsize,
-            cudnn::dataType<Ftype>::zero, fwd_top_descs_[i], top_data + top_offset_ * g),
-            pspace, gsize, (int)fwd_algo_[i]);
+            cudnn::dataType<Ftype>::zero, fwd_top_descs_[i], top_data + top_offset_ * g));
       }
       // NOLINT_NEXT_LINE(whitespace/operators)
       for (int ig = 0; ig < ws_groups(); ++ig) {
-        CUDA_CHECK_ARG(cudaStreamSynchronize(Caffe::thread_stream(ig)), top[i]);
+        CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream(ig)));
       }
 
       if (this->bias_term_) {
@@ -78,7 +77,6 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& botto
   }
 
   ++fwd_count_;
-//  DLOG(INFO) << "CuDNNConvolutionLayer " << this << " " << fwd_count_;
 }
 
 template <typename Ftype, typename Btype>

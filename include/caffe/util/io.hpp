@@ -181,8 +181,10 @@ void CVMatToDatum(const cv::Mat& cv_img, Datum& datum);
 vector<int> DatumToCVMat(const Datum& datum, cv::Mat& img, bool shape_only);
 vector<int> DecodeDatumToCVMat(const Datum& datum, int color_mode, cv::Mat& cv_img,
     bool shape_only, bool accurate_jpeg = true);
-void DecodeDatumToSignedBuf(const Datum& datum, int color_mode,
-    char* buf, size_t buf_len, bool accurate_jpeg);
+void DecodeDatumToSignedBuf(const Datum& datum, int color_mode, char* buf, size_t buf_len,
+    bool accurate_jpeg);
+vector<int> Decode(const unsigned char* content, size_t content_size, int color_mode,
+    cv::Mat* cv_img, char* buf, size_t buf_len, bool shape_only, bool accurate_jpeg);
 
 template<typename Dtype>
 void TBlobDataToCVMat(const TBlob<Dtype>& blob, cv::Mat& img) {

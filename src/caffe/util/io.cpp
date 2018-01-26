@@ -92,108 +92,120 @@ vector<int> DecodeDatumToCVMat(const Datum& datum, int color_mode, cv::Mat& cv_i
   CHECK(datum.encoded()) << "Datum not encoded";
   const std::string& content = datum.data();
   const size_t content_size = content.size();
-  int ch = 0;
-
-  if (content_size > 1
-      && static_cast<unsigned char>(content[0]) == 255
-      && static_cast<unsigned char>(content[1]) == 216) {  // probably jpeg
-    int width, height, subsamp;
-    auto *content_data = reinterpret_cast<unsigned char*>(const_cast<char*>(content.data()));
-
-    tjhandle jpeg_decoder = tjInitDecompress();
-    tjDecompressHeader2(jpeg_decoder, content_data, content_size, &width, &height, &subsamp);
-
-    ch = color_mode < 0 ? 1 : (color_mode > 0 ? 3 : (subsamp == TJSAMP_GRAY ? 1 : 3));
-    if (shape_only) {
-      tjDestroy(jpeg_decoder);
-      return vector<int>{1, ch, height, width};
-    }
-    cv_img.create(height, width, ch == 3 ? CV_8UC3 : CV_8UC1);
-
-    CHECK_EQ(0, tjDecompress2(jpeg_decoder, content_data, content_size,
-        cv_img.ptr<unsigned char>(), width, 0, height, ch == 3 ? TJPF_BGR : TJPF_GRAY,
-        accurate_jpeg ? (TJFLAG_ACCURATEDCT | TJFLAG_NOREALLOC)
-                      : (TJFLAG_FASTDCT | TJFLAG_NOREALLOC))) << tjGetErrorStr();
-
-    tjDestroy(jpeg_decoder);
-  } else {
-    // probably not jpeg...
-    std::vector<char> vec_data(content.c_str(), content.c_str() + content_size);
-    const int flag = color_mode < 0 ? CV_LOAD_IMAGE_GRAYSCALE :
-       (color_mode > 0 ? CV_LOAD_IMAGE_COLOR : CV_LOAD_IMAGE_ANYCOLOR);
-    cv_img = cv::imdecode(vec_data, flag);
-    ch = cv_img.channels();
-  }
-  if (!cv_img.data) {
-    LOG(ERROR) << "Could not decode datum";
-  }
-  return vector<int>{1, ch, cv_img.rows, cv_img.cols};
+  return Decode(reinterpret_cast<const unsigned char*>(content.data()), content_size,
+                color_mode, &cv_img, nullptr, 0, shape_only, accurate_jpeg);
 }
-// TODO unify these two
+
 void DecodeDatumToSignedBuf(const Datum& datum, int color_mode,
     char* buf, size_t buf_len, bool accurate_jpeg) {
   CHECK(datum.encoded()) << "Datum not encoded";
   const std::string& content = datum.data();
   const size_t content_size = content.size();
-  int ch = 0;
+  Decode(reinterpret_cast<const unsigned char*>(content.data()), content_size,
+         color_mode, nullptr, buf, buf_len, false, accurate_jpeg);
+}
 
+// decodes to either cv_img or buf
+vector<int> Decode(const unsigned char* content, size_t content_size, int color_mode,
+    cv::Mat* cv_img, char* buf, size_t buf_len, bool shape_only, bool accurate_jpeg) {
   if (content_size > 1
-      && static_cast<unsigned char>(content[0]) == 255
-      && static_cast<unsigned char>(content[1]) == 216) {  // probably jpeg
+      && content[0] == 255
+      && content[1] == 216) {  // probably jpeg
     int width, height, subsamp;
-    auto *content_data = reinterpret_cast<unsigned char*>(const_cast<char*>(content.data()));
+    auto *content_data = const_cast<unsigned char *>(content);
 
     tjhandle jpeg_decoder = tjInitDecompress();
     tjDecompressHeader2(jpeg_decoder, content_data, content_size, &width, &height, &subsamp);
 
-    ch = color_mode < 0 ? 1 : (color_mode > 0 ? 3 : (subsamp == TJSAMP_GRAY ? 1 : 3));
-    CHECK_EQ(ch * height * width, buf_len);
-
-    CHECK_EQ(0, tjDecompress2(jpeg_decoder, content_data, content_size,
-        reinterpret_cast<unsigned char*>(buf), width, 0, height, ch == 3 ? TJPF_BGR : TJPF_GRAY,
-        accurate_jpeg ? (TJFLAG_ACCURATEDCT | TJFLAG_NOREALLOC)
-                      : (TJFLAG_FASTDCT | TJFLAG_NOREALLOC))) << tjGetErrorStr();
-
-    tjDestroy(jpeg_decoder);
-  } else {
-    // probably not jpeg...
-    std::vector<char> vec_data(content.c_str(), content.c_str() + content_size);
-    const int flag = color_mode < 0 ? CV_LOAD_IMAGE_GRAYSCALE :
-                     (color_mode > 0 ? CV_LOAD_IMAGE_COLOR : CV_LOAD_IMAGE_ANYCOLOR);
-    cv::Mat cv_img = cv::imdecode(vec_data, flag);
-    ch = cv_img.channels();
-    if (!cv_img.data) {
-      LOG(ERROR) << "Could not decode datum";
+    int ch = subsamp == TJSAMP_GRAY ? 1 : 3;
+    if (color_mode < 0) {
+      ch = 1;
     }
-    CHECK_EQ(cv_img.channels() * cv_img.rows * cv_img.cols, buf_len);
-    std::memcpy(buf, cv_img.data, buf_len);  // NOLINT(caffe/alt_fn)
+    if (!shape_only) {
+      if (cv_img != nullptr) {
+        cv_img->create(height, width, ch == 3 ? CV_8UC3 : CV_8UC1);
+      } else {
+        CHECK_EQ(ch * height * width, buf_len);
+      }
+      if (0 > tjDecompress2(jpeg_decoder, content_data, content_size,
+                            cv_img != nullptr ? cv_img->ptr<unsigned char>()
+                                              : reinterpret_cast<unsigned char*>(buf),
+                            width,
+                            0,
+                            height,
+                            ch == 3 ? TJPF_BGR : TJPF_GRAY,  // TODO RGB?
+                            (accurate_jpeg ? TJFLAG_ACCURATEDCT : TJFLAG_FASTDCT) |
+                            TJFLAG_NOREALLOC)) {
+        return vector<int>{};
+      }
+    }
+    tjDestroy(jpeg_decoder);
+    return vector<int>{1, ch, height, width};
   }
+  // probably not jpeg...
+  std::vector<char> vec_data(content, content + content_size);
+  const int flag = color_mode < 0 ? cv::IMREAD_GRAYSCALE :
+                   (color_mode > 0 ? cv::IMREAD_COLOR : cv::IMREAD_ANYCOLOR);
+  if (cv_img != nullptr && !shape_only) {
+    *cv_img = cv::imdecode(vec_data, flag);
+    return vector<int>{1, cv_img->channels(), cv_img->rows, cv_img->cols};
+  }
+  cv::Mat img = cv::imdecode(vec_data, flag);
+  if (!shape_only) {
+    CHECK_EQ(img.channels() * img.rows * img.cols, buf_len);
+    std::memcpy(buf, img.data, buf_len);  // NOLINT(caffe/alt_fn)
+  }
+  return vector<int>{1, img.channels(), img.rows, img.cols};
 }
 
 cv::Mat ReadImageToCVMat(const string& filename,
     int height, int width, bool is_color, int short_side) {
-  int cv_read_flag = (is_color ? CV_LOAD_IMAGE_COLOR :
-    CV_LOAD_IMAGE_GRAYSCALE);
-  cv::Mat cv_img_origin = cv::imread(filename, cv_read_flag);
-  if (!cv_img_origin.data) {
+  cv::Mat cv_img_origin;
+  std::ifstream ifs(filename, std::ios::in | std::ios::binary);
+  if (!ifs) {
     LOG(ERROR) << "Could not open or find file " << filename;
     return cv_img_origin;
   }
-  if (short_side > 0) {
-    if (cv_img_origin.rows > cv_img_origin.cols) {
-      width = short_side;
-      height = cv_img_origin.rows * short_side / cv_img_origin.cols;
-    } else {
-      height = short_side;
-      width = cv_img_origin.cols * short_side / cv_img_origin.rows;
-    }
-  }
-  if (height <= 0 || width <= 0) {
-    return cv_img_origin;
-  }
-  cv::Size sz(width, height);
+  std::string content;
+  ifs.seekg(0, std::ios::end);
+  content.resize(ifs.tellg());
+  ifs.seekg(0, std::ios::beg);
+  ifs.read(&content.front(), content.size());
+  ifs.close();
+
   cv::Mat cv_img;
-  cv::resize(cv_img_origin, cv_img, sz, 0., 0., CV_INTER_LINEAR);
+  vector<int> shape = Decode(reinterpret_cast<const unsigned char*>(content.data()), content.size(),
+                             is_color ? 1 : -1, &cv_img_origin, nullptr, 0, false, true);
+  if (shape.size() == 0) {
+    int cv_read_flag = is_color ? cv::IMREAD_COLOR : cv::IMREAD_GRAYSCALE;
+    // Trying this one. It's slow but might decode better
+    cv_img_origin = cv::imread(filename, cv_read_flag);
+  }
+  if (cv_img_origin.data) {
+    if (is_color && cv_img_origin.channels() < 3) {
+      cv::cvtColor(cv_img_origin, cv_img, CV_GRAY2RGB);
+    }
+    if (short_side > 0) {
+      if (cv_img_origin.rows > cv_img_origin.cols) {
+        width = short_side;
+        height = cv_img_origin.rows * short_side / cv_img_origin.cols;
+      } else {
+        height = short_side;
+        width = cv_img_origin.cols * short_side / cv_img_origin.rows;
+      }
+    }
+    if (height <= 0 || width <= 0) {
+      return cv_img.data ? cv_img : cv_img_origin;
+    }
+    cv::Size sz(width, height);
+    if (cv_img.data) {
+      cv::resize(cv_img, cv_img_origin, sz, 0., 0., CV_INTER_LINEAR);
+      return cv_img_origin;
+    }
+    cv::resize(cv_img_origin, cv_img, sz, 0., 0., CV_INTER_LINEAR);
+  } else {
+    LOG(ERROR) << "Could not decode file " << filename;
+  }
   return cv_img;
 }
 
