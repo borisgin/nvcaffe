@@ -1,5 +1,6 @@
 import unittest
 import tempfile
+#import sys
 import caffe
 from caffe import layers as L
 from caffe import params as P
@@ -52,6 +53,7 @@ class TestNetSpec(unittest.TestCase):
     @classmethod
     def setUpClass(self):
         super(TestNetSpec, self).setUpClass()
+        caffe.set_device(0)
         print('TestNetSpec.setUpClass')
 
     @classmethod
@@ -89,3 +91,9 @@ class TestNetSpec(unittest.TestCase):
         net_proto = silent_net()
         net = self.load_net(net_proto)
         self.assertEqual(len(net.forward()), 0)
+
+#if __name__ == '__main__':
+#    if len(sys.argv) != 2:
+#        sys.exit("ERRORommand-line parameter must be supplied for these tests")
+#    command_line_param = sys.argv[1]
+#    unittest.main()

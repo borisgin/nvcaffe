@@ -28,6 +28,7 @@ class TestDraw(unittest.TestCase):
     @classmethod
     def setUpClass(self):
         super(TestDraw, self).setUpClass()
+        caffe.set_device(0)
         print('TestDraw.setUpClass')
 
     @classmethod

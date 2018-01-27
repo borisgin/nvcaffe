@@ -6,6 +6,7 @@ class TestLayerTypeList(unittest.TestCase):
     @classmethod
     def setUpClass(self):
         super(TestLayerTypeList, self).setUpClass()
+        caffe.set_device(0)
         print('TestLayerTypeList.setUpClass')
 
     @classmethod

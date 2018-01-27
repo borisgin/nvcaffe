@@ -13,6 +13,7 @@ class TestSolver(unittest.TestCase):
     @classmethod
     def setUpClass(self):
         super(TestSolver, self).setUpClass()
+        caffe.set_device(0)
         print('TestSolver.setUpClass')
 
     @classmethod

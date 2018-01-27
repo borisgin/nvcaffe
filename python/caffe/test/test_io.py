@@ -7,6 +7,7 @@ class TestBlobProtoToArray(unittest.TestCase):
     @classmethod
     def setUpClass(self):
         super(TestBlobProtoToArray, self).setUpClass()
+        caffe.set_device(0)
         print('TestBlobProtoToArray.setUpClass')
 
     @classmethod
@@ -53,6 +54,7 @@ class TestBlobProtoToArray(unittest.TestCase):
 class TestArrayToDatum(unittest.TestCase):
     @classmethod
     def setUpClass(self):
+        caffe.set_device(0)
         super(TestArrayToDatum, self).setUpClass()
         print('TestArrayToDatum.setUpClass')
 

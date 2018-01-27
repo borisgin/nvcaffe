@@ -103,6 +103,7 @@ class TestPythonLayer(unittest.TestCase):
     @classmethod
     def setUpClass(self):
         super(TestPythonLayer, self).setUpClass()
+        caffe.set_device(0)
         print('TestPythonLayer.setUpClass')
 
     @classmethod
