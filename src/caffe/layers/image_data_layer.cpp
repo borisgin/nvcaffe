@@ -182,7 +182,7 @@ void ImageDataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_
           && this->phase_ == TRAIN) {
         LOG(INFO) << "Shuffling data";
         ShuffleImages();
-        ++epoch_count_;
+        epoch_count_ += lines_size;
         Caffe::report_epoch_count(epoch_count_);
       }
     }
