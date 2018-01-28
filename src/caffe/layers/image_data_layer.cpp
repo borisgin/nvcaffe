@@ -2,7 +2,6 @@
 
 #include <fstream>  // NOLINT(readability/streams)
 #include <iostream>  // NOLINT(readability/streams)
-#include <cv.hpp>
 
 #include "caffe/solver.hpp"
 #include "caffe/layers/image_data_layer.hpp"
