@@ -11,7 +11,8 @@ namespace caffe {
 
 template <typename Ftype, typename Btype>
 ImageDataLayer<Ftype, Btype>::ImageDataLayer(const LayerParameter& param, size_t solver_rank)
-    : BasePrefetchingDataLayer<Ftype, Btype>(param, solver_rank) {}
+    : BasePrefetchingDataLayer<Ftype, Btype>(param, solver_rank),
+      epoch_count_(0UL) {}
 
 template <typename Ftype, typename Btype>
 ImageDataLayer<Ftype, Btype>::~ImageDataLayer<Ftype, Btype>() {
@@ -61,7 +62,7 @@ void ImageDataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom,
     while (infile >> filename >> label) {
       ImageDataLayer<Ftype, Btype>::lines_.emplace_back(std::make_pair(filename, label));
     }
-    if (this->layer_param_.image_data_param().shuffle()) {
+    if (this->layer_param_.image_data_param().shuffle() && this->phase_ == TRAIN) {
       // randomly shuffle data
       LOG(INFO) << "Shuffling data";
       prefetch_rng_.reset(new Caffe::RNG(caffe_rng_rand()));
@@ -80,8 +81,8 @@ void ImageDataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom,
   int crop_height = crop;
   int crop_width = crop;
   if (crop <= 0) {
-    LOG(INFO) << "Crop is not set. Using '" << (root_folder + lines_[0].first)
-              << "' as a model, w=" << cv_img.rows << ", h=" << cv_img.cols;
+    LOG_FIRST_N(INFO, 1) << "Crop is not set. Using '" << (root_folder + lines_[0].first)
+        << "' as a model, w=" << cv_img.rows << ", h=" << cv_img.cols;
     crop_height = cv_img.rows;
     crop_width = cv_img.cols;
   }
@@ -130,8 +131,8 @@ void ImageDataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_
   int crop_height = crop;
   int crop_width = crop;
   if (crop <= 0) {
-    LOG(INFO) << "Crop is not set. Using '" << (root_folder + lines_[line_id].first)
-              << "' as a model, w=" << cv_img.rows << ", h=" << cv_img.cols;
+    LOG_FIRST_N(INFO, 1) << "Crop is not set. Using '" << (root_folder + lines_[line_id].first)
+        << "' as a model, w=" << cv_img.rows << ", h=" << cv_img.cols;
     crop_height = cv_img.rows;
     crop_width = cv_img.cols;
   }
@@ -173,8 +174,12 @@ void ImageDataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_
       while (line_ids_[thread_id] >= lines_size) {
         line_ids_[thread_id] -= lines_size;
       }
-      if (thread_id == 0 && this->rank_ == 0 && this->layer_param_.image_data_param().shuffle()) {
+      if (thread_id == 0 && this->rank_ == 0 && this->layer_param_.image_data_param().shuffle()
+          && this->phase_ == TRAIN) {
+        LOG(INFO) << "Shuffling data";
         ShuffleImages();
+        ++epoch_count_;
+        Caffe::report_epoch_count(epoch_count_);
       }
     }
     line_id = line_ids_[thread_id];

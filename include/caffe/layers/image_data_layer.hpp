@@ -54,6 +54,7 @@ class ImageDataLayer : public BasePrefetchingDataLayer<Ftype, Btype> {
 
   shared_ptr<Caffe::RNG> prefetch_rng_;
   Flag layer_inititialized_flag_;
+  size_t epoch_count_;
   vector<size_t> line_ids_;
   static vector<std::pair<std::string, int>> lines_;
 };
