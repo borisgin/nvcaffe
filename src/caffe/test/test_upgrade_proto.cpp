@@ -2915,7 +2915,7 @@ TEST_F(NetUpgradeTest, TestUpgradeV1LayerType) {
       continue;
       #endif  // USE_LEVELDB
     }
-    layer = LayerRegistry::CreateLayer(layer_param);
+    layer = LayerRegistry::CreateLayer(layer_param, 0UL);
     EXPECT_EQ(v2_layer_type, layer->type());
   }
 }

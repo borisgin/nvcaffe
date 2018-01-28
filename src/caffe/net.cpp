@@ -181,7 +181,7 @@ void Net::Init(const NetParameter& in_param) {
       layers_.push_back(root_net_->layers_[layer_id]);
       layers_[layer_id]->SetShared(true);
     } else {
-      layers_.push_back(LayerRegistry::CreateLayer(layer_param));
+      layers_.push_back(LayerRegistry::CreateLayer(layer_param, solver_rank_));
     }
     layer_names_.push_back(layer_param.name());
     LOG_IF(INFO, Caffe::root_solver())
@@ -209,7 +209,6 @@ void Net::Init(const NetParameter& in_param) {
     // specified fewer than the required number (as specified by
     // ExactNumTopBlobs() or MinTopBlobs()), allocate them here.
     LayerBase* layer = layers_[layer_id].get();
-    layer->set_solver_rank(solver_rank_);
     if (layer->AutoTopBlobs()) {
       const int needed_num_top =
           std::max(layer->MinTopBlobs(), layer->ExactNumTopBlobs());

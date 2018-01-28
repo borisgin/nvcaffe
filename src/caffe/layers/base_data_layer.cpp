@@ -58,15 +58,16 @@ void BaseDataLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bottom,
 }
 
 template<typename Ftype, typename Btype>
-BasePrefetchingDataLayer<Ftype, Btype>::BasePrefetchingDataLayer(const LayerParameter& param)
+BasePrefetchingDataLayer<Ftype, Btype>::BasePrefetchingDataLayer(const LayerParameter& param,
+    size_t solver_rank)
     : BaseDataLayer<Ftype, Btype>(param, threads(param)),
-      InternalThread(Caffe::current_device(), this->solver_rank_, threads(param), false),
+      InternalThread(Caffe::current_device(), solver_rank, threads(param), false),
       auto_mode_(Caffe::mode() == Caffe::GPU && this->phase_ == TRAIN && auto_mode(param)),
       parsers_num_(parser_threads(param)),
       transf_num_(threads(param)),
       queues_num_(transf_num_ * parsers_num_),
       batch_transformer_(make_shared<BatchTransformer<Ftype, Btype>>(Caffe::current_device(),
-          this->solver_rank_, queues_num_, param.transform_param(), is_gpu_transform())) {
+          solver_rank, queues_num_, param.transform_param(), is_gpu_transform())) {
   CHECK_EQ(transf_num_, threads_num());
   batch_size_ = param.data_param().batch_size();
   // We begin with minimum required
@@ -81,7 +82,6 @@ BasePrefetchingDataLayer<Ftype, Btype>::~BasePrefetchingDataLayer() {
 template<typename Ftype, typename Btype>
 void BasePrefetchingDataLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bottom,
     const vector<Blob*>& top) {
-  this->rank_ = this->solver_rank_;
   bottom_init_ = bottom;
   top_init_ = top;
   BaseDataLayer<Ftype, Btype>::LayerSetUp(bottom, top);

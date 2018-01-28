@@ -11,6 +11,10 @@
 namespace caffe {
 
 template <typename Ftype, typename Btype>
+ImageDataLayer<Ftype, Btype>::ImageDataLayer(const LayerParameter& param, size_t solver_rank)
+    : BasePrefetchingDataLayer<Ftype, Btype>(param, solver_rank) {}
+
+template <typename Ftype, typename Btype>
 ImageDataLayer<Ftype, Btype>::~ImageDataLayer<Ftype, Btype>() {
   if (layer_inititialized_flag_.is_set()) {
     this->StopInternalThread();
@@ -40,14 +44,14 @@ void ImageDataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom,
   }
   line_ids_.resize(this->threads_num());
   for (size_t i = 0; i < this->threads_num(); ++i) {
-    line_ids_[i] = this->solver_rank_ * this->threads_num() + i + skip;
+    line_ids_[i] = this->rank_ * this->threads_num() + i + skip;
   }
 
   CHECK((new_height == 0 && new_width == 0) ||
       (new_height > 0 && new_width > 0)) << "Current implementation requires "
       "new_height and new_width to be set at the same time.";
 
-  if (this->solver_rank_ == 0) {
+  if (this->rank_ == 0) {
     // Read the file with filenames and labels
     ImageDataLayer<Ftype, Btype>::lines_.clear();
     const string &source = this->layer_param_.image_data_param().source();
@@ -58,12 +62,12 @@ void ImageDataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom,
     while (infile >> filename >> label) {
       ImageDataLayer<Ftype, Btype>::lines_.emplace_back(std::make_pair(filename, label));
     }
-  }
-  if (is_root() && this->layer_param_.image_data_param().shuffle()) {
-    // randomly shuffle data
-    LOG(INFO) << "Shuffling data";
-    prefetch_rng_.reset(new Caffe::RNG(caffe_rng_rand()));
-    ShuffleImages();
+    if (this->layer_param_.image_data_param().shuffle()) {
+      // randomly shuffle data
+      LOG(INFO) << "Shuffling data";
+      prefetch_rng_.reset(new Caffe::RNG(caffe_rng_rand()));
+      ShuffleImages();
+    }
   }
   LOG(INFO) << "A total of " << lines_.size() << " images.";
 
@@ -97,18 +101,6 @@ void ImageDataLayer<Ftype, Btype>::ShuffleImages() {
 
 template<typename Ftype, typename Btype>
 void ImageDataLayer<Ftype, Btype>::InitializePrefetch() {}
-
-template<typename Ftype, typename Btype>
-bool ImageDataLayer<Ftype, Btype>::is_root() const {
-  const Solver* psolver = this->parent_solver();
-  if (psolver != nullptr) {
-    return psolver->is_root();
-  }
-  if (Caffe::gpus().size() > 0) {
-    return Caffe::gpus()[0] == Caffe::current_device();
-  }
-  return true;
-}
 
 template <typename Ftype, typename Btype>
 void ImageDataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t) {
@@ -176,7 +168,7 @@ void ImageDataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_
       while (line_ids_[thread_id] >= lines_size) {
         line_ids_[thread_id] -= lines_size;
       }
-      if (thread_id == 0 && is_root() && this->layer_param_.image_data_param().shuffle()) {
+      if (thread_id == 0 && this->rank_ == 0 && this->layer_param_.image_data_param().shuffle()) {
         ShuffleImages();
       }
     }
@@ -187,6 +179,6 @@ void ImageDataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_
 }
 
 INSTANTIATE_CLASS_CPU_FB(ImageDataLayer);
-REGISTER_LAYER_CLASS(ImageData);
+REGISTER_LAYER_CLASS_R(ImageData);
 
 }  // namespace caffe

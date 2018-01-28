@@ -80,7 +80,7 @@ class DataLayerTest : public MultiDeviceTest<TypeParam> {
     transform_param->set_scale(scale);
     transform_param->set_use_gpu_transform(use_gpu_transform);
 
-    DataLayer<Dtype, Dtype> layer(param);
+    DataLayer<Dtype, Dtype> layer(param, 0UL);
     layer.SetUp(blob_bottom_vec_, blob_top_vec_);
     EXPECT_EQ(blob_top_data_->num(), 5);
     EXPECT_EQ(blob_top_data_->channels(), 2);
@@ -141,7 +141,7 @@ class DataLayerTest : public MultiDeviceTest<TypeParam> {
     data_param->set_backend(backend);
     data_param->set_threads(data_param->backend() == DataParameter_DB_LEVELDB ? 1 : 3);
 
-    DataLayer<Dtype, Dtype> layer(param);
+    DataLayer<Dtype, Dtype> layer(param, 0UL);
     layer.SetUp(blob_bottom_vec_, blob_top_vec_);
     EXPECT_EQ(blob_top_data_->num(), 1);
     EXPECT_EQ(blob_top_data_->channels(), 2);
@@ -187,7 +187,7 @@ class DataLayerTest : public MultiDeviceTest<TypeParam> {
     transform_param->set_crop_size(1);
     transform_param->set_use_gpu_transform(use_gpu_transform);
 
-    DataLayer<Dtype, Dtype> layer(param);
+    DataLayer<Dtype, Dtype> layer(param, 0UL);
     layer.SetUp(blob_bottom_vec_, blob_top_vec_);
     EXPECT_EQ(blob_top_data_->num(), 5);
     EXPECT_EQ(blob_top_data_->channels(), 2);
@@ -247,7 +247,7 @@ class DataLayerTest : public MultiDeviceTest<TypeParam> {
     Caffe::set_random_seed(seed_);
     vector<vector<Dtype>> crop_sequence;
     {
-      DataLayer<Dtype, Dtype> layer1(param);
+      DataLayer<Dtype, Dtype> layer1(param, 0UL);
       layer1.SetUp(blob_bottom_vec_, blob_top_vec_);
       for (int iter = 0; iter < 2; ++iter) {
         layer1.Forward(blob_bottom_vec_, blob_top_vec_);
@@ -267,7 +267,7 @@ class DataLayerTest : public MultiDeviceTest<TypeParam> {
     // Get crop sequence after reseeding Caffe with 1701.
     // Check that the sequence is the same as the original.
     Caffe::set_random_seed(seed_);
-    DataLayer<Dtype, Dtype> layer2(param);
+    DataLayer<Dtype, Dtype> layer2(param, 0UL);
     layer2.SetUp(blob_bottom_vec_, blob_top_vec_);
     for (int iter = 0; iter < 2; ++iter) {
       layer2.Forward(blob_bottom_vec_, blob_top_vec_);
@@ -303,7 +303,7 @@ class DataLayerTest : public MultiDeviceTest<TypeParam> {
     srand(seed_);
     vector<vector<Dtype>> crop_sequence;
     {
-      DataLayer<Dtype, Dtype> layer1(param);
+      DataLayer<Dtype, Dtype> layer1(param, 0UL);
       layer1.SetUp(blob_bottom_vec_, blob_top_vec_);
       for (int iter = 0; iter < 2; ++iter) {
         layer1.Forward(blob_bottom_vec_, blob_top_vec_);
@@ -323,7 +323,7 @@ class DataLayerTest : public MultiDeviceTest<TypeParam> {
     // Get crop sequence continuing from previous Caffe RNG state; reseed
     // srand with 1701. Check that the sequence differs from the original.
     srand(seed_);
-    DataLayer<Dtype, Dtype> layer2(param);
+    DataLayer<Dtype, Dtype> layer2(param, 0UL);
     layer2.SetUp(blob_bottom_vec_, blob_top_vec_);
     for (int iter = 0; iter < 2; ++iter) {
       layer2.Forward(blob_bottom_vec_, blob_top_vec_);

@@ -21,7 +21,7 @@ namespace caffe {
 template <typename Ftype, typename Btype>
 class DataLayer : public BasePrefetchingDataLayer<Ftype, Btype> {
  public:
-  explicit DataLayer(const LayerParameter& param);
+  DataLayer(const LayerParameter& param, size_t solver_rank);
   virtual ~DataLayer();
   void DataLayerSetUp(const vector<Blob*>& bottom, const vector<Blob*>& top) override;
   // DataLayer uses DataReader instead for sharing for parallelism

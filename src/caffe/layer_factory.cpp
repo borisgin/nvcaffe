@@ -46,7 +46,7 @@ namespace caffe {
 
 // Get convolution layer according to engine.
 shared_ptr<LayerBase> GetConvolutionLayer(const LayerParameter& param,
-    Type ftype, Type btype) {
+    Type ftype, Type btype, size_t) {
   ConvolutionParameter conv_param = param.convolution_param();
   ConvolutionParameter_Engine engine = conv_param.engine();
   if (engine == ConvolutionParameter_Engine_DEFAULT) {
@@ -72,7 +72,7 @@ REGISTER_LAYER_CREATOR(Convolution, GetConvolutionLayer);
 
 // Get BN layer according to engine.
 shared_ptr<LayerBase> GetBatchNormLayer(const LayerParameter& param,
-    Type ftype, Type btype) {
+    Type ftype, Type btype, size_t) {
   BatchNormParameter_Engine engine = param.batch_norm_param().engine();
   if (engine == BatchNormParameter_Engine_DEFAULT) {
     engine = BatchNormParameter_Engine_CAFFE;
@@ -95,7 +95,7 @@ REGISTER_LAYER_CREATOR(BatchNorm, GetBatchNormLayer);
 
 // Get pooling layer according to engine.
 shared_ptr<LayerBase> GetPoolingLayer(const LayerParameter& param,
-    Type ftype, Type btype) {
+    Type ftype, Type btype, size_t) {
   PoolingParameter_Engine engine = param.pooling_param().engine();
   if (engine == PoolingParameter_Engine_DEFAULT) {
     engine = PoolingParameter_Engine_CAFFE;
@@ -124,7 +124,7 @@ REGISTER_LAYER_CREATOR(Pooling, GetPoolingLayer);
 
 // Get LRN layer according to engine
 shared_ptr<LayerBase> GetLRNLayer(const LayerParameter& param,
-    Type ftype, Type btype) {
+    Type ftype, Type btype, size_t) {
   LRNParameter_Engine engine = param.lrn_param().engine();
 
   if (engine == LRNParameter_Engine_DEFAULT) {
@@ -161,7 +161,7 @@ REGISTER_LAYER_CREATOR(LRN, GetLRNLayer);
 
 // Get relu layer according to engine.
 shared_ptr<LayerBase> GetReLULayer(const LayerParameter& param,
-    Type ftype, Type btype) {
+    Type ftype, Type btype, size_t) {
   ReLUParameter_Engine engine = param.relu_param().engine();
   if (engine == ReLUParameter_Engine_DEFAULT) {
     engine = ReLUParameter_Engine_CAFFE;
@@ -185,7 +185,7 @@ REGISTER_LAYER_CREATOR(ReLU, GetReLULayer);
 
 // Get sigmoid layer according to engine.
 shared_ptr<LayerBase> GetSigmoidLayer(const LayerParameter& param,
-    Type ftype, Type btype) {
+    Type ftype, Type btype, size_t) {
   SigmoidParameter_Engine engine = param.sigmoid_param().engine();
   if (engine == SigmoidParameter_Engine_DEFAULT) {
     engine = SigmoidParameter_Engine_CAFFE;
@@ -209,7 +209,7 @@ REGISTER_LAYER_CREATOR(Sigmoid, GetSigmoidLayer);
 
 // Get softmax layer according to engine.
 shared_ptr<LayerBase> GetSoftmaxLayer(const LayerParameter& param,
-    Type ftype, Type btype) {
+    Type ftype, Type btype, size_t) {
   LayerParameter lparam(param);
   SoftmaxParameter_Engine engine = lparam.softmax_param().engine();
   if (engine == SoftmaxParameter_Engine_DEFAULT) {
@@ -234,7 +234,7 @@ REGISTER_LAYER_CREATOR(Softmax, GetSoftmaxLayer);
 
 // Get tanh layer according to engine.
 shared_ptr<LayerBase> GetTanHLayer(const LayerParameter& param,
-    Type ftype, Type btype) {
+    Type ftype, Type btype, size_t) {
   TanHParameter_Engine engine = param.tanh_param().engine();
   if (engine == TanHParameter_Engine_DEFAULT) {
     engine = TanHParameter_Engine_CAFFE;
@@ -257,7 +257,7 @@ REGISTER_LAYER_CREATOR(TanH, GetTanHLayer);
 
 // Get dropout layer according to engine
 shared_ptr<LayerBase> GetDropoutLayer(const LayerParameter& param,
-  Type ftype, Type btype) {
+  Type ftype, Type btype, size_t) {
   DropoutParameter_Engine engine = param.dropout_param().engine();
   if (engine == DropoutParameter_Engine_DEFAULT) {
     engine = DropoutParameter_Engine_CAFFE;
@@ -281,7 +281,8 @@ shared_ptr<LayerBase> GetDropoutLayer(const LayerParameter& param,
 }
 REGISTER_LAYER_CREATOR(Dropout, GetDropoutLayer);
 
-shared_ptr<LayerBase> GetMemoryDataLayer(const LayerParameter& param, Type ftype, Type btype) {
+shared_ptr<LayerBase> GetMemoryDataLayer(const LayerParameter& param,
+    Type ftype, Type btype, size_t) {
   LayerParameter lparam(param);
   check_precision_support(ftype, btype, lparam);
   shared_ptr<LayerBase> ret;
@@ -294,21 +295,22 @@ shared_ptr<LayerBase> GetMemoryDataLayer(const LayerParameter& param, Type ftype
 }
 REGISTER_LAYER_CREATOR(MemoryData, GetMemoryDataLayer);
 
-shared_ptr<LayerBase> GetWindowDataLayer(const LayerParameter& param, Type ftype, Type btype) {
+shared_ptr<LayerBase> GetWindowDataLayer(const LayerParameter& param, Type ftype, Type btype,
+    size_t solver_rank) {
   LayerParameter lparam(param);
   check_precision_support(ftype, btype, lparam);
   shared_ptr<LayerBase> ret;
   if (is_type<double>(ftype)) {
-    ret.reset(new WindowDataLayer<double, double>(lparam));
+    ret.reset(new WindowDataLayer<double, double>(lparam, solver_rank));
   } else {
-    ret.reset(new WindowDataLayer<float, float>(lparam));
+    ret.reset(new WindowDataLayer<float, float>(lparam, solver_rank));
   }
   return ret;
 }
 REGISTER_LAYER_CREATOR(WindowData, GetWindowDataLayer);
 
 shared_ptr<LayerBase> GetDetectNetTransformationLayer(const LayerParameter& param,
-    Type ftype, Type btype) {
+    Type ftype, Type btype, size_t) {
   LayerParameter lparam(param);
   check_precision_support(ftype, btype, lparam);
   shared_ptr<LayerBase> ret;
@@ -322,7 +324,7 @@ shared_ptr<LayerBase> GetDetectNetTransformationLayer(const LayerParameter& para
 REGISTER_LAYER_CREATOR(DetectNetTransformation, GetDetectNetTransformationLayer);
 
 #ifdef WITH_PYTHON_LAYER
-shared_ptr<LayerBase> GetPythonLayer(const LayerParameter& param, Type, Type) {
+shared_ptr<LayerBase> GetPythonLayer(const LayerParameter& param, Type, Type, size_t) {
   try {
     string module_name = param.python_param().module();
     string layer_name = param.python_param().layer();

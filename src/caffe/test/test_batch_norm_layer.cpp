@@ -218,7 +218,6 @@ TYPED_TEST(CuDNNBatchNormLayerTest, TestForward) {
   layer.Forward(this->blob_bottom_vec_, this->blob_top_vec_);
 
   // Test mean
-  Dtype mean, var;
   int num = this->blob_bottom_->num();
   int channels = this->blob_bottom_->channels();
   int height = this->blob_bottom_->height();

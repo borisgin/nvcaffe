@@ -384,7 +384,7 @@ bp::object LayerParameter_ToPython(const LayerParameter *layer_param, bp::object
 // Create layer from caffe_pb2.LayerParameter in Python
 shared_ptr<LayerBase> create_layer(bp::object py_layer_param) {
   shared_ptr<LayerParameter> layer_param(LayerParameter_Init(py_layer_param));
-  return LayerRegistry::CreateLayer(*layer_param);
+  return LayerRegistry::CreateLayer(*layer_param, 0UL);
 }
 
 // Run solver step without GIL

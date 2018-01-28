@@ -6,8 +6,8 @@
 namespace caffe {
 
 template<typename Ftype, typename Btype>
-DataLayer<Ftype, Btype>::DataLayer(const LayerParameter& param)
-  : BasePrefetchingDataLayer<Ftype, Btype>(param),
+DataLayer<Ftype, Btype>::DataLayer(const LayerParameter& param, size_t solver_rank)
+  : BasePrefetchingDataLayer<Ftype, Btype>(param, solver_rank),
     cache_(param.data_param().cache()),
     shuffle_(param.data_param().shuffle()) {
   sample_only_.store(this->auto_mode_ && this->phase_ == TRAIN);
@@ -128,7 +128,7 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
   if (this->auto_mode_) {
     if (!sample_reader_) {
       sample_reader_ = std::make_shared<DataReader>(param, Caffe::solver_count(),
-          this->solver_rank_,
+          this->rank_,
           this->parsers_num_,
           this->threads_num(),
           batch_size,
@@ -140,7 +140,7 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
     } else if (!reader_) {
       reader_ = std::make_shared<DataReader>(param,
           Caffe::solver_count(),
-          this->solver_rank_,
+          this->rank_,
           this->parsers_num_,
           this->threads_num(),
           batch_size,
@@ -153,7 +153,7 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
   } else if (!reader_) {
     reader_ = std::make_shared<DataReader>(param,
         Caffe::solver_count(),
-        this->solver_rank_,
+        this->rank_,
         this->parsers_num_,
         this->threads_num(),
         batch_size,
@@ -349,6 +349,6 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
 }
 
 INSTANTIATE_CLASS_FB(DataLayer);
-REGISTER_LAYER_CLASS(Data);
+REGISTER_LAYER_CLASS_R(Data);
 
 }  // namespace caffe

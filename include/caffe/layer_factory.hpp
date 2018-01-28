@@ -51,38 +51,86 @@ namespace caffe {
 
 class LayerBase;
 
-template<template <typename Ftype, typename Btype> class LayerType>
+template<template <typename Ftype, typename Btype> class LType>
 inline shared_ptr<LayerBase> CreateLayerBase(const LayerParameter& param,
     Type ftype, Type btype) {
   bool failed = false;
   shared_ptr<LayerBase> ptr;
   if (ftype == FLOAT) {
     if (btype == FLOAT) {
-      ptr.reset(new LayerType<float, float>(param));
+      ptr.reset(new LType<float, float>(param));
     } else if (btype == FLOAT16) {
-      ptr.reset(new LayerType<float, float16>(param));
+      ptr.reset(new LType<float, float16>(param));
     } else if (btype == DOUBLE) {
-      ptr.reset(new LayerType<float, double>(param));
+      ptr.reset(new LType<float, double>(param));
     } else {
       failed = true;
     }
   } else if (ftype == FLOAT16) {
     if (btype == FLOAT) {
-      ptr.reset(new LayerType<float16, float>(param));
+      ptr.reset(new LType<float16, float>(param));
     } else if (btype == FLOAT16) {
-      ptr.reset(new LayerType<float16, float16>(param));
+      ptr.reset(new LType<float16, float16>(param));
     } else if (btype == DOUBLE) {
-      ptr.reset(new LayerType<float16, double>(param));
+      ptr.reset(new LType<float16, double>(param));
     } else {
       failed = true;
     }
   } else if (ftype == DOUBLE) {
     if (btype == FLOAT) {
-      ptr.reset(new LayerType<double, float>(param));
+      ptr.reset(new LType<double, float>(param));
     } else if (btype == FLOAT16) {
-      ptr.reset(new LayerType<double, float16>(param));
+      ptr.reset(new LType<double, float16>(param));
     } else if (btype == DOUBLE) {
-      ptr.reset(new LayerType<double, double>(param));
+      ptr.reset(new LType<double, double>(param));
+    } else {
+      failed = true;
+    }
+  } else {
+    failed = true;
+  }
+
+  if (failed) {
+    LOG(FATAL) << "Combination of layer types " << Type_Name(ftype) << " and "
+               << Type_Name(btype) << " is not currently supported "
+               << "(discovered in layer '" << param.name() << "').";
+  }
+  CHECK_NOTNULL(ptr.get());
+  return ptr;
+}
+
+template<template <typename Ftype, typename Btype> class LType>
+inline shared_ptr<LayerBase> CreateLayerBase(const LayerParameter& param,
+    Type ftype, Type btype, size_t solver_rank) {
+  bool failed = false;
+  shared_ptr<LayerBase> ptr;
+  if (ftype == FLOAT) {
+    if (btype == FLOAT) {
+      ptr.reset(new LType<float, float>(param, solver_rank));
+    } else if (btype == FLOAT16) {
+      ptr.reset(new LType<float, float16>(param, solver_rank));
+    } else if (btype == DOUBLE) {
+      ptr.reset(new LType<float, double>(param, solver_rank));
+    } else {
+      failed = true;
+    }
+  } else if (ftype == FLOAT16) {
+    if (btype == FLOAT) {
+      ptr.reset(new LType<float16, float>(param, solver_rank));
+    } else if (btype == FLOAT16) {
+      ptr.reset(new LType<float16, float16>(param, solver_rank));
+    } else if (btype == DOUBLE) {
+      ptr.reset(new LType<float16, double>(param, solver_rank));
+    } else {
+      failed = true;
+    }
+  } else if (ftype == DOUBLE) {
+    if (btype == FLOAT) {
+      ptr.reset(new LType<double, float>(param, solver_rank));
+    } else if (btype == FLOAT16) {
+      ptr.reset(new LType<double, float16>(param, solver_rank));
+    } else if (btype == DOUBLE) {
+      ptr.reset(new LType<double, double>(param, solver_rank));
     } else {
       failed = true;
     }
@@ -101,7 +149,7 @@ inline shared_ptr<LayerBase> CreateLayerBase(const LayerParameter& param,
 
 class LayerRegistry {
  public:
-  typedef shared_ptr<LayerBase> (*Creator)(const LayerParameter&, Type, Type);
+  typedef shared_ptr<LayerBase> (*Creator)(const LayerParameter&, Type, Type, size_t);
   typedef std::map<string, Creator> CreatorRegistry;
 
   static CreatorRegistry& Registry() {
@@ -117,7 +165,7 @@ class LayerRegistry {
     registry[type] = creator;
   }
 
-  static shared_ptr<LayerBase> CreateLayer(const LayerParameter& param) {
+  static shared_ptr<LayerBase> CreateLayer(const LayerParameter& param, size_t solver_rank) {
     const string& layer_type = param.type();
     const string& layer_name = param.name();
     if (Caffe::root_solver()) {
@@ -138,7 +186,7 @@ class LayerRegistry {
           << " Fmath:" << Type_Name(fmath)
           << " Bmath:" << Type_Name(bmath);
     }
-    return registry[layer_type](param, ftype, btype);
+    return registry[layer_type](param, ftype, btype, solver_rank);
   }
 
   static vector<string> LayerTypeList() {
@@ -154,7 +202,7 @@ class LayerRegistry {
  private:
   // Layer registry should never be instantiated - everything is done with its
   // static variables.
-  LayerRegistry() {}
+  LayerRegistry() = delete;
 
   static string LayerTypeListString() {
     vector<string> layer_types = LayerTypeList();
@@ -173,7 +221,7 @@ class LayerRegistry {
 class LayerRegisterer {
  public:
   LayerRegisterer(const string& type,
-      shared_ptr<LayerBase> (*creator)(const LayerParameter&, Type, Type)) {
+      shared_ptr<LayerBase> (*creator)(const LayerParameter&, Type, Type, size_t)) {
     LayerRegistry::AddCreator(type, creator);
   }
 };
@@ -183,11 +231,20 @@ class LayerRegisterer {
 
 #define REGISTER_LAYER_CLASS(type)                                             \
   shared_ptr<LayerBase> Creator_##type##Layer(const LayerParameter& param,     \
-                                              Type ftype, Type btype)          \
+      Type ftype, Type btype, size_t)                                          \
   {                                                                            \
     return CreateLayerBase<type##Layer>(param, ftype, btype);                  \
   }                                                                            \
   REGISTER_LAYER_CREATOR(type, Creator_##type##Layer)
+
+#define REGISTER_LAYER_CLASS_R(type)                                           \
+  shared_ptr<LayerBase> Creator_##type##Layer(const LayerParameter& param,     \
+      Type ftype, Type btype, size_t solver_rank)                              \
+  {                                                                            \
+    return CreateLayerBase<type##Layer>(param, ftype, btype, solver_rank);     \
+  }                                                                            \
+  REGISTER_LAYER_CREATOR(type, Creator_##type##Layer)
+
 
 void check_precision_support(Type& ftype, Type& btype, LayerParameter& param,
     bool transf = false);

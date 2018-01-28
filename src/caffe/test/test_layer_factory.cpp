@@ -41,7 +41,7 @@ TYPED_TEST(LayerFactoryTest, TestCreateLayer) {
 #endif  // USE_LEVELDB
     }
     layer_param.set_type(iter->first);
-    layer = LayerRegistry::CreateLayer(layer_param);
+    layer = LayerRegistry::CreateLayer(layer_param, 0UL);
     EXPECT_EQ(iter->first, layer->type());
   }
 }
