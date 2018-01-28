@@ -56,11 +56,11 @@ class ImageDataLayer : public BasePrefetchingDataLayer<Ftype, Btype> {
   Flag layer_inititialized_flag_;
   size_t epoch_count_;
   vector<size_t> line_ids_;
-  static vector<std::pair<std::string, int>> lines_;
+  static vector<vector<std::pair<std::string, int>>> lines_;  // per phase
 };
 
 template <typename Ftype, typename Btype>
-vector<std::pair<std::string, int>> ImageDataLayer<Ftype, Btype>::lines_;
+vector<vector<std::pair<std::string, int>>> ImageDataLayer<Ftype, Btype>::lines_;
 
 }  // namespace caffe
 
