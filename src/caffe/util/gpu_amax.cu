@@ -20,11 +20,19 @@ if (BlockSize >= (TNUM) * 2) { \
   __syncthreads(); \
 }
 
+#if CUDA_VERSION >= 9000
 #define REDUCE_AMAX(TNUM) \
 if (tid + (TNUM) < thread_count) { \
   tmax_replace(st, sdata[tid + (TNUM)]); \
   __syncwarp(); \
 }
+#else
+#define REDUCE_AMAX(TNUM) \
+if (tid + (TNUM) < thread_count) { \
+  tmax_replace(st, sdata[tid + (TNUM)]); \
+  __syncthreads(); \
+}
+#endif
 
 ///////////////////////////////////// AMAX REDUCTION ///////////////////////////////////
 

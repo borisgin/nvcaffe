@@ -18,12 +18,19 @@ if (BlockSize >= (TNUM) * 2) { \
   __syncthreads(); \
 }
 
+#if CUDA_VERSION >= 9000
 #define REDUCE_ASUM(TNUM) \
 if (tid + (TNUM) < thread_count) { \
   tsum_replace(st, sdata[tid + (TNUM)]); \
   __syncwarp(); \
 }
-
+#else
+#define REDUCE_ASUM(TNUM) \
+if (tid + (TNUM) < thread_count) { \
+  tsum_replace(st, sdata[tid + (TNUM)]); \
+  __syncthreads(); \
+}
+#endif
 
 ///////////////////////////////////// SUMSQ REDUCTION ///////////////////////////////////
 
