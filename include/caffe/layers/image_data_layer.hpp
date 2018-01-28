@@ -49,7 +49,7 @@ class ImageDataLayer : public BasePrefetchingDataLayer<Ftype, Btype> {
   }
 
   Flag* layer_inititialized_flag() override {
-    return &layer_inititialized_flag_;
+    return this->phase_ == TRAIN ? &layer_inititialized_flag_ : nullptr;
   }
 
   shared_ptr<Caffe::RNG> prefetch_rng_;
