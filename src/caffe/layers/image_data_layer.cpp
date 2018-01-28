@@ -77,8 +77,14 @@ void ImageDataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom,
   // Reshape prefetch_data and top[0] according to the batch_size.
   const int batch_size = this->layer_param_.image_data_param().batch_size();
   CHECK_GT(batch_size, 0) << "Positive batch size required";
-  const int crop_height = crop <= 0 ? cv_img.rows : std::min(cv_img.rows, crop);
-  const int crop_width = crop <= 0 ? cv_img.cols : std::min(cv_img.cols, crop);
+  int crop_height = crop;
+  int crop_width = crop;
+  if (crop <= 0) {
+    LOG(INFO) << "Crop is not set. Using '" << (root_folder + lines_[0].first)
+              << "' as a model, w=" << cv_img.rows << ", h=" << cv_img.cols;
+    crop_height = cv_img.rows;
+    crop_width = cv_img.cols;
+  }
   vector<int> top_shape { batch_size, cv_img.channels(), crop_height, crop_width };
   top[0]->Reshape(top_shape);
   LOG(INFO) << "output data size: " << top[0]->num() << ", "
