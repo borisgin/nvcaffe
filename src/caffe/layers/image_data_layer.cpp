@@ -12,7 +12,14 @@ namespace caffe {
 template <typename Ftype, typename Btype>
 ImageDataLayer<Ftype, Btype>::ImageDataLayer(const LayerParameter& param, size_t solver_rank)
     : BasePrefetchingDataLayer<Ftype, Btype>(param, solver_rank),
-      epoch_count_(0UL) {}
+      epoch_count_(0UL)
+//      lines_(Phase_ARRAYSIZE),
+//      cache_(Phase_ARRAYSIZE),
+//      cached_(Phase_ARRAYSIZE),
+//      cached_num_(Phase_ARRAYSIZE),
+//      failed_num_(Phase_ARRAYSIZE),
+//      cache_mutex_(Phase_ARRAYSIZE)
+{}
 
 template <typename Ftype, typename Btype>
 ImageDataLayer<Ftype, Btype>::~ImageDataLayer<Ftype, Btype>() {
@@ -24,22 +31,23 @@ ImageDataLayer<Ftype, Btype>::~ImageDataLayer<Ftype, Btype>() {
 template <typename Ftype, typename Btype>
 void ImageDataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom,
       const vector<Blob*>& top) {
-  const int new_height = this->layer_param_.image_data_param().new_height();
-  const int new_width  = this->layer_param_.image_data_param().new_width();
-  const int short_side = this->layer_param_.image_data_param().short_side();
+  const ImageDataParameter& image_data_param = this->layer_param_.image_data_param();
+  const int new_height = image_data_param.new_height();
+  const int new_width  = image_data_param.new_width();
+  const int short_side = image_data_param.short_side();
   const int crop = this->layer_param_.transform_param().crop_size();
-  const bool is_color  = this->layer_param_.image_data_param().is_color();
-  string root_folder = this->layer_param_.image_data_param().root_folder();
+  const bool is_color  = image_data_param.is_color();
+//  const bool cache = image_data_param.cache();
+  const string& root_folder = image_data_param.root_folder();
 
   CHECK((new_height == 0 && new_width == 0) ||
       (new_height > 0 && new_width > 0)) << "Current implementation requires "
       "new_height and new_width to be set at the same time.";
 
   if (this->rank_ == 0) {
-    lines_.resize(Phase_ARRAYSIZE);
     // Read the file with filenames and labels
     lines_[this->phase_].clear();
-    const string &source = this->layer_param_.image_data_param().source();
+    const string &source = image_data_param.source();
     LOG(INFO) << "Opening file " << source;
     std::ifstream infile(source.c_str());
     string filename;
@@ -47,23 +55,23 @@ void ImageDataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom,
     while (infile >> filename >> label) {
       lines_[this->phase_].emplace_back(std::make_pair(filename, label));
     }
-    if (this->layer_param_.image_data_param().shuffle() && this->phase_ == TRAIN) {
+    if (image_data_param.shuffle()) {
       // randomly shuffle data
       LOG(INFO) << "Shuffling data";
       prefetch_rng_.reset(new Caffe::RNG(caffe_rng_rand()));
       ShuffleImages();
     }
   }
-  LOG(INFO) << this->print_current_device() << "A total of "
+  LOG(INFO) << this->print_current_device() << " A total of "
             << lines_[this->phase_].size() << " images.";
 
   size_t skip = 0UL;
   // Check if we would need to randomly skip a few data points
-  if (this->layer_param_.image_data_param().rand_skip()) {
+  if (image_data_param.rand_skip()) {
     if (Caffe::gpus().size() > 1) {
       LOG(WARNING) << "Skipping data points is not supported in multiGPU mode";
     } else {
-      skip = caffe_rng_rand() % this->layer_param_.image_data_param().rand_skip();
+      skip = caffe_rng_rand() % image_data_param.rand_skip();
       LOG(INFO) << "Skipping first " << skip << " data points";
       CHECK_GT(lines_[this->phase_].size(), skip) << "Not enough points to skip";
     }
@@ -74,18 +82,17 @@ void ImageDataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom,
   }
 
   // Read an image, and use it to initialize the top blob.
-  cv::Mat cv_img = ReadImageToCVMat(root_folder + lines_[this->phase_][line_ids_[0]].first,
-      new_height, new_width, is_color, short_side);
-  CHECK(cv_img.data) << "Could not load " << lines_[this->phase_][line_ids_[0]].first;
+  string file_name = root_folder + lines_[this->phase_][line_ids_[0]].first;
+  cv::Mat cv_img = ReadImageToCVMat(file_name, new_height, new_width, is_color, short_side);
+  CHECK(cv_img.data) << "Could not load " << file_name;
   // Reshape prefetch_data and top[0] according to the batch_size.
-  const int batch_size = this->layer_param_.image_data_param().batch_size();
+  const int batch_size = image_data_param.batch_size();
   CHECK_GT(batch_size, 0) << "Positive batch size required";
   int crop_height = crop;
   int crop_width = crop;
   if (crop <= 0) {
-    LOG_FIRST_N(INFO, 1) << "Crop is not set. Using '"
-        << (root_folder + lines_[this->phase_][0].first)
-        << "' as a model, w=" << cv_img.rows << ", h=" << cv_img.cols;
+    LOG_FIRST_N(INFO, 1) << "Crop is not set. Using '" << file_name << "' as a model, w="
+                         << cv_img.rows << ", h=" << cv_img.cols;
     crop_height = cv_img.rows;
     crop_width = cv_img.cols;
   }
@@ -114,28 +121,41 @@ void ImageDataLayer<Ftype, Btype>::InitializePrefetch() {}
 template <typename Ftype, typename Btype>
 void ImageDataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t) {
   CHECK(batch->data_->count());
-  ImageDataParameter image_data_param = this->layer_param_.image_data_param();
+  const ImageDataParameter& image_data_param = this->layer_param_.image_data_param();
   const int batch_size = image_data_param.batch_size();
   const int new_height = image_data_param.new_height();
   const int new_width = image_data_param.new_width();
   const int short_side = image_data_param.short_side();
   const int crop = this->layer_param_.transform_param().crop_size();
   const bool is_color = image_data_param.is_color();
-  string root_folder = image_data_param.root_folder();
+  const bool cache = image_data_param.cache();
+  const bool shuffle = image_data_param.shuffle();
+  const string& root_folder = image_data_param.root_folder();
 
   size_t line_id = line_ids_[thread_id];
   const size_t line_bucket = Caffe::gpus().size() * this->threads_num();
   const size_t lines_size = lines_[this->phase_].size();
   // Reshape according to the first image of each batch
   // on single input batches allows for inputs of varying dimension.
-  cv::Mat cv_img = ReadImageToCVMat(root_folder + lines_[this->phase_][line_id].first,
-      new_height, new_width, is_color, short_side);
-  CHECK(cv_img.data) << "Could not load " << lines_[this->phase_][line_id].first;
+  string file_name = lines_[this->phase_][line_id].first;
+  cv::Mat cv_img;
+  if (cached_[this->phase_]) {
+    std::lock_guard<std::mutex> lock(cache_mutex_[this->phase_]);
+    cv_img = cache_[this->phase_][file_name];
+  }
+  if (cv_img.data == nullptr) {
+    cv_img = ReadImageToCVMat(root_folder + file_name, new_height, new_width, is_color, short_side);
+    if (cached_[this->phase_]) {
+      LOG_FIRST_N(WARNING, 100) << file_name << " missed the cache in " << Phase_Name(this->phase_);
+    }
+  }
+
+  CHECK(cv_img.data) << "Could not load " << (root_folder + file_name);
   int crop_height = crop;
   int crop_width = crop;
   if (crop <= 0) {
     LOG_FIRST_N(INFO, 1) << "Crop is not set. Using '"
-        << (root_folder + lines_[this->phase_][line_id].first)
+        << (root_folder + file_name)
         << "' as a model, w=" << cv_img.rows << ", h=" << cv_img.cols;
     crop_height = cv_img.rows;
     crop_width = cv_img.cols;
@@ -156,8 +176,21 @@ void ImageDataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_
   const size_t buf_len = batch->data_->offset(1);
   for (int item_id = 0; item_id < batch_size; ++item_id) {
     CHECK_GT(lines_size, line_id);
-    cv::Mat cv_img = ReadImageToCVMat(root_folder + lines_[this->phase_][line_id].first,
-        new_height, new_width, is_color, short_side);
+    file_name = lines_[this->phase_][line_id].first;
+    cv::Mat cv_img;
+    if (cached_[this->phase_]) {
+      std::lock_guard<std::mutex> lock(cache_mutex_[this->phase_]);
+      cv_img = cache_[this->phase_][file_name];
+    }
+    if (cv_img.data == nullptr) {
+      cv_img = ReadImageToCVMat(root_folder + file_name, new_height, new_width,
+                                is_color, short_side);
+      if (cached_[this->phase_]) {
+        LOG_FIRST_N(WARNING, 100) << file_name << " missed the cache in "
+                                  << Phase_Name(this->phase_);
+      }
+    }
+
     if (cv_img.data) {
       int offset = batch->data_->offset(item_id);
 #if defined(USE_CUDNN)
@@ -170,16 +203,30 @@ void ImageDataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_
 #endif
       prefetch_label[item_id] = lines_[this->phase_][line_id].second;
     }
+    if (cache && !cached_[this->phase_]) {
+      std::lock_guard<std::mutex> lock(cache_mutex_[this->phase_]);
+      if (cv_img.data) {
+        cache_[this->phase_][file_name] = cv_img;
+        ++cached_num_[this->phase_];
+      } else {
+        ++failed_num_[this->phase_];
+      }
+      if (cached_num_[this->phase_] + failed_num_[this->phase_] >= lines_size) {
+        cached_[this->phase_] = true;
+        LOG_FIRST_N(INFO, 10) << cached_num_[this->phase_] << " objects cached in "
+                  << Phase_Name(this->phase_);
+      }
+    }
+
     // go to the next iter
     line_ids_[thread_id] += line_bucket;
     if (line_ids_[thread_id] >= lines_size) {
       // We have reached the end. Restart from the first.
-      DLOG(INFO) << this->print_current_device() << "Restarting data prefetching from start.";
+      DLOG(INFO) << this->print_current_device() << " Restarting data prefetching from start.";
       while (line_ids_[thread_id] >= lines_size) {
         line_ids_[thread_id] -= lines_size;
       }
-      if (thread_id == 0 && this->rank_ == 0 && this->layer_param_.image_data_param().shuffle()
-          && this->phase_ == TRAIN) {
+      if (thread_id == 0 && this->rank_ == 0 && shuffle) {
         LOG(INFO) << "Shuffling data";
         ShuffleImages();
         epoch_count_ += lines_size;

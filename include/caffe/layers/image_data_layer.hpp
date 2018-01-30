@@ -57,10 +57,24 @@ class ImageDataLayer : public BasePrefetchingDataLayer<Ftype, Btype> {
   size_t epoch_count_;
   vector<size_t> line_ids_;
   static vector<vector<std::pair<std::string, int>>> lines_;  // per phase
+  static vector<unordered_map<std::string, cv::Mat>> cache_;
+  static vector<bool> cached_;
+  static vector<size_t> cached_num_, failed_num_;
+  static vector<std::mutex> cache_mutex_;
 };
 
 template <typename Ftype, typename Btype>
-vector<vector<std::pair<std::string, int>>> ImageDataLayer<Ftype, Btype>::lines_;
+vector<vector<std::pair<std::string, int>>> ImageDataLayer<Ftype, Btype>::lines_(Phase_ARRAYSIZE);
+template <typename Ftype, typename Btype>
+vector<unordered_map<std::string, cv::Mat>> ImageDataLayer<Ftype, Btype>::cache_(Phase_ARRAYSIZE);
+template <typename Ftype, typename Btype>
+vector<bool> ImageDataLayer<Ftype, Btype>::cached_(Phase_ARRAYSIZE);
+template <typename Ftype, typename Btype>
+vector<size_t> ImageDataLayer<Ftype, Btype>::cached_num_(Phase_ARRAYSIZE);
+template <typename Ftype, typename Btype>
+vector<size_t> ImageDataLayer<Ftype, Btype>::failed_num_(Phase_ARRAYSIZE);
+template <typename Ftype, typename Btype>
+vector<std::mutex> ImageDataLayer<Ftype, Btype>::cache_mutex_(Phase_ARRAYSIZE);
 
 }  // namespace caffe
 
