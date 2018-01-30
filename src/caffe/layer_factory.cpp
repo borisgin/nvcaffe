@@ -326,8 +326,8 @@ REGISTER_LAYER_CREATOR(DetectNetTransformation, GetDetectNetTransformationLayer)
 #ifdef WITH_PYTHON_LAYER
 shared_ptr<LayerBase> GetPythonLayer(const LayerParameter& param, Type, Type, size_t) {
   try {
-    string module_name = param.python_param().module();
-    string layer_name = param.python_param().layer();
+    const string& module_name = param.python_param().module();
+    const string& layer_name = param.python_param().layer();
     // Check injection. This allows nested import.
     boost::regex expression("[a-zA-Z_][a-zA-Z0-9_]*(\\.[a-zA-Z_][a-zA-Z0-9_]*)*");
     CHECK(boost::regex_match(module_name, expression))
@@ -336,11 +336,17 @@ shared_ptr<LayerBase> GetPythonLayer(const LayerParameter& param, Type, Type, si
         << "Layer name is invalid: " << layer_name;
 
     PyGILAquire gil;
-    bp::object globals = bp::import("__main__").attr("__dict__");
-    bp::exec(("import " + module_name).c_str(), globals, globals);
-    bp::object layer_class = bp::eval((module_name + "." + layer_name).c_str(), globals, globals);
-    bp::object layer = layer_class(param);
-    return bp::extract<shared_ptr<LayerBase>>(layer)();
+    LOG(INFO) << "Importing Python module '" << module_name << "'";
+    bp::object module = bp::import(module_name.c_str());
+    bp::object layer = module.attr(layer_name.c_str())(param);
+    shared_ptr<LayerBase> ret = bp::extract<shared_ptr<LayerBase>>(layer)();
+    CHECK(ret);
+    return ret;
+//    bp::object globals = bp::import("__main__").attr("__dict__");
+//    bp::exec(("import " + module_name).c_str(), globals, globals);
+//    bp::object layer_class = bp::eval((module_name + "." + layer_name).c_str(), globals, globals);
+//    bp::object layer = layer_class(param);
+//    return bp::extract<shared_ptr<LayerBase>>(layer)();
   } catch (...) {
     PyErrFatal();
   }
