@@ -57,7 +57,7 @@ class ImageDataLayer : public BasePrefetchingDataLayer<Ftype, Btype> {
   cv::Mat next_mat(const string& root_folder, const string& filename, int height, int width,
                    bool is_color, int short_side);
 
-  const size_t id_;  // per device per phase
+  const size_t id_;  // per layer per phase
   shared_ptr<Caffe::RNG> prefetch_rng_;
   Flag layer_inititialized_flag_;
   size_t epoch_count_;
@@ -67,6 +67,7 @@ class ImageDataLayer : public BasePrefetchingDataLayer<Ftype, Btype> {
   static vector<std::mutex> cache_mutex_;
   static vector<bool> cached_;
   static vector<size_t> cached_num_, failed_num_;
+  static vector<float> cache_progress_;
 };
 
 #define MAX_IDL_CACHEABLE (2UL * Phase_ARRAYSIZE)
@@ -83,6 +84,8 @@ template <typename Ftype, typename Btype>
 vector<size_t> ImageDataLayer<Ftype, Btype>::failed_num_(MAX_IDL_CACHEABLE);
 template <typename Ftype, typename Btype>
 vector<std::mutex> ImageDataLayer<Ftype, Btype>::cache_mutex_(MAX_IDL_CACHEABLE);
+template <typename Ftype, typename Btype>
+vector<float> ImageDataLayer<Ftype, Btype>::cache_progress_(MAX_IDL_CACHEABLE);
 
 }  // namespace caffe
 

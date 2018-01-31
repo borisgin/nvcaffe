@@ -7,6 +7,8 @@
 #include "caffe/layers/image_data_layer.hpp"
 #include "caffe/util/rng.hpp"
 
+#define IDL_CACHE_PROGRESS 0.05F
+
 namespace caffe {
 
 static std::mutex idl_mutex_;
@@ -227,6 +229,13 @@ void ImageDataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_
         cached_[id_] = true;
         LOG(INFO) << cache.size() << " objects cached for " << Phase_Name(this->phase_)
                   << " by layer " << this->name();
+      } else if ((float) cached_num_[id_] / lines_size >=
+          cache_progress_[id_] + IDL_CACHE_PROGRESS) {
+        cache_progress_[id_] = (float) cached_num_[id_] / lines_size;
+        LOG(INFO) << std::setw(2) << std::setfill(' ') << f_round1(cache_progress_[id_] * 100.F)
+                  << "% of objects cached for "
+                  << Phase_Name(this->phase_) << " by layer '" << this->name() << "' ("
+                  << cached_num_[id_] << "/" << lines_size << ")";
       }
     }
 
