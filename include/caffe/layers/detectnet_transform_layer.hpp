@@ -10,9 +10,7 @@
 #include "caffe/common.hpp"
 #include "caffe/layer.hpp"
 #include "caffe/proto/caffe.pb.h"
-#ifndef CPU_ONLY
 #include "caffe/util/gpu_memory.hpp"
-#endif
 
 namespace caffe {
 
@@ -132,17 +130,12 @@ class DetectNetTransformationLayer : public Layer<Dtype, Dtype> {
   DetectNetAugmentationParameter a_param_;
   DetectNetGroundTruthParameter g_param_;
   TransformationParameter t_param_;
-
   shared_ptr<CoverageGenerator<Dtype> > coverage_;
-
   Phase phase_;
-
   Mat3v data_mean_;
-#ifndef CPU_ONLY
   TBlob<Dtype> mean_blob_;
   GPUMemory::Workspace gpu_workspace_augmentations_;
   GPUMemory::Workspace gpu_workspace_tmpdata_;
-#endif
   boost::array<Dtype, 3> mean_values_;
   shared_ptr<Caffe::RNG> rng_;
 };

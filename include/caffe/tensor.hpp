@@ -26,11 +26,8 @@ class Tensor {
 
   static void copy_helper(bool use_gpu, int count, const void* p_src, Type src_type,
       void* p_dst, Type dst_type);  // NOLINT(runtime/references)
-
-#ifndef CPU_ONLY
   static void gpu_scal(int count, Type dtype, void* data, float scal,
       cublasHandle_t cublas_handle);
-#endif
   static void cpu_scal(int count, Type dtype, void* data, float scal);
 
  private:
@@ -83,9 +80,7 @@ class Tensor {
     return mem && (mem->head() == SyncedMemory::SYNCED || mem->head() == SyncedMemory::HEAD_AT_CPU);
   }
 
-#ifndef CPU_ONLY
   size_t gpu_memory_use(bool own_only = false) const;
-#endif
 
   // numerical type stored here at a moment (might change due to conversion)
   Type type_;

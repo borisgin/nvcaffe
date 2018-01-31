@@ -156,10 +156,6 @@ void HDF5DataLayer<Ftype, Btype>::Forward_cpu(const vector<Blob*>& bottom,
   }
 }
 
-#ifdef CPU_ONLY
-STUB_GPU_FORWARD(HDF5DataLayer, Forward);
-#endif
-
 INSTANTIATE_CLASS_FB(HDF5DataLayer);
 REGISTER_LAYER_CLASS(HDF5Data);
 

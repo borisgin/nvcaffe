@@ -7,10 +7,7 @@
 
 //  enum Type
 #include "caffe/proto/caffe.pb.h"
-
-#ifndef CPU_ONLY
-  #include "caffe/util/float16.hpp"
-#endif
+#include "caffe/util/float16.hpp"
 
 namespace caffe {
 
@@ -25,12 +22,10 @@ template <>
 inline constexpr Type tp<float>() {
   return FLOAT;
 }
-#ifndef CPU_ONLY
 template <>
 inline constexpr Type tp<float16>() {
   return FLOAT16;
 }
-#endif
 template <>
 inline constexpr Type tp<int>() {
   return INT;
@@ -51,12 +46,10 @@ template <>
 inline constexpr cudnnDataType_t cudnn_dt<float>() {
   return cudnnDataType_t::CUDNN_DATA_FLOAT;
 }
-#ifndef CPU_ONLY
 template <>
 inline constexpr cudnnDataType_t cudnn_dt<float16>() {
   return cudnnDataType_t::CUDNN_DATA_HALF;
 }
-#endif
 #endif
 
 template <typename T1, typename T2>
@@ -81,12 +74,10 @@ template <>
 inline bool is_type<float>(Type dtype) {
   return dtype == FLOAT;
 }
-#ifndef CPU_ONLY
 template <>
 inline bool is_type<float16>(Type dtype) {
   return dtype == FLOAT16;
 }
-#endif
 template <>
 inline bool is_type<int>(Type dtype) {
   return dtype == INT;

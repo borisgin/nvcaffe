@@ -184,6 +184,7 @@ class TestClassification(unittest.TestCase):
     def setUpClass(self):
         super(TestClassification, self).setUpClass()
         print('Setting TestClassification...')
+        caffe.set_device(0)
         cdir = glob('classification')
         if len(cdir) == 0:
             cdir = glob('*/classification')

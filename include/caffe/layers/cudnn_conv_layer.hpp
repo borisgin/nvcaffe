@@ -5,14 +5,8 @@
 
 #include "caffe/blob.hpp"
 #include "caffe/layer.hpp"
-
 #include "caffe/layers/conv_layer.hpp"
-
-#ifndef CPU_ONLY
-
 #include "caffe/util/gpu_memory.hpp"
-
-#endif
 
 namespace caffe {
 

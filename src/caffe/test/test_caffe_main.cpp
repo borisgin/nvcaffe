@@ -9,14 +9,9 @@
 #include "caffe/test/test_caffe_main.hpp"
 
 namespace caffe {
-#ifndef CPU_ONLY
   cudaDeviceProp CAFFE_TEST_CUDA_PROP;
-#endif
 }
-
-#ifndef CPU_ONLY
 using caffe::CAFFE_TEST_CUDA_PROP;
-#endif
 
 int main(int argc, char** argv) {
 #if defined(DEBUG)
@@ -25,10 +20,10 @@ int main(int argc, char** argv) {
 #endif
   ::testing::InitGoogleTest(&argc, argv);
   caffe::GlobalInit(&argc, &argv);
-#ifndef CPU_ONLY
+
   // Before starting testing, let's first print out a few cuda defice info.
   std::vector<int> devices;
-  int device_count;
+  int device_count = 0;
 
   cudaGetDeviceCount(&device_count);
   cout << "Cuda number of devices: " << device_count << endl;
@@ -50,16 +45,16 @@ int main(int argc, char** argv) {
       devices.push_back(i);
   }
 
-  int device;
+  int device = 0;
   CUDA_CHECK(cudaGetDevice(&device));
   cout << "Current device id: " << device << endl;
   CUDA_CHECK(cudaGetDeviceProperties(&CAFFE_TEST_CUDA_PROP, device));
 
   cout << "Current device name: " << CAFFE_TEST_CUDA_PROP.name << endl;
   caffe::Caffe::SetDevice(device);
+  caffe::Caffe::set_gpus(std::vector<int>(1, device));
   caffe::GPUMemory::Scope gpu_memory_scope(devices);
 
-#endif
   // invoke the test.
   int ret = RUN_ALL_TESTS();
   return ret;

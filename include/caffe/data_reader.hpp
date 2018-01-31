@@ -26,7 +26,7 @@ namespace caffe {
 class DataReader : public InternalThread {
  private:
   class CursorManager {
-    shared_ptr<db::DB> db_;
+    db::DB* db_;
     unique_ptr<db::Cursor> cursor_;
     DataReader* reader_;
     const size_t solver_count_, solver_rank_, batch_size_;
@@ -35,11 +35,13 @@ class DataReader : public InternalThread {
     size_t rec_id_, rec_end_;
     bool cache_, shuffle_;
     bool cached_all_;
+    size_t epoch_count_;
+    const bool epoch_count_required_;
 
    public:
-    CursorManager(shared_ptr<db::DB> db, DataReader* reader, size_t solver_count,
+    CursorManager(db::DB* db, DataReader* reader, size_t solver_count,
         size_t solver_rank, size_t parser_threads, size_t parser_thread_id, size_t batch_size_,
-        bool cache, bool shuffle);
+        bool cache, bool shuffle, bool epoch_count_required);
     ~CursorManager();
     void next(shared_ptr<Datum>& datum);
     void fetch(Datum* datum);
@@ -79,7 +81,7 @@ class DataReader : public InternalThread {
     void just_cached();
     void register_new_thread() {
       std::lock_guard<std::mutex> lock(cache_mutex_);
-      cached_flags_.emplace(std::this_thread::get_id(), make_shared<Flag>());
+      cached_flags_.emplace(lwp_id(), make_shared<Flag>());
     }
 
    private:
@@ -95,7 +97,7 @@ class DataReader : public InternalThread {
     boost::barrier cache_bar_;
     bool shuffle_;
     std::atomic_bool just_cached_;
-    std::unordered_map<std::thread::id, shared_ptr<Flag>> cached_flags_;
+    std::unordered_map<std::uint32_t, shared_ptr<Flag>> cached_flags_;
     static std::mutex cache_mutex_;
     static unique_ptr<DataCache> data_cache_inst_;
   };
@@ -110,7 +112,8 @@ class DataReader : public InternalThread {
       bool sample_only,
       bool skip_one_batch,
       bool cache,
-      bool shuffle);
+      bool shuffle,
+      bool epoch_count_required);
   virtual ~DataReader();
 
   void start_reading() {
@@ -181,8 +184,10 @@ class DataReader : public InternalThread {
   Flag start_reading_flag_;
   bool sample_only_;
   const bool cache_, shuffle_;
+  const bool epoch_count_required_;
 
   DataCache* data_cache_;
+  static std::mutex db_mutex_;
 
   DISABLE_COPY_MOVE_AND_ASSIGN(DataReader);
 };

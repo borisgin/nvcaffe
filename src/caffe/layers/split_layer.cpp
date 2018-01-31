@@ -39,10 +39,6 @@ void SplitLayer<Ftype, Btype>::Backward_cpu(const vector<Blob*>& top,
   }
 }
 
-#ifdef CPU_ONLY
-STUB_GPU(SplitLayer);
-#endif
-
 INSTANTIATE_CLASS_FB(SplitLayer);
 REGISTER_LAYER_CLASS(Split);
 

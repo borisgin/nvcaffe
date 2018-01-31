@@ -21,9 +21,9 @@ void caffe_gpu_gemm<float>(const CBLAS_TRANSPOSE TransA,
       (TransA == CblasNoTrans) ? CUBLAS_OP_N : CUBLAS_OP_T;
   cublasOperation_t cuTransB =
       (TransB == CblasNoTrans) ? CUBLAS_OP_N : CUBLAS_OP_T;
-  CUBLAS_CHECK(cublasSgemm(Caffe::cublas_handle(), cuTransB, cuTransA,
+  CUBLAS_CHECK(cublasSgemm(Caffe::cublas_handle(0), cuTransB, cuTransA,
       N, M, K, &alpha, B, ldb, A, lda, &beta, C, N));
-  CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
+  CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream(0)));
 }
 
 template<>
@@ -38,9 +38,9 @@ void caffe_gpu_gemm<double>(const CBLAS_TRANSPOSE TransA,
       (TransA == CblasNoTrans) ? CUBLAS_OP_N : CUBLAS_OP_T;
   cublasOperation_t cuTransB =
       (TransB == CblasNoTrans) ? CUBLAS_OP_N : CUBLAS_OP_T;
-  CUBLAS_CHECK(cublasDgemm(Caffe::cublas_handle(), cuTransB, cuTransA,
+  CUBLAS_CHECK(cublasDgemm(Caffe::cublas_handle(0), cuTransB, cuTransA,
       N, M, K, &alpha, B, ldb, A, lda, &beta, C, N));
-  CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
+  CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream(0)));
 }
 
 template<>
@@ -48,7 +48,7 @@ void caffe_gpu_gemm<float16>(const CBLAS_TRANSPOSE TransA,
     const CBLAS_TRANSPOSE TransB, const int M, const int N, const int K,
     const float16 alpha, const float16* A, const float16* B, const float16 beta,
     float16* C) {
-  cublasHandle_t handle = Caffe::cublas_handle();
+  cublasHandle_t handle = Caffe::cublas_handle(0);
   // Note that cublas follows fortran order.
   const int lda = (TransA == CblasNoTrans) ? K : M;
   const int ldb = (TransB == CblasNoTrans) ? N : K;
@@ -82,7 +82,7 @@ void caffe_gpu_gemm<float16>(const CBLAS_TRANSPOSE TransA,
         A->gethp<half>(), CAFFE_DATA_HALF, lda, &beta_fp32, C->gethp<half>(),
         CAFFE_DATA_HALF, N));
   }
-  CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
+  CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream(0)));
 }
 
 template<>
@@ -91,9 +91,9 @@ void caffe_gpu_gemv<float>(const CBLAS_TRANSPOSE TransA, const int M,
     const float beta, float* y) {
   cublasOperation_t cuTransA =
       (TransA == CblasNoTrans) ? CUBLAS_OP_T : CUBLAS_OP_N;
-  CUBLAS_CHECK(cublasSgemv(Caffe::cublas_handle(), cuTransA, N, M, &alpha,
+  CUBLAS_CHECK(cublasSgemv(Caffe::cublas_handle(0), cuTransA, N, M, &alpha,
       A, N, x, 1, &beta, y, 1));
-  CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
+  CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream(0)));
 }
 
 template<>
@@ -102,16 +102,16 @@ void caffe_gpu_gemv<double>(const CBLAS_TRANSPOSE TransA, const int M,
     const double beta, double* y) {
   cublasOperation_t cuTransA =
       (TransA == CblasNoTrans) ? CUBLAS_OP_T : CUBLAS_OP_N;
-  CUBLAS_CHECK(cublasDgemv(Caffe::cublas_handle(), cuTransA, N, M, &alpha,
+  CUBLAS_CHECK(cublasDgemv(Caffe::cublas_handle(0), cuTransA, N, M, &alpha,
       A, N, x, 1, &beta, y, 1));
-  CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
+  CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream(0)));
 }
 
 template<>
 void caffe_gpu_gemv<float16>(const CBLAS_TRANSPOSE TransA, const int M,
     const int N, const float16 alpha, const float16* A, const float16* x,
     const float16 beta, float16* y) {
-  cublasHandle_t handle = Caffe::cublas_handle();
+  cublasHandle_t handle = Caffe::cublas_handle(0);
   cublasOperation_t cuTransA = TransA == CblasNoTrans ? CUBLAS_OP_T : CUBLAS_OP_N;
   int m = cuTransA == CUBLAS_OP_N ? N : M;
   int k = cuTransA == CUBLAS_OP_N ? M : N;
@@ -139,19 +139,19 @@ void caffe_gpu_gemv<float16>(const CBLAS_TRANSPOSE TransA, const int M,
   } else {
     float alpha_fp32 = static_cast<float>(alpha);
     float beta_fp32 = static_cast<float>(beta);
-    CUBLAS_CHECK(cublasSgemmEx(Caffe::cublas_handle(), cuTransA, CUBLAS_OP_N,
+    CUBLAS_CHECK(cublasSgemmEx(Caffe::cublas_handle(0), cuTransA, CUBLAS_OP_N,
         m, 1, k, &alpha_fp32, A, CAFFE_DATA_HALF, LDA,
         x, CAFFE_DATA_HALF, k, &beta_fp32,
         y, CAFFE_DATA_HALF, LDC));
   }
-  CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
+  CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream(0)));
 }
 
 template<>
 void caffe_gpu_axpy<float>(const int N, const float alpha, const float* X,
     float* Y, void* handle) {
   cublasHandle_t cublas_handle =
-      handle == nullptr ? Caffe::cublas_handle() : reinterpret_cast<cublasHandle_t>(handle);
+      handle == nullptr ? Caffe::cublas_handle(0) : reinterpret_cast<cublasHandle_t>(handle);
   cudaStream_t stream;
   CUBLAS_CHECK(cublasGetStream(cublas_handle, &stream));
   CUBLAS_CHECK(cublasSaxpy(cublas_handle, N, &alpha, X, 1, Y, 1));
@@ -162,7 +162,7 @@ template<>
 void caffe_gpu_axpy<double>(const int N, const double alpha, const double* X,
     double* Y, void* handle) {
   cublasHandle_t cublas_handle =
-      handle == nullptr ? Caffe::cublas_handle() : reinterpret_cast<cublasHandle_t>(handle);
+      handle == nullptr ? Caffe::cublas_handle(0) : reinterpret_cast<cublasHandle_t>(handle);
   cudaStream_t stream;
   CUBLAS_CHECK(cublasGetStream(cublas_handle, &stream));
   CUBLAS_CHECK(cublasDaxpy(cublas_handle, N, &alpha, X, 1, Y, 1));
@@ -196,7 +196,7 @@ template<>
 void caffe_gpu_axpy<float16>(const int N, const float16 alpha, const float16* x, float16* y,
     void* handle) {
   cublasHandle_t cublas_handle =
-      handle == nullptr ? Caffe::cublas_handle() : reinterpret_cast<cublasHandle_t>(handle);
+      handle == nullptr ? Caffe::cublas_handle(0) : reinterpret_cast<cublasHandle_t>(handle);
   cudaStream_t stream;
   CUBLAS_CHECK(cublasGetStream(cublas_handle, &stream));
   half ha;
@@ -208,9 +208,9 @@ void caffe_gpu_axpy<float16>(const int N, const float16 alpha, const float16* x,
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
-void caffe_gpu_memcpy(const size_t N, const void* X, void* Y) {
+void caffe_gpu_memcpy(const size_t N, const void* X, void* Y, int group) {
   if (X != Y) {
-    cudaStream_t stream = Caffe::thread_stream();
+    cudaStream_t stream = Caffe::thread_stream(group);
     CUDA_CHECK(cudaMemcpyAsync(Y, X, N, cudaMemcpyDefault, stream));
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
@@ -260,17 +260,17 @@ void caffe_gpu_scal<float16>(const int n, const float16 alpha, float16* x,
 
 template<>
 void caffe_gpu_scal<float>(const int N, const float alpha, float* X) {
-  caffe_gpu_scal(N, alpha, X, Caffe::cublas_handle());
+  caffe_gpu_scal(N, alpha, X, Caffe::cublas_handle(0));
 }
 
 template<>
 void caffe_gpu_scal<double>(const int N, const double alpha, double* X) {
-  caffe_gpu_scal(N, alpha, X, Caffe::cublas_handle());
+  caffe_gpu_scal(N, alpha, X, Caffe::cublas_handle(0));
 }
 
 template<>
 void caffe_gpu_scal<float16>(const int N, const float16 alpha, float16* X) {
-  caffe_gpu_scal(N, alpha, X, Caffe::cublas_handle());
+  caffe_gpu_scal(N, alpha, X, Caffe::cublas_handle(0));
 }
 
 template<>
@@ -307,20 +307,20 @@ void caffe_gpu_axpby<float16>(const int N, const float16 alpha,
 
 template<>
 void caffe_gpu_dot<float, float>(const int n, const float* x, const float* y, float* out) {
-  CUBLAS_CHECK(cublasSdot(Caffe::cublas_handle(), n, x, 1, y, 1, out));
+  CUBLAS_CHECK(cublasSdot(Caffe::cublas_handle(0), n, x, 1, y, 1, out));
   CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
 }
 
 template<>
 void caffe_gpu_dot<double, double>(const int n, const double* x, const double* y, double* out) {
-  CUBLAS_CHECK(cublasDdot(Caffe::cublas_handle(), n, x, 1, y, 1, out));
+  CUBLAS_CHECK(cublasDdot(Caffe::cublas_handle(0), n, x, 1, y, 1, out));
   CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
 }
 
 template<>
 void caffe_gpu_dot<double, float>(const int n, const double* x, const double* y, float* outf) {
   double out = 0.;
-  CUBLAS_CHECK(cublasDdot(Caffe::cublas_handle(), n, x, 1, y, 1, &out));
+  CUBLAS_CHECK(cublasDdot(Caffe::cublas_handle(0), n, x, 1, y, 1, &out));
   CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
   *outf = static_cast<float>(out);
 }
@@ -371,44 +371,42 @@ void caffe_gpu_dot<float16, float>(const int n, const float16* x, const float16*
 }
 
 template<>
-void caffe_gpu_asum<float, float>(const int n, const float* x, float* y, int) {
-  CUBLAS_CHECK(cublasSasum(Caffe::cublas_handle(), n, x, 1, y));
-  CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
+void caffe_gpu_asum<float, float>(const int n, const float* x, float* y, int group) {
+  CUBLAS_CHECK(cublasSasum(Caffe::cublas_handle(group), n, x, 1, y));
+  CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream(group)));
 }
 
 template<>
-void caffe_gpu_asum<float, double>(const int n, const float* x, double* y, int) {
+void caffe_gpu_asum<float, double>(const int n, const float* x, double* y, int group) {
   float yf;
-  CUBLAS_CHECK(cublasSasum(Caffe::cublas_handle(), n, x, 1, &yf));
-  CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
+  CUBLAS_CHECK(cublasSasum(Caffe::cublas_handle(group), n, x, 1, &yf));
+  CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream(group)));
   *y = yf;
 }
 template<>
-void caffe_gpu_asum<double, double>(const int n, const double* x, double* y, int) {
-  CUBLAS_CHECK(cublasDasum(Caffe::cublas_handle(), n, x, 1, y));
-  CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
+void caffe_gpu_asum<double, double>(const int n, const double* x, double* y, int group) {
+  CUBLAS_CHECK(cublasDasum(Caffe::cublas_handle(group), n, x, 1, y));
+  CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream(group)));
 }
 template<>
-void caffe_gpu_asum<double, float>(const int n, const double* x, float* y, int) {
+void caffe_gpu_asum<double, float>(const int n, const double* x, float* y, int group) {
   double yd;
-  CUBLAS_CHECK(cublasDasum(Caffe::cublas_handle(), n, x, 1, &yd));
-  CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
+  CUBLAS_CHECK(cublasDasum(Caffe::cublas_handle(group), n, x, 1, &yd));
+  CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream(group)));
   *y = yd;
 }
 
 template<>
-void caffe_gpu_scale<double>(const int n, const double alpha, const double* x,
-    double* y) {
-  CUBLAS_CHECK(cublasDcopy(Caffe::cublas_handle(), n, x, 1, y, 1));
-  CUBLAS_CHECK(cublasDscal(Caffe::cublas_handle(), n, &alpha, y, 1));
+void caffe_gpu_scale<double>(const int n, const double alpha, const double* x, double* y) {
+  CUBLAS_CHECK(cublasDcopy(Caffe::cublas_handle(0), n, x, 1, y, 1));
+  CUBLAS_CHECK(cublasDscal(Caffe::cublas_handle(0), n, &alpha, y, 1));
   CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
 }
 
 template<>
-void caffe_gpu_scale<float>(const int n, const float alpha, const float* x,
-    float* y) {
-  CUBLAS_CHECK(cublasScopy(Caffe::cublas_handle(), n, x, 1, y, 1));
-  CUBLAS_CHECK(cublasSscal(Caffe::cublas_handle(), n, &alpha, y, 1));
+void caffe_gpu_scale<float>(const int n, const float alpha, const float* x, float* y) {
+  CUBLAS_CHECK(cublasScopy(Caffe::cublas_handle(0), n, x, 1, y, 1));
+  CUBLAS_CHECK(cublasSscal(Caffe::cublas_handle(0), n, &alpha, y, 1));
   CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
 }
 
@@ -609,7 +607,7 @@ template<>
 void caffe_gpu_sub<float16>(const int N, const float16* a, const float16* b, float16* y) {
   cudaStream_t stream = Caffe::thread_stream();
   // NOLINT_NEXT_LINE(whitespace/operators)
-  sub_kernel<<<CAFFE_GET_BLOCKS(N), CAFFE_CUDA_NUM_THREADS, 0, stream>>> (N, a, b, y);
+  sub_kernel<<<CAFFE_GET_BLOCKS(N), CAFFE_CUDA_NUM_THREADS, 0, stream>>>(N, a, b, y);
   CUDA_POST_KERNEL_CHECK;
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }

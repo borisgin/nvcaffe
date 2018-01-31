@@ -313,8 +313,7 @@ TYPED_TEST(DataTransformTest, TestMeanFile) {
   const int size = channels * height * width;
 
   // Create a mean file
-  string mean_file;
-  MakeTempFilename(&mean_file);
+  string mean_file = MakeTempFilename();
   BlobProto blob_mean;
   blob_mean.set_num(1);
   blob_mean.set_channels(channels);
@@ -397,7 +396,6 @@ TYPED_TEST(VarSzTransformsTest, TestVarSzImgCenterCrop) {
   this->Run(transform_param, 3, 3);
 }
 
-#ifndef CPU_ONLY
 // GPU-based transform tests
 template <typename Dtype>
 class GPUDataTransformTest : public GPUDeviceTest<Dtype> {
@@ -645,8 +643,7 @@ TYPED_TEST(GPUDataTransformTest, TestMeanFile) {
   const int size = channels * height * width;
 
   // Create a mean file
-  string mean_file;
-  MakeTempFilename(&mean_file);
+  string mean_file = MakeTempFilename();
   BlobProto blob_mean;
   blob_mean.set_num(1);
   blob_mean.set_channels(channels);
@@ -672,6 +669,5 @@ TYPED_TEST(GPUDataTransformTest, TestMeanFile) {
     EXPECT_EQ(blob.cpu_data()[j], 0);
   }
 }
-#endif
 
 }  // namespace caffe

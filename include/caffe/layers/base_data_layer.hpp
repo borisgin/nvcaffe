@@ -52,7 +52,7 @@ class BaseDataLayer : public Layer<Ftype, Btype> {
 template<typename Ftype, typename Btype>
 class BasePrefetchingDataLayer : public BaseDataLayer<Ftype, Btype>, public InternalThread {
  public:
-  explicit BasePrefetchingDataLayer(const LayerParameter& param);
+  BasePrefetchingDataLayer(const LayerParameter& param, size_t solver_rank);
   virtual ~BasePrefetchingDataLayer();
   // LayerSetUp: implements common data layer setup functionality, and calls
   // DataLayerSetUp to do special data layer setup for individual layer types.
@@ -78,6 +78,10 @@ class BasePrefetchingDataLayer : public BaseDataLayer<Ftype, Btype>, public Inte
         this->transform_param_.has_horizontal_stretch_lower() ||
         this->transform_param_.has_horizontal_stretch_upper();
     return use_gpu && Caffe::mode() == Caffe::GPU && !use_rand_resize;
+  }
+
+  int batch_size() const {
+    return batch_size_;
   }
 
  protected:

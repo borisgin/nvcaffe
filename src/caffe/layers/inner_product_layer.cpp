@@ -131,12 +131,7 @@ void InnerProductLayer<Ftype, Btype>::Backward_cpu(const vector<Blob*>& top,
   }
 }
 
-#ifdef CPU_ONLY
-STUB_GPU(InnerProductLayer);
-#endif
-
 INSTANTIATE_CLASS_FB(InnerProductLayer);
-
 REGISTER_LAYER_CLASS(InnerProduct);
 
 }  // namespace caffe

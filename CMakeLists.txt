@@ -29,21 +29,20 @@ include(cmake/Summary.cmake)
 include(cmake/ConfigGen.cmake)
 
 # ---[ Options
-caffe_option(CPU_ONLY  "Build Caffe without CUDA support" OFF) # TODO: rename to USE_CUDA
-caffe_option(USE_CUDNN "Build Caffe with cuDNN library support" ON IF NOT CPU_ONLY)
+caffe_option(USE_CUDNN "Build Caffe with cuDNN library support" ON)
 
 # USE_NCCL: Build Caffe with NCCL Library support
 # Regular ON/OFF option doesn't work here because we need to recognize 3 states:
 # 1. User didn't set USE_NCCL option =>
-#   1.1 If CPU_ONLY is ON we do nothing.
-#   1.2 If CPU_ONLY is OFF we *quietly* try to find it and use if found; do nothing otherwise.
+#   1.1 We *quietly* try to find it and use if found; do nothing otherwise.
 # 2. User explicitly set USE_NCCL=ON option =>
-#   1.1 If CPU_ONLY is ON we do nothing (it's higher priority).
-#   2.1 If CPU_ONLY is OFF we try to find it with *required* option, thus CMake fails if not found. 
+#   1.1 We try to find it with *required* option, thus CMake fails if not found.
 # 3. User explicitly set USE_NCCL=OFF option => we do nothing.
-SET(USE_NCCL)
-if(DEFINED USE_NCCL)
-  STRING(TOUPPER "${USE_NCCL}" USE_NCCL)
+set(USE_NCCL "NONE" CACHE STRING "Link Caffe with NCCL Library for Multi-GPU support")
+if(USE_NCCL STREQUAL "NONE")
+  set(USE_NCCL_SET OFF)
+else()
+  set(USE_NCCL_SET ON)
 endif()
 
 caffe_option(BUILD_SHARED_LIBS "Build shared libraries" ON)

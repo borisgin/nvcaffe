@@ -14,13 +14,10 @@ void CuDNNBatchNormLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom,
     const vector<Blob*>& top) {
 
   const Ftype* bottom_data = bottom[0]->gpu_data<Ftype>();
-  Ftype* top_data = top[0]->mutable_gpu_data<Ftype>();
-  if (top[0] == bottom[0]) {
-    top_data = private_top_->mutable_gpu_data<Ftype>();
-  }
+  Ftype* top_data = top[0] == bottom[0] ?
+      private_top_->mutable_gpu_data<Ftype>() : top[0]->mutable_gpu_data<Ftype>();
 
   double epsilon = this->eps_;
-
   const void* scale_data;
   const void* bias_data;
   void* global_mean;
@@ -68,13 +65,13 @@ void CuDNNBatchNormLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom,
     if (this->iter() == 0) {
       factor = 1.0;
     }
-    CUDNN_CHECK(cudnnBatchNormalizationForwardTraining(Caffe::cudnn_handle(), mode_,
+    CUDNN_CHECK(cudnnBatchNormalizationForwardTraining(Caffe::cudnn_handle(0), mode_,
       cudnn::dataType<Ftype>::one, cudnn::dataType<Ftype>::zero,
         fwd_bottom_desc_, bottom_data, fwd_top_desc_, top_data,
         fwd_scale_bias_mean_var_desc_, scale_data, bias_data,
         factor, global_mean, global_var, epsilon, save_mean, save_inv_var));
   } else if (this->phase_ == TEST) {
-    CUDNN_CHECK(cudnnBatchNormalizationForwardInference(Caffe::cudnn_handle(),
+    CUDNN_CHECK(cudnnBatchNormalizationForwardInference(Caffe::cudnn_handle(0),
         CUDNN_BATCHNORM_SPATIAL,
         cudnn::dataType<Ftype>::one, cudnn::dataType<Ftype>::zero,
         fwd_bottom_desc_, bottom_data, fwd_top_desc_, top_data,
@@ -96,12 +93,10 @@ void CuDNNBatchNormLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
     const vector<bool>& propagate_down, const vector<Blob*>& bottom) {
 
   const Btype* top_diff = top[0]->gpu_diff<Btype>();
-  const Btype* bottom_data = bottom[0]->gpu_data<Btype>();
+  const Btype* bottom_data = top[0] == bottom[0] ?
+      private_bottom_->gpu_data<Btype>() : bottom[0]->gpu_data<Btype>();
   Btype* bottom_diff = bottom[0]->mutable_gpu_diff<Btype>();
 
-  if (top[0] == bottom[0]) {
-    bottom_data = private_bottom_->gpu_data<Btype>();
-  }
   double epsilon = this->eps_;
   const void* save_mean;
   const void* save_inv_var;
@@ -140,13 +135,13 @@ void CuDNNBatchNormLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
      top_diff = private_top_->gpu_diff<Btype>();
   }
 
-  CUDNN_CHECK(cudnnBatchNormalizationBackward(Caffe::cudnn_handle(), mode_,
+  CUDNN_CHECK(cudnnBatchNormalizationBackward(Caffe::cudnn_handle(0), mode_,
       cudnn::dataType<Btype>::one, cudnn::dataType<Btype>::zero,
       cudnn::dataType<Btype>::one, cudnn::dataType<Btype>::one,
       bwd_bottom_desc_, bottom_data, bwd_bottom_desc_, top_diff, bwd_bottom_desc_, bottom_diff,
       bwd_scale_bias_mean_var_desc_, scale_data, scale_diff, bias_diff,
       epsilon, save_mean, save_inv_var));
-  CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
+  CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream(0)));
 }
 
 INSTANTIATE_LAYER_GPU_FUNCS_FB(CuDNNBatchNormLayer);

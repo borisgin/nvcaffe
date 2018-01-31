@@ -22,10 +22,6 @@ void ThresholdLayer<Ftype, Btype>::Forward_cpu(const vector<Blob*>& bottom,
   }
 }
 
-#ifdef CPU_ONLY
-STUB_GPU_FORWARD(ThresholdLayer, Forward);
-#endif
-
 INSTANTIATE_CLASS_FB(ThresholdLayer);
 REGISTER_LAYER_CLASS(Threshold);
 

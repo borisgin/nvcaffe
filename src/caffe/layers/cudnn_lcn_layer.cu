@@ -15,14 +15,14 @@ void CuDNNLCNLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom,
   temp2_.reserve(tempDataSize_);
 
   CUDNN_CHECK(cudnnDivisiveNormalizationForward(
-        Caffe::cudnn_handle(), norm_desc_, CUDNN_DIVNORM_PRECOMPUTED_MEANS,
+        Caffe::cudnn_handle(0), norm_desc_, CUDNN_DIVNORM_PRECOMPUTED_MEANS,
         cudnn::dataType<Ftype>::one,
         fwd_bottom_desc_, bottom_data,
         NULL,  // srcMeansData
         temp1_.data(), temp2_.data(),
         cudnn::dataType<Ftype>::zero,
         fwd_top_desc_, top_data) );
-  CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
+  CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream(0)));
 
   temp1_.release();
   temp2_.release();
@@ -40,7 +40,7 @@ void CuDNNLCNLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
   temp2_.reserve(tempDataSize_);
 
   CUDNN_CHECK(cudnnDivisiveNormalizationBackward(
-        Caffe::cudnn_handle(), norm_desc_,
+        Caffe::cudnn_handle(0), norm_desc_,
         CUDNN_DIVNORM_PRECOMPUTED_MEANS,
         cudnn::dataType<Btype>::one,
         bwd_bottom_desc_, bottom_data,
@@ -49,7 +49,7 @@ void CuDNNLCNLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
         cudnn::dataType<Btype>::zero,
         bwd_bottom_desc_, bottom_diff,
         NULL) );
-  CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
+  CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream(0)));
 
   temp1_.release();
   temp2_.release();

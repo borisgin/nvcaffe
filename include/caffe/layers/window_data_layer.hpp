@@ -23,8 +23,8 @@ namespace caffe {
 template <typename Ftype, typename Btype>
 class WindowDataLayer : public BasePrefetchingDataLayer<Ftype, Btype> {
  public:
-  explicit WindowDataLayer(const LayerParameter& param)
-      : BasePrefetchingDataLayer<Ftype, Btype>(param) {}
+  explicit WindowDataLayer(const LayerParameter& param, size_t solver_rank)
+      : BasePrefetchingDataLayer<Ftype, Btype>(param, solver_rank) {}
   virtual ~WindowDataLayer();
   void DataLayerSetUp(const vector<Blob*>& bottom, const vector<Blob*>& top) override;
 

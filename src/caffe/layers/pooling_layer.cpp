@@ -308,11 +308,6 @@ void PoolingLayer<Ftype, Btype>::Backward_cpu(const vector<Blob*>& top,
   }
 }
 
-
-#ifdef CPU_ONLY
-STUB_GPU(PoolingLayer);
-#endif
-
 INSTANTIATE_CLASS_FB(PoolingLayer);
 
 }  // namespace caffe

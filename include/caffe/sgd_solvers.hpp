@@ -27,21 +27,24 @@ class SGDSolver : public Solver {
 
   const char* type() const override { return "SGD"; }
   const vector<shared_ptr<TBlob<Dtype> > >& history() { return history_; }
+  float GetLearningRate() override;
+  void ClipGradientsAndNormalize(void* handle, int type_id,
+      const std::set<int>& param_ids) override;
   void PrintRate(float rate = 0) override;
 
  protected:
   void PreSolve();
-  float GetLearningRate();
   float GetMomentum();
   float GetWeightDecay() const;
   float GetLocalRate(int param_id, float& wgrad_sq) const;
   float local_decay(int param_id) const;
 
-  float ApplyUpdate(int param_id, void* handle, bool clear_grads) override;
-  virtual void Normalize(int param_id, void* handle);
-  virtual void Regularize(int param_id, void* handle);
+  float ApplyUpdate(int param_id, void* handle, float rate, bool normalize,
+      bool clear_grads) override;
+  void Normalize(int param_id, void* handle);
+  void Regularize(int param_id);
+
   virtual float ComputeUpdateValue(int param_id, void* handle, float rate, bool clear_grads);
-  virtual void ClipGradients(void* handle = nullptr);
   virtual void SnapshotSolverState(const string& model_filename);
   virtual void SnapshotSolverStateToBinaryProto(const string& model_filename);
   virtual void SnapshotSolverStateToHDF5(const string& model_filename);

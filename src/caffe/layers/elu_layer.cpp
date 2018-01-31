@@ -38,11 +38,6 @@ void ELULayer<Ftype, Btype>::Backward_cpu(const vector<Blob*>& top,
   }
 }
 
-
-#ifdef CPU_ONLY
-STUB_GPU(ELULayer);
-#endif
-
 INSTANTIATE_CLASS_FB(ELULayer);
 REGISTER_LAYER_CLASS(ELU);
 

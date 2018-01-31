@@ -1,11 +1,8 @@
 # This list is required for static linking and exported to CaffeConfig.cmake
 set(Caffe_LINKER_LIBS "")
 
-find_package(PythonInterp ${python_version})
-
 # ---[ Boost
-find_package(Boost 1.54 REQUIRED COMPONENTS system thread filesystem regex python-py${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR})
-set(Boost_PYTHON_FOUND ${Boost_PYTHON-PY${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR}_FOUND})
+find_package(Boost 1.54 REQUIRED COMPONENTS system thread filesystem regex)
 include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 list(APPEND Caffe_LINKER_LIBS ${Boost_LIBRARIES})
 
@@ -64,12 +61,7 @@ list(APPEND Caffe_LINKER_LIBS ${JPEGTurbo_LIBRARIES})
 # ---[ CUDA
 include(cmake/Cuda.cmake)
 if(NOT HAVE_CUDA)
-  if(CPU_ONLY)
-    message(STATUS "-- CUDA is disabled. Building without it...")
-  else()
-    message(WARNING "-- CUDA is not detected by cmake. Building without it...")
-  endif()
-
+  message(SEND_ERROR "-- CUDA is not detected by cmake. Building without it...")
   # TODO: remove this not cross platform define in future. Use caffe_config.h instead.
   add_definitions(-DCPU_ONLY)
 endif()
@@ -113,6 +105,20 @@ endif()
 
 # ---[ Python
 if(BUILD_python)
+  find_package(PythonInterp ${python_version})
+
+  find_library(Boost_PYTHON_FOUND NAMES
+          python-py${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR}
+          boost_python-py${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR}
+          boost_python${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR}
+          PATHS ${LIBDIR})
+  if ("${Boost_PYTHON_FOUND}" STREQUAL "Boost_PYTHON_FOUND-NOTFOUND")
+    message(SEND_ERROR "Could NOT find Boost Python Library")
+  else()
+    message(STATUS "Found Boost Python Library ${Boost_PYTHON_FOUND}")
+    list(APPEND Caffe_LINKER_LIBS ${Boost_PYTHON_FOUND})
+  endif()
+
   find_package(PythonLibs ${python_version})
   find_package(NumPy 1.7.1)
   if(PYTHONLIBS_FOUND AND NUMPY_FOUND AND Boost_PYTHON_FOUND)
@@ -147,14 +153,12 @@ if(BUILD_docs)
 endif()
 
 # ---[ NCCL
-if(DEFINED USE_NCCL)
-  if(USE_NCCL AND NOT CPU_ONLY)
+if(USE_NCCL_SET)
+  if(USE_NCCL)
     find_package(NCCL REQUIRED)
   endif()
 else()
-  if(NOT CPU_ONLY)
-    find_package(NCCL)
-  endif()
+  find_package(NCCL)
 endif()
 if(NCCL_FOUND)
   add_definitions(-DUSE_NCCL)
@@ -163,7 +167,7 @@ if(NCCL_FOUND)
 endif()
 
 # ---[ NVML
-if(NOT CPU_ONLY AND NOT NO_NVML)
+if(NOT NO_NVML)
   find_package(NVML)
 endif()
 if(NVML_FOUND)

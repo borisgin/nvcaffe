@@ -28,11 +28,9 @@ class DataTransformer {
    */
   void InitRand();
 
-#ifndef CPU_ONLY
   template<typename Dtype>
   void TransformGPU(int N, int C, int H, int W, size_t sizeof_element,
       const void* in, Dtype* out, const unsigned int* rands, bool signed_data);
-#endif
 
   /**
    * @brief Applies transformations defined in the data layer's
@@ -185,6 +183,19 @@ class DataTransformer {
       DatumToCVMat(datum_vector[item_id], dst, false);
       FloatCVMatToBuf<Dtype>(dst, buf_len, transformed_blob->mutable_cpu_data(false) + offset);
     }
+  }
+
+  /**
+   * @brief Generates a random integer from Uniform({0, 1, ..., n-1}).
+   *
+   * @param n
+   *    The upperbound (exclusive) value of the random number.
+   * @return
+   *    A uniformly random integer value from ({0, 1, ..., n-1}).
+   */
+  unsigned int Rand(int n) const {
+    CHECK_GT(n, 0);
+    return Rand() % n;
   }
 
   // tests only, TODO: clean
@@ -344,20 +355,6 @@ class DataTransformer {
 
   void image_random_resize(const cv::Mat& src, cv::Mat& dst);
   static void image_center_crop(int crop_w, int crop_h, cv::Mat& img);
-
-  /**
-   * @brief Generates a random integer from Uniform({0, 1, ..., n-1}).
-   *
-   * @param n
-   *    The upperbound (exclusive) value of the random number.
-   * @return
-   *    A uniformly random integer value from ({0, 1, ..., n-1}).
-   */
-  unsigned int Rand(int n) const {
-    CHECK_GT(n, 0);
-    return Rand() % n;
-  }
-
   unsigned int Rand() const;
   float Rand(float lo, float up) const;
 
@@ -376,10 +373,8 @@ class DataTransformer {
   const float horizontal_stretch_lower_;
   const float horizontal_stretch_upper_;
   const bool allow_upscale_;
-
-#ifndef CPU_ONLY
   GPUMemory::Workspace mean_values_gpu_;
-#endif
+
   static constexpr double UM = static_cast<double>(UINT_MAX);
 };
 

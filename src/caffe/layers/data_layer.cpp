@@ -6,8 +6,8 @@
 namespace caffe {
 
 template<typename Ftype, typename Btype>
-DataLayer<Ftype, Btype>::DataLayer(const LayerParameter& param)
-  : BasePrefetchingDataLayer<Ftype, Btype>(param),
+DataLayer<Ftype, Btype>::DataLayer(const LayerParameter& param, size_t solver_rank)
+  : BasePrefetchingDataLayer<Ftype, Btype>(param, solver_rank),
     cache_(param.data_param().cache()),
     shuffle_(param.data_param().shuffle()) {
   sample_only_.store(this->auto_mode_ && this->phase_ == TRAIN);
@@ -48,14 +48,10 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
     // Here we try to optimize memory split between prefetching and convolution.
     // All data and parameter blobs are allocated at this moment.
     // Now let's find out what's left...
-#ifndef CPU_ONLY
     Net* pnet = this->parent_net();
     const size_t batch_bytes = pnet->prefetch_bytes<Ftype, Btype>();
     const size_t gpu_bytes = Caffe::min_avail_device_memory();
     const size_t batches_fit = gpu_bytes / batch_bytes;
-#else
-    size_t batches_fit = this->queues_num_;
-#endif
     size_t parsers_num = this->parsers_num_;
     size_t transf_num = this->threads_num();
     if (this->is_gpu_transform()) {
@@ -131,39 +127,41 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
 
   if (this->auto_mode_) {
     if (!sample_reader_) {
-      sample_reader_ = std::make_shared<DataReader>(param,
-          Caffe::solver_count(),
-          this->solver_rank_,
+      sample_reader_ = std::make_shared<DataReader>(param, Caffe::solver_count(),
+          this->rank_,
           this->parsers_num_,
           this->threads_num(),
           batch_size,
           true,
           false,
           cache,
-          shuffle);
+          shuffle,
+          false);
     } else if (!reader_) {
       reader_ = std::make_shared<DataReader>(param,
           Caffe::solver_count(),
-          this->solver_rank_,
+          this->rank_,
           this->parsers_num_,
           this->threads_num(),
           batch_size,
           false,
           true,
           cache,
-          shuffle);
+          shuffle,
+          this->phase_ == TRAIN);
     }
   } else if (!reader_) {
     reader_ = std::make_shared<DataReader>(param,
         Caffe::solver_count(),
-        this->solver_rank_,
+        this->rank_,
         this->parsers_num_,
         this->threads_num(),
         batch_size,
         false,
         false,
         cache,
-        shuffle);
+        shuffle,
+        this->phase_ == TRAIN);
     start_reading();
   }
   // Read a data point, and use it to initialize the top blob.
@@ -181,15 +179,14 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
   top_shape[0] = batch_size;
   top[0]->Reshape(top_shape);
 
-#ifndef CPU_ONLY
   if (this->is_gpu_transform()) {
+    CHECK(Caffe::mode() == Caffe::GPU);
     LOG(INFO) << this->print_current_device() << " Transform on GPU enabled";
     tmp_gpu_buffer_.resize(this->threads_num());
     for (int i = 0; i < this->tmp_gpu_buffer_.size(); ++i) {
       this->tmp_gpu_buffer_[i] = make_shared<GPUMemory::Workspace>();
     }
   }
-#endif
   // label
   vector<int> label_shape(1, batch_size);
   if (this->output_labels_) {
@@ -225,7 +222,6 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
   if (top_shape != batch->data_->shape()) {
     batch->data_->Reshape(top_shape);
   }
-#ifndef CPU_ONLY
   int init_datum_height = init_datum->height();
   int init_datum_width = init_datum->width();
   const int color_mode = this->transform_param_.force_color() ?
@@ -233,7 +229,6 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
   size_t datum_sizeof_element = 0UL;
   int datum_len = top_shape[1] * top_shape[2] * top_shape[3];
   size_t datum_size = 0UL;
-  cudaStream_t stream = Caffe::thread_stream(Caffe::GPU_TRANSF_GROUP);
   const char *src_ptr = nullptr;
   vector<char> src_buf;
   cv::Mat img;
@@ -263,23 +258,18 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
     datum_size = datum_len * datum_sizeof_element;
     src_buf.resize(datum_size);
   }
-#endif
   if (this->output_labels_) {
     batch->label_->Reshape(vector<int>(1, batch_size));
   }
   Ftype* top_label = this->output_labels_ ?
       batch->label_->template mutable_cpu_data_c<Ftype>(false) : nullptr;
 
-#ifndef CPU_ONLY
   void* dst_gptr = nullptr;
-#endif
   Btype* dst_cptr = nullptr;
   if (use_gpu_transform) {
-#ifndef CPU_ONLY
     size_t buffer_size = top_shape[0] * top_shape[1] * init_datum_height * init_datum_width;
     tmp_gpu_buffer_[thread_id]->safe_reserve(buffer_size);
     dst_gptr = tmp_gpu_buffer_[thread_id]->data();
-#endif
   } else {
     dst_cptr = batch->data_->template mutable_cpu_data_c<Btype>(false);
   }
@@ -298,7 +288,7 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
     }
 
     if (use_gpu_transform) {
-#ifndef CPU_ONLY
+      cudaStream_t stream = Caffe::thread_stream(Caffe::GPU_TRANSF_GROUP);
       if (datum->encoded()) {
         DecodeDatumToSignedBuf(*datum, color_mode, src_buf.data(), datum_size, false);
       } else {
@@ -315,9 +305,6 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
       CUDA_CHECK(cudaStreamSynchronize(stream));
       this->dt(thread_id)->Fill3Randoms(&random_vectors_[thread_id]->
           mutable_cpu_data()[item_id * 3]);
-#else
-      NO_GPU;
-#endif
     } else {
       // Get data offset for this datum to hand off to transform thread
       const size_t offset = batch->data_->offset(item_id);
@@ -346,7 +333,6 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
   }
 
   if (use_gpu_transform) {
-#ifndef CPU_ONLY
     this->dt(thread_id)->TransformGPU(top_shape[0], top_shape[1],
         init_datum_height,  // non-crop
         init_datum_width,  // non-crop
@@ -354,11 +340,7 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
         dst_gptr,
         batch->data_->template mutable_gpu_data_c<Ftype>(false),
         random_vectors_[thread_id]->gpu_data(), true);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
     packing = NCHW;
-#else
-    NO_GPU;
-#endif
   }
 
   batch->set_data_packing(packing);
@@ -367,6 +349,6 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
 }
 
 INSTANTIATE_CLASS_FB(DataLayer);
-REGISTER_LAYER_CLASS(Data);
+REGISTER_LAYER_CLASS_R(Data);
 
 }  // namespace caffe

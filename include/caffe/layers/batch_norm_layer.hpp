@@ -94,7 +94,6 @@ class BatchNormLayer : public Layer<Ftype, Btype> {
     caffe_cpu_scale(C, F, y, y);
   }
 
-#ifndef CPU_ONLY
   // multicast x[c] into y[.,c,...]
   template <typename Dtype>
   void multicast_gpu(int N, int C, int S, const Dtype *x, Dtype *y ) {
@@ -122,7 +121,6 @@ class BatchNormLayer : public Layer<Ftype, Btype> {
     compute_sum_per_channel_gpu(N, C, S, x, y);
     caffe_gpu_scal(C, F, y);
   }
-#endif
 
   double moving_average_fraction_, eps_;
   int channels_, iter_;

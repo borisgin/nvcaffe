@@ -130,11 +130,6 @@ void PReLULayer<Ftype, Btype>::Backward_cpu(const vector<Blob*>& top,
   }
 }
 
-
-#ifdef CPU_ONLY
-STUB_GPU(PReLULayer);
-#endif
-
 INSTANTIATE_CLASS_FB(PReLULayer);
 REGISTER_LAYER_CLASS(PReLU);
 

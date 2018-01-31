@@ -4,13 +4,11 @@
 
 namespace caffe {
 
-#ifndef CPU_ONLY
 template<typename Gtype, typename Wtype>
 void nesterov_reg_update_and_clear_gpu(int N,
     Gtype* g, Wtype *w, Wtype* h,
     float momentum, float local_rate, const std::string& reg_type, float local_decay,
     void *handle, bool clear_grads);
-#endif
 
 template<typename Dtype>
 float NesterovSolver<Dtype>::ComputeUpdateValue(int param_id, void *handle, float rate,
@@ -44,7 +42,6 @@ float NesterovSolver<Dtype>::ComputeUpdateValue(int param_id, void *handle, floa
       param->set_diff(0.F);
     }
   } else if (Caffe::mode() == Caffe::GPU) {
-#ifndef CPU_ONLY
     const std::string& regularization_type = this->param_.regularization_type();
     float decay = this->local_decay(param_id);
     const Type gtype = param->diff_type();
@@ -69,9 +66,6 @@ float NesterovSolver<Dtype>::ComputeUpdateValue(int param_id, void *handle, floa
     } else {
       LOG(FATAL) << "Gradient type " << Type_Name(gtype) << " is not supported";
     }
-#else
-    NO_GPU;
-#endif
   } else {
     LOG(FATAL) << "Unknown caffe mode: " << Caffe::mode();
   }

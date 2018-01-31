@@ -38,6 +38,7 @@ class TestNet(unittest.TestCase):
     @classmethod
     def setUpClass(self):
         super(TestNet, self).setUpClass()
+        caffe.set_device(0)
         print('TestNet.setUpClass')
 
     @classmethod

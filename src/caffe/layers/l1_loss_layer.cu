@@ -20,7 +20,7 @@ void L1LossLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom,
   caffe_gpu_sign<Ftype>(count, diff_.template gpu_data<Ftype>(),
       sign_.template mutable_gpu_data<Ftype>());
   Ftype abs_sum;
-  caffe_gpu_asum(count, diff_.template gpu_data<Ftype>(), &abs_sum);
+  caffe_gpu_asum(count, diff_.template gpu_data<Ftype>(), &abs_sum, 0);
   Ftype loss = abs_sum / bottom[0]->num();
   top[0]->mutable_cpu_data<Ftype>()[0] = loss;
 }

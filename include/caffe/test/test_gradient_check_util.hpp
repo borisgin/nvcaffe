@@ -152,20 +152,20 @@ void GradientChecker<Dtype>::CheckGradientSingle(LayerBase* layer, const vector<
         // Recover original input value.
         feature_val += stepsize_;
         current_blob->mutable_cpu_data<float>()[feat_id] = feature_val;
-        estimated_gradient = (positive_objective - negative_objective) / stepsize_ / 2.;
+        estimated_gradient = (positive_objective - negative_objective) / stepsize_ / 2.F;
       }
       float computed_gradient = computed_gradients[feat_id];
       float feature = current_blob->cpu_data<float>()[feat_id];
       if (kink_ - kink_range_ > fabs(feature) || fabs(feature) > kink_ + kink_range_) {
         // We check relative accuracy, but for too small values, we threshold
         // the scale factor by 1.
-        float scale = std::max<float>(std::max(fabs(computed_gradient), fabs(estimated_gradient)),
-            float(1.));
+        float scale = std::max<float>(std::max(fabs(computed_gradient),
+            fabs(estimated_gradient)), 1.F);
         EXPECT_NEAR(computed_gradient, estimated_gradient, threshold_ * scale)
                   << "debug: (top_id, top_data_id, blob_id, feat_id)=" << top_id << ","
                   << top_data_id << "," << blob_id << ", " << feat_id << "; feat = " << feature
                   << "; objective+ = " << positive_objective << "; objective- = "
-                  << negative_objective;
+                  << negative_objective << "; stepsize_ = " << stepsize_;
       }
     }
   }
@@ -212,6 +212,37 @@ void GradientChecker<Dtype>::CheckGradientNet(Net& net, const vector<Blob*>& inp
 template<typename Dtype>
 float GradientChecker<Dtype>::GetObjAndGradient(const LayerBase& layer, const vector<Blob*>& top,
     int top_id, int top_data_id) {
+
+  // TODO refactor this
+  if (tp<Dtype>() == DOUBLE) {
+    double loss = 0.;
+    if (top_id < 0) {
+      // the loss will be half of the sum of squares of all outputs
+      for (int i = 0; i < top.size(); ++i) {
+        Blob* top_blob = top[i];
+        const double* top_blob_data = top_blob->cpu_data<double>();
+        double* top_blob_diff = top_blob->mutable_cpu_diff<double>();
+        int count = top_blob->count();
+        for (int j = 0; j < count; ++j) {
+          loss += top_blob_data[j] * top_blob_data[j];
+        }
+        // set the diff: simply the data.
+        caffe_copy(top_blob->count(), top_blob_data, top_blob_diff);
+      }
+      loss /= 2.;
+    } else {
+      // the loss will be the top_data_id-th element in the top_id-th blob.
+      for (int i = 0; i < top.size(); ++i) {
+        top[i]->set_diff(0.);
+      }
+      const double loss_weight = 2.;
+      loss = top[top_id]->cpu_data<double>()[top_data_id] * loss_weight;
+      top[top_id]->mutable_cpu_diff<double>()[top_data_id] = loss_weight;
+    }
+    return loss;
+  }
+
+
   float loss = 0.F;
   if (top_id < 0) {
     // the loss will be half of the sum of squares of all outputs

@@ -249,7 +249,7 @@ void caffe_gpu_powx<float16>(const int N, const float16* a,
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
-DEFINE_AND_INSTANTIATE_GPU_UNARY_FUNC_AUX(sign,
+DEFINE_AND_INSTANTIATE_GPU_UNARY_FUNC(sign,
     y[index] = (Dtype(0) < x[index]) - (x[index] < Dtype(0)));
 DEFINE_AND_INSTANTIATE_GPU_UNARY_FUNC(sgnbit, y[index] = signbit(x[index]));
 
@@ -349,14 +349,11 @@ void caffe_gpu_convert<double, double>(const unsigned int n,
     const double* in, double* out) {
   caffe_copy(n, in, out);
 }
-#ifndef CPU_ONLY
 template<>
 void caffe_gpu_convert<float16, float16>(const unsigned int n,
     const float16* in, float16* out) {
   caffe_copy(n, in, out);
 }
-#endif
-
 
 void caffe_gpu_rng_uniform(const int n, unsigned int* r) {
   CURAND_CHECK(curandGenerate(Caffe::curand_generator(), r, n));
@@ -451,7 +448,6 @@ void caffe_gpu_eltwise_max<double>(const int N,
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
-#ifndef CPU_ONLY
 template<>
 void caffe_gpu_eltwise_max<float16>(const int N,
     const float16 alpha, const float16* x, const float16 beta, float16* y) {
@@ -462,7 +458,6 @@ void caffe_gpu_eltwise_max<float16>(const int N,
   CUDA_POST_KERNEL_CHECK;
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }
-#endif
 
 template<typename Dtype>
 __global__ void caffe_gpu_eltwise_min_kernel(const int N,
@@ -492,7 +487,6 @@ void caffe_gpu_eltwise_min<double>(const int N,
   CUDA_POST_KERNEL_CHECK;
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }
-#ifndef CPU_ONLY
 template<>
 void caffe_gpu_eltwise_min<float16>(const int N,
     const float16 alpha, const float16* x, const float16 beta, float16* y) {
@@ -503,6 +497,5 @@ void caffe_gpu_eltwise_min<float16>(const int N,
   CUDA_POST_KERNEL_CHECK;
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }
-#endif
 
 }  // namespace caffe

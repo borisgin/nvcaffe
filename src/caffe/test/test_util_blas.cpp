@@ -1,5 +1,3 @@
-#ifndef CPU_ONLY  // CPU-GPU test
-
 #include "gtest/gtest.h"
 
 #include "caffe/blob.hpp"
@@ -197,5 +195,3 @@ TYPED_TEST(GemmTest, TestGemvCPUGPU2) {
 }
 
 }  // namespace caffe
-
-#endif  // CPU_ONLY

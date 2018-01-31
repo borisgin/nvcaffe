@@ -9,8 +9,9 @@ display: 100
 max_iter: 250000 	# 100 epoch 
 base_lr:  4.00 		# B=512
 
-local_lr_auto: true
-local_gw_ratio: 0.001
+larc: true
+larc_policy: "clip"
+larc_eta: 0.001
 
 #rampup_lr: 1.0
 #rampup_interval: 5000

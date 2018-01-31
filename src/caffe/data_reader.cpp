@@ -8,6 +8,7 @@
 
 namespace caffe {
 
+std::mutex DataReader::db_mutex_;
 std::mutex DataReader::DataCache::cache_mutex_;
 unique_ptr<DataReader::DataCache> DataReader::DataCache::data_cache_inst_;
 
@@ -20,7 +21,8 @@ DataReader::DataReader(const LayerParameter& param,
     bool sample_only,
     bool skip_one_batch,
     bool cache,
-    bool shuffle)
+    bool shuffle,
+    bool epoch_count_required)
     : InternalThread(Caffe::current_device(),
           solver_rank, sample_only ? 1U : parser_threads_num, false),
       parser_threads_num_(threads_num()),
@@ -34,7 +36,8 @@ DataReader::DataReader(const LayerParameter& param,
       current_queue_(0),
       sample_only_(sample_only),
       cache_(cache && !sample_only),
-      shuffle_(cache_ && shuffle) {
+      shuffle_(cache_ && shuffle),
+      epoch_count_required_(epoch_count_required) {
   CHECK(queues_num_);
   CHECK(queue_depth_);
   batch_size_ = param.data_param().batch_size();
@@ -76,9 +79,15 @@ void DataReader::InternalThreadEntryN(size_t thread_id) {
     data_cache_->check_db(db_source_);
     data_cache_->register_new_thread();
   }
-  shared_ptr<db::DB> db(db::GetDB(backend_));
-  db->Open(db_source_, db::READ);
-  CursorManager cm(db,
+
+  unique_ptr<db::DB> db;
+  {
+    std::lock_guard<std::mutex> lock(db_mutex_);
+    db.reset(db::GetDB(backend_));
+    db->Open(db_source_, db::READ);
+  }
+
+  CursorManager cm(db.get(),
       this,
       solver_count_,
       solver_rank_,
@@ -86,7 +95,8 @@ void DataReader::InternalThreadEntryN(size_t thread_id) {
       thread_id,
       batch_size_,
       cache_ && !sample_only_,
-      shuffle_ && !sample_only_);
+      shuffle_ && !sample_only_,
+      epoch_count_required_);
   shared_ptr<Datum> init_datum = make_shared<Datum>();
   cm.fetch(init_datum.get());
   init_->push(init_datum);
@@ -139,20 +149,20 @@ shared_ptr<Datum>& DataReader::DataCache::next_cached(DataReader& reader) {
     just_cached_.store(false);
     LOG_FIRST_N(INFO, 1) << "Cached " << cache_buffer_.size() << " records by "
           << cached_flags_.size() << " threads";
-#ifdef DEBUG
-    {
-      std::lock_guard<std::mutex> lock(cache_mutex_);
-      std::multiset<size_t> pk;
-      for (auto &entry : cache_buffer_) {
-        pk.insert(entry->record_id());
-        if (pk.count(entry->record_id()) > 1) {
-          LOG(ERROR) << "Record " << entry->record_id() << " duplicated "
-              << entry->record_id() << " times";
-        }
-      }
-      LOG(INFO) << "Recorded " << pk.size() << " from " << *pk.begin() << " to " << *pk.rbegin();
-    }
-#endif
+//#ifdef DEBUG
+//    {
+//      std::lock_guard<std::mutex> lock(cache_mutex_);
+//      std::multiset<size_t> pk;
+//      for (auto &entry : cache_buffer_) {
+//        pk.insert(entry->record_id());
+//        if (pk.count(entry->record_id()) > 1) {
+//          LOG(ERROR) << "Record " << entry->record_id() << " duplicated "
+//              << entry->record_id() << " times";
+//        }
+//      }
+//      LOG(INFO) << "Recorded " << pk.size() << " from " << *pk.begin() << " to " << *pk.rbegin();
+//    }
+//#endif
     cache_bar_.wait();
   }
   std::lock_guard<std::mutex> lock(cache_mutex_);
@@ -169,7 +179,7 @@ shared_ptr<Datum>& DataReader::DataCache::next_cached(DataReader& reader) {
 
 void DataReader::DataCache::just_cached() {
   just_cached_.store(true);
-  cached_flags_[std::this_thread::get_id()]->set();
+  cached_flags_[lwp_id()]->set();
 }
 
 bool DataReader::DataCache::check_memory() {
@@ -230,9 +240,9 @@ bool DataReader::DataCache::check_memory() {
 #endif
 }
 
-DataReader::CursorManager::CursorManager(shared_ptr<db::DB> db, DataReader* reader,
+DataReader::CursorManager::CursorManager(db::DB* db, DataReader* reader,
     size_t solver_count, size_t solver_rank, size_t parser_threads, size_t parser_thread_id,
-    size_t batch_size, bool cache, bool shuffle)
+    size_t batch_size, bool cache, bool shuffle, bool epoch_count_required)
     : db_(db),
       cursor_(db->NewCursor()),
       reader_(reader),
@@ -247,7 +257,9 @@ DataReader::CursorManager::CursorManager(shared_ptr<db::DB> db, DataReader* read
       rec_end_(0UL),
       cache_(cache),
       shuffle_(shuffle),
-      cached_all_(false) {}
+      cached_all_(false),
+      epoch_count_(0UL),
+      epoch_count_required_(epoch_count_required) {}
 
 DataReader::CursorManager::~CursorManager() {
   cursor_.reset();
@@ -283,6 +295,10 @@ void DataReader::CursorManager::next(shared_ptr<Datum>& datum) {
   for (size_t i = old_id; i < rec_id_; ++i) {
     cursor_->Next();
     if (!cursor_->valid()) {
+      if (epoch_count_required_ && epoch_count_ == 0UL) {  // only once if required
+        epoch_count_ = rec_id_;
+        Caffe::report_epoch_count(epoch_count_);
+      }
       if (cache_) {
         cached_all_ = true;
         reader_->just_cached();

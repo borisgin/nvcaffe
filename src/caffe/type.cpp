@@ -10,10 +10,8 @@ size_t tsize(Type dtype) {
       return sizeof(float);
     case DOUBLE:
       return sizeof(double);
-#ifndef CPU_ONLY
     case FLOAT16:
       return sizeof(float16);
-#endif
     case INT:
       return sizeof(int);
     case UINT:

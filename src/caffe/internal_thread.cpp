@@ -10,7 +10,7 @@ namespace caffe {
 InternalThread::InternalThread(int target_device, size_t rank, size_t threads, bool delayed)
     : target_device_(target_device),
       rank_(rank),
-      aux_{nullptr, nullptr},
+      aux_(nullptr),
       threads_(threads),
       delay_flags_(threads, make_shared<Flag>(!delayed)) {}
 
@@ -68,24 +68,20 @@ void InternalThread::entry(int thread_id, int device, Caffe::Brew mode, uint64_t
   rank_ = rank;
   target_device_ = device;
 
-#ifndef CPU_ONLY
   if (mode == Caffe::GPU) {
     CUDA_CHECK(cudaSetDevice(device));
   }
-#endif
   Caffe::set_mode(mode);
   Caffe::set_random_seed(random_seed);
   Caffe::set_solver_count(solver_count);
 
-  DLOG(INFO) << "Started internal thread " << std::this_thread::get_id()
+  DLOG(INFO) << "Started internal thread " << lwp_id()
             << " on device " << device << ", rank " << rank_;
-#ifndef CPU_ONLY
   if (mode == Caffe::GPU && set_cpu_affinity) {
 #ifndef NO_NVML
     nvml::setCpuAffinity();
 #endif
   }
-#endif
   if (threads_.size() == 1) {
     InternalThreadEntry();
   } else {

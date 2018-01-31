@@ -70,17 +70,14 @@ class P2PManager {
   vector<unique_ptr<P2PSync>> syncs_;
   shared_ptr<SharedScores<float>> shared_;
   shared_ptr<Solver> root_solver_;
+#ifdef USE_NCCL
+  ncclUniqueId nccl_id_;
+#endif
 
   static unique_ptr<boost::barrier> dl_bar;  // DataLayer sync helper
   static unique_ptr<boost::barrier> bar;
   static unique_ptr<boost::barrier> rbar0;
   static unique_ptr<boost::barrier> rbar1;
-
-#ifndef CPU_ONLY
-#ifdef USE_NCCL
-  ncclUniqueId nccl_id_[2];
-#endif
-#endif
 };
 
 // Synchronous data parallelism using map-reduce between local GPUs.
@@ -101,31 +98,24 @@ class P2PSync : public Solver::Callback, public InternalThread {
   void saveTestResults(float loss, const vector<float>& scores) override;
   void aggregateTestResults(float* loss, vector<float>* scores) override;
 
-#ifndef CPU_ONLY
-  cublasHandle_t cublas_handle() const override {
-    return cublas_handle_->get();
+  cudaStream_t comm_stream(int type_id) {
+    return comm_stream_[type_id]->get();
   }
-#endif
 
  protected:
   void on_start(const vector<shared_ptr<Blob>>& net) override;
-#ifndef CPU_ONLY
 #ifdef USE_NCCL
-  ncclComm_t nccl_comm_[2];
-#endif
+  ncclComm_t nccl_comm_;
 #endif
   void InternalThreadEntry() override;
 
   P2PManager* mgr_;
   const int rank_;
   const size_t nranks_;
-#ifndef CPU_ONLY
-  shared_ptr<CudaStream> comm_stream_[2], stream_;
-  shared_ptr<CuBLASHandle> cublas_handle_;
-#endif
   const int initial_iter_;
   shared_ptr<Solver> solver_, root_solver_;
   SolverParameter solver_param_;
+  shared_ptr<CudaStream> comm_stream_[2];
 
   // memory shared between threads
   shared_ptr<SharedScores<float>> shared_;

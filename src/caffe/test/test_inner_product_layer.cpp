@@ -12,9 +12,7 @@
 
 namespace caffe {
 
-#ifndef CPU_ONLY
 extern cudaDeviceProp CAFFE_TEST_CUDA_PROP;
-#endif
 
 template<typename TypeParam>
 class InnerProductLayerTest : public MultiDeviceTest<TypeParam> {

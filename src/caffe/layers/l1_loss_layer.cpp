@@ -53,10 +53,6 @@ void L1LossLayer<Ftype, Btype>::Backward_cpu(const vector<Blob*>& top,
   }
 }
 
-#ifdef CPU_ONLY
-STUB_GPU(L1LossLayer);
-#endif
-
 INSTANTIATE_CLASS_FB(L1LossLayer);
 REGISTER_LAYER_CLASS(L1Loss);
 

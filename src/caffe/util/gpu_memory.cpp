@@ -1,5 +1,3 @@
-#ifndef CPU_ONLY
-
 #include <algorithm>
 #include <sstream>
 #include "caffe/common.hpp"
@@ -43,19 +41,6 @@ void GPUMemory::Init() {
   }
 }
 
-void GPUMemory::Finalize() {
-  std::lock_guard<std::mutex> lock(ws_mutex_init_);
-  const int device = Caffe::current_device();
-  if (device < workspace_.size() && workspace_[device]) {
-    workspace_[device]->release();
-    workspace_[device].reset();
-  }
-  if (device < weights_workspace_.size() && weights_workspace_[device]) {
-    weights_workspace_[device]->release();
-    weights_workspace_[device].reset();
-  }
-}
-
 // If there is a room to grow it tries
 // It keeps what it has otherwise
 bool GPUMemory::Workspace::safe_reserve(size_t size, int device) {
@@ -82,7 +67,7 @@ bool GPUMemory::Workspace::try_reserve(size_t size, int device) {
     if (device != INVALID_DEVICE) {
       device_ = device;  // switch from default to specific one
     }
-    status = mgr_.try_allocate(&ptr_, pstream_, size, device_);
+    status = mgr_.try_allocate(&ptr_, size, device_);
     if (status) {
       CHECK_NOTNULL(ptr_);
       size_ = size;
@@ -147,8 +132,7 @@ void GPUMemory::Manager::lazy_init(int device) {
   static Scope gpu_memory_scope(gpus);
 }
 
-bool GPUMemory::Manager::try_allocate(void** ptr, shared_ptr<CudaStream>& pstream,
-    size_t size, int device, int group) {
+bool GPUMemory::Manager::try_allocate(void** ptr, size_t size, int device, int group) {
   if (!initialized_) {
     lazy_init(device);
   }
@@ -158,10 +142,10 @@ bool GPUMemory::Manager::try_allocate(void** ptr, shared_ptr<CudaStream>& pstrea
   {
     // wait for "writers" like NCCL and potentially others
     shared_lock<shared_mutex> lock(GPUMemory::read_write_mutex());
-    pstream = Caffe::thread_pstream(group);
     size_t size_allocated = 0;
     // Clean Cache & Retry logic is inside now
-    status = cub_allocator_->DeviceAllocate(device, ptr, size, pstream->get(), size_allocated);
+    status = cub_allocator_->DeviceAllocate(device, ptr, size,
+        Caffe::thread_stream(group), size_allocated);
     if (status == cudaSuccess && device > INVALID_DEVICE) {
       if (size_allocated > 0) {
         if (dev_info_[device].free_ < update_thresholds_[device]) {
@@ -211,18 +195,18 @@ bool GPUMemory::Manager::try_allocate(void** ptr, shared_ptr<CudaStream>& pstrea
 
 void GPUMemory::Manager::deallocate(void* ptr, int device) {
   // allow for null pointer deallocation
-  if (!ptr || !cub_allocator_) {
+  if (ptr == nullptr || cub_allocator_ == nullptr) {
     return;
   }
+  // wait for "writers" like NCCL and potentially others...
+  shared_lock<shared_mutex> lock(GPUMemory::read_write_mutex());
   int current_device;  // Just to check CUDA status:
   cudaError_t status = cudaGetDevice(&current_device);
   // Preventing dead lock while Caffe shutting down.
   if (status != cudaErrorCudartUnloading) {
     size_t size_deallocated = 0;
-    // wait for "writers" like NCCL and potentially others...
-    shared_lock<shared_mutex> lock(GPUMemory::read_write_mutex());
-    CUDA_CHECK(cub_allocator_->DeviceFree(device, ptr, size_deallocated));
-    if (size_deallocated > 0) {
+    status = cub_allocator_->DeviceFree(device, ptr, size_deallocated);
+    if (status == cudaSuccess && size_deallocated > 0) {
       dev_info_[device].free_ += size_deallocated;
     }
   }
@@ -234,7 +218,7 @@ void GPUMemory::Manager::update_dev_info(int device) {
     dev_info_.resize(device + 1);
   }
   CUDA_CHECK(cudaSetDevice(device));
-  CUDA_CHECK(cudaFree(nullptr));  // initialize the context at start up
+//  CUDA_CHECK(cudaFree(nullptr));  // initialize the context at start up
   cudaDeviceProp props;
   CUDA_CHECK(cudaGetDeviceProperties(&props, device));
   CUDA_CHECK(cudaMemGetInfo(&dev_info_[device].free_, &dev_info_[device].total_));
@@ -274,5 +258,3 @@ void GPUMemory::Manager::GetInfo(size_t* free_mem, size_t* total_mem, bool with_
 }
 
 }  // namespace caffe
-
-#endif  // CPU_ONLY

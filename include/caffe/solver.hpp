@@ -66,15 +66,37 @@ class Solver {
   // that stores the learned net. You should implement the SnapshotSolverState()
   // function that produces a SolverState protocol buffer that needs to be
   // written to disk together with the learned net.
-  void Snapshot();
+  void Snapshot() {
+    SnapshotWithScores(vector<float>());
+  }
+  void SnapshotWithScores(const vector<float>& scores);
   virtual ~Solver();
-  const SolverParameter& param() const { return param_; }
-  shared_ptr<Net> net() { return net_; }
-  const vector<shared_ptr<Net>>& test_nets() { return test_nets_; }
-  int iter() const { return iter_; }
-  int relative_iter() const { return iter_ - iterations_restored_; }
-  float total_lapse() const { return total_lapse_; }
-  bool is_root() const { return rank_ == 0; }
+
+  const SolverParameter& param() const {
+    return param_;
+  }
+  shared_ptr<Net> net() {
+    return net_;
+  }
+  const vector<shared_ptr<Net>>& test_nets() {
+    return test_nets_;
+  }
+  int iter() const {
+    return iter_;
+  }
+  int relative_iter() const {
+    return iter_ - iterations_restored_;
+  }
+  float total_lapse() const {
+    return total_lapse_;
+  }
+  bool is_root() const {
+    return rank_ == 0;
+  }
+  int rank() const {
+    return rank_;
+  }
+
   float perf_report(std::ostream& os, int device, int align = 0) const;
 
   // Invoked at specific points during an iteration
@@ -86,10 +108,6 @@ class Solver {
     virtual void reduce_barrier(int type_id) = 0;
     virtual void saveTestResults(float loss, const vector<float>& scores) = 0;
     virtual void aggregateTestResults(float* loss, vector<float>* scores) = 0;
-
-#ifndef CPU_ONLY
-    virtual cublasHandle_t cublas_handle() const = 0;
-#endif
 
    protected:
     virtual void on_start(const vector<shared_ptr<Blob>>& net) = 0;
@@ -166,15 +184,19 @@ class Solver {
    */
   virtual const char* type() const { return ""; }
   virtual void PrintRate(float rate = 0) {}
-  virtual float ApplyUpdate(int param_id, void* handle, bool clear_grads) = 0;
+  virtual float GetLearningRate() = 0;
+  virtual void ClipGradientsAndNormalize(void* handle, int type_id,
+      const std::set<int>& param_ids) = 0;
+  virtual float ApplyUpdate(int param_id, void* handle, float rate, bool normalize,
+      bool clear_grads) = 0;
 
  protected:
-  string SnapshotFilename(const string extension);
-  string SnapshotToBinaryProto();
-  string SnapshotToHDF5();
+  string SnapshotFilename(const string& extension, const vector<float>& scores) const;
+  string SnapshotToBinaryProto(const vector<float>& scores);
+  string SnapshotToHDF5(const vector<float>& scores);
   // The test routine
-  bool TestAll(const int iters = 0, bool use_multi_gpu = false);
-  bool Test(const int test_net_id = 0, const int iters = 0, bool use_multi_gpu = false);
+  vector<float> TestAll(const int iters = 0, bool use_multi_gpu = false);
+  vector<float> Test(const int test_net_id = 0, const int iters = 0, bool use_multi_gpu = false);
   virtual void SnapshotSolverState(const string& model_filename) = 0;
   virtual void RestoreSolverStateFromHDF5(const string& state_file) = 0;
   virtual void RestoreSolverStateFromBinaryProto(const string& state_file) = 0;
@@ -223,6 +245,8 @@ class Solver {
   shared_ptr<Timer> test_timer_;
   int iterations_last_;
   int iterations_restored_;
+
+  static constexpr size_t MAX_SNAPSHOT_SCORES = 5;
 
   DISABLE_COPY_MOVE_AND_ASSIGN(Solver);
 };

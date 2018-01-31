@@ -51,10 +51,6 @@ void TileLayer<Ftype, Btype>::Backward_cpu(const vector<Blob*>& top,
   }
 }
 
-#ifdef CPU_ONLY
-STUB_GPU(TileLayer);
-#endif
-
 INSTANTIATE_CLASS_FB(TileLayer);
 REGISTER_LAYER_CLASS(Tile);
 

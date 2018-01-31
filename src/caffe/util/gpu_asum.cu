@@ -10,42 +10,52 @@ namespace caffe {
 SHMEM(asum);
 CAFFE_GPU_SHMEM(asum);
 
+#define BLOCK_REDUCE_ASUM(TNUM) \
+if (BlockSize >= (TNUM) * 2) { \
+  if (tid < (TNUM)) { \
+    tsum_replace(st, sdata[tid + (TNUM)]); \
+  } \
+  __syncthreads(); \
+}
+
+#if CUDA_VERSION >= 9000
+#define REDUCE_ASUM(TNUM) \
+if (tid + (TNUM) < thread_count) { \
+  tsum_replace(st, sdata[tid + (TNUM)]); \
+  __syncwarp(); \
+}
+#else
+#define REDUCE_ASUM(TNUM) \
+if (tid + (TNUM) < thread_count) { \
+  tsum_replace(st, sdata[tid + (TNUM)]); \
+  __syncthreads(); \
+}
+#endif
+
 ///////////////////////////////////// ASUM REDUCTION ///////////////////////////////////
 
 template<unsigned int BlockSize, typename TR>
 __device__ void asum_reduce_block(volatile TR *sdata, TR my_sum, unsigned int tid) {
+  const int thread_count = blockDim.x * blockDim.y * blockDim.z;
   volatile TR* st = sdata + tid;
-  tassign(st, my_sum);
+  *st = my_sum;
   __syncthreads();
-
   // do reduction in shared mem
-  if (BlockSize >= 512) {
-    if (tid < 256) {
-      tsum_replace(st, sdata[tid + 256]);
-    }
-    __syncthreads();
-  }
-  if (BlockSize >= 256) {
-    if (tid < 128) {
-      tsum_replace(st, sdata[tid + 128]);
-    }
-    __syncthreads();
-  }
-  if (BlockSize >= 128) {
-    if (tid < 64) {
-      tsum_replace(st, sdata[tid + 64]);
-    }
-    __syncthreads();
-  }
+  BLOCK_REDUCE_ASUM(256)
+  BLOCK_REDUCE_ASUM(128)
+  BLOCK_REDUCE_ASUM(64)
   if (tid < 32) {
-    for (int i = 32; i > 0; i >>= 1) {
-      tsum_replace(st, sdata[tid + i]);
-    }
+    REDUCE_ASUM(32)
+    REDUCE_ASUM(16)
+    REDUCE_ASUM(8)
+    REDUCE_ASUM(4)
+    REDUCE_ASUM(2)
+    REDUCE_ASUM(1)
   }
 }
 
 // Global variable used by asum_reduce_kernel to count how many blocks have finished
-__device__ unsigned int asum_blocks_count[REGRESSION_GROUPS_MAX];
+__device__ unsigned int asum_blocks_count[REDUCTION_GROUPS_MAX];
 
 void set_asum_blocks_count(unsigned int cnt, int group, cudaStream_t stream) {
   CUDA_CHECK_ARG(cudaMemcpyToSymbolAsync(asum_blocks_count, &cnt, sizeof(unsigned int),
@@ -123,8 +133,8 @@ __global__ void asum_reduce_kernel(unsigned int n, const T *in, TR *out, int gro
 
 template<typename T, typename TR>
 void gpu_asum_t(const int n, const T* x, TR* sum, int group) {
-  CHECK_LT(group, REGRESSION_GROUPS_MAX);
-  cudaStream_t stream = Caffe::thread_stream();
+  CHECK_LT(group, REDUCTION_GROUPS_MAX);
+  cudaStream_t stream = Caffe::thread_stream(group);
   const bool po2 = is_pow2(n);
   // See kernel for details
   CHECK_LE(CAFFE_CUDA_NUM_THREADS_HALF, 512);
@@ -155,7 +165,7 @@ template<>
 void caffe_gpu_asum<float16, float>(const int n, const float16* x, float* sum, int group) {
   // For odd counts we allocate extra element to speed up kernels.
   // We have to keep it clean.
-  cudaStream_t stream = Caffe::thread_stream();
+  cudaStream_t stream = Caffe::thread_stream(group);
   if (n & 1) {
     clean_last_element(const_cast<float16*>(x) + n, stream);
   }

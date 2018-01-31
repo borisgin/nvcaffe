@@ -74,11 +74,9 @@ class GradientBasedSolverTest : public MultiDeviceTest<TypeParam> {
       const bool snapshot = false, const char* from_snapshot = NULL) {
     ostringstream proto;
     int device_id = 0;
-#ifndef CPU_ONLY
     if (Caffe::mode() == Caffe::GPU) {
       CUDA_CHECK(cudaGetDevice(&device_id));
     }
-#endif
     proto <<
        "snapshot_after_train: " << snapshot << " "
        "max_iter: " << num_iters << " "
@@ -181,7 +179,7 @@ class GradientBasedSolverTest : public MultiDeviceTest<TypeParam> {
     if (momentum != 0) {
       proto << "momentum: " << momentum << " ";
     }
-    MakeTempDir(&snapshot_prefix_);
+    snapshot_prefix_ = MakeTempDir();
     proto << "snapshot_prefix: '" << snapshot_prefix_ << "/' ";
     if (snapshot) {
       proto << "snapshot: " << num_iters << " ";
@@ -475,11 +473,9 @@ class GradientBasedSolverTest : public MultiDeviceTest<TypeParam> {
     const int kNum = num_;
     // Test over all numbers of devices.
     int available_devices = 1;
-#ifndef CPU_ONLY
     if (Caffe::mode() == Caffe::GPU) {
       CUDA_CHECK(cudaGetDeviceCount(&available_devices));
     }
-#endif
     for (int devices = 1; devices <= available_devices; ++devices) {
       // Configure batch size for single / multi device equivalence.
       // Constant data is needed for multi device as for accumulation.
@@ -593,7 +589,7 @@ class SGDSolverTest : public GradientBasedSolverTest<TypeParam> {
   }
 };
 
-TYPED_TEST_CASE(SGDSolverTest, TestDtypesAndDevicesNoFP16);
+TYPED_TEST_CASE(SGDSolverTest, TestDtypesGPUOnly);
 
 TYPED_TEST(SGDSolverTest, TestLeastSquaresUpdate) {
   this->TestLeastSquaresUpdate();
@@ -725,7 +721,7 @@ class AdaGradSolverTest : public GradientBasedSolverTest<TypeParam> {
   }
 };
 
-TYPED_TEST_CASE(AdaGradSolverTest, TestDtypesAndDevices);
+TYPED_TEST_CASE(AdaGradSolverTest, TestDtypesGPUOnly);
 
 TYPED_TEST(AdaGradSolverTest, TestAdaGradLeastSquaresUpdate) {
   this->TestLeastSquaresUpdate();
@@ -820,7 +816,7 @@ class NesterovSolverTest : public GradientBasedSolverTest<TypeParam> {
   }
 };
 
-TYPED_TEST_CASE(NesterovSolverTest, TestDtypesAndDevices);
+TYPED_TEST_CASE(NesterovSolverTest, TestDtypesGPUOnly);
 
 TYPED_TEST(NesterovSolverTest, TestNesterovLeastSquaresUpdate) {
   this->TestLeastSquaresUpdate();
@@ -946,7 +942,7 @@ class AdaDeltaSolverTest : public GradientBasedSolverTest<TypeParam> {
   }
 };
 
-TYPED_TEST_CASE(AdaDeltaSolverTest, TestDtypesAndDevices);
+TYPED_TEST_CASE(AdaDeltaSolverTest, TestDtypesGPUOnly);
 
 TYPED_TEST(AdaDeltaSolverTest, TestAdaDeltaLeastSquaresUpdate) {
   const float kLearningRate = 0.1;
@@ -1071,7 +1067,7 @@ class AdamSolverTest : public GradientBasedSolverTest<TypeParam> {
   }
 };
 
-TYPED_TEST_CASE(AdamSolverTest, TestDtypesAndDevices);
+TYPED_TEST_CASE(AdamSolverTest, TestDtypesGPUOnly);
 
 TYPED_TEST(AdamSolverTest, TestAdamLeastSquaresUpdate) {
   const float kLearningRate = 0.01;
@@ -1166,7 +1162,7 @@ class RMSPropSolverTest : public GradientBasedSolverTest<TypeParam> {
   }
 };
 
-TYPED_TEST_CASE(RMSPropSolverTest, TestDtypesAndDevices);
+TYPED_TEST_CASE(RMSPropSolverTest, TestDtypesGPUOnly);
 
 TYPED_TEST(RMSPropSolverTest, TestRMSPropLeastSquaresUpdateWithWeightDecay) {
   const float kLearningRate = 1.0;

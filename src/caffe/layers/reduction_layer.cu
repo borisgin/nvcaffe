@@ -21,7 +21,7 @@ void ReductionLayer<Ftype, Btype>::Forward_gpu(
       caffe_gpu_dot(dim_, mult_data, bottom_data, top_data);
       break;
     case ReductionParameter_ReductionOp_ASUM:
-      caffe_gpu_asum(dim_, bottom_data, top_data);
+      caffe_gpu_asum(dim_, bottom_data, top_data, 0);
       break;
     case ReductionParameter_ReductionOp_SUMSQ:
       caffe_gpu_dot(dim_, bottom_data, bottom_data, top_data);

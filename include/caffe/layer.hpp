@@ -49,7 +49,6 @@ class LayerBase {
    */
   explicit LayerBase(const LayerParameter& param, int prec = 0)
       : layer_param_(param),
-        solver_rank_(0U),
         debug_(false),
         fm_by_user_(false),
         bm_by_user_(false),
@@ -139,10 +138,6 @@ class LayerBase {
   // Iteration counter maintained by Solver
   int iter() const;
   int relative_iter() const;
-
-  void set_solver_rank(size_t solver_rank) {
-    solver_rank_ = solver_rank;
-  }
 
   Net* parent_net() {
     return parent_net_;
@@ -393,7 +388,6 @@ class LayerBase {
   /** The phase: TRAIN or TEST */
   Phase phase_;
 
-  size_t solver_rank_;
   bool debug_;
   bool fm_by_user_, bm_by_user_;
   Net* parent_net_;
@@ -570,7 +564,6 @@ inline float Layer<Ftype, Btype>::Forward(const vector<Blob*>& bottom, const vec
       break;
     case Caffe::GPU:
       Forward_gpu(bottom, top);
-#ifndef CPU_ONLY
       for (int top_id = 0; top_id < top.size(); ++top_id) {
         if (this->loss(top_id) == 0.F) { continue; }
         const int count = top[top_id]->count();
@@ -585,7 +578,6 @@ inline float Layer<Ftype, Btype>::Forward(const vector<Blob*>& bottom, const vec
           loss += blob_loss;
         }
       }
-#endif
       break;
     default:
       LOG(FATAL) << "Unknown caffe mode.";

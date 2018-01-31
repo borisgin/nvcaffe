@@ -92,10 +92,6 @@ void PowerLayer<Ftype, Btype>::Backward_cpu(const vector<Blob*>& top,
   }
 }
 
-#ifdef CPU_ONLY
-STUB_GPU(PowerLayer);
-#endif
-
 INSTANTIATE_CLASS_FB(PowerLayer);
 REGISTER_LAYER_CLASS(Power);
 

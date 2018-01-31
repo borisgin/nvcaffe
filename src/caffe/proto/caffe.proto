@@ -202,7 +202,7 @@ message NetParameter {
 // NOTE
 // Update the next available ID when you add a new SolverParameter field.
 //
-// SolverParameter next available ID: 54 (last added: weight_decay_power)
+// SolverParameter next available ID: 55 (last added: test_and_snapshot_last_epochs)
 message SolverParameter {
   //////////////////////////////////////////////////////////////////////////////
   // Specifying the train and test networks
@@ -370,6 +370,8 @@ message SolverParameter {
   // * FP32 blobs are stored in 'data' container.
   // * FP64 blobs are stored in 'double_data' container.
   optional bool store_blobs_in_old_format = 45 [default = false];
+  // If set to N>0, makes Caffe to test and snapshot last N epochs
+  optional int32 test_and_snapshot_last_epochs = 54 [default = 0];
 }
 
 // A message that stores the solver snapshots
@@ -1143,6 +1145,10 @@ message ImageDataParameter {
   // Resize while reading to adjust images by short side.
   // Has priority over new_height and new_width.
   optional uint32 short_side = 13 [default = 0];
+  // Number of Data Transformer threads per GPU.
+  optional uint32 threads  = 14 [default = 4];
+  // Whether or not ImageLayer should cache all files in RAM. Cache might fail if it doesn't fit.
+  optional bool cache = 15 [default = false];
 }
 
 message InfogainLossParameter {

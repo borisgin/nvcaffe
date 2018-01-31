@@ -201,7 +201,7 @@
   #include "caffe/util/gpu_math_functions.cuh"
 #endif
 
-#if !defined(CPU_ONLY) && defined(__CUDA_ARCH__)
+#if defined(__CUDA_ARCH__)
   #define CAFFE_UTIL_HD __host__ __device__
   #define CAFFE_UTIL_IHD __inline__ __host__ __device__
 #else

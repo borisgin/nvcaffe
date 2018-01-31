@@ -13,8 +13,9 @@ base_lr:   10            # B=8K
 
 #min_lr:  0.005
 
-local_lr_auto:  true
-local_gw_ratio: 0.001
+larc: true
+larc_policy: "clip"
+larc_eta: 0.001
 
 rampup_lr: 1
 rampup_interval: 600   

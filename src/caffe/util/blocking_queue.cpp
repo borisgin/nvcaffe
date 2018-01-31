@@ -95,11 +95,8 @@ template class BlockingQueue<int>;
 template class BlockingQueue<shared_ptr<Batch>>;
 template class BlockingQueue<shared_ptr<Datum>>;
 template class BlockingQueue<P2PSync*>;
-
 template class BlockingQueue<shared_ptr<caffe::TBlob<float>>>;
 template class BlockingQueue<shared_ptr<caffe::TBlob<double>>>;
-#ifndef CPU_ONLY
 template class BlockingQueue<shared_ptr<caffe::TBlob<float16>>>;
-#endif
 
 }  // namespace caffe

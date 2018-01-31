@@ -193,8 +193,6 @@ class RandomNumberGeneratorTest : public ::testing::Test {
     EXPECT_NEAR(sample_mean, true_mean, bound);
   }
 
-#ifndef CPU_ONLY
-
   void RngGaussianFillGPU(const Dtype mu, const Dtype sigma, void* gpu_data) {
     Dtype* rng_data = static_cast<Dtype*>(gpu_data);
     caffe_gpu_rng_gaussian(sample_size_, mu, sigma, rng_data);
@@ -212,8 +210,6 @@ class RandomNumberGeneratorTest : public ::testing::Test {
     unsigned int* rng_data = static_cast<unsigned int*>(gpu_data);
     caffe_gpu_rng_uniform(sample_size_, rng_data);
   }
-
-#endif
 
   int num_above_mean;
   int num_below_mean;
@@ -420,8 +416,6 @@ TYPED_TEST(RandomNumberGeneratorTest, TestRngBernoulliTimesBernoulli) {
   EXPECT_NEAR(true_mean, sample_p, bound);
 }
 
-#ifndef CPU_ONLY
-
 TYPED_TEST(RandomNumberGeneratorTest, TestRngGaussianGPU) {
   const TypeParam mu = 0;
   const TypeParam sigma = 1;
@@ -542,7 +536,5 @@ TYPED_TEST(RandomNumberGeneratorTest, TestRngUniformTimesUniformGPU) {
   const TypeParam upper_prod = -lower_prod;
   this->RngUniformChecks(lower_prod, upper_prod, uniform_data_1);
 }
-
-#endif
 
 }  // namespace caffe

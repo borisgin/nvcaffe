@@ -240,7 +240,7 @@ void DataTransformer::TransformGPU(int N, int C, int H, int W,
 
   dim3 grid(N, C);
   dim3 block(16, 16);
-  cudaStream_t stream = Caffe::thread_stream();
+  cudaStream_t stream = Caffe::thread_stream(Caffe::GPU_TRANSF_GROUP);
 
   // TODO clean
   if (is_precise<Dtype>()) {

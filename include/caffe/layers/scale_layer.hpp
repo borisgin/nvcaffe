@@ -24,7 +24,7 @@ template <typename Ftype, typename Btype>
 class ScaleLayer: public Layer<Ftype, Btype> {
  public:
   explicit ScaleLayer(const LayerParameter& param)
-      : Layer<Ftype, Btype>(param), bias_term_(false) {}
+      : Layer<Ftype, Btype>(param), temp_(Blob::create<Ftype, Btype>()), bias_term_(false) {}
   virtual void LayerSetUp(const vector<Blob*>& bottom,
       const vector<Blob*>& top);
   virtual void Reshape(const vector<Blob*>& bottom,
@@ -72,7 +72,7 @@ class ScaleLayer: public Layer<Ftype, Btype> {
 
   TBlob<Btype> sum_multiplier_;
   TBlob<Btype> sum_result_;
-  TBlob<Ftype> temp_;
+  shared_ptr<Blob> temp_;
   int axis_;
   int outer_dim_, scale_dim_, inner_dim_;
   bool bias_term_;

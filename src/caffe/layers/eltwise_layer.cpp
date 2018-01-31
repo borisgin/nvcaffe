@@ -159,10 +159,6 @@ void EltwiseLayer<Ftype, Btype>::Backward_cpu(const vector<Blob*>& top,
   }
 }
 
-#ifdef CPU_ONLY
-STUB_GPU(EltwiseLayer);
-#endif
-
 INSTANTIATE_CLASS_FB(EltwiseLayer);
 REGISTER_LAYER_CLASS(Eltwise);
 

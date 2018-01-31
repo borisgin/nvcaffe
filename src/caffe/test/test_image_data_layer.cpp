@@ -29,7 +29,7 @@ class ImageDataLayerTest : public MultiDeviceTest<TypeParam> {
     blob_top_vec_.push_back(blob_top_label_);
     Caffe::set_random_seed(seed_);
     // Create test input file.
-    MakeTempFilename(&filename_);
+    filename_ = MakeTempFilename();
     std::ofstream outfile(filename_.c_str(), std::ofstream::out);
     LOG(INFO) << "Using temporary file " << filename_;
     for (int i = 0; i < 5; ++i) {
@@ -37,7 +37,7 @@ class ImageDataLayerTest : public MultiDeviceTest<TypeParam> {
     }
     outfile.close();
     // Create test input file for images of distinct sizes.
-    MakeTempFilename(&filename_reshape_);
+    filename_reshape_ = MakeTempFilename();
     std::ofstream reshapefile(filename_reshape_.c_str(), std::ofstream::out);
     LOG(INFO) << "Using temporary file " << filename_reshape_;
     reshapefile << EXAMPLES_SOURCE_DIR "images/cat.jpg " << 0;
@@ -65,10 +65,11 @@ TYPED_TEST(ImageDataLayerTest, TestRead) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter param;
   ImageDataParameter* image_data_param = param.mutable_image_data_param();
+  image_data_param->set_threads(1);
   image_data_param->set_batch_size(5);
   image_data_param->set_source(this->filename_.c_str());
   image_data_param->set_shuffle(false);
-  ImageDataLayer<Dtype, Dtype> layer(param);
+  ImageDataLayer<Dtype, Dtype> layer(param, 0UL);
   layer.SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
   EXPECT_EQ(5, this->blob_top_data_->num());
   EXPECT_EQ(3, this->blob_top_data_->channels());
@@ -91,12 +92,13 @@ TYPED_TEST(ImageDataLayerTest, TestResize) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter param;
   ImageDataParameter* image_data_param = param.mutable_image_data_param();
+  image_data_param->set_threads(1);
   image_data_param->set_batch_size(5);
   image_data_param->set_source(this->filename_.c_str());
   image_data_param->set_new_height(256);
   image_data_param->set_new_width(256);
   image_data_param->set_shuffle(false);
-  ImageDataLayer<Dtype, Dtype> layer(param);
+  ImageDataLayer<Dtype, Dtype> layer(param, 0UL);
   layer.SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
   EXPECT_EQ(5, this->blob_top_data_->num());
   EXPECT_EQ(3, this->blob_top_data_->channels());
@@ -119,10 +121,11 @@ TYPED_TEST(ImageDataLayerTest, TestReshape) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter param;
   ImageDataParameter* image_data_param = param.mutable_image_data_param();
+  image_data_param->set_threads(1);
   image_data_param->set_batch_size(1);
   image_data_param->set_source(this->filename_reshape_.c_str());
   image_data_param->set_shuffle(false);
-  ImageDataLayer<Dtype, Dtype> layer(param);
+  ImageDataLayer<Dtype, Dtype> layer(param, 0UL);
   layer.SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
   EXPECT_EQ(1, this->blob_top_label_->num());
   EXPECT_EQ(1, this->blob_top_label_->channels());
@@ -146,10 +149,11 @@ TYPED_TEST(ImageDataLayerTest, TestShuffle) {
   typedef typename TypeParam::Dtype Dtype;
   LayerParameter param;
   ImageDataParameter* image_data_param = param.mutable_image_data_param();
+  image_data_param->set_threads(1);
   image_data_param->set_batch_size(5);
   image_data_param->set_source(this->filename_.c_str());
   image_data_param->set_shuffle(true);
-  ImageDataLayer<Dtype, Dtype> layer(param);
+  ImageDataLayer<Dtype, Dtype> layer(param, 0UL);
   layer.SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
   EXPECT_EQ(5, this->blob_top_data_->num());
   EXPECT_EQ(3, this->blob_top_data_->channels());

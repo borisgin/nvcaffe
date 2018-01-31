@@ -35,6 +35,7 @@ class TestCoordMap(unittest.TestCase):
     @classmethod
     def setUpClass(self):
         super(TestCoordMap, self).setUpClass()
+        caffe.set_device(0)
         print('TestCoordMap.setUpClass')
 
     @classmethod

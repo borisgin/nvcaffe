@@ -44,6 +44,7 @@ class TestLayerWithParam(unittest.TestCase):
     @classmethod
     def setUpClass(self):
         super(TestLayerWithParam, self).setUpClass()
+        caffe.set_device(0)
         print('TestLayerWithParam.setUpClass')
 
     @classmethod

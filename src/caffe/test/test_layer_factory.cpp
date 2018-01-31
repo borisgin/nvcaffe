@@ -31,8 +31,7 @@ TYPED_TEST(LayerFactoryTest, TestCreateLayer) {
     // Data layers expect a DB
     if (iter->first == "Data") {
 #ifdef USE_LEVELDB
-      string tmp;
-      MakeTempDir(&tmp);
+      string tmp = MakeTempDir();
       std::unique_ptr<db::DB> db(db::GetDB(DataParameter_DB_LEVELDB));
       db->Open(tmp, db::NEW);
       db->Close();
@@ -42,7 +41,7 @@ TYPED_TEST(LayerFactoryTest, TestCreateLayer) {
 #endif  // USE_LEVELDB
     }
     layer_param.set_type(iter->first);
-    layer = LayerRegistry::CreateLayer(layer_param);
+    layer = LayerRegistry::CreateLayer(layer_param, 0UL);
     EXPECT_EQ(iter->first, layer->type());
   }
 }

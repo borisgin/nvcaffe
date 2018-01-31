@@ -15,7 +15,9 @@ power: 2.
 momentum: 0.9
 weight_decay: 0.0005
 
-local_lr_auto: true
+larc: true
+larc_policy: "clip"
+larc_eta: 0.001
 
 snapshot: 500000
 snapshot_prefix: "models/alexnet_bn/snapshots/alexnet_bn"

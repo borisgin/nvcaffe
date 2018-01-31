@@ -1,7 +1,3 @@
-if(CPU_ONLY)
-  return()
-endif()
-
 # Known NVIDIA GPU achitectures Caffe can be compiled for.
 # This list will be used for CUDA_ARCH_NAME = All option
 set(Caffe_known_gpu_archs "30 35 50 52 60 61 70")
