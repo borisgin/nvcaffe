@@ -13,7 +13,7 @@ namespace caffe {
 
 template<typename Ftype, typename Btype>
 size_t BasePrefetchingDataLayer<Ftype, Btype>::threads(const LayerParameter& param) {
-  if (param.has_image_data_param()) {
+  if (param.type().compare("ImageData") == 0 && param.has_image_data_param()) {
     return param.image_data_param().threads();
   }
 
