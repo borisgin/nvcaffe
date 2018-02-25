@@ -633,10 +633,8 @@ int main(int argc, char** argv) {
 
   vector<int> gpus;
   get_gpus(&gpus);
-  if (gpus.size() > 0) {
-    Caffe::SetDevice(gpus[0]);
-    Caffe::set_gpus(gpus);
-  }
+  Caffe::SetDevice(gpus.size() > 0 ? gpus[0] : 0);
+  Caffe::set_gpus(gpus);
 
   LOG(INFO) << "This is NVCaffe " << Caffe::caffe_version()
             << " started at " << Caffe::start_time();

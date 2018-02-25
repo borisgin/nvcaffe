@@ -437,6 +437,9 @@ class Caffe {
   static void set_gpus(const std::vector<int>& gpus) {
     std::lock_guard<std::mutex> lock(caffe_mutex_);
     gpus_ = gpus;
+    if (gpus_.empty()) {
+      gpus_.push_back(root_device_);
+    }
   }
   static const std::vector<int>& gpus() {
     return gpus_;
