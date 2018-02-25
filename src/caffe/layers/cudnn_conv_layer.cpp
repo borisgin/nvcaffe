@@ -443,9 +443,6 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
             // Also used by Test Net but based on shared space taken by Train:
             FindExConvAlgo(bottom, top);
           }
-//          else {
-//            AllocateWorkspace(bottom.size());
-//          }
           use_algo_seeker_ = false;
         }
         break;

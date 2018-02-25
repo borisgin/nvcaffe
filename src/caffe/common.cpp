@@ -525,21 +525,8 @@ std::mutex NVMLInit::m_;
 NVMLInit::NVMLInit() {
   if (nvmlInit() != NVML_SUCCESS) {
     LOG(ERROR) << "NVML failed to initialize";
-    return;
   } else {
     LOG(INFO) << "NVML initialized, thread " << lwp_id();
-  }
-  unsigned int deviceCount = 0U;
-  if (nvmlDeviceGetCount(&deviceCount) == NVML_SUCCESS) {
-    for (unsigned int id = 0; id < deviceCount; ++id) {
-      if (nvmlDeviceGetHandleByIndex(id, &device_) != NVML_SUCCESS ||
-          nvmlDeviceSetCpuAffinity(device_) != NVML_SUCCESS) {
-          LOG(ERROR) << "NVML failed to set CPU affinity on device " << id
-              << ", thread " << lwp_id();
-      }
-    }
-  } else {
-    LOG(ERROR) << "nvmlDeviceGetCount failed, thread " << lwp_id();
   }
 }
 
@@ -548,9 +535,22 @@ NVMLInit::~NVMLInit() {
 }
 
 // set the CPU affinity for this thread
-void setCpuAffinity() {
+void setCpuAffinity(int device) {
   std::lock_guard<std::mutex> lock(NVMLInit::m_);
-  static thread_local NVMLInit nvml_init_;
+  static NVMLInit nvml_init_;
+
+  char pciBusId[16];
+  CUDA_CHECK(cudaDeviceGetPCIBusId(pciBusId, 16, device));
+  nvmlDevice_t nvml_device;
+
+  if (nvmlDeviceGetHandleByPciBusId(pciBusId, &nvml_device) != NVML_SUCCESS ||
+      nvmlDeviceSetCpuAffinity(nvml_device) != NVML_SUCCESS) {
+    LOG(ERROR) << "NVML failed to set CPU affinity on device " << device
+               << ", thread " << lwp_id();
+  } else {
+    LOG(INFO) << "NVML succeeded to set CPU affinity on device " << device
+               << ", thread " << lwp_id();
+  }
 }
 
 }  // namespace nvml

@@ -96,7 +96,7 @@ void BasePrefetchingDataLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bot
   const uint64_t random_seed = (psolver == nullptr ||
       static_cast<uint64_t>(psolver->param().random_seed()) == Caffe::SEED_NOT_SET) ?
           Caffe::next_seed() : static_cast<uint64_t>(psolver->param().random_seed());
-  StartInternalThread(true, random_seed);
+  StartInternalThread(false, random_seed);
 }
 
 template<typename Ftype, typename Btype>

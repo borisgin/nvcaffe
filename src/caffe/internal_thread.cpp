@@ -79,7 +79,7 @@ void InternalThread::entry(int thread_id, int device, Caffe::Brew mode, uint64_t
             << " on device " << device << ", rank " << rank_;
   if (mode == Caffe::GPU && set_cpu_affinity) {
 #ifndef NO_NVML
-    nvml::setCpuAffinity();
+    nvml::setCpuAffinity(device);
 #endif
   }
   if (threads_.size() == 1) {

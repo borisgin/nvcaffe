@@ -418,7 +418,7 @@ void Solver::Reduce(Callback* callback, int device, Caffe::Brew mode, uint64_t r
   if (mode == Caffe::GPU) {
     CUDA_CHECK(cudaSetDevice(device));
 #ifndef NO_NVML
-    nvml::setCpuAffinity();
+    nvml::setCpuAffinity(device);
 #endif
   }
   Caffe::set_mode(mode);
