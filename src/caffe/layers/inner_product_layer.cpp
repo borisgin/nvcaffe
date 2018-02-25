@@ -37,7 +37,7 @@ InnerProductLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bottom, const v
       weight_shape[1] = K_;
     }
     // CPU filler always 32 bits
-    this->blobs_[0] = Blob::create<Ftype, Btype>(weight_shape);
+    this->blobs_[0] = Blob::create<Ftype>(weight_shape);
     shared_ptr<Filler<Ftype>> weight_filler(
         GetFiller<Ftype>(this->layer_param_.inner_product_param().weight_filler()));
 

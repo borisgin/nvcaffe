@@ -4,7 +4,7 @@
 #include "caffe/filler.hpp"
 #include "caffe/layer_factory.hpp"
 #include "caffe/layers/scale_layer.hpp"
-#include "caffe/util/math_functions.hpp"
+#include "caffe/net.hpp"
 
 namespace caffe {
 
@@ -53,7 +53,7 @@ void ScaleLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bottom,
       bias_param->set_num_axes(param.num_axes());
     }
     bias_param->mutable_filler()->CopyFrom(param.bias_filler());
-    bias_layer_ = LayerRegistry::CreateLayer(layer_param, 0UL);
+    bias_layer_ = LayerRegistry::CreateLayer(layer_param, this->parent_rank());
     bias_bottom_vec_.resize(1);
     bias_bottom_vec_[0] = bottom[0];
     bias_layer_->SetUp(bias_bottom_vec_, top);

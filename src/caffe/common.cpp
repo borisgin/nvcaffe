@@ -17,6 +17,7 @@ namespace caffe {
 // Must be set before brewing
 Caffe::Brew Caffe::mode_ = Caffe::GPU;
 int Caffe::solver_count_ = 1;
+std::vector<int> Caffe::gpus_;
 int Caffe::root_device_ = -1;
 int Caffe::thread_count_ = 0;
 int Caffe::restored_iter_ = -1;
@@ -453,23 +454,27 @@ CuDNNHandle::~CuDNNHandle() {
 }
 #endif
 
-Caffe::Properties Caffe::props_;
+Caffe::Properties& Caffe::props() {
+  static Caffe::Properties props_;
+  return props_;
+}
 
 Caffe::Properties::Properties() :
       init_time_(std::time(nullptr)),
       main_thread_id_(lwp_id()),
       caffe_version_(AS_STRING(CAFFE_VERSION)) {
-  const int count = Caffe::device_count();
+  const std::vector<int>& gpus = Caffe::gpus();
+  const int count = gpus.size();
   if (count == 0) {
     return;
   }
   compute_capabilities_.resize(count);
   cudaDeviceProp device_prop;
   for (int gpu = 0; gpu < compute_capabilities_.size(); ++gpu) {
-    CUDA_CHECK(cudaGetDeviceProperties(&device_prop, gpu));
+    CUDA_CHECK(cudaGetDeviceProperties(&device_prop, gpus[gpu]));
     compute_capabilities_[gpu] = device_prop.major * 100 + device_prop.minor;
-    DLOG(INFO) << "GPU " << gpu << " '" << device_prop.name << "' has compute capability "
-        << device_prop.major << "." << device_prop.minor;
+    DLOG(INFO) << "GPU " << gpus[gpu] << " '" << device_prop.name
+               << "' has compute capability " << device_prop.major << "." << device_prop.minor;
   }
 #ifdef USE_CUDNN
   cudnn_version_ = std::to_string(cudnnGetVersion());

@@ -819,7 +819,7 @@ class CuDNNNeuronLayerTest : public GPUDeviceTest<Dtype> {
     LayerParameter layer_param;
     // Fill in the given dropout_ratio, unless it's 0.5, in which case we don't
     // set it explicitly to test that 0.5 is the default.
-    if (dropout_ratio != 0.5) {
+    if (dropout_ratio != 0.5F) {
       layer_param.mutable_dropout_param()->set_dropout_ratio(dropout_ratio);
     }
     DropoutLayer<Dtype, Dtype> layer(layer_param);
@@ -829,7 +829,7 @@ class CuDNNNeuronLayerTest : public GPUDeviceTest<Dtype> {
     // Now, check values
     const Dtype* bottom_data = this->blob_bottom_->cpu_data();
     const Dtype* top_data = this->blob_top_->cpu_data();
-    float scale = 1. / (1. - layer_param.dropout_param().dropout_ratio());
+    float scale = 1.F / (1.F - layer_param.dropout_param().dropout_ratio());
     const int count = this->blob_bottom_->count();
     // Initialize num_kept to count the number of inputs NOT dropped out.
     int num_kept = 0;

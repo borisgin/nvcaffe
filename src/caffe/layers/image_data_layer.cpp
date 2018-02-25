@@ -206,7 +206,7 @@ void ImageDataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_
     if (cv_img.data) {
       int offset = batch->data_->offset(item_id);
 #if defined(USE_CUDNN)
-      this->dt(thread_id)->Transform(cv_img, prefetch_data + offset, buf_len, false);
+      this->bdt(thread_id)->Transform(cv_img, prefetch_data + offset, buf_len, false);
 #else
       CHECK_EQ(buf_len, tmp.size());
       this->dt(thread_id)->Transform(cv_img, prefetch_data + offset, buf_len, false);
@@ -242,16 +242,23 @@ void ImageDataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_
     // go to the next iter
     line_ids_[thread_id] += line_bucket;
     if (line_ids_[thread_id] >= lines_size) {
-      // We have reached the end. Restart from the first.
-      DLOG(INFO) << this->print_current_device() << " Restarting data prefetching from start.";
       while (line_ids_[thread_id] >= lines_size) {
         line_ids_[thread_id] -= lines_size;
       }
-      if (thread_id == 0 && this->rank_ == 0 && shuffle) {
-        LOG(INFO) << "Shuffling data";
-        ShuffleImages();
-        epoch_count_ += lines_size;
-        Caffe::report_epoch_count(epoch_count_);
+      if (thread_id == 0 && this->rank_ == 0) {
+        if (this->phase_ == TRAIN) {
+          // We have reached the end. Restart from the first.
+          LOG(INFO) << this->print_current_device() << " Restarting data prefetching ("
+                    << lines_size << ")";
+          if (epoch_count_ == 0UL) {
+            epoch_count_ += lines_size;
+            Caffe::report_epoch_count(epoch_count_);
+          }
+        }
+        if (shuffle) {
+          LOG(INFO) << "Shuffling data";
+          ShuffleImages();
+        }
       }
     }
     line_id = line_ids_[thread_id];

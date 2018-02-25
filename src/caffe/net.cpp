@@ -25,12 +25,14 @@ Net::Net(const NetParameter& param,
     size_t solver_rank,
     Flag* solver_init_flag,
     Flag* solver_iter0_flag,
-    const Net* root_net)
+    const Net* root_net,
+    bool inner_net)
     : root_net_(root_net),
       solver_(nullptr),
       solver_rank_(solver_rank),
       solver_init_flag_(solver_init_flag),
-      solver_iter0_flag_(solver_iter0_flag) {
+      solver_iter0_flag_(solver_iter0_flag),
+      inner_net_(inner_net) {
   Init(param);
 }
 
@@ -39,12 +41,14 @@ Net::Net(const string& param_file,
     size_t solver_rank,
     Flag* solver_init_flag,
     Flag* solver_iter0_flag,
-    const Net* root_net)
+    const Net* root_net,
+    bool inner_net)
     : root_net_(root_net),
       solver_(nullptr),
       solver_rank_(solver_rank),
       solver_init_flag_(solver_init_flag),
-      solver_iter0_flag_(solver_iter0_flag) {
+      solver_iter0_flag_(solver_iter0_flag),
+      inner_net_(inner_net) {
   NetParameter param;
   ReadNetParamsFromTextFileOrDie(param_file, &param);
   param.mutable_state()->set_phase(phase);
@@ -55,7 +59,7 @@ Net::~Net() {
 }
 
 void Net::Init(const NetParameter& in_param) {
-  CHECK(Caffe::root_solver() || root_net_)
+  CHECK(inner_net_ || Caffe::root_solver() || root_net_)
       << "root_net_ needs to be set for all non-root solvers";
   // Set phase from the state.
   phase_ = in_param.state().phase();
@@ -111,7 +115,7 @@ void Net::Init(const NetParameter& in_param) {
 
   for (int layer_id = 0; layer_id < param.layer_size(); ++layer_id) {
     // For non-root solvers, whether this layer is shared from root_net_.
-    bool share_from_root = !Caffe::root_solver()
+    bool share_from_root = !inner_net_ && !Caffe::root_solver()
         && root_net_->layers_[layer_id]->ShareInParallel();
 
     const LayerParameter& layer_param = param.layer(layer_id);
@@ -242,6 +246,7 @@ void Net::Init(const NetParameter& in_param) {
             << layer_param.name();
       }
     } else {
+      layers_[layer_id]->set_parent_net(this);
       layers_[layer_id]->SetUp(bottom_vecs_[layer_id], top_vecs_[layer_id]);
     }
     LOG_IF(INFO, Caffe::root_solver())
@@ -1318,7 +1323,7 @@ void Net::ShareWeights() {
       gpu_prm_memory_diff_use_ += params_[i]->gpu_memory_diff_use();
       continue;
     }
-    DLOG(INFO) << "param " << i << " has owner " << param_owners_[i];
+//    DLOG(INFO) << "param " << i << " has owner " << param_owners_[i];
     params_[i]->ShareData(*params_[param_owners_[i]]);
     params_[i]->ShareDiff(*params_[param_owners_[i]]);
     gpu_shp_memory_data_use_ += params_[i]->gpu_memory_data_use();

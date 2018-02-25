@@ -137,7 +137,7 @@ class LayerBase {
 
   // Iteration counter maintained by Solver
   int iter() const;
-  int relative_iter() const;
+  int parent_rank() const;
 
   Net* parent_net() {
     return parent_net_;
@@ -567,16 +567,11 @@ inline float Layer<Ftype, Btype>::Forward(const vector<Blob*>& bottom, const vec
       for (int top_id = 0; top_id < top.size(); ++top_id) {
         if (this->loss(top_id) == 0.F) { continue; }
         const int count = top[top_id]->count();
-        if (count < 16 && is_precise<Ftype>()) {
-          loss += caffe_cpu_dot(count, top[top_id]->cpu_data<Ftype>(),
-              top[top_id]->cpu_diff<Ftype>());
-        } else {
-          const Ftype* data = top[top_id]->gpu_data<Ftype>();
-          const Ftype* loss_weights = top[top_id]->gpu_diff<Ftype>();
-          float blob_loss = 0.F;
-          caffe_gpu_dot(count, data, loss_weights, &blob_loss);
-          loss += blob_loss;
-        }
+        const Ftype* data = top[top_id]->gpu_data<Ftype>();
+        const Ftype* loss_weights = top[top_id]->gpu_diff<Ftype>();
+        float blob_loss = 0.F;
+        caffe_gpu_dot(count, data, loss_weights, &blob_loss);
+        loss += blob_loss;
       }
       break;
     default:

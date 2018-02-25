@@ -38,7 +38,7 @@ class DataTransformTest : public ::testing::Test {
   int NumSequenceMatches(const TransformationParameter transform_param,
       Datum& datum, Phase phase) {
     // Get crop sequence with Caffe seed 1701.
-    DataTransformer transformer(transform_param, phase);
+    DataTransformer<Dtype> transformer(transform_param, phase);
     const int crop_size = transform_param.crop_size();
     Caffe::set_random_seed(seed_);
     transformer.InitRand();
@@ -85,7 +85,7 @@ TYPED_TEST(DataTransformTest, TestEmptyTransform) {
   Datum datum;
   FillDatum(label, channels, height, width, unique_pixels, &datum);
   TBlob<TypeParam> blob(1, channels, height, width);
-  DataTransformer transformer(transform_param, TEST);
+  DataTransformer<TypeParam> transformer(transform_param, TEST);
   transformer.InitRand();
   transformer.Transform(datum, &blob);
   EXPECT_EQ(blob.num(), 1);
@@ -108,7 +108,7 @@ TYPED_TEST(DataTransformTest, TestEmptyTransformUniquePixels) {
   Datum datum;
   FillDatum(label, channels, height, width, unique_pixels, &datum);
   TBlob<TypeParam> blob(1, 3, 4, 5);
-  DataTransformer transformer(transform_param, TEST);
+  DataTransformer<TypeParam> transformer(transform_param, TEST);
   transformer.InitRand();
   transformer.Transform(datum, &blob);
   EXPECT_EQ(blob.num(), 1);
@@ -132,7 +132,7 @@ TYPED_TEST(DataTransformTest, TestCropSize) {
   transform_param.set_crop_size(crop_size);
   Datum datum;
   FillDatum(label, channels, height, width, unique_pixels, &datum);
-  DataTransformer transformer(transform_param, TEST);
+  DataTransformer<TypeParam> transformer(transform_param, TEST);
   transformer.InitRand();
   TBlob<TypeParam> blob(1, channels, crop_size, crop_size);
   for (int iter = 0; iter < this->num_iter_; ++iter) {
@@ -270,7 +270,7 @@ TYPED_TEST(DataTransformTest, TestMeanValue) {
   Datum datum;
   FillDatum(label, channels, height, width, unique_pixels, &datum);
   TBlob<TypeParam> blob(1, channels, height, width);
-  DataTransformer transformer(transform_param, TEST);
+  DataTransformer<TypeParam> transformer(transform_param, TEST);
   transformer.InitRand();
   transformer.Transform(datum, &blob);
   for (int j = 0; j < blob.count(); ++j) {
@@ -292,7 +292,7 @@ TYPED_TEST(DataTransformTest, TestMeanValues) {
   Datum datum;
   FillDatum(label, channels, height, width, unique_pixels, &datum);
   TBlob<TypeParam> blob(1, channels, height, width);
-  DataTransformer transformer(transform_param, TEST);
+  DataTransformer<TypeParam> transformer(transform_param, TEST);
   transformer.InitRand();
   transformer.Transform(datum, &blob);
   for (int c = 0; c < channels; ++c) {
@@ -331,7 +331,7 @@ TYPED_TEST(DataTransformTest, TestMeanFile) {
   Datum datum;
   FillDatum(label, channels, height, width, unique_pixels, &datum);
   TBlob<TypeParam> blob(1, channels, height, width);
-  DataTransformer transformer(transform_param, TEST);
+  DataTransformer<TypeParam> transformer(transform_param, TEST);
   transformer.InitRand();
   transformer.Transform(datum, &blob);
   for (int j = 0; j < blob.count(); ++j) {
@@ -345,6 +345,27 @@ class VarSzTransformsTest : public ::testing::Test {
   VarSzTransformsTest()
     : seed_(1701) {}
 
+  void VariableSizedTransforms(DataTransformer<Dtype>& transformer, Datum* datum) {
+    const TransformationParameter& param = transformer.transform_param();
+    cv::Mat img1, img2;
+    const int color_mode = param.force_color() ? 1 : (param.force_gray() ? -1 : 0);
+    if (datum->encoded()) {
+      DecodeDatumToCVMat(*datum, color_mode, img1, false);
+    } else {
+      DatumToCVMat(*datum, img1, false);
+    }
+
+    transformer.image_random_resize(img1, img2);
+
+    if (transformer.image_random_crop_enabled()) {
+      transformer.image_random_crop(param.crop_size(), param.crop_size(), img2);
+    }
+    if (transformer.image_center_crop_enabled()) {
+      transformer.image_center_crop(param.crop_size(), param.crop_size(), img2);
+    }
+    CVMatToDatum(img2, *datum);
+  }
+
   void Run(
       TransformationParameter transform_param,
       int expected_height, int expected_width) {
@@ -356,12 +377,13 @@ class VarSzTransformsTest : public ::testing::Test {
 
     shared_ptr<Datum> datum = make_shared<Datum>();
     FillDatum(label, channels, height, width, unique_pixels, datum.get());
-    DataTransformer transformer(transform_param, TEST);
+    DataTransformer<Dtype> transformer(transform_param, TEST);
     Caffe::set_random_seed(seed_);
     transformer.InitRand();
 
     shared_ptr<Datum> transformed_datum = make_shared<Datum>(*datum);
-    transformer.VariableSizedTransforms(transformed_datum.get());
+    VariableSizedTransforms(transformer, transformed_datum.get());
+
     EXPECT_EQ(transformed_datum->channels(), 3);
     EXPECT_EQ(transformed_datum->height(), expected_height);
     EXPECT_EQ(transformed_datum->width(), expected_width);
@@ -407,7 +429,7 @@ class GPUDataTransformTest : public GPUDeviceTest<Dtype> {
   int NumSequenceMatches(const TransformationParameter transform_param,
       Datum& datum, Phase phase) {
     // Get crop sequence with Caffe seed 1701.
-    DataTransformer transformer(transform_param, phase);
+    DataTransformer<Dtype> transformer(transform_param, phase);
     const int crop_size = transform_param.crop_size();
     Caffe::set_random_seed(seed_);
     transformer.InitRand();
@@ -456,7 +478,7 @@ TYPED_TEST(GPUDataTransformTest, TestCropSize) {
   transform_param.set_use_gpu_transform(true);
   Datum datum;
   FillDatum(label, channels, height, width, unique_pixels, &datum);
-  DataTransformer transformer(transform_param, TEST);
+  DataTransformer<TypeParam> transformer(transform_param, TEST);
   transformer.InitRand();
   TBlob<TypeParam> blob(1, channels, crop_size, crop_size);
   for (int iter = 0; iter < this->num_iter_; ++iter) {
@@ -600,7 +622,7 @@ TYPED_TEST(GPUDataTransformTest, TestMeanValue) {
   Datum datum;
   FillDatum(label, channels, height, width, unique_pixels, &datum);
   TBlob<TypeParam> blob(1, channels, height, width);
-  DataTransformer transformer(transform_param, TEST);
+  DataTransformer<TypeParam> transformer(transform_param, TEST);
   transformer.InitRand();
   transformer.Transform(datum, &blob);
   for (int j = 0; j < blob.count(); ++j) {
@@ -623,7 +645,7 @@ TYPED_TEST(GPUDataTransformTest, TestMeanValues) {
   Datum datum;
   FillDatum(label, channels, height, width, unique_pixels, &datum);
   TBlob<TypeParam> blob(1, channels, height, width);
-  DataTransformer transformer(transform_param, TEST);
+  DataTransformer<TypeParam> transformer(transform_param, TEST);
   transformer.InitRand();
   transformer.Transform(datum, &blob);
   for (int c = 0; c < channels; ++c) {
@@ -662,7 +684,7 @@ TYPED_TEST(GPUDataTransformTest, TestMeanFile) {
   Datum datum;
   FillDatum(label, channels, height, width, unique_pixels, &datum);
   TBlob<TypeParam> blob(1, channels, height, width);
-  DataTransformer transformer(transform_param, TEST);
+  DataTransformer<TypeParam> transformer(transform_param, TEST);
   transformer.InitRand();
   transformer.Transform(datum, &blob);
   for (int j = 0; j < blob.count(); ++j) {

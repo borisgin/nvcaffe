@@ -257,4 +257,16 @@ void GPUMemory::Manager::GetInfo(size_t* free_mem, size_t* total_mem, bool with_
   }
 }
 
+GPUMemory::PinnedBuffer::PinnedBuffer(size_t size) {
+  CHECK_GT(size, 0);
+  shared_lock<shared_mutex> lock(GPUMemory::read_write_mutex());
+  CUDA_CHECK(cudaHostAlloc(&hptr_, size, cudaHostAllocMapped));
+  CUDA_CHECK(cudaHostGetDevicePointer(&dptr_, hptr_, 0));
+}
+
+GPUMemory::PinnedBuffer::~PinnedBuffer() {
+  shared_lock<shared_mutex> lock(GPUMemory::read_write_mutex());
+  CUDA_CHECK(cudaFreeHost(hptr_));
+}
+
 }  // namespace caffe

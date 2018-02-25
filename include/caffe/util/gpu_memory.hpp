@@ -112,6 +112,21 @@ struct GPUMemory {
     DISABLE_COPY_MOVE_AND_ASSIGN(Workspace);
   };
 
+  struct PinnedBuffer {
+    explicit PinnedBuffer(size_t size);
+    ~PinnedBuffer();
+
+    void* get() {
+      return dptr_;
+    }
+
+   private:
+    void* hptr_;
+    void* dptr_;
+
+    DISABLE_COPY_MOVE_AND_ASSIGN(PinnedBuffer);
+  };
+
  private:
   struct Manager {
     Manager();

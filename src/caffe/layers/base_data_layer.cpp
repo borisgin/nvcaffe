@@ -16,7 +16,6 @@ size_t BasePrefetchingDataLayer<Ftype, Btype>::threads(const LayerParameter& par
   if (param.type().compare("ImageData") == 0 && param.has_image_data_param()) {
     return param.image_data_param().threads();
   }
-
   // Check user's override in prototxt file
   size_t threads = param.data_param().threads();
   if (!auto_mode(param) && threads == 0U) {
@@ -67,7 +66,8 @@ BasePrefetchingDataLayer<Ftype, Btype>::BasePrefetchingDataLayer(const LayerPara
       transf_num_(threads(param)),
       queues_num_(transf_num_ * parsers_num_),
       batch_transformer_(make_shared<BatchTransformer<Ftype, Btype>>(Caffe::current_device(),
-          solver_rank, queues_num_, param.transform_param(), is_gpu_transform())) {
+          solver_rank, queues_num_, param.transform_param(), is_gpu_transform())),
+      iter0_(true) {
   CHECK_EQ(transf_num_, threads_num());
   batch_size_ = param.data_param().batch_size();
   // We begin with minimum required
@@ -87,8 +87,10 @@ void BasePrefetchingDataLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bot
   BaseDataLayer<Ftype, Btype>::LayerSetUp(bottom, top);
 
   for (int i = 0; i < transf_num_; ++i) {
-    data_transformers_.emplace_back(
-        make_shared<DataTransformer>(this->transform_param_, this->phase_));
+    bwd_data_transformers_.emplace_back(
+        make_shared<DataTransformer<Btype>>(this->transform_param_, this->phase_));
+    fwd_data_transformers_.emplace_back(
+        make_shared<DataTransformer<Ftype>>(this->transform_param_, this->phase_));
   }
   const Solver* psolver = this->parent_solver();
   const uint64_t random_seed = (psolver == nullptr ||
@@ -104,14 +106,18 @@ void BasePrefetchingDataLayer<Ftype, Btype>::InternalThreadEntry() {
 
 template<typename Ftype, typename Btype>
 void BasePrefetchingDataLayer<Ftype, Btype>::InternalThreadEntryN(size_t thread_id) {
-  static thread_local bool iter0 = this->phase_ == TRAIN;
-  if (iter0 && this->net_inititialized_flag_ != nullptr) {
-    this->net_inititialized_flag_->wait();
-  } else {  // nothing to wait -> initialize and start pumping
-    InitializePrefetch();
-    start_reading();
-    iter0 = false;
+  const bool auto_mode = this->auto_mode();
+  if (auto_mode) {
+    iter0_.wait_reset();  // sample reader first
+  } else if (this->phase_ == TRAIN) {
+    iter0_.wait();
   }
+  if (auto_mode && this->net_inititialized_flag_ != nullptr) {
+    this->net_inititialized_flag_->wait();
+  }
+  InitializePrefetch();
+  start_reading();
+
   try {
     while (!must_stop(thread_id)) {
       const size_t qid = this->queue_id(thread_id);
@@ -122,19 +128,13 @@ void BasePrefetchingDataLayer<Ftype, Btype>::InternalThreadEntryN(size_t thread_
         break;
       }
       batch_transformer_->prefetched_push_full(qid, batch);
-      if (iter0) {
+
+      if (auto_mode) {
         if (this->net_iteration0_flag_ != nullptr) {
           this->net_iteration0_flag_->wait();
         }
-        if (this->net_inititialized_flag_ != nullptr) {
-          this->net_inititialized_flag_ = nullptr;  // no wait on the second round
-          InitializePrefetch();
-          start_reading();
-        }
-        if (this->auto_mode()) {
-          break;
-        }  // manual otherwise, thus keep rolling
-        iter0 = false;
+        iter0_.set();
+        break;
       }
     }
   } catch (boost::thread_interrupted&) {
@@ -150,11 +150,18 @@ void BasePrefetchingDataLayer<Ftype, Btype>::ResizeQueues() {
       batch_ids_[i] = i;
     }
   }
-  size = this->data_transformers_.size();
+  size = this->bwd_data_transformers_.size();
   if (transf_num_ > size) {
     for (size_t i = size; i < transf_num_; ++i) {
-      this->data_transformers_.emplace_back(
-          make_shared<DataTransformer>(this->transform_param_, this->phase_));
+      this->bwd_data_transformers_.emplace_back(
+          make_shared<DataTransformer<Btype>>(this->transform_param_, this->phase_));
+    }
+  }
+  size = this->fwd_data_transformers_.size();
+  if (transf_num_ > size) {
+    for (size_t i = size; i < transf_num_; ++i) {
+      this->fwd_data_transformers_.emplace_back(
+          make_shared<DataTransformer<Ftype>>(this->transform_param_, this->phase_));
     }
   }
 }

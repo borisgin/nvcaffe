@@ -18,7 +18,7 @@ template <typename Ftype, typename Btype>
 class PoolingLayer : public Layer<Ftype, Btype> {
  public:
   explicit PoolingLayer(const LayerParameter& param)
-      : Layer<Ftype, Btype>(param) {}
+      : Layer<Ftype, Btype>(param), rand_idx_(Blob::create<Ftype>()) {}
   virtual void LayerSetUp(const vector<Blob*>& bottom,
       const vector<Blob*>& top);
   virtual void Reshape(const vector<Blob*>& bottom,
@@ -52,7 +52,7 @@ class PoolingLayer : public Layer<Ftype, Btype> {
   int pooled_height_, pooled_width_;
   bool global_pooling_;
   bool is_max_pooling_;
-  TBlob<float> rand_idx_;
+  shared_ptr<Blob> rand_idx_;
   TBlob<int> max_idx_;
 };
 

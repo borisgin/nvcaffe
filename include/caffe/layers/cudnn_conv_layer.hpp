@@ -43,11 +43,9 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
   static constexpr int ATTEMPTS_TO_RESERVE_WS = 3;
   static std::mutex m_;
 
-  static ThreadSafeMap<std::unordered_map<int, size_t>> ws_allocated_;
   static ThreadSafeMap<std::unordered_map<int, size_t>> train_mem_req_all_grps_;
   static ThreadSafeMap<std::unordered_map<int, size_t>> test_mem_req_all_grps_;
   static ThreadSafeMap<std::unordered_map<int, size_t>> train_tmp_weights_mem_;
-  static ThreadSafeMap<std::unordered_map<int, bool>> ws_released_;
 
  public:
   explicit CuDNNConvolutionLayer(const LayerParameter& param)
@@ -167,14 +165,14 @@ constexpr int CuDNNConvolutionLayer<Ftype, Btype>::ATTEMPTS_TO_RESERVE_WS;
 
 template<typename Ftype, typename Btype>
 std::mutex CuDNNConvolutionLayer<Ftype, Btype>::m_;
-template<typename Ftype, typename Btype>
-ThreadSafeMap<std::unordered_map<int, size_t>>
-CuDNNConvolutionLayer<Ftype, Btype>::ws_allocated_(
-    CuDNNConvolutionLayer<Ftype, Btype>::m_);
-template<typename Ftype, typename Btype>
-ThreadSafeMap<std::unordered_map<int, bool>>
-CuDNNConvolutionLayer<Ftype, Btype>::ws_released_(
-    CuDNNConvolutionLayer<Ftype, Btype>::m_);
+//template<typename Ftype, typename Btype>
+//ThreadSafeMap<std::unordered_map<int, size_t>>
+//CuDNNConvolutionLayer<Ftype, Btype>::ws_allocated_(
+//    CuDNNConvolutionLayer<Ftype, Btype>::m_);
+//template<typename Ftype, typename Btype>
+//ThreadSafeMap<std::unordered_map<int, bool>>
+//CuDNNConvolutionLayer<Ftype, Btype>::ws_released_(
+//    CuDNNConvolutionLayer<Ftype, Btype>::m_);
 template<typename Ftype, typename Btype>
 ThreadSafeMap<std::unordered_map<int, size_t>>
 CuDNNConvolutionLayer<Ftype, Btype>::train_mem_req_all_grps_(

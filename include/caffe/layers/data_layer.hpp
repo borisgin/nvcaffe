@@ -57,12 +57,12 @@ class DataLayer : public BasePrefetchingDataLayer<Ftype, Btype> {
     reader_->start_reading();
   }
 
-  std::shared_ptr<DataReader> sample_reader_, reader_;
-  vector<shared_ptr<GPUMemory::Workspace>> tmp_gpu_buffer_;
+  std::shared_ptr<DataReader<Datum>> sample_reader_, reader_;
+  std::vector<shared_ptr<GPUMemory::Workspace>> tmp_gpu_buffer_;
 
   // stored random numbers for this batch
-  vector<shared_ptr<TBlob<unsigned int>>> random_vectors_;
-  mutable vector<size_t> parser_offsets_, queue_ids_;
+  std::vector<shared_ptr<TBlob<unsigned int>>> random_vectors_;
+  mutable std::vector<size_t> parser_offsets_, queue_ids_;
   Flag layer_inititialized_flag_;
   std::atomic_bool sample_only_;
   const bool cache_, shuffle_;

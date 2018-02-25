@@ -20,23 +20,6 @@ namespace caffe {
     (CUDNN_CONVOLUTION_BWD_FILTER_ALGO_WINOGRAD_NONFUSED + 1)
 #endif
 
-template <typename Dtype>
-void createFilterDesc(cudnnFilterDescriptor_t* desc, int n, int c, int h, int w) {
-  CUDNN_CHECK(cudnnCreateFilterDescriptor(desc));
-  CUDNN_CHECK(cudnnSetFilter4dDescriptor(*desc, cudnn::dataType<Dtype>::type,
-      CUDNN_TENSOR_NCHW, n, c, h, w));
-}
-
-void setConvolutionDesc(Type math, cudnnConvolutionDescriptor_t conv,
-    int pad_h, int pad_w, int stride_h, int stride_w, int dilation_h, int dilation_w) {
-  int padA[2] = {pad_h, pad_w};
-  int strideA[2] = {stride_h, stride_w};
-  int upscaleA[2] = {dilation_h, dilation_w};
-  CUDNN_CHECK(cudnnSetConvolutionNdDescriptor(conv,
-      2, padA, strideA, upscaleA, CUDNN_CROSS_CORRELATION,
-      cudnn::cudnn_data_type(math)));
-}
-
 void setConvolutionDescMath(Type math, cudnnConvolutionDescriptor_t conv) {
   int padA[2];
   int strideA[2];
@@ -155,19 +138,19 @@ void CuDNNConvolutionLayer<Ftype, Btype>::LayerSetUp(
   const int kernel_w = kernel_shape_data[1];
 
   if (use_v7grouping()) {
-    createFilterDesc<Ftype>(&fwd_filter_desc_,
+    cudnn::createFilterDesc<Ftype>(&fwd_filter_desc_,
         this->num_output_, this->channels_ / groups(),
         kernel_h, kernel_w);
-    createFilterDesc<Btype>(&bwd_filter_desc_,
+    cudnn::createFilterDesc<Btype>(&bwd_filter_desc_,
         this->num_output_, this->channels_ / groups(),
         kernel_h, kernel_w);
     this->weight_offset_ = this->num_output_ *
                            (this->channels_ / groups()) * kernel_h * kernel_w;
   } else {
-    createFilterDesc<Ftype>(&fwd_filter_desc_,
+    cudnn::createFilterDesc<Ftype>(&fwd_filter_desc_,
         this->num_output_ / groups(), this->channels_ / groups(),
         kernel_h, kernel_w);
-    createFilterDesc<Btype>(&bwd_filter_desc_,
+    cudnn::createFilterDesc<Btype>(&bwd_filter_desc_,
         this->num_output_ / groups(), this->channels_ / groups(),
         kernel_h, kernel_w);
     this->weight_offset_ = (this->num_output_ / groups()) *
@@ -252,9 +235,6 @@ void CuDNNConvolutionLayer<Ftype, Btype>::LayerSetUp(
 template <typename Ftype, typename Btype>
 void CuDNNConvolutionLayer<Ftype, Btype>::AllocateFindExWorkspace() {
   const int dev = Caffe::current_device();
-  if (ws_released_[dev]) {
-    return;
-  }
   shared_ptr<GPUMemory::Workspace> ws = GPUMemory::workspace_[dev];
   size_t bytes_available, bytes_total;
   GPUMemory::GetInfo(&bytes_available, &bytes_total, true);
@@ -279,7 +259,6 @@ void CuDNNConvolutionLayer<Ftype, Btype>::AllocateFindExWorkspace() {
     LOG(INFO) << this->print_current_device() << " Retrying to allocate " << req_bytes
               << " bytes, attempts left: " << attempts;
   }
-  ws_allocated_[dev] = ws->size();
 }
 
 template <typename Ftype, typename Btype>
@@ -397,17 +376,17 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
         this->num_output_ * this->out_spatial_dim_,
         this->out_spatial_dim_, width_out, 1);
 
-    setConvolutionDesc(forward_math_, fwd_conv_descs_[i],
+    cudnn::setConvolutionDesc(forward_math_, fwd_conv_descs_[i],
         pad_h, pad_w, stride_h, stride_w, dilation_h, dilation_w);
-    setConvolutionDesc(forward_math_, fwd_cached_conv_descs_[i],
+    cudnn::setConvolutionDesc(forward_math_, fwd_cached_conv_descs_[i],
         pad_h, pad_w, stride_h, stride_w, dilation_h, dilation_w);
-    setConvolutionDesc(backward_data_math_, bwd_conv_data_descs_[i],
+    cudnn::setConvolutionDesc(backward_data_math_, bwd_conv_data_descs_[i],
         pad_h, pad_w, stride_h, stride_w, dilation_h, dilation_w);
-    setConvolutionDesc(backward_filter_math_, bwd_conv_filter_descs_[i],
+    cudnn::setConvolutionDesc(backward_filter_math_, bwd_conv_filter_descs_[i],
         pad_h, pad_w, stride_h, stride_w, dilation_h, dilation_w);
-    setConvolutionDesc(backward_data_math_, bwd_cached_conv_data_descs_[i],
+    cudnn::setConvolutionDesc(backward_data_math_, bwd_cached_conv_data_descs_[i],
         pad_h, pad_w, stride_h, stride_w, dilation_h, dilation_w);
-    setConvolutionDesc(backward_filter_math_, bwd_cached_conv_filter_descs_[i],
+    cudnn::setConvolutionDesc(backward_filter_math_, bwd_cached_conv_filter_descs_[i],
         pad_h, pad_w, stride_h, stride_w, dilation_h, dilation_w);
 
     // Set cached descriptors
@@ -461,35 +440,17 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
             // Now taking the rest for running FindEx calls
             // We'll release what's possible in BW pass
             AllocateFindExWorkspace();
+            // Also used by Test Net but based on shared space taken by Train:
+            FindExConvAlgo(bottom, top);
           }
-          // Also used by Test Net but based on shared space taken by Train:
-          FindExConvAlgo(bottom, top);
+//          else {
+//            AllocateWorkspace(bottom.size());
+//          }
           use_algo_seeker_ = false;
         }
         break;
       default:
         LOG(FATAL) << "Wrong value for cudnn_convolution_algo_seeker";
-    }
-  }
-
-  if (ok_to_release() && this->phase_ == TRAIN) {
-    const int dev = Caffe::current_device();
-    shared_ptr<GPUMemory::Workspace>& ws = GPUMemory::workspace_[dev];
-    if (!ws_released_[dev] && ws_allocated_[dev] > 0UL) {
-      // Housekeeping: release excessive amount of device memory after FindEx calls
-      size_t mem_req = align_up<7>(std::max(train_mem_req_all_grps_[dev],
-          test_mem_req_all_grps_[dev]) + PAGE_SIZE);
-      if (mem_req > 0UL && ws->size() > mem_req) {
-        // Winner needs half less - release the rest
-        LOG(INFO) << this->print_current_device()
-                  << " Layer '" << this->name() << "' reallocating workspace "
-                  << mem_fmt(ws->size()) << " to " << mem_fmt(mem_req);
-        // TRAIN only
-        ws->release();
-        ws->reserve(mem_req);
-        ws_released_[dev] = true;
-        GPUMemory::weights_workspace_[dev]->release();
-      }
     }
   }
 }
@@ -848,6 +809,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
       }
     }
     CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
+    ws->release();
     AllocateWorkspace(bottom.size());  // if user overrides
 
     size_t available_memory, total_memory;
@@ -982,8 +944,6 @@ bool CuDNNConvolutionLayer<Ftype, Btype>::IsConvDescChanged(
 
 template <typename Ftype, typename Btype>
 CuDNNConvolutionLayer<Ftype, Btype>::~CuDNNConvolutionLayer() {
-  const int dev = Caffe::current_device();
-  ws_released_[dev] = false;  // For next unit test
   // Check that handles have been setup before destroying.
   if (!handles_setup_) { return; }
 

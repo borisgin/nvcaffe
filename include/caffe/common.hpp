@@ -350,6 +350,9 @@ class Caffe {
   static curandGenerator_t curand_generator() {
     return Get().curand_generator_;
   }
+  static cudaStream_t curand_stream() {
+    return Get().curand_stream_->get();
+  }
   static shared_ptr<CuBLASHandle> short_term_cublas_phandle() {
     return make_shared<CuBLASHandle>();
   }
@@ -432,10 +435,11 @@ class Caffe {
   static void set_restored_iter(int val);
 
   static void set_gpus(const std::vector<int>& gpus) {
-    props().gpus_ = gpus;
+    std::lock_guard<std::mutex> lock(caffe_mutex_);
+    gpus_ = gpus;
   }
   static const std::vector<int>& gpus() {
-    return props().gpus_;
+    return gpus_;
   }
   static const std::string& caffe_version() {
     return props().caffe_version();
@@ -505,9 +509,10 @@ class Caffe {
 
   // Default device chosen by a user and associated with the main thread.
   // For example, if user runs `caffe train -gpu=1,0,3` then it has to be set to 1.
+  static int root_device_;
   static Brew mode_;
   static int solver_count_;
-  static int root_device_;
+  static std::vector<int> gpus_;
   static int thread_count_;
   static int restored_iter_;
   static std::atomic<uint64_t> root_seed_;
@@ -526,10 +531,14 @@ class Caffe {
 
   DISABLE_COPY_MOVE_AND_ASSIGN(Caffe);
 
+ public:
   // Caffe Properties singleton
   class Properties {
     friend class Caffe;
+
    public:
+    Properties();
+
     const std::string& caffe_version() const {
       return caffe_version_;
     }
@@ -560,7 +569,6 @@ class Caffe {
     }
 
    private:
-    std::vector<int> gpus_;
     std::time_t init_time_;
     std::uint32_t main_thread_id_;
     std::string caffe_version_;
@@ -570,15 +578,10 @@ class Caffe {
     std::string cuda_driver_version_;
     std::vector<int> compute_capabilities_;
 
-    Properties();
     DISABLE_COPY_MOVE_AND_ASSIGN(Properties);
   };
 
-  static Properties props_;
-
-  static Properties& props() {
-    return props_;
-  }
+  static Properties& props();
 };
 
 // Yet another Event implementation

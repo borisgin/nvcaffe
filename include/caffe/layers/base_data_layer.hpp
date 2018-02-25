@@ -61,8 +61,11 @@ class BasePrefetchingDataLayer : public BaseDataLayer<Ftype, Btype>, public Inte
   void Forward_cpu(const vector<Blob*>& bottom, const vector<Blob*>& top) override;
   void Forward_gpu(const vector<Blob*>& bottom, const vector<Blob*>& top) override;
 
-  DataTransformer* dt(int id) {
-    return data_transformers_.at(id).get();
+  DataTransformer<Btype>* bdt(int id) {
+    return bwd_data_transformers_.at(id).get();
+  }
+  DataTransformer<Ftype>* fdt(int id) {
+    return fwd_data_transformers_.at(id).get();
   }
 
   bool is_gpu_transform() const override {
@@ -110,18 +113,23 @@ class BasePrefetchingDataLayer : public BaseDataLayer<Ftype, Btype>, public Inte
   static bool auto_mode(const LayerParameter& param);
 
   std::vector<size_t> batch_ids_;
-  const bool auto_mode_;
+  bool auto_mode_;
   size_t parsers_num_, transf_num_, queues_num_;
 
   // These two are for delayed init only
   std::vector<Blob*> bottom_init_;
   std::vector<Blob*> top_init_;
 
-  vector<shared_ptr<DataTransformer>> data_transformers_;
+  // Use Btype as a transformer type (i.e. better float 32)
+  // since data layers don't have bottom channels
+  std::vector<shared_ptr<DataTransformer<Btype>>> bwd_data_transformers_;
+  // TransformGPU may do this in-place
+  std::vector<shared_ptr<DataTransformer<Ftype>>> fwd_data_transformers_;
 
-  boost::shared_ptr<BatchTransformer<Ftype, Btype>> batch_transformer_;
+  shared_ptr<BatchTransformer<Ftype, Btype>> batch_transformer_;
   std::vector<int> last_shape_;
   int batch_size_;
+  Flag iter0_;
 };
 
 }  // namespace caffe

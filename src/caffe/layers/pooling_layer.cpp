@@ -118,7 +118,7 @@ void PoolingLayer<Ftype, Btype>::Reshape(const vector<Blob*>& bottom,
   // If stochastic pooling, we will initialize the random index part.
   if (this->layer_param_.pooling_param().pool() ==
       PoolingParameter_PoolMethod_STOCHASTIC) {
-    rand_idx_.Reshape(bottom[0]->num(), channels_, pooled_height_,
+    rand_idx_->Reshape(bottom[0]->num(), channels_, pooled_height_,
       pooled_width_);
   }
 }

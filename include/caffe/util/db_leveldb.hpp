@@ -20,8 +20,12 @@ class LevelDBCursor : public Cursor {
   void Next() override { iter_->Next(); }
   string key() const override { return iter_->key().ToString(); }
   string value() const override { return iter_->value().ToString(); }
+
   bool parse(Datum* datum) const override {
     return datum->ParseFromArray(iter_->value().data(), iter_->value().size());
+  }
+  bool parse(AnnotatedDatum* adatum) const override {
+    return adatum->ParseFromArray(iter_->value().data(), iter_->value().size());
   }
   bool parse(C2TensorProtos* c2p) const override {
     return c2p->ParseFromArray(iter_->value().data(), iter_->value().size());

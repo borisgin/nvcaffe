@@ -5,11 +5,9 @@
 
 #include <boost/thread.hpp>
 #include "caffe/solver.hpp"
-#include "caffe/util/format.hpp"
-#include "caffe/util/gpu_memory.hpp"
 #include "caffe/util/hdf5.hpp"
-#include "caffe/util/io.hpp"
 #include "caffe/util/upgrade_proto.hpp"
+#include "caffe/util/bbox_util.hpp"
 
 namespace caffe {
 
@@ -264,9 +262,13 @@ void Solver::Step(int iters) {
     // Just started or restored?
     const bool first_loop = iter_ == 0 || iterations_last_ < 0;
     if (iter_ == 0) {
+      LOG_IF(INFO, Caffe::root_solver()) << mgpu_str << "Initial Test started...";
+      iteration_timer_->Start();
       scores = TestAll(1, use_multi_gpu_testing);
       callback_soft_barrier();
-      LOG_IF(INFO, Caffe::root_solver()) << mgpu_str << "Initial Test completed";
+      float lapse = iteration_timer_->Seconds();
+      LOG_IF(INFO, Caffe::root_solver()) << mgpu_str << "Initial Test completed in "
+                                                     << lapse << "s";
     } else if (test_and_snapshot || (param_.test_interval()
         && iter_ % param_.test_interval() == 0
         && iterations_last_ >= 0)) {
@@ -492,7 +494,12 @@ vector<float> Solver::TestAll(const int iters, bool use_multi_gpu) {
   for (int test_net_id = 0;
        test_net_id < test_nets_.size() && !requested_early_exit_;
        ++test_net_id) {
-    vector<float> scores = Test(test_net_id, iters, use_multi_gpu);
+    vector<float> scores;
+    if (param_.eval_type() == "detection") {
+      scores = TestDetection(test_net_id);
+    } else {
+      scores = Test(test_net_id, iters, use_multi_gpu);
+    }
     if (scores.size() == 0UL) {
       return scores;
     }
@@ -596,6 +603,132 @@ vector<float> Solver::Test(const int test_net_id, const int iters, bool use_mult
     if (i < MAX_SNAPSHOT_SCORES) {
       scores.push_back(mean_score);
     }
+  }
+  return scores;
+}
+
+vector<float>   Solver::TestDetection(const int test_net_id) {
+  typedef float Dtype;
+  LOG_IF(INFO, Caffe::root_solver()) << "Iteration " << iter_
+            << ", Testing net (#" << test_net_id << ")";
+  if (!test_nets_[test_net_id]->trained_layers_shared()) {
+    CHECK_NOTNULL(test_nets_[test_net_id].get())->ShareTrainedLayersWith(net_.get());
+  }
+  vector<float> scores;
+  map<int, map<int, vector<pair<float, int> > > > all_true_pos;
+  map<int, map<int, vector<pair<float, int> > > > all_false_pos;
+  map<int, map<int, int> > all_num_pos;
+  const shared_ptr<Net >& test_net = test_nets_[test_net_id];
+  Dtype loss = 0;
+  for (int i = 0; i < param_.test_iter(test_net_id); ++i) {
+    SolverAction::Enum request = GetRequestedAction();
+    // Check to see if stoppage of testing/training has been requested.
+    while (request != SolverAction::NONE) {
+        if (SolverAction::SNAPSHOT == request) {
+          Snapshot();
+        } else if (SolverAction::STOP == request) {
+          requested_early_exit_ = true;
+        }
+        request = GetRequestedAction();
+    }
+    if (requested_early_exit_) {
+      // break out of test loop.
+      break;
+    }
+
+    Dtype iter_loss;
+    const vector<Blob*>& result = test_net->Forward(&iter_loss);
+    if (param_.test_compute_loss()) {
+      loss += iter_loss;
+    }
+    for (int j = 0; j < result.size(); ++j) {
+      CHECK_EQ(result[j]->width(), 5);
+      const Dtype* result_vec = result[j]->cpu_data<Dtype>();
+      int num_det = result[j]->height();
+      for (int k = 0; k < num_det; ++k) {
+        int item_id = static_cast<int>(result_vec[k * 5]);
+        int label = static_cast<int>(result_vec[k * 5 + 1]);
+        if (item_id == -1) {
+          // Special row of storing number of positives for a label.
+          if (all_num_pos[j].find(label) == all_num_pos[j].end()) {
+            all_num_pos[j][label] = static_cast<int>(result_vec[k * 5 + 2]);
+          } else {
+            all_num_pos[j][label] += static_cast<int>(result_vec[k * 5 + 2]);
+          }
+        } else {
+          // Normal row storing detection status.
+          float score = result_vec[k * 5 + 2];
+          int tp = static_cast<int>(result_vec[k * 5 + 3]);
+          int fp = static_cast<int>(result_vec[k * 5 + 4]);
+          if (tp == 0 && fp == 0) {
+            // Ignore such case. It happens when a detection bbox is matched to
+            // a difficult gt bbox and we don't evaluate on difficult gt bbox.
+            continue;
+          }
+          if (scores.size() < MAX_SNAPSHOT_SCORES) {
+            scores.push_back(score);
+          }
+          all_true_pos[j][label].push_back(std::make_pair(score, tp));
+          all_false_pos[j][label].push_back(std::make_pair(score, fp));
+        }
+      }
+    }
+  }
+  if (requested_early_exit_) {
+    LOG(INFO) << "Test interrupted.";
+    return scores;
+  }
+  if (param_.test_compute_loss()) {
+    loss /= param_.test_iter(test_net_id);
+    LOG(INFO) << "Test loss: " << loss;
+  }
+  for (int i = 0; i < all_true_pos.size(); ++i) {
+    if (all_true_pos.find(i) == all_true_pos.end()) {
+      LOG(FATAL) << "Missing output_blob true_pos: " << i;
+    }
+    const map<int, vector<pair<float, int> > >& true_pos =
+        all_true_pos.find(i)->second;
+    if (all_false_pos.find(i) == all_false_pos.end()) {
+      LOG(FATAL) << "Missing output_blob false_pos: " << i;
+    }
+    const map<int, vector<pair<float, int> > >& false_pos =
+        all_false_pos.find(i)->second;
+    if (all_num_pos.find(i) == all_num_pos.end()) {
+      LOG(FATAL) << "Missing output_blob num_pos: " << i;
+    }
+    const map<int, int>& num_pos = all_num_pos.find(i)->second;
+    map<int, float> APs;
+    float mAP = 0.;
+    // Sort true_pos and false_pos with descend scores.
+    for (map<int, int>::const_iterator it = num_pos.begin();
+         it != num_pos.end(); ++it) {
+      int label = it->first;
+      int label_num_pos = it->second;
+      if (true_pos.find(label) == true_pos.end()) {
+        LOG(WARNING) << "Missing true_pos for label: " << label;
+        continue;
+      }
+      const vector<pair<float, int> >& label_true_pos =
+          true_pos.find(label)->second;
+      if (false_pos.find(label) == false_pos.end()) {
+        LOG(WARNING) << "Missing false_pos for label: " << label;
+        continue;
+      }
+      const vector<pair<float, int> >& label_false_pos =
+          false_pos.find(label)->second;
+      vector<float> prec, rec;
+      ComputeAP(label_true_pos, label_num_pos, label_false_pos,
+                param_.ap_version(), &prec, &rec, &(APs[label]));
+      mAP += APs[label];
+      if (param_.show_per_class_result()) {
+        LOG(INFO) << "class AP " << label << ": " << APs[label];
+      }
+    }
+    mAP /= num_pos.size();
+    const int output_blob_index = test_net->output_blob_indices()[i];
+    const string& output_name = test_net->blob_names()[output_blob_index];
+    LOG(INFO) << "Test net output mAP #" << i << ": " << output_name << " = "
+              << mAP;
   }
   return scores;
 }

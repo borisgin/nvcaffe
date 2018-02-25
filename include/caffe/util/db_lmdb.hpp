@@ -38,6 +38,9 @@ class LMDBCursor : public Cursor {
   bool parse(Datum* datum) const override {
     return datum->ParseFromArray(mdb_value_.mv_data, mdb_value_.mv_size);
   }
+  bool parse(AnnotatedDatum* adatum) const override {
+    return adatum->ParseFromArray(mdb_value_.mv_data, mdb_value_.mv_size);
+  }
   bool parse(C2TensorProtos* c2p) const override {
     return c2p->ParseFromArray(mdb_value_.mv_data, mdb_value_.mv_size);
   }

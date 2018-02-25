@@ -94,6 +94,7 @@ bool BlockingQueue<T>::nonblocking_size(size_t* size) const {
 template class BlockingQueue<int>;
 template class BlockingQueue<shared_ptr<Batch>>;
 template class BlockingQueue<shared_ptr<Datum>>;
+template class BlockingQueue<shared_ptr<AnnotatedDatum>>;
 template class BlockingQueue<P2PSync*>;
 template class BlockingQueue<shared_ptr<caffe::TBlob<float>>>;
 template class BlockingQueue<shared_ptr<caffe::TBlob<double>>>;

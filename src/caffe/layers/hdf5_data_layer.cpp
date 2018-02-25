@@ -62,10 +62,10 @@ void HDF5DataLayer<Ftype, Btype>::LoadHDF5FileData(const char* filename) {
   // Shuffle if needed.
   if (this->layer_param_.hdf5_data_param().shuffle()) {
     caffe::shuffle(data_permutation_.begin(), data_permutation_.end());
-    DLOG(INFO) << "Successully loaded " << hdf_blobs_[0]->shape(0)
+    LOG(INFO) << "Successully loaded " << hdf_blobs_[0]->shape(0)
                << " rows (shuffled)";
   } else {
-    DLOG(INFO) << "Successully loaded " << hdf_blobs_[0]->shape(0) << " rows";
+    LOG(INFO) << "Successully loaded " << hdf_blobs_[0]->shape(0) << " rows";
   }
 }
 
