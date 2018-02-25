@@ -163,6 +163,7 @@ Caffe::~Caffe() {
 }
 
 size_t Caffe::min_avail_device_memory() {
+  std::lock_guard<std::mutex> lock(caffe_mutex_);
   size_t ret = 0UL;
   const std::vector<int>& cur_gpus = gpus();
   int cur_device;
