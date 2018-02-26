@@ -317,7 +317,7 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
 #else
       vector<Btype> tmp(top_shape[1] * top_shape[2] * top_shape[3]);
       CHECK_EQ(buf_len, tmp.size());
-      vector<int> shape = this->dt(thread_id)->Transform(datum.get(), tmp.data(), buf_len,
+      vector<int> shape = this->bdt(thread_id)->Transform(datum.get(), tmp.data(), buf_len,
           packing, false);
       if (packing == NHWC) {
         hwc2chw(top_shape[1], top_shape[3], top_shape[2], tmp.data(), dst_cptr + offset);
