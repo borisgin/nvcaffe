@@ -24,14 +24,12 @@ constexpr int Net::END_OF_TRAIN;
 Net::Net(const NetParameter& param,
     size_t solver_rank,
     Flag* solver_init_flag,
-    Flag* solver_iter0_flag,
     const Net* root_net,
     bool inner_net)
     : root_net_(root_net),
       solver_(nullptr),
       solver_rank_(solver_rank),
       solver_init_flag_(solver_init_flag),
-      solver_iter0_flag_(solver_iter0_flag),
       inner_net_(inner_net) {
   Init(param);
 }
@@ -40,14 +38,12 @@ Net::Net(const string& param_file,
     Phase phase,
     size_t solver_rank,
     Flag* solver_init_flag,
-    Flag* solver_iter0_flag,
     const Net* root_net,
     bool inner_net)
     : root_net_(root_net),
       solver_(nullptr),
       solver_rank_(solver_rank),
       solver_init_flag_(solver_init_flag),
-      solver_iter0_flag_(solver_iter0_flag),
       inner_net_(inner_net) {
   NetParameter param;
   ReadNetParamsFromTextFileOrDie(param_file, &param);
@@ -227,7 +223,6 @@ void Net::Init(const NetParameter& in_param) {
     layer->bm_by_user(bm_by_user);
 
     layers_[layer_id]->set_net_initialized_flag(solver_init_flag_);
-    layers_[layer_id]->set_net_iteration0_flag(solver_iter0_flag_);
 
     Flag* layer_inititialized_flag = layers_[layer_id]->layer_inititialized_flag();
     if (layer_inititialized_flag != nullptr) {

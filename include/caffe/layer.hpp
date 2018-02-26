@@ -54,7 +54,6 @@ class LayerBase {
         bm_by_user_(false),
         parent_net_(nullptr),
         net_inititialized_flag_(nullptr),
-        net_iteration0_flag_(nullptr),
         is_shared_(false) {
     InitMutex();
   }
@@ -356,10 +355,6 @@ class LayerBase {
     net_inititialized_flag_ = init_flag;
   }
 
-  void set_net_iteration0_flag(Flag* iter0_flag) {
-    net_iteration0_flag_ = iter0_flag;
-  }
-
   /**
    * Some layers need to be initialized after first iteration
    * They should override this function and return a flag
@@ -443,9 +438,6 @@ class LayerBase {
 
   /** Gets set when Net::Init is over */
   Flag* net_inititialized_flag_;
-
-  /** Gets set when Net::Init is over */
-  Flag* net_iteration0_flag_;
 
  private:
   /** Whether this layer is actually shared by other nets*/

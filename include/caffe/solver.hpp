@@ -239,7 +239,7 @@ class Solver {
   bool requested_early_exit_;
 
   // some layers like Data have to wait for this one
-  Flag init_flag_, iter0_flag_;
+  Flag init_flag_;
 
   // Timing information
   shared_ptr<Timer> iteration_timer_;

@@ -110,8 +110,7 @@ void RecurrentLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bottom,
 
   const size_t rank = this->parent_rank();
   // Create the unrolled net.
-  unrolled_net_.reset(new Net(net_param, rank,
-                              nullptr, nullptr, nullptr, true));
+  unrolled_net_.reset(new Net(net_param, rank, nullptr, nullptr, true));
   unrolled_net_->set_debug_info(
       this->layer_param_.recurrent_param().debug_info());
 

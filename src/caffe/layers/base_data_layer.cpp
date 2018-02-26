@@ -130,9 +130,6 @@ void BasePrefetchingDataLayer<Ftype, Btype>::InternalThreadEntryN(size_t thread_
       batch_transformer_->prefetched_push_full(qid, batch);
 
       if (auto_mode) {
-        if (this->net_iteration0_flag_ != nullptr) {
-          this->net_iteration0_flag_->wait();
-        }
         iter0_.set();
         break;
       }

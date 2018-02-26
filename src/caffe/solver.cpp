@@ -95,9 +95,9 @@ void Solver::InitTrainNet() {
   net_state.MergeFrom(param_.train_state());
   net_param.mutable_state()->CopyFrom(net_state);
   if (Caffe::root_solver()) {
-    net_.reset(new Net(net_param, rank_, &init_flag_, &iter0_flag_));
+    net_.reset(new Net(net_param, rank_, &init_flag_));
   } else {
-    net_.reset(new Net(net_param, rank_, &init_flag_, &iter0_flag_,
+    net_.reset(new Net(net_param, rank_, &init_flag_,
         root_solver_->net_.get()));
   }
 }
@@ -173,9 +173,9 @@ void Solver::InitTestNets() {
     LOG(INFO)
         << "Creating test net (#" << i << ") specified by " << sources[i];
     if (Caffe::root_solver()) {
-      test_nets_[i].reset(new Net(net_params[i], rank_, &init_flag_, &iter0_flag_));
+      test_nets_[i].reset(new Net(net_params[i], rank_, &init_flag_));
     } else {
-      test_nets_[i].reset(new Net(net_params[i], rank_, &init_flag_, &iter0_flag_,
+      test_nets_[i].reset(new Net(net_params[i], rank_, &init_flag_,
           root_solver_->test_nets_[i].get()));
     }
     test_nets_[i]->set_debug_info(param_.debug_info());
@@ -195,7 +195,6 @@ void Solver::Step(int iters) {
   net_->set_solver(this);
 
   if (iters <= 0) {
-    iter0_flag_.set();
     init_flag_.set();
     return;
   }
@@ -304,7 +303,6 @@ void Solver::Step(int iters) {
       loss += net_->ForwardBackward(i + 1 == param_.iter_size());
       if (i == 0) {
         if (first_loop) {
-          iter0_flag_.set();
           net_->wait_layers_init();
         }
       }
