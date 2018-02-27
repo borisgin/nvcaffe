@@ -235,7 +235,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::LayerSetUp(
 template <typename Ftype, typename Btype>
 void CuDNNConvolutionLayer<Ftype, Btype>::AllocateFindExWorkspace() {
   const int dev = Caffe::current_device();
-  shared_ptr<GPUMemory::Workspace> ws = GPUMemory::workspace_[dev];
+  shared_ptr<GPUMemory::Workspace>& ws = GPUMemory::workspace_[dev];
   size_t bytes_available, bytes_total;
   GPUMemory::GetInfo(&bytes_available, &bytes_total, true);
   bytes_available = std::min(bytes_available + ws->size(), bytes_total / 2UL);
@@ -514,7 +514,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::FindExConvAlgo(
   cudaStream_t stream = Caffe::thread_stream(0);
 
   const int dev = Caffe::current_device();
-  shared_ptr<GPUMemory::Workspace> ws = GPUMemory::workspace_[dev];
+  shared_ptr<GPUMemory::Workspace>& ws = GPUMemory::workspace_[dev];
   const size_t gsize = ws->size() / ws_groups();
   CHECK(is_even(gsize)) << ws->size() << " / " << ws_groups() << " -> " << gsize;
 

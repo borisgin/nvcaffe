@@ -73,6 +73,7 @@ class SyncedMemory {
   bool own_gpu_data_;
   int  device_;
   bool valid_;
+  shared_ptr<CudaStream> pstream_;
 
   DISABLE_COPY_MOVE_AND_ASSIGN(SyncedMemory);
 };  // class SyncedMemory

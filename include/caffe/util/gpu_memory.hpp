@@ -28,8 +28,8 @@ struct GPUMemory {
   }
 
   template <class Any>
-  static void allocate(Any** ptr, size_t size, int device = current_device(), int group = 0) {
-    if (!try_allocate(reinterpret_cast<void**>(ptr), size, device, group)) {
+  static void allocate(Any** ptr, size_t size, int device, const shared_ptr<CudaStream>& pstream) {
+    if (!try_allocate(reinterpret_cast<void**>(ptr), size, device, pstream)) {
       LOG(FATAL) << "Failed to allocate " << size << " bytes on device " << device
           << ". " << mgr_.report_dev_info(device);
     }
@@ -39,8 +39,9 @@ struct GPUMemory {
     mgr_.deallocate(ptr, device);
   }
 
-  static bool try_allocate(void** ptr, size_t size, int device = current_device(), int group = 0) {
-    return mgr_.try_allocate(ptr, size, device, group);
+  static bool try_allocate(void** ptr, size_t size, int device,
+                           const shared_ptr<CudaStream>& pstream) {
+    return mgr_.try_allocate(ptr, size, device, pstream);
   }
 
   static shared_mutex& read_write_mutex() {
@@ -108,6 +109,7 @@ struct GPUMemory {
     void* ptr_;
     size_t size_;
     int device_;
+    shared_ptr<CudaStream> pstream_;
 
     DISABLE_COPY_MOVE_AND_ASSIGN(Workspace);
   };
@@ -134,7 +136,7 @@ struct GPUMemory {
     void lazy_init(int device);
     void GetInfo(size_t* free_mem, size_t* used_mem, bool with_update);
     void deallocate(void* ptr, int device);
-    bool try_allocate(void** ptr, size_t size, int device, int group = 0);
+    bool try_allocate(void** ptr, size_t size, int device, const shared_ptr<CudaStream>& pstream);
     void init(const std::vector<int>&, bool);
     void reset();
     std::string report_dev_info(int device);

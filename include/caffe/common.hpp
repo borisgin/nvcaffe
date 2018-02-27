@@ -353,6 +353,9 @@ class Caffe {
   static cudaStream_t curand_stream() {
     return Get().curand_stream_->get();
   }
+  static shared_ptr<CudaStream> thread_pstream(int group = 0) {
+    return Get().pstream(group);
+  }
   static shared_ptr<CuBLASHandle> short_term_cublas_phandle() {
     return make_shared<CuBLASHandle>();
   }
