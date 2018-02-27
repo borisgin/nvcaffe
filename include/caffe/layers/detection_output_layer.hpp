@@ -3,7 +3,11 @@
 
 #include "caffe/common.hpp"
 
+#if (__GNUC__ >= 5) && (BOOST_VERSION >= 105800)
+#define WRITE_JSON_SUPPORTED
 #include <boost/property_tree/json_parser.hpp>
+#endif
+
 #include <boost/property_tree/ptree.hpp>
 #include <boost/regex.hpp>
 

@@ -257,7 +257,9 @@ void DetectionOutputLayer<Ftype, Btype>::Forward_gpu(
           ptree output;
           output.add_child("detections", detections_);
           std::stringstream ss;
+#ifdef WRITE_JSON_SUPPORTED
           write_json(ss, output);
+#endif
           std::string rv = boost::regex_replace(ss.str(), exp, "$1");
           outfile << rv.substr(rv.find("["), rv.rfind("]") - rv.find("["))
               << std::endl << "]" << std::endl;
