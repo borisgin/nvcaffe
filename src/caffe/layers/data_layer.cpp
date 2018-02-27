@@ -87,7 +87,7 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
       }
     }
 
-    this->RestartAllThreads(transf_num, true, false, Caffe::next_seed());
+    this->RestartAllThreads(transf_num, true, true, Caffe::next_seed());
     this->transf_num_ = this->threads_num();
     this->parsers_num_ = parsers_num;
     this->queues_num_ = this->transf_num_ * this->parsers_num_;

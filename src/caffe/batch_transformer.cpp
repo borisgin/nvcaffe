@@ -23,7 +23,7 @@ void BatchTransformer<Ftype, Btype>::ResizeQueues(size_t queues_num) {
   if (queues_num_ > prefetches_free_.size()) {
     resize(true);
   }
-  StartInternalThread();
+  StartInternalThread(true);
 }
 
 template<typename Ftype, typename Btype>
