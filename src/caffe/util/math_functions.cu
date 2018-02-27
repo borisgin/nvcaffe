@@ -346,26 +346,28 @@ void gpu_dot_kernel(const int N, const Dtype* x, const Dtype* y, Mtype* out) {
 template<>
 void
 caffe_gpu_dot<float16, float16>(const int n, const float16* x, const float16* y, float16* out) {
-  GPUMemory::PinnedBuffer ws(sizeof(float));
-  float* res = reinterpret_cast<float*>(ws.get());
+  float fres;
+  GPUMemory::Workspace ws(sizeof(float), Caffe::current_device());
+  float* res = reinterpret_cast<float*>(ws.data());
   cudaStream_t stream = Caffe::thread_stream();
   // NOLINT_NEXT_LINE(whitespace/operators)
   gpu_dot_kernel<<<1, CAFFE_CUDA_NUM_THREADS, 0, stream>>>(n, x, y, res);
   CUDA_POST_KERNEL_CHECK;
+  CUDA_CHECK(cudaMemcpyAsync(&fres, res, ws.size(), cudaMemcpyDeviceToHost, stream));
   CUDA_CHECK(cudaStreamSynchronize(stream));
-  *out = static_cast<float16>(*res);
+  *out = static_cast<float16>(fres);
 }
 
 template<>
 void caffe_gpu_dot<float16, float>(const int n, const float16* x, const float16* y, float* out) {
-  GPUMemory::PinnedBuffer ws(sizeof(float));
-  float* res = reinterpret_cast<float*>(ws.get());
+  GPUMemory::Workspace ws(sizeof(float), Caffe::current_device());
+  float* res = reinterpret_cast<float*>(ws.data());
   cudaStream_t stream = Caffe::thread_stream();
   // NOLINT_NEXT_LINE(whitespace/operators)
   gpu_dot_kernel<<<1, CAFFE_CUDA_NUM_THREADS, 0, stream>>>(n, x, y, res);
   CUDA_POST_KERNEL_CHECK;
+  CUDA_CHECK(cudaMemcpyAsync(out, res, ws.size(), cudaMemcpyDeviceToHost, stream));
   CUDA_CHECK(cudaStreamSynchronize(stream));
-  *out = *res;
 }
 
 template<>
