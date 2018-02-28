@@ -1,7 +1,8 @@
 #include <climits>
 #include <vector>
+#if defined(USE_CUDNN)
 #include <caffe/util/cudnn.hpp>
-
+#endif
 #include "caffe/blob.hpp"
 
 namespace caffe {
