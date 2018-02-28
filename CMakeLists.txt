@@ -10,8 +10,8 @@ endif()
 project(Caffe C CXX)
 
 # ---[ Caffe version
-set(CAFFE_TARGET_VERSION "0.16.6")
-set(CAFFE_TARGET_SOVERSION "0.16")
+set(CAFFE_TARGET_VERSION "0.17.0")
+set(CAFFE_TARGET_SOVERSION "0.17")
 add_definitions(-DCAFFE_VERSION=${CAFFE_TARGET_VERSION})
 
 # Skip `typedef __half half;`
