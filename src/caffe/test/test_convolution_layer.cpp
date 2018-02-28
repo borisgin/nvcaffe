@@ -1108,7 +1108,7 @@ TYPED_TEST(CuDNNConvolutionLayerTest, TestGradientCuDNN) {
   convolution_param->mutable_weight_filler()->set_type("gaussian");
   convolution_param->mutable_bias_filler()->set_type("gaussian");
   CuDNNConvolutionLayer<TypeParam, TypeParam> layer(layer_param);
-  GradientChecker<TypeParam> checker(tol<TypeParam>(5e-2, 1e-1), tol<TypeParam>(1e-2, 5e-1));
+  GradientChecker<TypeParam> checker(tol<TypeParam>(3e-2, 1e-1), tol<TypeParam>(1e-2, 5e-1));
   checker.CheckGradientExhaustive(&layer, this->blob_bottom_vec_, this->blob_top_vec_);
 }
 
