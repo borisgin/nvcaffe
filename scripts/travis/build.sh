@@ -5,9 +5,9 @@ BASEDIR=$(dirname $0)
 source $BASEDIR/defaults.sh
 
 if ! $WITH_CMAKE ; then
-  make --jobs $NUM_THREADS all test pycaffe warn
+  make -j"$(nproc)" all test pycaffe warn
 else
   cd build
-  make --jobs $NUM_THREADS all test.testbin
+  make -j"$(nproc)" all test.testbin
 fi
 make lint

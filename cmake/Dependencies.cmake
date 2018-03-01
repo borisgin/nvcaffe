@@ -34,9 +34,6 @@ if(USE_LMDB)
   include_directories(SYSTEM ${LMDB_INCLUDE_DIR})
   list(APPEND Caffe_LINKER_LIBS ${LMDB_LIBRARIES})
   add_definitions(-DUSE_LMDB)
-  if(ALLOW_LMDB_NOLOCK)
-    add_definitions(-DALLOW_LMDB_NOLOCK)
-  endif()
 endif()
 
 # ---[ LevelDB
@@ -62,8 +59,6 @@ list(APPEND Caffe_LINKER_LIBS ${JPEGTurbo_LIBRARIES})
 include(cmake/Cuda.cmake)
 if(NOT HAVE_CUDA)
   message(SEND_ERROR "-- CUDA is not detected by cmake. Building without it...")
-  # TODO: remove this not cross platform define in future. Use caffe_config.h instead.
-  add_definitions(-DCPU_ONLY)
 endif()
 
 # ---[ OpenCV
