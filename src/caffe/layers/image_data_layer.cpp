@@ -68,6 +68,7 @@ void ImageDataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom,
     const string &source = image_data_param.source();
     LOG(INFO) << "Opening file " << source;
     std::ifstream infile(source.c_str());
+    CHECK(infile.good()) << "File " << source;
     string filename;
     int label;
     while (infile >> filename >> label) {
