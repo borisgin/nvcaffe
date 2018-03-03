@@ -2,7 +2,6 @@
 #include <device_launch_parameters.h>
 
 #include "caffe/util/half.cuh"
-//#include "caffe/common.hpp"
 #include "caffe/util/math_functions.hpp"
 #include "caffe/util/gpu_math_functions.cuh"
 #include "caffe/type.hpp"
@@ -332,6 +331,7 @@ void gpu_dot_kernel(const int N, const Dtype* x, const Dtype* y, Mtype* out) {
   Mtype cache[CAFFE_CUDA_NUM_THREADS];
   const int tidx = threadIdx.x;
   cache[tidx] = 0.;
+  __syncthreads();
   for (int i = tidx; i < N; i += blockDim.x) {
     cache[tidx] += static_cast<Mtype>(x[i]) * static_cast<Mtype>(y[i]);
   }

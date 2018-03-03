@@ -5,6 +5,9 @@
  * Author: hujie
  */
 
+#include <device_launch_parameters.h>
+#include "caffe/util/half.cuh"
+#include "caffe/util/gpu_math_functions.cuh"
 #include "caffe/layers/axpy_layer.hpp"
 
 namespace caffe {
@@ -27,14 +30,17 @@ void AxpyLayer<Ftype, Btype>::Forward_gpu(
   const Ftype* y_data = bottom[2]->gpu_data<Ftype>();
   Ftype* out_data = top[0]->mutable_gpu_data<Ftype>();
   const int count = bottom[1]->count();
-  AxpyForward<Ftype><<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS>>>(
-      count, bottom[1]->count(2), scale_data, x_data, y_data, out_data);  
+  cudaStream_t stream = Caffe::thread_stream();
+  AxpyForward<Ftype><<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS, 0, stream>>>(
+      count, bottom[1]->count(2), scale_data, x_data, y_data, out_data);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
 template <typename Dtype>
 __global__ void AxpyBackwardScale(const int outer_num, const int spatial_dim, 
     const Dtype* x_data, const Dtype* top_diff, Dtype* scale_diff) {
-  __shared__ Dtype buffer[CAFFE_CUDA_NUM_THREADS];
+  __shared__ char axpy_buffer[CAFFE_CUDA_NUM_THREADS * sizeof(Dtype)];
+  Dtype* buffer = reinterpret_cast<Dtype*>(axpy_buffer);
   unsigned int tid = threadIdx.x;
   buffer[tid] = 0;
   __syncthreads();
@@ -71,22 +77,27 @@ void AxpyLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
   const int count = top[0]->count();
   const Btype* top_diff = top[0]->gpu_diff<Btype>();
   if (propagate_down[0]) {
+    cudaStream_t stream = Caffe::thread_stream();
     int outer_num = bottom[1]->count(0, 2);
-    AxpyBackwardScale<Btype><<<outer_num, CAFFE_CUDA_NUM_THREADS>>>(
+    AxpyBackwardScale<<<outer_num, CAFFE_CUDA_NUM_THREADS, 0, stream>>>(
         outer_num, bottom[1]->count(2),
         bottom[1]->gpu_data<Btype>(), top_diff,
         bottom[0]->mutable_gpu_diff<Btype>());
+    CUDA_POST_KERNEL_CHECK;
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
   if (propagate_down[1]) {
-    AxpyBackwardX<Btype><<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS>>>(
+    cudaStream_t stream = Caffe::thread_stream();
+    AxpyBackwardX<<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS, 0, stream>>>(
         count, top[0]->count(2), 
         bottom[0]->gpu_data<Btype>(), top_diff,
         bottom[1]->mutable_gpu_diff<Btype>());
+    CUDA_POST_KERNEL_CHECK;
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
   if (propagate_down[2]) {
     caffe_copy(count, top_diff, bottom[2]->mutable_gpu_diff<Btype>());
   }
-  CUDA_POST_KERNEL_CHECK;
 }
 
 INSTANTIATE_LAYER_GPU_FUNCS_FB(AxpyLayer);
