@@ -160,14 +160,17 @@ void P2PSync::on_start(const vector<shared_ptr<Blob>>& net) {
   CHECK_EQ(count, nranks_);
   for (int i = 0; i < net.size(); ++i) {
     Blob* param = net[i].get();
+    const Type param_type = param->data_type();
+    const int type_id = solver_->net()->learnable_types()[0] == param_type ? 0 : 1;
+    reduce_barrier(type_id);
     NCCL_CHECK(ncclBcast(param->current_mutable_data_memory(true),
         even(param->count()),
-        nccl::nccl_type(param->data_type()),
+        nccl::nccl_type(param_type),
         0,
         nccl_comm_,
-        comm_stream(0)));
-    CUDA_CHECK(cudaStreamSynchronize(comm_stream(0)));
-    reduce_barrier(0);
+        comm_stream(type_id)));
+    CUDA_CHECK(cudaStreamSynchronize(comm_stream(type_id)));
+    reduce_barrier(type_id);
   }
 #endif  // USE_NCCL
 }

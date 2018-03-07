@@ -15,6 +15,33 @@ def  addHeader(model, name):
 
 #------------------------------------------------------------------------------
 
+def addSigmoid(model, name, bottom):
+    layer = '''
+layer {{
+    name: "{name}"
+    type: "Sigmoid"
+    bottom: "{bottom}"
+    top: "{top}"
+}}'''.format(name=name, bottom=bottom, top=bottom)
+    model += layer
+    return model, bottom
+
+
+def addAxpy(model, name, bottom_1, bottom_2, bottom_3):
+    layer = '''
+layer {{
+  name: "{name}"
+  type: "Axpy"
+  bottom: "{bottom_1}"
+  bottom: "{bottom_2}"
+  bottom: "{bottom_3}"
+  top: "{top}"
+}}'''.format(name=name, bottom_1=bottom_1, bottom_2=bottom_2, bottom_3=bottom_3, top=name)
+    top = name
+    model += layer
+    return model, top
+
+
 def addData(model, train_batch=32, test_batch=32,
                  train_file="examples/imagenet/ilsvrc12_train_lmdb",
                  test_file = "examples/imagenet/ilsvrc12_val_lmdb",
@@ -337,7 +364,7 @@ def addConvBnSelu(model, name, bottom, num_output,
 
 #---------------------------------------------------------------------------------
 
-def addPool(model, name, bottom, kernel_size, stride, pool_type, pad=0):
+def addPool(model, name, bottom, kernel_size, stride, pool_type, pad=0, global_pooling=False):
 
     layer = '''
 layer {{
@@ -346,15 +373,20 @@ layer {{
   bottom: "{bottom}"
   top: "{top}"
   pooling_param {{
-    pool: {pool_type}
-    kernel_size: {kernel_size}\n'''.format(name=name, top=name, bottom=bottom,
-                               pool_type=pool_type, kernel_size=kernel_size)
+    pool: {pool_type}'''.format(name=name, top=name, bottom=bottom,
+                                pool_type=pool_type)
+
+    if (kernel_size > 0):
+        layer += '''    kernel_size: {kernel_size}\n'''.format(kernel_size=kernel_size)
 
     if (stride>1):
         layer += '''    stride: {}\n'''.format(stride)
 
     if (pad>0):
         layer += '''    pad: {}\n'''.format(pad)
+
+    if (global_pooling):
+        layer += '''    global_pooling: true\n'''
 
     layer+='''  }\n}'''
     model += layer

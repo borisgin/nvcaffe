@@ -206,6 +206,9 @@ void Solver::Step(int iters) {
       net_->InitializeLearnableDiffSpace(type_id);
     }
   }
+  for (auto b : net_->learnable_params_mapped()) {
+    b->current_mutable_data_memory(true);
+  }
 
   if (solver_count > 1) {
     // we need to sync all threads before starting, otherwise some cuda init,
