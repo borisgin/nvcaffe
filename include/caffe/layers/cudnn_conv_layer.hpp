@@ -42,11 +42,10 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
   static constexpr int REQUEST_ALGO_COUNT = 1;
   static constexpr int ATTEMPTS_TO_RESERVE_WS = 3;
   static constexpr int REALLOC_COUNT = 3;
-  static std::mutex m_;
 
-  static ThreadSafeMap<std::unordered_map<int, size_t>> train_mem_req_all_grps_;
-  static ThreadSafeMap<std::unordered_map<int, size_t>> test_mem_req_all_grps_;
-  static ThreadSafeMap<std::unordered_map<int, size_t>> train_tmp_weights_mem_;
+  static std::atomic<size_t> train_mem_req_all_grps_;
+  static std::atomic<size_t> test_mem_req_all_grps_;
+  static std::atomic<size_t> train_tmp_weights_mem_;
 
  public:
   explicit CuDNNConvolutionLayer(const LayerParameter& param)
@@ -167,27 +166,11 @@ template<typename Ftype, typename Btype>
 constexpr int CuDNNConvolutionLayer<Ftype, Btype>::REALLOC_COUNT;
 
 template<typename Ftype, typename Btype>
-std::mutex CuDNNConvolutionLayer<Ftype, Btype>::m_;
-//template<typename Ftype, typename Btype>
-//ThreadSafeMap<std::unordered_map<int, size_t>>
-//CuDNNConvolutionLayer<Ftype, Btype>::ws_allocated_(
-//    CuDNNConvolutionLayer<Ftype, Btype>::m_);
-//template<typename Ftype, typename Btype>
-//ThreadSafeMap<std::unordered_map<int, bool>>
-//CuDNNConvolutionLayer<Ftype, Btype>::ws_released_(
-//    CuDNNConvolutionLayer<Ftype, Btype>::m_);
+std::atomic<size_t> CuDNNConvolutionLayer<Ftype, Btype>::train_mem_req_all_grps_;
 template<typename Ftype, typename Btype>
-ThreadSafeMap<std::unordered_map<int, size_t>>
-CuDNNConvolutionLayer<Ftype, Btype>::train_mem_req_all_grps_(
-    CuDNNConvolutionLayer<Ftype, Btype>::m_);
+std::atomic<size_t> CuDNNConvolutionLayer<Ftype, Btype>::test_mem_req_all_grps_;
 template<typename Ftype, typename Btype>
-ThreadSafeMap<std::unordered_map<int, size_t>>
-CuDNNConvolutionLayer<Ftype, Btype>::test_mem_req_all_grps_(
-    CuDNNConvolutionLayer<Ftype, Btype>::m_);
-template<typename Ftype, typename Btype>
-ThreadSafeMap<std::unordered_map<int, size_t>>
-CuDNNConvolutionLayer<Ftype, Btype>::train_tmp_weights_mem_(
-    CuDNNConvolutionLayer<Ftype, Btype>::m_);
+std::atomic<size_t> CuDNNConvolutionLayer<Ftype, Btype>::train_tmp_weights_mem_;
 
 #endif
 
