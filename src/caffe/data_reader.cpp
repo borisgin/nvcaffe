@@ -60,7 +60,7 @@ DataReader<DatumType>::DataReader(const LayerParameter& param,
   for (size_t i = 0; i < queues_num_; ++i) {
     full_[i] = make_shared<BlockingQueue<shared_ptr<DatumType>>>();
     free_[i] = make_shared<BlockingQueue<shared_ptr<DatumType>>>();
-    for (size_t j = 0; j < queue_depth_ - 1U; ++j) {  // +1 in InternalThreadEntryN
+    for (size_t j = 0; j < queue_depth_; ++j) {
       free_[i]->push(make_shared<DatumType>());
     }
   }
