@@ -82,7 +82,7 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
     } else {
       // in this mode memory demand is O(1)
       if (batches_fit > 0) {
-        parsers_num = cache_ ? 1 : 2;
+        parsers_num = cache_ ? 1 : 3;
         transf_num = 4;
       }
     }
