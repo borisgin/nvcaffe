@@ -148,6 +148,14 @@ bool GPUMemory::Manager::try_allocate(void** ptr, size_t size, int device,
     // Clean Cache & Retry logic is inside now
     status = cub_allocator_->DeviceAllocate(device, ptr, size, pstream->get(), size_allocated);
     if (status == cudaSuccess && device > INVALID_DEVICE) {
+//      if (device == 0) {
+//        DevInfo dev_info;
+//        CUDA_CHECK(cudaMemGetInfo(&dev_info.free_, &dev_info.total_));
+//        size_t allocated = dev_info.total_ - dev_info.free_;
+//        size_t pcent = 100UL* allocated / dev_info.total_;
+//        std::string bar(pcent, '*');
+//        std::cout << bar << " " << pcent << "%" << std::endl;
+//      }
       if (size_allocated > 0) {
         if (dev_info_[device].free_ < update_thresholds_[device]) {
           update_dev_info(device);

@@ -281,7 +281,7 @@ class Net {
   }
 
   bool global_grad_scale_enabled() const {
-    return global_grad_scale_param_ > 1.F;
+    return has_global_grad_scale_param_ && global_grad_scale_param_ > 0.F;
   }
 
   void update_grad_scale();
@@ -432,7 +432,7 @@ class Net {
   size_t infer_count_;
   std::atomic_llong wgrad_sq_;
   float global_grad_scale_coeff_, global_grad_scale_param_;
-  bool global_grad_scale_adaptive_;
+  bool has_global_grad_scale_param_, global_grad_scale_adaptive_;
   /// Inner net runs on singe GPU (see recurrent layers)
   const bool inner_net_;
 

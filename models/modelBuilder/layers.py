@@ -584,7 +584,7 @@ layer {{
   bottom: "{bottom_2}"
   top: "{top}"
   accuracy_param {{ top_k: {k} }}
-#  include {{ phase: TEST }}
+  include {{ phase: TEST }}
 }}'''.format(name=name, top=name, bottom_1=bottom_1, bottom_2=bottom_2, k=k)
     model += layer
     return model, name

@@ -122,9 +122,7 @@ class DataReader : public InternalThread {
   }
 
   void free_push(size_t queue_id, const shared_ptr<DatumType>& datum) {
-    if (!sample_only_) {
-      free_[queue_id]->push(datum);
-    }
+    free_[queue_id]->push(datum);
   }
 
   shared_ptr<DatumType> free_pop(size_t queue_id) {

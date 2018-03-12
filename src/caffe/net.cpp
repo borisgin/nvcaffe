@@ -106,6 +106,7 @@ void Net::Init(const NetParameter& in_param) {
 
   wgrad_sq_.store(0LL);
   global_grad_scale_coeff_ = 1.F;
+  has_global_grad_scale_param_ = in_param.has_global_grad_scale(); 
   global_grad_scale_param_ = in_param.global_grad_scale();
   global_grad_scale_adaptive_ = in_param.global_grad_scale_adaptive();
 

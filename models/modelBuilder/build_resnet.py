@@ -181,5 +181,14 @@ def main():
     fp = open("resnet_152.prototxt", 'w')
     fp.write(model)
 
+    netConfig = numpy.matrix([
+        [ 64, 3, 1, 0],
+        [128, 8, 1, 1],
+        [256, 52, 1, 1],
+        [512, 3, 1, 1]])
+    model = buildResidualModel(netConfig, name="Resnet200", net_type="large")
+    fp = open("resnet_200.prototxt", 'w')
+    fp.write(model)
+
 if __name__ == '__main__':
     main()
