@@ -89,7 +89,8 @@ void DetectionOutputLayer<Ftype, Btype>::Forward_gpu(
 //                SortScorePairDescend<pair<int, int> >);
 //      score_index_pairs.resize(keep_top_k_);
       std::partial_sort(
-          score_index_pairs.begin(), score_index_pairs.begin() + keep_top_k_,
+          score_index_pairs.begin(), score_index_pairs.begin() +
+              std::min(score_index_pairs.size(), (size_t)keep_top_k_),
           score_index_pairs.end(), SortScorePairDescend<pair<int, int>>);
       // Store the new indices.
       map<int, vector<int> > new_indices;

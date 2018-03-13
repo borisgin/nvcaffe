@@ -21,7 +21,7 @@ void NormalizeLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bottom,
   } else {
     norm_.Reshape(bottom[0]->num(), 1, bottom[0]->height(), bottom[0]->width());
   }
-  eps_ = norm_param.eps();
+  eps_ = std::max((Dtype)norm_param.eps(), min_dtype<Dtype>());
   int channels = bottom[0]->channels();
   int spatial_dim = bottom[0]->width() * bottom[0]->height();
   sum_channel_multiplier_.Reshape(1, channels, 1, 1);

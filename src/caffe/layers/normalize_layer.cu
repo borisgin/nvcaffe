@@ -67,6 +67,7 @@ void NormalizeLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom,
   int dim = bottom[0]->count() / num;
   int spatial_dim = bottom[0]->height() * bottom[0]->width();
   int channels = bottom[0]->channels();
+  cudaStream_t stream = Caffe::thread_stream();
   for (int n = 0; n < num; ++n) {
     caffe_gpu_powx<Dtype>(dim, bottom_data, Dtype(2), buffer_data);
     if (across_spatial_) {
@@ -84,10 +85,11 @@ void NormalizeLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom,
       caffe_gpu_powx<Dtype>(spatial_dim, norm_data, Dtype(0.5), norm_data);
       // scale the layer
       // NOLINT_NEXT_LINE(whitespace/operators)
-      DivBsx<Dtype> <<<CAFFE_GET_BLOCKS(dim), CAFFE_CUDA_NUM_THREADS>>>(
+      DivBsx<<<CAFFE_GET_BLOCKS(dim), CAFFE_CUDA_NUM_THREADS, 0, stream>>>(
           dim, bottom_data, norm_data, channels, spatial_dim, CblasNoTrans,
           top_data);
       CUDA_POST_KERNEL_CHECK;
+      CUDA_CHECK(cudaStreamSynchronize(stream));
       norm_data += spatial_dim;
     }
     // scale the output
@@ -95,10 +97,11 @@ void NormalizeLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom,
       caffe_gpu_scal<Dtype>(dim, scale[0], top_data);
     } else {
       // NOLINT_NEXT_LINE(whitespace/operators)
-      MulBsx<Dtype> <<<CAFFE_GET_BLOCKS(dim), CAFFE_CUDA_NUM_THREADS>>>(
+      MulBsx<<<CAFFE_GET_BLOCKS(dim), CAFFE_CUDA_NUM_THREADS, 0, stream>>>(
           dim, top_data, scale, channels, spatial_dim, CblasTrans,
           top_data);
       CUDA_POST_KERNEL_CHECK;
+      CUDA_CHECK(cudaStreamSynchronize(stream));
     }
     bottom_data += dim;
     top_data += dim;

@@ -81,6 +81,7 @@ void set_mode_cpu() {
 }
 
 void set_mode_gpu() {
+  PyGILRelease gil;
   Caffe::set_mode(Caffe::GPU);
   vector<int> gpus(1, 0);
   initialize_gpu_memory_scope(gpus);
@@ -143,6 +144,7 @@ void CheckContiguousArray(PyArrayObject* arr, string name,
 
 // Net constructor for passing phase as int
 shared_ptr<Net> Net_Init(string param_file, int phase) {
+  PyGILRelease gil;
   CheckFile(param_file);
   shared_ptr<Net> net(new Net(param_file, static_cast<Phase>(phase)));
   return net;
