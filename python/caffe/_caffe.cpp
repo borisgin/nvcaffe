@@ -150,6 +150,7 @@ shared_ptr<Net> Net_Init(string param_file, int phase) {
 
 // Net construct-and-load convenience constructor
 shared_ptr<Net> Net_Init_Load(string param_file, string pretrained_param_file, int phase) {
+  PyGILRelease gil;
   CheckFile(param_file);
   CheckFile(pretrained_param_file);
   shared_ptr<Net> net(new Net(param_file, static_cast<Phase>(phase)));

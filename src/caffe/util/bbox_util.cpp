@@ -1816,7 +1816,8 @@ void GetMaxScoreIndex(const Dtype* scores, const int num, const float threshold,
 
   // Sort the score pair according to the scores in descending order
   std::partial_sort(
-      score_index_vec->begin(), score_index_vec->begin() + top_k,
+      score_index_vec->begin(), score_index_vec->begin() +
+          std::min(score_index_vec->size(), (size_t)top_k),
       score_index_vec->end(), SortScorePairDescend<int>);
 
   // Keep top_k scores if needed.

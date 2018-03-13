@@ -656,7 +656,7 @@ int main(int argc, char** argv) {
 #endif
       return GetBrewFunction(caffe::string(argv[1]))();
 #ifdef WITH_PYTHON_LAYER
-    } catch (bp::error_already_set) {
+    } catch (bp::error_already_set&) {
       PyErr_Print();
       return 1;
     }
