@@ -671,10 +671,28 @@ float Net::ForwardFromTo(int start, int end) {
   CHECK_LT(end, layers_.size());
   float loss = 0;
   for (int i = start; i <= end; ++i) {
+
     // LOG(INFO) << " ****** [Forward] (" << i << ") Layer '" << layer_names_[i];
     // << "' FT " << Type_Name(layers_[i]->forward_type())
     // << " BT " << Type_Name(layers_[i]->backward_type());
+
+    std::cout << " ****** [Forward] (" << i << ") Layer " << layer_names_[i] << std::endl;
+
+    for (int j = 0; bottom_vecs_[i].size() > 0 &&
+        j < std::min(10, bottom_vecs_[i][0]->count()); ++j) {
+      std::cout << float(bottom_vecs_[i][0]->cpu_data<float16>()[j]) << " ";
+    }
+    std::cout << std::endl;
+
     float layer_loss = layers_[i]->Forward(bottom_vecs_[i], top_vecs_[i]);
+
+    for (int j = 0; top_vecs_[i].size() > 0 &&
+        j < std::min(10, top_vecs_[i][0]->count()); ++j) {
+      std::cout << float(top_vecs_[i][0]->cpu_data<float16>()[j]) << " ";
+    }
+    std::cout << std::endl;
+
+
     loss += layer_loss;
     if (debug_info_) { ForwardDebugInfo(i); }
   }

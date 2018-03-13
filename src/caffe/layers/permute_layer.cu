@@ -32,7 +32,7 @@ template <typename Ftype, typename Btype>
 void PermuteLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom,
       const vector<Blob*>& top) {
   if (need_permute_) {
-    Dtype* bottom_data = bottom[0]->mutable_gpu_data<Dtype>();
+    Dtype* bottom_data = const_cast<Dtype*>(bottom[0]->gpu_data<Dtype>());
     Dtype* top_data = top[0]->mutable_gpu_data<Dtype>();
     int count = top[0]->count();
     const int* permute_order = permute_order_.gpu_data();
@@ -40,10 +40,12 @@ void PermuteLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom,
     const int* old_steps = old_steps_.gpu_data();
     bool foward = true;
     // NOLINT_NEXT_LINE(whitespace/operators)
-    PermuteKernel<Dtype><<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS>>>(
+    cudaStream_t stream = Caffe::thread_stream();
+    PermuteKernel<Dtype><<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS, 0, stream>>>(
         count, bottom_data, foward, permute_order, old_steps, new_steps,
         num_axes_, top_data);
     CUDA_POST_KERNEL_CHECK;
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   } else {
     // If there is no need to permute, we share data to save memory.
     top[0]->ShareData(*bottom[0]);
