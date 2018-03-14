@@ -62,8 +62,8 @@ void PermuteLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom,
     const int* new_steps = new_steps_.gpu_data();
     const int* old_steps = old_steps_.gpu_data();
     bool foward = true;
-    // NOLINT_NEXT_LINE(whitespace/operators)
     cudaStream_t stream = Caffe::thread_stream();
+    // NOLINT_NEXT_LINE(whitespace/operators)
     PermuteKernel<<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS, 0, stream>>>(
         count, bottom_data, foward, permute_order, old_steps, new_steps,
         num_axes_, top_data);

@@ -18,7 +18,7 @@ void AxpyLayer<Ftype, Btype>::Reshape(const vector<Blob*>& bottom,
     CHECK_EQ(bottom[0]->shape(2), 1);
     CHECK_EQ(bottom[0]->shape(3), 1);
   }
-  CHECK(bottom[1]->shape() == bottom[2]->shape());  
+  CHECK(bottom[1]->shape() == bottom[2]->shape());
   top[0]->ReshapeLike(*bottom[1]);
   int spatial_dim = bottom[1]->count(2);
   if (spatial_sum_multiplier_.count() < spatial_dim) {
@@ -40,9 +40,9 @@ void AxpyLayer<Ftype, Btype>::Forward_cpu(const vector<Blob*>& bottom,
   for (int n = 0; n < bottom[1]->num(); ++n) {
     for (int c = 0; c < channel_dim; ++c) {
       int scale_offset = n * channel_dim + c;
-      caffe_axpy(spatial_dim, scale_data[scale_offset], 
-          x_data + scale_offset * spatial_dim, 
-          top_data + scale_offset * spatial_dim);  
+      caffe_axpy(spatial_dim, scale_data[scale_offset],
+          x_data + scale_offset * spatial_dim,
+          top_data + scale_offset * spatial_dim);
     }
   }
 }
@@ -73,9 +73,9 @@ void AxpyLayer<Ftype, Btype>::Backward_cpu(const vector<Blob*>& top,
     for (int n = 0; n < bottom[1]->num(); ++n) {
       for (int c = 0; c < channel_dim; ++c) {
         int scale_offset = n * channel_dim + c;
-        caffe_cpu_scale(spatial_dim, scale_data[scale_offset], 
-            top_diff + scale_offset * spatial_dim, 
-            x_diff + scale_offset * spatial_dim);  
+        caffe_cpu_scale(spatial_dim, scale_data[scale_offset],
+            top_diff + scale_offset * spatial_dim,
+            x_diff + scale_offset * spatial_dim);
       }
     }
   }
