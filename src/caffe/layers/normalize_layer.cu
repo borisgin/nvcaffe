@@ -6,6 +6,7 @@
 #include "caffe/util/half.cuh"
 #include "caffe/filler.hpp"
 #include "caffe/layers/normalize_layer.hpp"
+#include "caffe/util/gpu_math_functions.cuh"
 #include "caffe/util/math_functions.hpp"
 
 namespace caffe {
@@ -27,7 +28,7 @@ __global__ void DivBsx<float16>(const int nthreads, const float16* A,
     const half* ah = reinterpret_cast<const half*>(A);
     const half* vh = reinterpret_cast<const half*>(v);
     half* bh = reinterpret_cast<half*>(B);
-    bh[index] = __hdiv(ah[index], vh[index % cols]);
+    bh[index] = hdiv(ah[index], vh[index % cols]);
   }
 }
 
@@ -55,7 +56,7 @@ __global__ void MulBsx<float16>(const int nthreads, const float16* A, const floa
     const half* ah = reinterpret_cast<const half*>(A);
     const half* vh = reinterpret_cast<const half*>(v);
     half* bh = reinterpret_cast<half*>(B);
-    bh[index] = __hmul(ah[index], vh[notrans ? c : r]);
+    bh[index] = hmul(ah[index], vh[notrans ? c : r]);
   }
 }
 
