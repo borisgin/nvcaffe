@@ -22,7 +22,7 @@ layer {
   }
   data_param {
     source: "examples/coco/coco_minival_lmdb"
-    batch_size: 32 #8
+    batch_size: 128 #8
     backend: LMDB
   }
   annotated_data_param {

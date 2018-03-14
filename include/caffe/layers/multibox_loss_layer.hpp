@@ -57,11 +57,11 @@ class MultiBoxLossLayer : public LossLayer<Ftype, Btype> {
   // top vector holder used in Forward function.
   vector<Blob*> loc_top_vec_;
   // blob which stores the matched location prediction.
-  TBlob<Dtype> loc_pred_;
+  shared_ptr<Blob> loc_pred_;
   // blob which stores the corresponding matched ground truth.
-  TBlob<Dtype> loc_gt_;
+  shared_ptr<Blob> loc_gt_;
   // localization loss.
-  TBlob<Dtype> loc_loss_;
+  shared_ptr<Blob> loc_loss_;
 
   // The internal confidence loss layer.
   shared_ptr<LayerBase> conf_loss_layer_;
@@ -71,11 +71,11 @@ class MultiBoxLossLayer : public LossLayer<Ftype, Btype> {
   // top vector holder used in Forward function.
   vector<Blob*> conf_top_vec_;
   // blob which stores the confidence prediction.
-  TBlob<Dtype> conf_pred_;
+  shared_ptr<Blob> conf_pred_;
   // blob which stores the corresponding ground truth label.
-  TBlob<Dtype> conf_gt_;
+  shared_ptr<Blob> conf_gt_;
   // confidence loss.
-  TBlob<Dtype> conf_loss_;
+  shared_ptr<Blob> conf_loss_;
 
   MultiBoxLossParameter multibox_loss_param_;
   int num_classes_;

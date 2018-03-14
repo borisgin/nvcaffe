@@ -62,12 +62,15 @@ void MultiBoxLossLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bottom,
   // fake shape.
   vector<int> loc_shape(1, 1);
   loc_shape.push_back(4);
-  loc_pred_.Reshape(loc_shape);
-  loc_gt_.Reshape(loc_shape);
-  loc_bottom_vec_.push_back(&loc_pred_);
-  loc_bottom_vec_.push_back(&loc_gt_);
-  loc_loss_.Reshape(loss_shape);
-  loc_top_vec_.push_back(&loc_loss_);
+  loc_pred_ = Blob::create<Dtype>();
+  loc_pred_->Reshape(loc_shape);
+  loc_gt_ = Blob::create<Dtype>();
+  loc_gt_->Reshape(loc_shape);
+  loc_bottom_vec_.push_back(loc_pred_.get());
+  loc_bottom_vec_.push_back(loc_gt_.get());
+  loc_loss_ = Blob::create<Dtype>();
+  loc_loss_->Reshape(loss_shape);
+  loc_top_vec_.push_back(loc_loss_.get());
   if (loc_loss_type_ == MultiBoxLossParameter_LocLossType_L2) {
     LayerParameter layer_param;
     layer_param.set_name(this->layer_param_.name() + "_l2_loc");
@@ -87,10 +90,11 @@ void MultiBoxLossLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bottom,
   }
   // Set up confidence loss layer.
   conf_loss_type_ = multibox_loss_param.conf_loss_type();
-  conf_bottom_vec_.push_back(&conf_pred_);
-  conf_bottom_vec_.push_back(&conf_gt_);
-  conf_loss_.Reshape(loss_shape);
-  conf_top_vec_.push_back(&conf_loss_);
+  conf_pred_ = Blob::create<Dtype>();
+  conf_gt_ = Blob::create<Dtype>();
+  conf_loss_ = Blob::create<Dtype>();
+  conf_loss_->Reshape(loss_shape);
+  conf_top_vec_.push_back(conf_loss_.get());
   if (conf_loss_type_ == MultiBoxLossParameter_ConfLossType_SOFTMAX) {
     CHECK_GE(background_label_id_, 0)
         << "background_label_id should be within [0, num_classes) for Softmax.";
@@ -106,9 +110,11 @@ void MultiBoxLossLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bottom,
     softmax_param->set_axis(1);
     // Fake reshape.
     vector<int> conf_shape(1, 1);
-    conf_gt_.Reshape(conf_shape);
+    conf_gt_->Reshape(conf_shape);
     conf_shape.push_back(num_classes_);
-    conf_pred_.Reshape(conf_shape);
+    conf_pred_->Reshape(conf_shape);
+    conf_bottom_vec_.push_back(conf_pred_.get());
+    conf_bottom_vec_.push_back(conf_gt_.get());
     conf_loss_layer_ = LayerRegistry::CreateLayer(layer_param, this->parent_rank());
     conf_loss_layer_->SetUp(conf_bottom_vec_, conf_top_vec_);
   } else if (conf_loss_type_ == MultiBoxLossParameter_ConfLossType_LOGISTIC) {
@@ -119,8 +125,10 @@ void MultiBoxLossLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bottom,
     // Fake reshape.
     vector<int> conf_shape(1, 1);
     conf_shape.push_back(num_classes_);
-    conf_gt_.Reshape(conf_shape);
-    conf_pred_.Reshape(conf_shape);
+    conf_gt_->Reshape(conf_shape);
+    conf_pred_->Reshape(conf_shape);
+    conf_bottom_vec_.push_back(conf_pred_.get());
+    conf_bottom_vec_.push_back(conf_gt_.get());
     conf_loss_layer_ = LayerRegistry::CreateLayer(layer_param, this->parent_rank());
     conf_loss_layer_->SetUp(conf_bottom_vec_, conf_top_vec_);
   } else {
@@ -184,17 +192,17 @@ void MultiBoxLossLayer<Ftype, Btype>::Forward_cpu(const vector<Blob*>& bottom,
     vector<int> loc_shape(2);
     loc_shape[0] = 1;
     loc_shape[1] = num_matches_ * 4;
-    loc_pred_.Reshape(loc_shape);
-    loc_gt_.Reshape(loc_shape);
-    Dtype* loc_pred_data = loc_pred_.mutable_cpu_data();
-    Dtype* loc_gt_data = loc_gt_.mutable_cpu_data();
+    loc_pred_->Reshape(loc_shape);
+    loc_gt_->Reshape(loc_shape);
+    Dtype* loc_pred_data = loc_pred_->mutable_cpu_data<Dtype>();
+    Dtype* loc_gt_data = loc_gt_->mutable_cpu_data<Dtype>();
     EncodeLocPrediction(all_loc_preds, all_gt_bboxes, all_match_indices_,
                         prior_bboxes, prior_variances, multibox_loss_param_,
                         loc_pred_data, loc_gt_data);
     loc_loss_layer_->Reshape(loc_bottom_vec_, loc_top_vec_);
     loc_loss_layer_->Forward(loc_bottom_vec_, loc_top_vec_);
   } else {
-    loc_loss_.mutable_cpu_data()[0] = 0;
+    loc_loss_->mutable_cpu_data<Dtype>()[0] = 0;
   }
 
   // Form data to pass on to conf_loss_layer_.
@@ -208,34 +216,34 @@ void MultiBoxLossLayer<Ftype, Btype>::Forward_cpu(const vector<Blob*>& bottom,
     vector<int> conf_shape;
     if (conf_loss_type_ == MultiBoxLossParameter_ConfLossType_SOFTMAX) {
       conf_shape.push_back(num_conf_);
-      conf_gt_.Reshape(conf_shape);
+      conf_bottom_vec_[1]->Reshape(conf_shape);
       conf_shape.push_back(num_classes_);
-      conf_pred_.Reshape(conf_shape);
+      conf_bottom_vec_[0]->Reshape(conf_shape);
     } else if (conf_loss_type_ == MultiBoxLossParameter_ConfLossType_LOGISTIC) {
       conf_shape.push_back(1);
       conf_shape.push_back(num_conf_);
       conf_shape.push_back(num_classes_);
-      conf_gt_.Reshape(conf_shape);
-      conf_pred_.Reshape(conf_shape);
+      conf_bottom_vec_[0]->Reshape(conf_shape);
+      conf_bottom_vec_[1]->Reshape(conf_shape);
     } else {
       LOG(FATAL) << "Unknown confidence loss type.";
     }
     if (!do_neg_mining_) {
       // Consider all scores.
       // Share data and diff with bottom[1].
-      CHECK_EQ(conf_pred_.count(), bottom[1]->count());
-      conf_pred_.ShareData(*(bottom[1]));
+      CHECK_EQ(conf_pred_->count(), bottom[1]->count());
+      conf_pred_->ShareData(*(bottom[1]));
     }
-    Dtype* conf_pred_data = conf_pred_.mutable_cpu_data();
-    Dtype* conf_gt_data = conf_gt_.mutable_cpu_data();
-    caffe_set(conf_gt_.count(), Dtype(background_label_id_), conf_gt_data);
+    Dtype* conf_pred_data = conf_pred_->mutable_cpu_data<Dtype>();
+    Dtype* conf_gt_data = conf_gt_->mutable_cpu_data<Dtype>();
+    caffe_set(conf_gt_->count(), Dtype(background_label_id_), conf_gt_data);
     EncodeConfPrediction(conf_data, num_, num_priors_, multibox_loss_param_,
                          all_match_indices_, all_neg_indices_, all_gt_bboxes,
                          conf_pred_data, conf_gt_data);
     conf_loss_layer_->Reshape(conf_bottom_vec_, conf_top_vec_);
     conf_loss_layer_->Forward(conf_bottom_vec_, conf_top_vec_);
   } else {
-    conf_loss_.mutable_cpu_data()[0] = 0;
+    conf_loss_->mutable_cpu_data<Dtype>()[0] = 0;
   }
 
   top[0]->mutable_cpu_data<Dtype>()[0] = 0;
@@ -243,12 +251,12 @@ void MultiBoxLossLayer<Ftype, Btype>::Forward_cpu(const vector<Blob*>& bottom,
     Dtype normalizer = LossLayer<Ftype, Btype>::GetNormalizer(
         normalization_, num_, num_priors_, num_matches_);
     top[0]->mutable_cpu_data<Dtype>()[0] +=
-        loc_weight_ * loc_loss_.cpu_data()[0] / normalizer;
+        loc_weight_ * loc_loss_->cpu_data<Dtype>()[0] / normalizer;
   }
   if (this->layer_param_.propagate_down(1)) {
     Dtype normalizer = LossLayer<Ftype, Btype>::GetNormalizer(
         normalization_, num_, num_priors_, num_matches_);
-    top[0]->mutable_cpu_data<Dtype>()[0] += conf_loss_.cpu_data()[0] / normalizer;
+    top[0]->mutable_cpu_data<Dtype>()[0] += conf_loss_->cpu_data<Dtype>()[0] / normalizer;
   }
 }
 
@@ -281,9 +289,9 @@ void MultiBoxLossLayer<Ftype, Btype>::Backward_cpu(const vector<Blob*>& top,
       Dtype normalizer = LossLayer<Ftype, Btype>::GetNormalizer(
           normalization_, num_, num_priors_, num_matches_);
       Dtype loss_weight = top[0]->cpu_diff<Dtype>()[0] / normalizer;
-      caffe_scal(loc_pred_.count(), loss_weight, loc_pred_.mutable_cpu_diff());
+      caffe_scal(loc_pred_->count(), loss_weight, loc_pred_->mutable_cpu_diff<Dtype>());
       // Copy gradient back to bottom[0].
-      const Dtype* loc_pred_diff = loc_pred_.cpu_diff();
+      const Dtype* loc_pred_diff = loc_pred_->cpu_diff<Dtype>();
       int count = 0;
       for (int i = 0; i < num_; ++i) {
         for (map<int, vector<int> >::iterator it =
@@ -322,10 +330,10 @@ void MultiBoxLossLayer<Ftype, Btype>::Backward_cpu(const vector<Blob*>& top,
       Dtype normalizer = LossLayer<Ftype, Btype>::GetNormalizer(
           normalization_, num_, num_priors_, num_matches_);
       Dtype loss_weight = top[0]->cpu_diff<Dtype>()[0] / normalizer;
-      caffe_scal(conf_pred_.count(), loss_weight,
-                 conf_pred_.mutable_cpu_diff());
+      caffe_scal(conf_pred_->count(), loss_weight,
+                 conf_pred_->mutable_cpu_diff<Dtype>());
       // Copy gradient back to bottom[1].
-      const Dtype* conf_pred_diff = conf_pred_.cpu_diff();
+      const Dtype* conf_pred_diff = conf_pred_->cpu_diff<Dtype>();
       if (do_neg_mining_) {
         int count = 0;
         for (int i = 0; i < num_; ++i) {
@@ -359,7 +367,7 @@ void MultiBoxLossLayer<Ftype, Btype>::Backward_cpu(const vector<Blob*>& top,
         }
       } else {
         // The diff is already computed and stored.
-        bottom[1]->ShareDiff(conf_pred_);
+        bottom[1]->ShareDiff(*conf_pred_);
       }
     }
   }

@@ -75,8 +75,8 @@ void Blob::ShareData(const Blob& other) {
     return;
   }
   CHECK_EQ(count(), other.count());
-  CHECK(data_type() == other.data_type());
   data_tensor_ = other.data_tensor_;
+  CHECK(data_type() == other.data_type());
   CHECK(is_current_data_valid());
 }
 
