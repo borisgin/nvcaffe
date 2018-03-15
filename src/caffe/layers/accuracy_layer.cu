@@ -72,6 +72,7 @@ void AccuracyLayer<Ftype, Btype>::Forward_gpu(
   const int dim = bottom[0]->count() / outer_num_;
   const int num_labels = bottom[0]->shape(label_axis_);
   const int nthreads = outer_num_ * inner_num_;
+  cudaStream_t stream = Caffe::thread_stream();
   // Since this memory is not used for anything, we use it here to avoid having
   // to allocate new GPU memory to accumulate intermediate results.
   Ftype* acc_data = bottom[0]->mutable_gpu_diff<Ftype>();
@@ -83,9 +84,10 @@ void AccuracyLayer<Ftype, Btype>::Forward_gpu(
     Ftype* counts = bottom[1]->mutable_gpu_diff<Ftype>();
     // NOLINT_NEXT_LINE(whitespace/operators)
     AccuracyForwardGPU<<<CAFFE_GET_BLOCKS(nthreads),
-        CAFFE_CUDA_NUM_THREADS>>>(nthreads, bottom_data, bottom_label,
+        CAFFE_CUDA_NUM_THREADS, 0, stream>>>(nthreads, bottom_data, bottom_label,
         acc_data, outer_num_, dim, inner_num_, num_labels, top_k_,
         has_ignore_label_, ignore_label_, counts);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
     Ftype acc;
     caffe_gpu_asum(nthreads, acc_data, &acc, 0);
     Ftype valid_count;
@@ -107,9 +109,10 @@ void AccuracyLayer<Ftype, Btype>::Forward_gpu(
 
     // NOLINT_NEXT_LINE(whitespace/operators)
     AccuracyForwardWithPerClassGPU<<<CAFFE_GET_BLOCKS(nthreads),
-        CAFFE_CUDA_NUM_THREADS>>>(nthreads, bottom_data, bottom_label,
+        CAFFE_CUDA_NUM_THREADS, 0, stream>>>(nthreads, bottom_data, bottom_label,
         acc_data, counts, outer_num_, dim, inner_num_, num_labels, top_k_,
         has_ignore_label_, ignore_label_);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
 
     // get the overall accuracy
     Ftype acc;

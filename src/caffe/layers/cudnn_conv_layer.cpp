@@ -415,6 +415,7 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
         1, 1);
   }
 
+  size_t workspace_bytes = AllocateWorkspace(bottom.size());
   // Ask cuDNN to find the best algorithm
   // When batch is small and every image is different we don't want to call Find* over and over
   if (use_algo_seeker_) {
@@ -423,12 +424,6 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
     //         FindEx-backward-filter. The size of buffer is as big as weights.
     // Get: workspace_bytes is only used as a workspace limit by Get.
     //      (no allocation happens before Get or by Get).
-    size_t workspace_bytes = 0UL;
-    if (fwd_count_ == 0) {
-      // In iteration 0, use a small amount of memory in order to leave
-      // most of memory for allocating layer blobs.
-      workspace_bytes = AllocateWorkspace(bottom.size());
-    }
     switch (this->layer_param_.convolution_param().cudnn_convolution_algo_seeker()) {
       case ConvolutionParameter_CuDNNConvolutionAlgorithmSeeker_GET:
         GetConvAlgo(bottom, top, workspace_bytes, pad_h, pad_w, stride_h, stride_w);
@@ -449,8 +444,6 @@ void CuDNNConvolutionLayer<Ftype, Btype>::Reshape(
       default:
         LOG(FATAL) << "Wrong value for cudnn_convolution_algo_seeker";
     }
-  } else {
-    AllocateWorkspace(bottom.size());
   }
 }
 

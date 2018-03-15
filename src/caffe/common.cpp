@@ -144,12 +144,10 @@ Caffe::Caffe()
 
 void Caffe::init() {
   if (mode_ == GPU && curand_generator_ == nullptr) {
-    CURAND_CHECK_ARG(curandCreateGenerator(&curand_generator_, CURAND_RNG_PSEUDO_DEFAULT),
-        current_device());
-    CURAND_CHECK_ARG(curandSetPseudoRandomGeneratorSeed(curand_generator_, cluster_seedgen()),
-        current_device());
     curand_stream_ = CudaStream::create();
-    CURAND_CHECK_ARG(curandSetStream(curand_generator_, curand_stream_->get()), current_device());
+    CURAND_CHECK_ARG(curandCreateGenerator(&curand_generator_, CURAND_RNG_PSEUDO_DEFAULT), device_);
+    CURAND_CHECK_ARG(curandSetPseudoRandomGeneratorSeed(curand_generator_, cluster_seedgen()), device_);
+    CURAND_CHECK_ARG(curandSetStream(curand_generator_, curand_stream_->get()), device_);
   }
 }
 

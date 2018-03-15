@@ -243,13 +243,13 @@ float SGDSolver<Dtype>::ComputeUpdateValue(int param_id, void* handle, float rat
   const string& larc_policy = this->param_.larc_policy();
   float local_rate = GetLocalRate(param_id, wgrad_sq);
   if (larc) {
-  if (larc_policy == "scale") {
-    local_rate = rate * local_rate;
-  } else if (larc_policy == "clip") {
-    local_rate = std::min(rate, local_rate);
-  } else {
-    LOG(FATAL) << "Unknown larc policy: " << larc_policy;
-  }
+    if (larc_policy == "scale") {
+      local_rate = rate * local_rate;
+    } else if (larc_policy == "clip") {
+      local_rate = std::min(rate, local_rate);
+    } else {
+      LOG(FATAL) << "Unknown larc policy: " << larc_policy;
+    }
   } else {
     local_rate = rate * local_rate;
   }
