@@ -44,9 +44,11 @@ void SmoothL1LossLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom,
         diff_.gpu_data(),
         diff_.mutable_gpu_data());  // d := w * (b0 - b1)
   }
+  cudaStream_t stream = Caffe::thread_stream();
   // NOLINT_NEXT_LINE(whitespace/operators)
-  SmoothL1Forward<Dtype><<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS>>>(
+  SmoothL1Forward<Dtype><<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS, 0, stream>>>(
       count, diff_.gpu_data(), errors_.mutable_gpu_data());
+  CUDA_CHECK(cudaStreamSynchronize(stream));
   CUDA_POST_KERNEL_CHECK;
 
   Dtype loss;
@@ -73,10 +75,12 @@ template <typename Ftype, typename Btype>
 void SmoothL1LossLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
     const vector<bool>& propagate_down, const vector<Blob*>& bottom) {
   int count = diff_.count();
+  cudaStream_t stream = Caffe::thread_stream();
   // NOLINT_NEXT_LINE(whitespace/operators)
-  SmoothL1Backward<Dtype><<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS>>>(
+  SmoothL1Backward<Dtype><<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS, 0, stream>>>(
       count, diff_.gpu_data(), diff_.mutable_gpu_data());
   CUDA_POST_KERNEL_CHECK;
+  CUDA_CHECK(cudaStreamSynchronize(stream));
   for (int i = 0; i < 2; ++i) {
     if (propagate_down[i]) {
       const Dtype sign = (i == 0) ? 1 : -1;

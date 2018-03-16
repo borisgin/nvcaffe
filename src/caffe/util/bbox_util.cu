@@ -197,12 +197,13 @@ void DecodeBBoxesGPU(const int nthreads,
           const int num_priors, const bool share_location,
           const int num_loc_classes, const int background_label_id,
           const bool clip_bbox, Dtype* bbox_data) {
+  cudaStream_t stream = Caffe::thread_stream();
   // NOLINT_NEXT_LINE(whitespace/operators)
-  DecodeBBoxesKernel<Dtype><<<CAFFE_GET_BLOCKS(nthreads),
-      CAFFE_CUDA_NUM_THREADS>>>(nthreads, loc_data, prior_data, code_type,
-      variance_encoded_in_target, num_priors, share_location, num_loc_classes,
-      background_label_id, clip_bbox, bbox_data);
+  DecodeBBoxesKernel<Dtype><<<CAFFE_GET_BLOCKS(nthreads), CAFFE_CUDA_NUM_THREADS, 0, stream>>>
+          (nthreads, loc_data, prior_data, code_type, variance_encoded_in_target, num_priors,
+           share_location, num_loc_classes, background_label_id, clip_bbox, bbox_data);
   CUDA_POST_KERNEL_CHECK;
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
 template void DecodeBBoxesGPU(const int nthreads,
@@ -242,11 +243,13 @@ template <typename Dtype>
 void PermuteDataGPU(const int nthreads,
           const Dtype* data, const int num_classes, const int num_data,
           const int num_dim, Dtype* new_data) {
+  cudaStream_t stream = Caffe::thread_stream();
   // NOLINT_NEXT_LINE(whitespace/operators)
   PermuteDataKernel<Dtype><<<CAFFE_GET_BLOCKS(nthreads),
-      CAFFE_CUDA_NUM_THREADS>>>(nthreads, data, num_classes, num_data,
+      CAFFE_CUDA_NUM_THREADS, 0, stream>>>(nthreads, data, num_classes, num_data,
       num_dim, new_data);
   CUDA_POST_KERNEL_CHECK;
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
 template void PermuteDataGPU(const int nthreads,
@@ -327,32 +330,34 @@ void SoftMaxGPU(const Dtype* data, const int outer_num,
   TBlob<Dtype> scale(shape);
   Dtype* scale_data = scale.mutable_gpu_data();
   int count = outer_num * channels * inner_num;
+  cudaStream_t stream = Caffe::thread_stream();
   // We need to subtract the max to avoid numerical issues, compute the exp,
   // and then normalize.
   // compute max
   // NOLINT_NEXT_LINE(whitespace/operators)
   kernel_channel_max<Dtype><<<CAFFE_GET_BLOCKS(outer_num * inner_num),
-      CAFFE_CUDA_NUM_THREADS>>>(outer_num, channels, inner_num, data,
+      CAFFE_CUDA_NUM_THREADS, 0, stream>>>(outer_num, channels, inner_num, data,
       scale_data);
   // subtract
   // NOLINT_NEXT_LINE(whitespace/operators)
   kernel_channel_subtract<Dtype><<<CAFFE_GET_BLOCKS(count),
-      CAFFE_CUDA_NUM_THREADS>>>(count, outer_num, channels, inner_num,
+      CAFFE_CUDA_NUM_THREADS, 0, stream>>>(count, outer_num, channels, inner_num,
       data, scale_data, prob);
   // exponentiate
   // NOLINT_NEXT_LINE(whitespace/operators)
-  kernel_exp<Dtype><<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS>>>(
+  kernel_exp<Dtype><<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS, 0, stream>>>(
       count, prob, prob);
   // sum after exp
   // NOLINT_NEXT_LINE(whitespace/operators)
   kernel_channel_sum<Dtype><<<CAFFE_GET_BLOCKS(outer_num * inner_num),
-      CAFFE_CUDA_NUM_THREADS>>>(outer_num, channels, inner_num, prob,
+      CAFFE_CUDA_NUM_THREADS, 0, stream>>>(outer_num, channels, inner_num, prob,
       scale_data);
   // divide
   // NOLINT_NEXT_LINE(whitespace/operators)
   kernel_channel_div<Dtype><<<CAFFE_GET_BLOCKS(count),
-      CAFFE_CUDA_NUM_THREADS>>>(count, outer_num, channels, inner_num,
+      CAFFE_CUDA_NUM_THREADS, 0, stream>>>(count, outer_num, channels, inner_num,
       scale_data, prob);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
 template void SoftMaxGPU(const float* data, const int outer_num,
@@ -388,11 +393,13 @@ template <typename Dtype>
 void ComputeOverlappedGPU(const int nthreads,
           const Dtype* bbox_data, const int num_bboxes, const int num_classes,
           const Dtype overlap_threshold, bool* overlapped_data) {
+  cudaStream_t stream = Caffe::thread_stream();
   // NOLINT_NEXT_LINE(whitespace/operators)
   ComputeOverlappedKernel<Dtype><<<CAFFE_GET_BLOCKS(nthreads),
-      CAFFE_CUDA_NUM_THREADS>>>(nthreads, bbox_data, num_bboxes, num_classes,
+      CAFFE_CUDA_NUM_THREADS, 0, stream>>>(nthreads, bbox_data, num_bboxes, num_classes,
       overlap_threshold, overlapped_data);
   CUDA_POST_KERNEL_CHECK;
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
 template void ComputeOverlappedGPU(const int nthreads,
@@ -428,11 +435,13 @@ template <typename Dtype>
 void ComputeOverlappedByIdxGPU(const int nthreads,
           const Dtype* bbox_data, const Dtype overlap_threshold,
           const int* idx, const int num_idx, bool* overlapped_data) {
+  cudaStream_t stream = Caffe::thread_stream();
   // NOLINT_NEXT_LINE(whitespace/operators)
   ComputeOverlappedByIdxKernel<Dtype><<<CAFFE_GET_BLOCKS(nthreads),
-      CAFFE_CUDA_NUM_THREADS>>>(nthreads, bbox_data, overlap_threshold,
+      CAFFE_CUDA_NUM_THREADS, 0, stream>>>(nthreads, bbox_data, overlap_threshold,
       idx, num_idx, overlapped_data);
   CUDA_POST_KERNEL_CHECK;
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
 template void ComputeOverlappedByIdxGPU(const int nthreads,
@@ -537,11 +546,13 @@ void GetDetectionsGPU(const Dtype* bbox_data, const Dtype* conf_data,
   // Prepare detection_blob.
   detection_blob->Reshape(1, 1, num_det, 7);
   Dtype* detection_data = detection_blob->mutable_gpu_data();
+  cudaStream_t stream = Caffe::thread_stream();
   // NOLINT_NEXT_LINE(whitespace/operators)
   GetDetectionsKernel<Dtype><<<CAFFE_GET_BLOCKS(num_det),
-      CAFFE_CUDA_NUM_THREADS>>>(num_det, bbox_data, conf_data, image_id, label,
+      CAFFE_CUDA_NUM_THREADS, 0, stream>>>(num_det, bbox_data, conf_data, image_id, label,
       idx_blob.gpu_data(), clip_bbox, detection_data);
   CUDA_POST_KERNEL_CHECK;
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
 template void GetDetectionsGPU(const float* bbox_data, const float* conf_data,
@@ -632,10 +643,12 @@ void ComputeConfLossGPU(const TBlob<Dtype>& conf_blob, const int num,
   TBlob<Dtype> conf_loss_blob(num, num_preds_per_class, 1, 1);
   Dtype* conf_loss_gpu_data = conf_loss_blob.mutable_gpu_data();
   const int num_threads = num * num_preds_per_class;
+  cudaStream_t stream = Caffe::thread_stream();
   // NOLINT_NEXT_LINE(whitespace/operators)
   ComputeConfLossKernel<Dtype><<<CAFFE_GET_BLOCKS(num_threads),
-    CAFFE_CUDA_NUM_THREADS>>>(num_threads, conf_gpu_data, num_preds_per_class,
+    CAFFE_CUDA_NUM_THREADS, 0, stream>>>(num_threads, conf_gpu_data, num_preds_per_class,
         num_classes, loss_type, match_blob.gpu_data(), conf_loss_gpu_data);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
   // Save the loss.
   all_conf_loss->clear();
   const Dtype* loss_data = conf_loss_blob.cpu_data();

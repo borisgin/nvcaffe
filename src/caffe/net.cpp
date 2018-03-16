@@ -918,7 +918,7 @@ void Net::update_grad_scale() {
     if (global_grad_scale_adaptive_) {
       const float wgsq = wgrad_sq();
       if (wgsq > 0.F) {
-        global_grad_scale_coeff_ = std::sqrt(std::max(wgsq, 1.F / Caffe::solver_count())) * global_grad_scale_param_;
+        global_grad_scale_coeff_ = std::sqrt(wgsq) * global_grad_scale_param_;
         return;
       }
     }
