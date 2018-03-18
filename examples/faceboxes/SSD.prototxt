@@ -1,9 +1,9 @@
 name: "VGG_WIDER_FACE_SFD_deploy"
 
-default_forward_type:  FLOAT16
-default_backward_type: FLOAT16
-default_forward_math:  FLOAT16
-default_backward_math: FLOAT16
+#default_forward_type:  FLOAT16
+#default_backward_type: FLOAT16
+#default_forward_math:  FLOAT16
+#default_backward_math: FLOAT16
 
 #global_grad_scale: 10
 #global_grad_scale_adaptive: true

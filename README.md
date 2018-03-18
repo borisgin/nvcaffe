@@ -47,6 +47,6 @@ Please cite Caffe in your publications if it helps your research:
 
 Libturbojpeg library is used since 0.16.5. It has a packaging bug. Please execute the following (required for Makefile, optional for CMake):
 ```
-sudo apt-get install libturbojpeg libturbojpeg-dev
+sudo apt-get install libturbojpeg
 sudo ln -s /usr/lib/x86_64-linux-gnu/libturbojpeg.so.0.1.0 /usr/lib/x86_64-linux-gnu/libturbojpeg.so
 ```
