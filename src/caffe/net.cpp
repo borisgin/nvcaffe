@@ -25,7 +25,9 @@ Net::Net(const NetParameter& param,
     size_t solver_rank,
     Flag* solver_init_flag,
     const Net* root_net,
-    bool inner_net)
+    bool inner_net,
+    int level,
+    const vector<string>* stages)
     : root_net_(root_net),
       solver_(nullptr),
       solver_rank_(solver_rank),
@@ -39,7 +41,9 @@ Net::Net(const string& param_file,
     size_t solver_rank,
     Flag* solver_init_flag,
     const Net* root_net,
-    bool inner_net)
+    bool inner_net,
+    int level,
+    const vector<string>* stages)
     : root_net_(root_net),
       solver_(nullptr),
       solver_rank_(solver_rank),
@@ -47,7 +51,14 @@ Net::Net(const string& param_file,
       inner_net_(inner_net) {
   NetParameter param;
   ReadNetParamsFromTextFileOrDie(param_file, &param);
+  // Set phase, stages and level
   param.mutable_state()->set_phase(phase);
+  if (stages != NULL) {
+    for (int i = 0; i < stages->size(); ++i) {
+      param.mutable_state()->add_stage(stages->at(i));
+    }
+  }
+  param.mutable_state()->set_level(level);
   Init(param);
 }
 

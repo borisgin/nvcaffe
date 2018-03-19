@@ -8,7 +8,10 @@ namespace caffe {
 Timer::Timer()
     : initted_(false),
       running_(false),
-      has_run_at_least_once_(false) {
+      has_run_at_least_once_(false),
+      start_gpu_(nullptr),
+      stop_gpu_(nullptr),
+      device_(-1) {
   Init();
 }
 
@@ -31,6 +34,7 @@ Timer::~Timer() {
 void Timer::Start() {
   if (!running()) {
     if (Caffe::mode() == Caffe::GPU) {
+      CHECK_EQ(device_, Caffe::current_device());
       CUDA_CHECK(cudaEventRecord(start_gpu_, 0));
     } else {
       start_cpu_ = boost::posix_time::microsec_clock::local_time();
@@ -43,6 +47,7 @@ void Timer::Start() {
 void Timer::Stop() {
   if (running()) {
     if (Caffe::mode() == Caffe::GPU) {
+      CHECK_EQ(device_, Caffe::current_device());
       CUDA_CHECK(cudaEventRecord(stop_gpu_, 0));
       CUDA_CHECK(cudaEventSynchronize(stop_gpu_));
     } else {
@@ -51,7 +56,6 @@ void Timer::Stop() {
     running_ = false;
   }
 }
-
 
 float Timer::MicroSeconds() {
   if (!has_run_at_least_once()) {
@@ -62,6 +66,7 @@ float Timer::MicroSeconds() {
     Stop();
   }
   if (Caffe::mode() == Caffe::GPU) {
+    CHECK_EQ(device_, Caffe::current_device());
     CUDA_CHECK(cudaEventElapsedTime(&elapsed_milliseconds_, start_gpu_, stop_gpu_));
     // Cuda only measure milliseconds
     elapsed_microseconds_ = elapsed_milliseconds_ * 1000;
@@ -80,6 +85,7 @@ float Timer::MilliSeconds() {
     Stop();
   }
   if (Caffe::mode() == Caffe::GPU) {
+    CHECK_EQ(device_, Caffe::current_device());
     CUDA_CHECK(cudaEventElapsedTime(&elapsed_milliseconds_, start_gpu_, stop_gpu_));
   } else {
     elapsed_milliseconds_ = (stop_cpu_ - start_cpu_).total_milliseconds();
@@ -94,6 +100,12 @@ float Timer::Seconds() {
 void Timer::Init() {
   if (!initted()) {
     if (Caffe::mode() == Caffe::GPU) {
+      int current_device = Caffe::current_device();
+      if (device_ < 0) {
+        device_ = current_device;
+      } else {
+        CHECK_EQ(device_, current_device);
+      }
       CUDA_CHECK(cudaEventCreate(&start_gpu_));
       CUDA_CHECK(cudaEventCreate(&stop_gpu_));
     } else {

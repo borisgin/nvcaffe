@@ -34,6 +34,13 @@ DEFINE_string(solver, "",
     "The solver definition protocol buffer text file.");
 DEFINE_string(model, "",
     "The model definition protocol buffer text file.");
+DEFINE_string(phase, "",
+    "Optional; network phase (TRAIN or TEST). Only used for 'time'.");
+DEFINE_int32(level, 0,
+    "Optional; network level.");
+DEFINE_string(stage, "",
+    "Optional; network stages (not to be confused with phase), "
+    "separated by ','.");
 DEFINE_string(snapshot, "",
     "Optional; the snapshot solver state to resume training.");
 DEFINE_string(weights, "",
@@ -100,6 +107,25 @@ static void get_gpus(vector<int>* gpus) {
   }
 }
 
+// Parse phase from flags
+caffe::Phase get_phase_from_flags(caffe::Phase default_value) {
+  if (FLAGS_phase == "")
+    return default_value;
+  if (FLAGS_phase == "TRAIN")
+    return caffe::TRAIN;
+  if (FLAGS_phase == "TEST")
+    return caffe::TEST;
+  LOG(FATAL) << "phase must be \"TRAIN\" or \"TEST\"";
+  return caffe::TRAIN;  // Avoid warning
+}
+
+// Parse stages from flags
+vector<string> get_stages_from_flags() {
+  vector<string> stages;
+  boost::split(stages, FLAGS_stage, boost::is_any_of(","));
+  return stages;
+}
+
 // caffe commands to call by
 //     caffe <command> <args>
 //
@@ -156,25 +182,31 @@ int train() {
   CHECK(!FLAGS_snapshot.size() || !FLAGS_weights.size())
       << "Give a snapshot to resume training or weights to finetune "
       "but not both.";
+  vector<string> stages = get_stages_from_flags();
 
   caffe::SolverParameter solver_param = caffe::ReadSolverParamsFromTextFileOrDie(FLAGS_solver);
+
+  solver_param.mutable_train_state()->set_level(FLAGS_level);
+  for (int i = 0; i < stages.size(); i++) {
+    solver_param.mutable_train_state()->add_stage(stages[i]);
+  }
 
   // If the gpus flag is not provided, allow the mode and device to be set
   // in the solver prototxt.
   if (FLAGS_gpu.size() == 0
+      && solver_param.has_solver_mode()
       && solver_param.solver_mode() == caffe::SolverParameter_SolverMode_GPU) {
       if (solver_param.has_device_id()) {
-          FLAGS_gpu = "" +
-              boost::lexical_cast<string>(solver_param.device_id());
+          FLAGS_gpu = std::to_string(solver_param.device_id());
       } else {  // Set default GPU if unspecified
-          FLAGS_gpu = "" + boost::lexical_cast<string>(0);
+          FLAGS_gpu = std::to_string(0);
       }
   }
 
   // Read flags for list of GPUs
   vector<int> gpus;
   get_gpus(&gpus);
-  caffe::GPUMemory::Scope gpu_memory_scope(gpus);
+
   // Set mode and device id[s]
   if (gpus.size() == 0) {
     LOG(INFO) << "Use CPU.";
@@ -185,19 +217,17 @@ int train() {
       s << (i ? ", " : "") << gpus[i];
     }
 
+    caffe::GPUMemory::Scope gpu_memory_scope(gpus);
+
     LOG(INFO) << "Using GPUs " << s.str();
-    int dev_id = 0;
     cudaDeviceProp device_prop;
     for (int i = 0; i < gpus.size(); ++i) {
       cudaGetDeviceProperties(&device_prop, gpus[i]);
       LOG(INFO) << "GPU " << gpus[i] << ": " << device_prop.name;
-      if (solver_param.has_device_id() && gpus[i] == solver_param.device_id()) {
-        dev_id = i;
-      }
     }
-    CUDA_CHECK(cudaSetDevice(gpus[dev_id]));
-    Caffe::SetDevice(gpus[dev_id]);
-    solver_param.set_device_id(gpus[dev_id]);
+    CUDA_CHECK(cudaSetDevice(gpus[0]));
+    Caffe::SetDevice(gpus[0]);
+    solver_param.set_device_id(gpus[0]);
     Caffe::set_mode(Caffe::GPU);
     Caffe::set_gpus(gpus);
     Caffe::set_solver_count(gpus.size());
@@ -244,6 +274,7 @@ RegisterBrewFunction(train);
 int test() {
   CHECK_GT(FLAGS_model.size(), 0) << "Need a model definition to score.";
   CHECK_GT(FLAGS_weights.size(), 0) << "Need model weights to score.";
+  vector<string> stages = get_stages_from_flags();
 
   // Read flags for list of GPUs
   vector<int> gpus;
@@ -271,7 +302,7 @@ int test() {
   }
 
   // Instantiate the caffe net.
-  Net caffe_net(FLAGS_model, caffe::TEST, 0U);
+  Net caffe_net(FLAGS_model, caffe::TEST, 0U, nullptr, nullptr, false, FLAGS_level, &stages);
   caffe_net.CopyTrainedLayersFrom(FLAGS_weights);
   LOG(INFO) << "Running for " << FLAGS_iterations << " iterations.";
 
@@ -496,6 +527,9 @@ RegisterBrewFunction(test_detection);
 // Time: benchmark the execution time of a model.
 int time() {
   CHECK_GT(FLAGS_model.size(), 0) << "Need a model definition to time.";
+  caffe::Phase phase = get_phase_from_flags(caffe::TRAIN);
+  vector<string> stages = get_stages_from_flags();
+
   vector<int> gpus;
   // Read flags for list of GPUs
   get_gpus(&gpus);
@@ -530,6 +564,13 @@ int time() {
   solver_param.set_random_seed(1371LL);
   solver_param.set_test_interval(FLAGS_iterations + 1);
   solver_param.set_display(0);
+
+  solver_param.mutable_train_state()->set_level(FLAGS_level);
+  for (int i = 0; i < stages.size(); i++) {
+    solver_param.mutable_train_state()->add_stage(stages[i]);
+  }
+  solver_param.mutable_net_param()->mutable_state()->set_phase(phase);
+
   shared_ptr<Solver> solver(caffe::SolverRegistry::CreateSolver(solver_param));
   shared_ptr<Net> caffe_net = solver->net();
 

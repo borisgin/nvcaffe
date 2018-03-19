@@ -96,6 +96,7 @@ P2PSync::P2PSync(P2PManager* mgr, shared_ptr<Solver> root_solver,
 #ifndef USE_NCCL
   LOG(FATAL) << "USE_NCCL := 1 must be specified for multi-GPU";
 #endif
+  CHECK_EQ(target_device_, solver_param_.device_id());
   LOG(INFO) << "[" << rank << " - " << this->target_device_ << "] P2pSync adding callback";
 }
 
@@ -117,6 +118,7 @@ void P2PSync::InternalThreadEntry() {
   solver_->set_callback(this);
 
   CHECK_EQ(nranks_, Caffe::solver_count());
+  CHECK_EQ(target_device_, Caffe::current_device());
 
 #ifdef USE_NCCL
   ncclUniqueId* nccl_id = reinterpret_cast<ncclUniqueId*>(this->aux_);
