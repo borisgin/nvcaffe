@@ -45,6 +45,7 @@ void EltwiseLayer<Ftype, Btype>::Reshape(const vector<Blob*>& bottom,
   }
   if (op_ == EltwiseParameter_EltwiseOp_SUM && no_coeffs_) {
     bottom[0]->ShareDiff(*top[0]);
+    top[0]->ShareData(*bottom[0]);
   }
 }
 
@@ -64,10 +65,16 @@ void EltwiseLayer<Ftype, Btype>::Forward_cpu(
     }
     break;
   case EltwiseParameter_EltwiseOp_SUM:
-    caffe_set(count, Ftype(0), top_data);
-    // TODO(shelhamer) does BLAS optimize to sum for coeff = 1?
-    for (int i = 0; i < bottom.size(); ++i) {
-      caffe_axpy(count, Ftype(coeffs_[i]), bottom[i]->cpu_data<Ftype>(), top_data);
+    if (no_coeffs_) {
+      for (int i = 1; i < bottom.size(); ++i) {
+        caffe_axpy(count, Ftype(1), bottom[i]->cpu_data<Ftype>(), top_data);
+      }
+    } else {
+      caffe_set(count, Ftype(0), top_data);
+      // TODO(shelhamer) does BLAS optimize to sum for coeff = 1?
+      for (int i = 0; i < bottom.size(); ++i) {
+        caffe_axpy(count, Ftype(coeffs_[i]), bottom[i]->cpu_data<Ftype>(), top_data);
+      }
     }
     break;
   case EltwiseParameter_EltwiseOp_MAX:
