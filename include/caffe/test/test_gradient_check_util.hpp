@@ -189,7 +189,31 @@ void GradientChecker<Dtype>::CheckGradientExhaustive(LayerBase* layer, const vec
 template<typename Dtype>
 void GradientChecker<Dtype>::CheckGradientEltwise(LayerBase* layer, const vector<Blob*>& bottom,
     const vector<Blob*>& top) {
-  layer->SetUp(bottom, top);
+  vector<Blob*> bottom_copy(bottom.size()), top_copy(top.size());
+  vector<shared_ptr<Blob>> bottom_scopy(bottom.size()), top_scopy(top.size());
+  for (int i = 0; i < bottom.size(); ++i) {
+    if (bottom[i]->count() > 0) {
+      bottom_scopy[i] = Blob::create<Dtype>(bottom[i]->shape());
+      bottom_scopy[i]->CopyDataFrom(*bottom[i]);
+      bottom_scopy[i]->CopyDiffFrom(*bottom[i]);
+    } else {
+      bottom_scopy[i] = Blob::create<Dtype>();
+    }
+    bottom_copy[i] = bottom_scopy[i].get();
+  }
+  for (int i = 0; i < top.size(); ++i) {
+    if (top[i]->count() > 0) {
+      top_scopy[i] = Blob::create<Dtype>(top[i]->shape());
+      top_scopy[i]->CopyDataFrom(*top[i]);
+      top_scopy[i]->CopyDiffFrom(*top[i]);
+    } else {
+      top_scopy[i] = Blob::create<Dtype>(bottom[0]->shape());
+      top_scopy[i]->CopyDataFrom(*bottom[0]);
+      top_scopy[i]->CopyDiffFrom(*bottom[0]);
+    }
+    top_copy[i] = top_scopy[i].get();
+  }
+  layer->SetUp(bottom_copy, top_copy);
   CHECK_GT(top.size(), 0) << "Eltwise mode requires at least one top blob.";
   const int check_bottom = -1;
   const bool element_wise = true;

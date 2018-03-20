@@ -94,6 +94,17 @@ TYPED_TEST(EltwiseLayerTest, TestProd) {
 
 TYPED_TEST(EltwiseLayerTest, TestSum) {
   typedef typename TypeParam::Dtype Dtype;
+  const int count = this->blob_top_->count();
+  const Dtype* in_data_a = this->blob_bottom_a_->cpu_data();
+  const Dtype* in_data_b = this->blob_bottom_b_->cpu_data();
+  const Dtype* in_data_c = this->blob_bottom_c_->cpu_data();
+  vector<int> shape(count);
+  TBlob<Dtype> val(shape);
+  Dtype* pval = val.mutable_cpu_data();
+  for (int i = 0; i < count; ++i) {
+    pval[i] = in_data_a[i] + in_data_b[i] + in_data_c[i];
+  }
+
   LayerParameter layer_param;
   layer_param.set_forward_type(tp<Dtype>());
   layer_param.set_backward_type(tp<Dtype>());
@@ -106,13 +117,8 @@ TYPED_TEST(EltwiseLayerTest, TestSum) {
   layer->SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
   layer->Forward(this->blob_bottom_vec_, this->blob_top_vec_);
   const Dtype* data = this->blob_top_->cpu_data();
-  const int count = this->blob_top_->count();
-  const Dtype* in_data_a = this->blob_bottom_a_->cpu_data();
-  const Dtype* in_data_b = this->blob_bottom_b_->cpu_data();
-  const Dtype* in_data_c = this->blob_bottom_c_->cpu_data();
   for (int i = 0; i < count; ++i) {
-    EXPECT_NEAR(data[i], in_data_a[i] + in_data_b[i] + in_data_c[i],
-        tol<Dtype>(1e-4, 2e-3));
+    EXPECT_NEAR(data[i], pval[i], tol<Dtype>(1e-4, 2e-3));
   }
 }
 

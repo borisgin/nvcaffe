@@ -44,7 +44,9 @@ void EltwiseLayer<Ftype, Btype>::Reshape(const vector<Blob*>& bottom,
     max_idx_.Reshape(bottom[0]->shape());
   }
   if (op_ == EltwiseParameter_EltwiseOp_SUM && no_coeffs_) {
-    bottom[0]->ShareDiff(*top[0]);
+    for (int i = 0; i < bottom.size(); ++i) {
+      bottom[i]->ShareDiff(*top[0]);
+    }
     top[0]->ShareData(*bottom[0]);
   }
 }
@@ -141,11 +143,7 @@ void EltwiseLayer<Ftype, Btype>::Backward_cpu(const vector<Blob*>& top,
         caffe_mul(count, bottom_diff, top_diff, bottom_diff);
         break;
       case EltwiseParameter_EltwiseOp_SUM:
-        if (no_coeffs_) {
-          if (i > 0) {
-            caffe_copy(count, top_diff, bottom_diff);
-          }
-        } else {
+        if (!no_coeffs_) {
           caffe_cpu_scale(count, Btype(coeffs_[i]), top_diff, bottom_diff);
         }
         break;
