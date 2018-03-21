@@ -2,7 +2,7 @@
 #include <vector>
 
 #include "caffe/layers/eltwise_layer.hpp"
-#include "caffe/util/math_functions.hpp"
+#include "caffe/net.hpp"
 
 namespace caffe {
 
@@ -30,7 +30,9 @@ void EltwiseLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bottom,
 template <typename Ftype, typename Btype>
 void EltwiseLayer<Ftype, Btype>::Reshape(const vector<Blob*>& bottom,
       const vector<Blob*>& top) {
-  no_coeffs_ = true;
+  const Net* pnet = this->parent_net();
+  // Inner nets are usually cyclic
+  no_coeffs_ = pnet != nullptr && !pnet->inner_net();
   for (int i = 0; i < bottom.size(); ++i) {
     no_coeffs_ = no_coeffs_ && coeffs_[i] == 1.F;
   }

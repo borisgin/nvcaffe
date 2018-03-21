@@ -288,6 +288,10 @@ class Net {
     return has_global_grad_scale_param_ && global_grad_scale_param_ > 0.F;
   }
 
+  bool inner_net() const {
+    return inner_net_;
+  }
+
   void update_grad_scale();
 
   std::string print_current_device() const {
