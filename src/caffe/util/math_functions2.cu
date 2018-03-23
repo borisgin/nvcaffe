@@ -357,11 +357,13 @@ void caffe_gpu_convert<float16, float16>(const unsigned int n,
 
 void caffe_gpu_rng_uniform(const int n, unsigned int* r) {
   CURAND_CHECK(curandGenerate(Caffe::curand_generator(), r, n));
+  CUDA_CHECK(cudaStreamSynchronize(Caffe::curand_stream()));
 }
 template<>
 void caffe_gpu_rng_uniform<float>(const int n, const float a, const float b,
     float* r) {
   CURAND_CHECK(curandGenerateUniform(Caffe::curand_generator(), r, n));
+  CUDA_CHECK(cudaStreamSynchronize(Caffe::curand_stream()));
   const float range = b - a;
   if (range != static_cast<float>(1)) {
     caffe_gpu_scal(n, range, r);
@@ -375,6 +377,7 @@ template<>
 void caffe_gpu_rng_uniform<double>(const int n, const double a, const double b,
     double* r) {
   CURAND_CHECK(curandGenerateUniformDouble(Caffe::curand_generator(), r, n));
+  CUDA_CHECK(cudaStreamSynchronize(Caffe::curand_stream()));
   const double range = b - a;
   if (range != static_cast<double>(1)) {
     caffe_gpu_scal(n, range, r);
@@ -390,6 +393,7 @@ void caffe_gpu_rng_uniform<float16>(const int n, const float16 a,
   GPUMemory::Workspace rf(n * sizeof(float), Caffe::current_device());
   float* rfp = static_cast<float*>(rf.data());
   CURAND_CHECK(curandGenerateUniform(Caffe::curand_generator(), rfp, n));
+  CUDA_CHECK(cudaStreamSynchronize(Caffe::curand_stream()));
   const float range = b - a;
   if (range != 1.F) {
     caffe_gpu_scal(n, range, rfp);
@@ -403,11 +407,13 @@ void caffe_gpu_rng_uniform<float16>(const int n, const float16 a,
 template<>
 void caffe_gpu_rng_gaussian(const int n, const float mu, const float sigma, float* r) {
   CURAND_CHECK(curandGenerateNormal(Caffe::curand_generator(), r, n, mu, sigma));
+  CUDA_CHECK(cudaStreamSynchronize(Caffe::curand_stream()));
 }
 
 template<>
 void caffe_gpu_rng_gaussian(const int n, const double mu, const double sigma, double* r) {
   CURAND_CHECK(curandGenerateNormalDouble(Caffe::curand_generator(), r, n, mu, sigma));
+  CUDA_CHECK(cudaStreamSynchronize(Caffe::curand_stream()));
 }
 
 template<>
@@ -415,6 +421,7 @@ void caffe_gpu_rng_gaussian(const int n, const float16 mu, const float16 sigma, 
   GPUMemory::Workspace rf(n * sizeof(float), Caffe::current_device());
   float* rfp = static_cast<float*>(rf.data());
   CURAND_CHECK(curandGenerateNormal(Caffe::curand_generator(), rfp, n, mu, sigma));
+  CUDA_CHECK(cudaStreamSynchronize(Caffe::curand_stream()));
   caffe_gpu_convert(n, rfp, r);
 }
 

@@ -9,26 +9,19 @@ namespace caffe {
 
 template <typename Dtype>
 __global__ void EmbedForward(const int nthreads, const Dtype* bottom_data,
-    const Dtype* weight, const int M, const int N, const int K,
-    Dtype* top_data) {
+    const Dtype* weight, const int N, Dtype* top_data) {
   CUDA_KERNEL_LOOP(top_index, nthreads) {
     const int n = top_index / N;
     const int d = top_index % N;
-    const int index = static_cast<int>(static_cast<double>(bottom_data[n]));
-    const int weight_index = index * N + d;
+    const int index = static_cast<int>(bottom_data[n]);
+    const int weight_index = abs(index * N + d);
     top_data[top_index] = weight[weight_index];
   }
 }
 
 template <typename Dtype>
 __global__ void EmbedBackward(const int nthreads, const Dtype* bottom_data,
-    const Dtype* top_diff, const int M, const int N, const int K,
-    Dtype* weight_diff);
-
-template <typename Dtype>
-__global__ void EmbedBackward(const int nthreads, const Dtype* bottom_data,
-    const Dtype* top_diff, const int M, const int N, const int K,
-    Dtype* weight_diff) {
+    const Dtype* top_diff, const int N, Dtype* weight_diff) {
   CUDA_KERNEL_LOOP(top_index, nthreads) {
     const int n = top_index / N;
     const int d = top_index % N;
@@ -45,15 +38,16 @@ void EmbedLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom,
   Ftype* top_data = top[0]->mutable_gpu_data<Ftype>();
   const Ftype* weight = this->blobs_[0]->template gpu_data<Ftype>();
   const int count = top[0]->count();
+  cudaStream_t stream = Caffe::thread_stream();
   EmbedForward  // NOLINT_NEXT_LINE(whitespace/operators)
-      <<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS, 0, Caffe::thread_stream()>>>(
-      count, bottom_data, weight, M_, N_, K_, top_data);
+      <<<CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS, 0, stream>>>(
+      count, bottom_data, weight, N_, top_data);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
   if (bias_term_) {
     caffe_gpu_gemm(CblasNoTrans, CblasNoTrans, M_, N_, 1, Ftype(1),
         bias_multiplier_.template gpu_data<Ftype>(),
         this->blobs_[1]->template gpu_data<Ftype>(), Ftype(1), top_data);
   }
-  CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
 }
 
 template <typename Ftype, typename Btype>
@@ -65,10 +59,11 @@ void EmbedLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
     const Btype* top_diff = top[0]->gpu_diff<Btype>();
     const Btype* bottom_data = bottom[0]->gpu_data<Btype>();
     Btype* weight_diff = this->blobs_[0]->template mutable_gpu_diff<Btype>();
+    cudaStream_t stream = Caffe::thread_stream();
     EmbedBackward  // NOLINT_NEXT_LINE(whitespace/operators)
-        <<<CAFFE_GET_BLOCKS(top_count), CAFFE_CUDA_NUM_THREADS, 0, Caffe::thread_stream()>>>(
-        top_count, bottom_data, top_diff, M_, N_, K_, weight_diff);
-    CUDA_CHECK(cudaStreamSynchronize(Caffe::thread_stream()));
+        <<<CAFFE_GET_BLOCKS(top_count), CAFFE_CUDA_NUM_THREADS, 0, stream>>>(
+        top_count, bottom_data, top_diff, N_, weight_diff);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
   if (bias_term_ && this->param_propagate_down_[1]) {
     const Btype* top_diff = top[0]->gpu_diff<Btype>();

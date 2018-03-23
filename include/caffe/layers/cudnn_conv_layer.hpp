@@ -41,13 +41,11 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
   static constexpr int MAX_PARALLEL_GROUPS = Caffe::MAX_CONV_GROUPS;
   static constexpr int REQUEST_ALGO_COUNT = 1;
   static constexpr int ATTEMPTS_TO_RESERVE_WS = 3;
-  static std::mutex m_;
+  static constexpr int REALLOC_COUNT = 3;
 
-  static ThreadSafeMap<std::unordered_map<int, size_t>> ws_allocated_;
-  static ThreadSafeMap<std::unordered_map<int, size_t>> train_mem_req_all_grps_;
-  static ThreadSafeMap<std::unordered_map<int, size_t>> test_mem_req_all_grps_;
-  static ThreadSafeMap<std::unordered_map<int, size_t>> train_tmp_weights_mem_;
-  static ThreadSafeMap<std::unordered_map<int, bool>> ws_released_;
+  static std::atomic<size_t> train_mem_req_all_grps_;
+  static std::atomic<size_t> test_mem_req_all_grps_;
+  static std::atomic<size_t> train_tmp_weights_mem_;
 
  public:
   explicit CuDNNConvolutionLayer(const LayerParameter& param)
@@ -109,7 +107,7 @@ class CuDNNConvolutionLayer : public ConvolutionLayer<Ftype, Btype> {
     return fwd_count_ < 2UL;
   }
   bool ok_to_release() const {
-    return bwd_count_ == 3UL;
+    return bwd_count_ == REALLOC_COUNT;
   }
 
   void FindExConvAlgo(const vector<Blob*>& bottom, const vector<Blob*>& top);
@@ -164,29 +162,15 @@ template<typename Ftype, typename Btype>
 constexpr int CuDNNConvolutionLayer<Ftype, Btype>::REQUEST_ALGO_COUNT;
 template<typename Ftype, typename Btype>
 constexpr int CuDNNConvolutionLayer<Ftype, Btype>::ATTEMPTS_TO_RESERVE_WS;
+template<typename Ftype, typename Btype>
+constexpr int CuDNNConvolutionLayer<Ftype, Btype>::REALLOC_COUNT;
 
 template<typename Ftype, typename Btype>
-std::mutex CuDNNConvolutionLayer<Ftype, Btype>::m_;
+std::atomic<size_t> CuDNNConvolutionLayer<Ftype, Btype>::train_mem_req_all_grps_;
 template<typename Ftype, typename Btype>
-ThreadSafeMap<std::unordered_map<int, size_t>>
-CuDNNConvolutionLayer<Ftype, Btype>::ws_allocated_(
-    CuDNNConvolutionLayer<Ftype, Btype>::m_);
+std::atomic<size_t> CuDNNConvolutionLayer<Ftype, Btype>::test_mem_req_all_grps_;
 template<typename Ftype, typename Btype>
-ThreadSafeMap<std::unordered_map<int, bool>>
-CuDNNConvolutionLayer<Ftype, Btype>::ws_released_(
-    CuDNNConvolutionLayer<Ftype, Btype>::m_);
-template<typename Ftype, typename Btype>
-ThreadSafeMap<std::unordered_map<int, size_t>>
-CuDNNConvolutionLayer<Ftype, Btype>::train_mem_req_all_grps_(
-    CuDNNConvolutionLayer<Ftype, Btype>::m_);
-template<typename Ftype, typename Btype>
-ThreadSafeMap<std::unordered_map<int, size_t>>
-CuDNNConvolutionLayer<Ftype, Btype>::test_mem_req_all_grps_(
-    CuDNNConvolutionLayer<Ftype, Btype>::m_);
-template<typename Ftype, typename Btype>
-ThreadSafeMap<std::unordered_map<int, size_t>>
-CuDNNConvolutionLayer<Ftype, Btype>::train_tmp_weights_mem_(
-    CuDNNConvolutionLayer<Ftype, Btype>::m_);
+std::atomic<size_t> CuDNNConvolutionLayer<Ftype, Btype>::train_tmp_weights_mem_;
 
 #endif
 

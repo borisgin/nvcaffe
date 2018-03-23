@@ -28,17 +28,16 @@ class AccuracyLayer : public Layer<Ftype, Btype> {
    */
   explicit AccuracyLayer(const LayerParameter& param)
       : Layer<Ftype, Btype>(param) {}
-  virtual void LayerSetUp(const vector<Blob*>& bottom,
-      const vector<Blob*>& top);
-  virtual void Reshape(const vector<Blob*>& bottom,
-      const vector<Blob*>& top);
+  void LayerSetUp(const vector<Blob*>& bottom, const vector<Blob*>& top) override;
+  void Reshape(const vector<Blob*>& bottom, const vector<Blob*>& top) override;
 
-  virtual inline const char* type() const { return "Accuracy"; }
-  virtual inline int ExactNumBottomBlobs() const { return 2; }
+  inline const char* type() const override { return "Accuracy"; }
+  inline int ExactNumBottomBlobs() const override { return 2; }
 
   // If there are two top blobs, then the second blob will contain
   // accuracies per class.
-  virtual inline int MinTopBlobs() const { return 1; }
+  inline int MinTopBlobs() const override { return 1; }
+  inline int MaxTopBlobs() const override { return 2; }
 
  protected:
   /**
@@ -65,16 +64,18 @@ class AccuracyLayer : public Layer<Ftype, Btype> {
    *         \end{array} \right.
    *      @f$
    */
-  virtual void Forward_cpu(const vector<Blob*>& bottom,
-      const vector<Blob*>& top);
+  void Forward_cpu(const vector<Blob*>& bottom, const vector<Blob*>& top) override;
+  void Forward_gpu(const vector<Blob*>& bottom, const vector<Blob*>& top) override;
 
   /// @brief Not implemented -- AccuracyLayer cannot be used as a loss.
-  virtual void Backward_cpu(const vector<Blob*>& top,
-      const vector<bool>& propagate_down, const vector<Blob*>& bottom) {
+  void Backward_cpu(const vector<Blob*>& top,
+      const vector<bool>& propagate_down, const vector<Blob*>& bottom) override {
     for (int i = 0; i < propagate_down.size(); ++i) {
       if (propagate_down[i]) { NOT_IMPLEMENTED; }
     }
   }
+  void Backward_gpu(const vector<Blob*>& top,
+      const vector<bool>& propagate_down, const vector<Blob*>& bottom) override;
 
   int label_axis_, outer_num_, inner_num_;
   int top_k_;

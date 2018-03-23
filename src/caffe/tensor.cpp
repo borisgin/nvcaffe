@@ -62,7 +62,7 @@ void Tensor::convert(Type new_type) {
     if (!new_mem || new_mem->size() != new_cap) {
       new_mem = make_shared<SyncedMemory>(new_cap);
     }
-    const bool data_gpu = Caffe::mode() == Caffe::GPU;
+    const bool data_gpu = is_gpu_head();
     if (current_mem->head() != SyncedMemory::UNINITIALIZED) {
       copy_helper(data_gpu, count_,
           data_gpu ? current_mem->gpu_data() : current_mem->cpu_data(),
@@ -132,7 +132,7 @@ void Tensor::copy_helper(bool use_gpu, int count, const void* p_src, Type src_ty
 
 void Tensor::scale(float scale, void* handle) {
   shared_ptr<SyncedMemory>& mem = mutable_synced_mem();
-  if (Caffe::mode() == Caffe::GPU) {
+  if (is_gpu_head()) {
     cublasHandle_t cublas_handle =
         handle == nullptr ? Caffe::cublas_handle(0) : reinterpret_cast<cublasHandle_t>(handle);
     gpu_scal(count_, type_, mem->mutable_gpu_data(), scale, cublas_handle);
@@ -143,7 +143,7 @@ void Tensor::scale(float scale, void* handle) {
 
 void Tensor::set(float value) {
   shared_ptr<SyncedMemory>& mem = mutable_synced_mem();
-  if (Caffe::mode() == Caffe::GPU) {
+  if (is_gpu_head()) {
     void* data = mem->mutable_gpu_data();
     if (is_type<float>(type_)) {
       caffe_gpu_set(count_, value, static_cast<float*>(data));
@@ -174,7 +174,7 @@ float Tensor::asum(int group) const {
   if (!mem || count_ <= 0) {
     return asum;
   }
-  if (Caffe::mode() == Caffe::GPU) {
+  if (is_gpu_head()) {
     if (is_type<float>(type_)) {
       caffe_gpu_asum(count_, static_cast<const float*>(mem->gpu_data()), &asum, group);
     } else if (is_type<float16>(type_)) {
@@ -204,7 +204,7 @@ float Tensor::amax(int group) const {
   if (!mem || count_ <= 0) {
     return amax;
   }
-  if (Caffe::mode() == Caffe::GPU) {
+  if (is_gpu_head()) {
     if (is_type<float>(type_)) {
       caffe_gpu_amax(count_, static_cast<const float*>(mem->gpu_data()), &amax, group);
     } else if (is_type<float16>(type_)) {
@@ -234,7 +234,7 @@ float Tensor::sumsq(int group) const {
   if (!mem || count_ <= 0) {
     return sumsq;
   }
-  if (Caffe::mode() == Caffe::GPU) {
+  if (is_gpu_head()) {
     if (is_type<float>(type_)) {
       caffe_gpu_sumsq(count_, static_cast<const float*>(mem->gpu_data()), &sumsq, group);
     } else if (is_type<float16>(type_)) {

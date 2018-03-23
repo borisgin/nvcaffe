@@ -42,9 +42,9 @@ void SliceLayer<Ftype, Btype>::Forward_gpu(const vector<Blob*>& bottom,
         <<<CAFFE_GET_BLOCKS(nthreads), CAFFE_CUDA_NUM_THREADS, 0, stream>>>(
         nthreads, bottom_data, kForward, num_slices_, slice_size_,
         bottom_slice_axis, top_slice_axis, offset_slice_axis, top_data);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
     offset_slice_axis += top_slice_axis;
   }
-  CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
 template <typename Ftype, typename Btype>
@@ -55,15 +55,17 @@ void SliceLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
   Btype* bottom_diff = bottom[0]->mutable_gpu_diff<Btype>();
   const int bottom_slice_axis = bottom[0]->shape(slice_axis_);
   const bool kForward = false;
+  cudaStream_t stream = Caffe::thread_stream();
   for (int i = 0; i < top.size(); ++i) {
     const Btype* top_diff = top[i]->gpu_diff<Btype>();
     const int top_slice_axis = top[i]->shape(slice_axis_);
     const int top_slice_size = top_slice_axis * slice_size_;
     const int nthreads = top_slice_size * num_slices_;
     Slice  // NOLINT_NEXT_LINE(whitespace/operators)
-        <<<CAFFE_GET_BLOCKS(nthreads), CAFFE_CUDA_NUM_THREADS, 0, Caffe::thread_stream()>>>(
+        <<<CAFFE_GET_BLOCKS(nthreads), CAFFE_CUDA_NUM_THREADS, 0, stream>>>(
         nthreads, top_diff, kForward, num_slices_, slice_size_,
         bottom_slice_axis, top_slice_axis, offset_slice_axis, bottom_diff);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
     offset_slice_axis += top_slice_axis;
   }
 }

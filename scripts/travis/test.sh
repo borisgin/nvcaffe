@@ -10,10 +10,12 @@ if $WITH_CUDA ; then
 fi
 
 if ! $WITH_CMAKE ; then
+  make -j"$(nproc)"
   make runtest
   make pytest
 else
   cd build
+  make -j"$(nproc)"
   make runtest
   make pytest
 fi

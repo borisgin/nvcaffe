@@ -127,6 +127,22 @@ cudnnDataType_t cudnn_data_type(Type math) {
   return ret;
 }
 
+template <typename Dtype>
+inline void createFilterDesc(cudnnFilterDescriptor_t* desc, int n, int c, int h, int w) {
+  CUDNN_CHECK(cudnnCreateFilterDescriptor(desc));
+  CUDNN_CHECK(cudnnSetFilter4dDescriptor(*desc, cudnn::dataType<Dtype>::type,
+      CUDNN_TENSOR_NCHW, n, c, h, w));
+}
+
+inline void setConvolutionDesc(Type math, cudnnConvolutionDescriptor_t conv,
+      int pad_h, int pad_w, int stride_h, int stride_w, int dilation_h, int dilation_w) {
+  int padA[2] = {pad_h, pad_w};
+  int strideA[2] = {stride_h, stride_w};
+  int upscaleA[2] = {dilation_h, dilation_w};
+  CUDNN_CHECK(cudnnSetConvolutionNdDescriptor(conv, 2, padA, strideA, upscaleA,
+      CUDNN_CROSS_CORRELATION, cudnn::cudnn_data_type(math)));
+}
+
 template<typename Dtype>
 inline void createTensor4dDesc(cudnnTensorDescriptor_t *desc) {
   CUDNN_CHECK(cudnnCreateTensorDescriptor(desc));

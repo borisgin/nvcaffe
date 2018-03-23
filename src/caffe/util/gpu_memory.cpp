@@ -49,9 +49,9 @@ bool GPUMemory::Workspace::safe_reserve(size_t size, int device) {
   }
   size_t gpu_bytes_left, total_memory;
   GPUMemory::GetInfo(&gpu_bytes_left, &total_memory, true);
-  if (size > size_ + align_down<7>(gpu_bytes_left)) {
+  if (size > size_ + align_down<8>(gpu_bytes_left)) {
     LOG(FATAL) << "Out of memory in safe_reserve: "
-        << size << " > " << size_ << " + " << align_down<7>(gpu_bytes_left)
+        << size << " > " << size_ << " + " << align_down<8>(gpu_bytes_left)
         << " on device " << device;
     return false;
   }
@@ -67,7 +67,8 @@ bool GPUMemory::Workspace::try_reserve(size_t size, int device) {
     if (device != INVALID_DEVICE) {
       device_ = device;  // switch from default to specific one
     }
-    status = mgr_.try_allocate(&ptr_, size, device_);
+    pstream_ = Caffe::thread_pstream(0);
+    status = mgr_.try_allocate(&ptr_, size, device_, pstream_);
     if (status) {
       CHECK_NOTNULL(ptr_);
       size_ = size;
@@ -132,7 +133,8 @@ void GPUMemory::Manager::lazy_init(int device) {
   static Scope gpu_memory_scope(gpus);
 }
 
-bool GPUMemory::Manager::try_allocate(void** ptr, size_t size, int device, int group) {
+bool GPUMemory::Manager::try_allocate(void** ptr, size_t size, int device,
+                                      const shared_ptr<CudaStream>& pstream) {
   if (!initialized_) {
     lazy_init(device);
   }
@@ -144,9 +146,16 @@ bool GPUMemory::Manager::try_allocate(void** ptr, size_t size, int device, int g
     shared_lock<shared_mutex> lock(GPUMemory::read_write_mutex());
     size_t size_allocated = 0;
     // Clean Cache & Retry logic is inside now
-    status = cub_allocator_->DeviceAllocate(device, ptr, size,
-        Caffe::thread_stream(group), size_allocated);
+    status = cub_allocator_->DeviceAllocate(device, ptr, size, pstream->get(), size_allocated);
     if (status == cudaSuccess && device > INVALID_DEVICE) {
+//      if (device == 0) {
+//        DevInfo dev_info;
+//        CUDA_CHECK(cudaMemGetInfo(&dev_info.free_, &dev_info.total_));
+//        size_t allocated = dev_info.total_ - dev_info.free_;
+//        size_t pcent = 100UL* allocated / dev_info.total_;
+//        std::string bar(pcent, '*');
+//        std::cout << bar << " " << pcent << "%" << std::endl;
+//      }
       if (size_allocated > 0) {
         if (dev_info_[device].free_ < update_thresholds_[device]) {
           update_dev_info(device);
@@ -255,6 +264,18 @@ void GPUMemory::Manager::GetInfo(size_t* free_mem, size_t* total_mem, bool with_
   if (*free_mem > *total_mem) {  // sanity check
     *free_mem = *total_mem;
   }
+}
+
+GPUMemory::PinnedBuffer::PinnedBuffer(size_t size) {
+  CHECK_GT(size, 0);
+  shared_lock<shared_mutex> lock(GPUMemory::read_write_mutex());
+  CUDA_CHECK(cudaHostAlloc(&hptr_, size, cudaHostAllocMapped));
+  CUDA_CHECK(cudaHostGetDevicePointer(&dptr_, hptr_, 0));
+}
+
+GPUMemory::PinnedBuffer::~PinnedBuffer() {
+  shared_lock<shared_mutex> lock(GPUMemory::read_write_mutex());
+  CUDA_CHECK(cudaFreeHost(hptr_));
 }
 
 }  // namespace caffe

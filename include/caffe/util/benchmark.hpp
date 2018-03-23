@@ -17,9 +17,9 @@ class Timer {
   virtual float MicroSeconds();
   virtual float Seconds();
 
-  inline bool initted() { return initted_; }
-  inline bool running() { return running_; }
-  inline bool has_run_at_least_once() { return has_run_at_least_once_; }
+  bool initted() { return initted_; }
+  bool running() { return running_; }
+  bool has_run_at_least_once() { return has_run_at_least_once_; }
 
  protected:
   void Init();
@@ -33,16 +33,17 @@ class Timer {
   boost::posix_time::ptime stop_cpu_;
   float elapsed_milliseconds_;
   float elapsed_microseconds_;
+  int device_;
 };
 
 class CPUTimer : public Timer {
  public:
   explicit CPUTimer();
-  virtual ~CPUTimer() {}
-  virtual void Start();
-  virtual void Stop();
-  virtual float MilliSeconds();
-  virtual float MicroSeconds();
+  ~CPUTimer() override {}
+  void Start() override;
+  void Stop() override;
+  float MilliSeconds() override;
+  float MicroSeconds() override;
 };
 
 }  // namespace caffe

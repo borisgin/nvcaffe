@@ -54,7 +54,6 @@ class LayerBase {
         bm_by_user_(false),
         parent_net_(nullptr),
         net_inititialized_flag_(nullptr),
-        net_iteration0_flag_(nullptr),
         is_shared_(false) {
     InitMutex();
   }
@@ -137,7 +136,7 @@ class LayerBase {
 
   // Iteration counter maintained by Solver
   int iter() const;
-  int relative_iter() const;
+  int parent_rank() const;
 
   Net* parent_net() {
     return parent_net_;
@@ -356,10 +355,6 @@ class LayerBase {
     net_inititialized_flag_ = init_flag;
   }
 
-  void set_net_iteration0_flag(Flag* iter0_flag) {
-    net_iteration0_flag_ = iter0_flag;
-  }
-
   /**
    * Some layers need to be initialized after first iteration
    * They should override this function and return a flag
@@ -443,9 +438,6 @@ class LayerBase {
 
   /** Gets set when Net::Init is over */
   Flag* net_inititialized_flag_;
-
-  /** Gets set when Net::Init is over */
-  Flag* net_iteration0_flag_;
 
  private:
   /** Whether this layer is actually shared by other nets*/
@@ -567,16 +559,11 @@ inline float Layer<Ftype, Btype>::Forward(const vector<Blob*>& bottom, const vec
       for (int top_id = 0; top_id < top.size(); ++top_id) {
         if (this->loss(top_id) == 0.F) { continue; }
         const int count = top[top_id]->count();
-        if (count < 16 && is_precise<Ftype>()) {
-          loss += caffe_cpu_dot(count, top[top_id]->cpu_data<Ftype>(),
-              top[top_id]->cpu_diff<Ftype>());
-        } else {
-          const Ftype* data = top[top_id]->gpu_data<Ftype>();
-          const Ftype* loss_weights = top[top_id]->gpu_diff<Ftype>();
-          float blob_loss = 0.F;
-          caffe_gpu_dot(count, data, loss_weights, &blob_loss);
-          loss += blob_loss;
-        }
+        const Ftype* data = top[top_id]->gpu_data<Ftype>();
+        const Ftype* loss_weights = top[top_id]->gpu_diff<Ftype>();
+        float blob_loss = 0.F;
+        caffe_gpu_dot(count, data, loss_weights, &blob_loss);
+        loss += blob_loss;
       }
       break;
     default:

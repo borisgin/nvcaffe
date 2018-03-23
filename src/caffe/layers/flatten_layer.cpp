@@ -23,7 +23,11 @@ void FlattenLayer<Ftype, Btype>::Reshape(const vector<Blob*>& bottom,
     top_shape.push_back(bottom[0]->shape(i));
   }
   top[0]->Reshape(top_shape);
+  bottom[0]->cpu_data<Ftype>();
+  top[0]->cpu_data<Ftype>();
   CHECK_EQ(top[0]->count(), bottom[0]->count());
+  top[0]->ShareData(*bottom[0]);
+  bottom[0]->ShareDiff(*top[0]);
 }
 
 template <typename Ftype, typename Btype>

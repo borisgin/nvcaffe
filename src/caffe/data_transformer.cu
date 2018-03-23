@@ -190,7 +190,7 @@ void transform_kernel<__half>(int N, int C,
 
 
 template <typename Dtype>
-void DataTransformer::TransformGPU(int N, int C, int H, int W,
+void DataTransformer<Dtype>::TransformGPU(int N, int C, int H, int W,
     size_t sizeof_element,
     const void *in, Dtype *out,
     const unsigned int *random_numbers, bool signed_data) {
@@ -274,11 +274,11 @@ void DataTransformer::TransformGPU(int N, int C, int H, int W,
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
-template void DataTransformer::TransformGPU<float>(int, int, int, int,
+template void DataTransformer<float>::TransformGPU(int, int, int, int,
     size_t, const void*, float*, const unsigned int*, bool);
-template void DataTransformer::TransformGPU<double>(int, int, int, int,
+template void DataTransformer<double>::TransformGPU(int, int, int, int,
     size_t, const void*, double*, const unsigned int*, bool);
-template void DataTransformer::TransformGPU<float16>(int, int, int, int,
+template void DataTransformer<float16>::TransformGPU(int, int, int, int,
     size_t, const void*, float16*, const unsigned int*, bool);
 
 }  // namespace caffe

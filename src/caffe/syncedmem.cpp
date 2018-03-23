@@ -80,7 +80,8 @@ void SyncedMemory::to_gpu(bool copy_from_cpu, int group) {
   switch (head_) {
     case UNINITIALIZED:
       CUDA_CHECK(cudaGetDevice(&device_));
-      GPUMemory::allocate(&gpu_ptr_, size_, device_, group);
+      pstream_ = Caffe::thread_pstream(group);
+      GPUMemory::allocate(&gpu_ptr_, size_, device_, pstream_);
       caffe_gpu_memset(size_, 0, gpu_ptr_, group);
       head_ = HEAD_AT_GPU;
       own_gpu_data_ = true;
@@ -88,7 +89,8 @@ void SyncedMemory::to_gpu(bool copy_from_cpu, int group) {
     case HEAD_AT_CPU:
       if (gpu_ptr_ == NULL) {
         CUDA_CHECK(cudaGetDevice(&device_));
-        GPUMemory::allocate(&gpu_ptr_, size_, device_, group);
+        pstream_ = Caffe::thread_pstream(group);
+        GPUMemory::allocate(&gpu_ptr_, size_, device_, pstream_);
         own_gpu_data_ = true;
       }
       if (copy_from_cpu) {

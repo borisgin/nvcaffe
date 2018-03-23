@@ -76,6 +76,10 @@ TYPED_TEST_CASE(GPUStochasticPoolingLayerTest, TestDtypes);
 TYPED_TEST(GPUStochasticPoolingLayerTest, TestStochastic) {
   LayerParameter layer_param;
   layer_param.set_phase(TRAIN);
+  layer_param.set_forward_type(tp<TypeParam>());
+  layer_param.set_backward_type(tp<TypeParam>());
+  layer_param.set_forward_math(tp<TypeParam>());
+  layer_param.set_backward_math(tp<TypeParam>());
   PoolingParameter* pooling_param = layer_param.mutable_pooling_param();
   pooling_param->set_kernel_size(3);
   pooling_param->set_stride(2);
@@ -119,6 +123,10 @@ TYPED_TEST(GPUStochasticPoolingLayerTest, TestStochastic) {
 TYPED_TEST(GPUStochasticPoolingLayerTest, TestStochasticTestPhase) {
   LayerParameter layer_param;
   layer_param.set_phase(TEST);
+  layer_param.set_forward_type(tp<TypeParam>());
+  layer_param.set_backward_type(tp<TypeParam>());
+  layer_param.set_forward_math(tp<TypeParam>());
+  layer_param.set_backward_math(tp<TypeParam>());
   PoolingParameter* pooling_param = layer_param.mutable_pooling_param();
   pooling_param->set_kernel_size(3);
   pooling_param->set_stride(2);
@@ -154,21 +162,22 @@ TYPED_TEST(GPUStochasticPoolingLayerTest, TestStochasticTestPhase) {
 }
 
 TYPED_TEST(GPUStochasticPoolingLayerTest, TestGradient) {
-  if (!is_precise<TypeParam>()) {
-    return;
-  }
   LayerParameter layer_param;
   layer_param.set_phase(TRAIN);
+  layer_param.set_forward_type(tp<TypeParam>());
+  layer_param.set_backward_type(tp<TypeParam>());
+  layer_param.set_forward_math(tp<TypeParam>());
+  layer_param.set_backward_math(tp<TypeParam>());
   PoolingParameter* pooling_param = layer_param.mutable_pooling_param();
   pooling_param->set_kernel_size(3);
   pooling_param->set_stride(2);
   pooling_param->set_pool(PoolingParameter_PoolMethod_STOCHASTIC);
   PoolingLayer<TypeParam, TypeParam> layer(layer_param);
-  GradientChecker<TypeParam> checker(tol<TypeParam>(1e-4, 3e-3), tol<TypeParam>(1e-2, 1e-1));
+  GradientChecker<TypeParam> checker(tol<TypeParam>(1e-4, 3e-3), tol<TypeParam>(1e-1, 1e-1),
+                                     1701, 0.F, 1.F);
   // it is too expensive to call curand multiple times, so we don't do an
   // exhaustive gradient check.
-  checker.CheckGradient(&layer, this->blob_bottom_vec_,
-      this->blob_top_vec_);
+  checker.CheckGradient(&layer, this->blob_bottom_vec_, this->blob_top_vec_);
 }
 
 }  // namespace caffe

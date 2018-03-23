@@ -87,7 +87,7 @@ void ReshapeLayer<Ftype, Btype>::Reshape(const vector<Blob*>& bottom,
   CHECK_EQ(top[0]->count(), bottom[0]->count())
       << "output count must match input count";
   top[0]->ShareData(*bottom[0]);
-  top[0]->ShareDiff(*bottom[0]);
+  bottom[0]->ShareDiff(*top[0]);
 }
 
 INSTANTIATE_CLASS_FB(ReshapeLayer);

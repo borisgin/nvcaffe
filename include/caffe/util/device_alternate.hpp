@@ -98,11 +98,10 @@ namespace nvml {
 struct NVMLInit {
   NVMLInit();
   ~NVMLInit();
-  nvmlDevice_t device_;
   static std::mutex m_;
 };
 
-void setCpuAffinity();
+void setCpuAffinity(int device);
 
 }
 #endif  // NO_NVML

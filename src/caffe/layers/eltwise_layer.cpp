@@ -2,7 +2,7 @@
 #include <vector>
 
 #include "caffe/layers/eltwise_layer.hpp"
-#include "caffe/util/math_functions.hpp"
+#include "caffe/net.hpp"
 
 namespace caffe {
 
@@ -30,7 +30,9 @@ void EltwiseLayer<Ftype, Btype>::LayerSetUp(const vector<Blob*>& bottom,
 template <typename Ftype, typename Btype>
 void EltwiseLayer<Ftype, Btype>::Reshape(const vector<Blob*>& bottom,
       const vector<Blob*>& top) {
-  no_coeffs_ = true;
+  const Net* pnet = this->parent_net();
+  // Inner nets are usually cyclic
+  no_coeffs_ = pnet != nullptr && !pnet->inner_net();
   for (int i = 0; i < bottom.size(); ++i) {
     no_coeffs_ = no_coeffs_ && coeffs_[i] == 1.F;
   }
@@ -44,7 +46,10 @@ void EltwiseLayer<Ftype, Btype>::Reshape(const vector<Blob*>& bottom,
     max_idx_.Reshape(bottom[0]->shape());
   }
   if (op_ == EltwiseParameter_EltwiseOp_SUM && no_coeffs_) {
-    bottom[0]->ShareDiff(*top[0]);
+    for (int i = 0; i < bottom.size(); ++i) {
+      bottom[i]->ShareDiff(*top[0]);
+    }
+    top[0]->ShareData(*bottom[0]);
   }
 }
 
@@ -64,10 +69,16 @@ void EltwiseLayer<Ftype, Btype>::Forward_cpu(
     }
     break;
   case EltwiseParameter_EltwiseOp_SUM:
-    caffe_set(count, Ftype(0), top_data);
-    // TODO(shelhamer) does BLAS optimize to sum for coeff = 1?
-    for (int i = 0; i < bottom.size(); ++i) {
-      caffe_axpy(count, Ftype(coeffs_[i]), bottom[i]->cpu_data<Ftype>(), top_data);
+    if (no_coeffs_) {
+      for (int i = 1; i < bottom.size(); ++i) {
+        caffe_axpy(count, Ftype(1), bottom[i]->cpu_data<Ftype>(), top_data);
+      }
+    } else {
+      caffe_set(count, Ftype(0), top_data);
+      // TODO(shelhamer) does BLAS optimize to sum for coeff = 1?
+      for (int i = 0; i < bottom.size(); ++i) {
+        caffe_axpy(count, Ftype(coeffs_[i]), bottom[i]->cpu_data<Ftype>(), top_data);
+      }
     }
     break;
   case EltwiseParameter_EltwiseOp_MAX:
@@ -134,11 +145,7 @@ void EltwiseLayer<Ftype, Btype>::Backward_cpu(const vector<Blob*>& top,
         caffe_mul(count, bottom_diff, top_diff, bottom_diff);
         break;
       case EltwiseParameter_EltwiseOp_SUM:
-        if (no_coeffs_) {
-          if (i > 0) {
-            caffe_copy(count, top_diff, bottom_diff);
-          }
-        } else {
+        if (!no_coeffs_) {
           caffe_cpu_scale(count, Btype(coeffs_[i]), top_diff, bottom_diff);
         }
         break;

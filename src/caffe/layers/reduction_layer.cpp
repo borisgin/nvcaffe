@@ -29,8 +29,10 @@ void ReductionLayer<Ftype, Btype>::Reshape(const vector<Blob*>& bottom,
   if (op_ == ReductionParameter_ReductionOp_SUM ||
       op_ == ReductionParameter_ReductionOp_MEAN) {
     vector<int> sum_mult_shape(1, dim_);
-    sum_multiplier_.Reshape(sum_mult_shape);
-    caffe_set<Ftype>(dim_, Ftype(1), sum_multiplier_.template mutable_cpu_data<Ftype>());
+    if (sum_multiplier_.shape() != sum_mult_shape) {
+      sum_multiplier_.Reshape(sum_mult_shape);
+      caffe_set(dim_, Ftype(1), sum_multiplier_.mutable_cpu_data());
+    }
   }
   coeff_ = this->layer_param().reduction_param().coeff();
   if (op_ == ReductionParameter_ReductionOp_MEAN) {

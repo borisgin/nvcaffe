@@ -88,9 +88,8 @@ int LayerBase::iter() const {
   return psolver == nullptr ? 0 : psolver->iter();
 }
 
-int LayerBase::relative_iter() const {
-  const Solver* psolver = parent_solver();
-  return psolver == nullptr ? 0 : psolver->relative_iter();
+int LayerBase::parent_rank() const {
+  return parent_net_ == nullptr ? 0 : parent_net_->solver_rank();
 }
 
 std::string LayerBase::print_current_device() const {

@@ -16,6 +16,7 @@
 #include "caffe/util/blocking_queue.hpp"
 #include "caffe/util/thread_pool.hpp"
 #include "caffe/layers/data_layer.hpp"
+#include "caffe/layers/annotated_data_layer.hpp"
 
 namespace caffe {
 
@@ -32,14 +33,18 @@ class Net {
   explicit Net(const NetParameter& param,
       size_t solver_rank = 0U,
       Flag* solver_init_flag = nullptr,
-      Flag* solver_iter0_flag = nullptr,
-      const Net* root_net = nullptr);
+      const Net* root_net = nullptr,
+      bool inner_net = false,
+      int level = 0,
+      const vector<string>* stages = NULL);
   Net(const string& param_file,
       Phase phase,
       size_t solver_rank = 0U,
       Flag* solver_init_flag = nullptr,
-      Flag* solver_iter0_flag = nullptr,
-      const Net* root_net = nullptr);
+      const Net* root_net = nullptr,
+      bool inner_net = false,
+      int level = 0,
+      const vector<string>* stages = NULL);
   ~Net();
 
   /// @brief Initialize a network with a NetParameter.
@@ -275,8 +280,16 @@ class Net {
     return infer_count_;
   }
 
+  size_t solver_rank() const {
+    return solver_rank_;
+  }
+
   bool global_grad_scale_enabled() const {
-    return global_grad_scale_param_ > 1.F;
+    return has_global_grad_scale_param_ && global_grad_scale_param_ > 0.F;
+  }
+
+  bool inner_net() const {
+    return inner_net_;
   }
 
   void update_grad_scale();
@@ -293,7 +306,8 @@ class Net {
   size_t prefetch_bytes() {
     size_t bytes = 0UL;
     for (const shared_ptr<LayerBase>& layer : layers_) {
-      if (typeid(*layer) == typeid(DataLayer<Ftype, Btype>)) {
+      if (typeid(*layer) == typeid(DataLayer<Ftype, Btype>) ||
+          typeid(*layer) == typeid(AnnotatedDataLayer<Ftype, Btype>)) {
         bytes += reinterpret_cast<DataLayer<Ftype, Btype>*>(layer.get())->prefetch_bytes();
       }
     }
@@ -420,14 +434,15 @@ class Net {
   size_t solver_rank_;
   BlockingQueue<int> reduction_queue_[2];
   Flag* solver_init_flag_;
-  Flag* solver_iter0_flag_;
   vector<Flag*> layer_inititialized_flags_;
   NetParameter net_param_;
 
   size_t infer_count_;
   std::atomic_llong wgrad_sq_;
   float global_grad_scale_coeff_, global_grad_scale_param_;
-  bool global_grad_scale_adaptive_;
+  bool has_global_grad_scale_param_, global_grad_scale_adaptive_;
+  /// Inner net runs on singe GPU (see recurrent layers)
+  const bool inner_net_;
 
   static constexpr float GRAD_FACTOR = 1.E6F;
 

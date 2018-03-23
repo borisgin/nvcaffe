@@ -197,6 +197,7 @@ class Solver {
   // The test routine
   vector<float> TestAll(const int iters = 0, bool use_multi_gpu = false);
   vector<float> Test(const int test_net_id = 0, const int iters = 0, bool use_multi_gpu = false);
+  vector<float> TestDetection(const int test_net_id = 0);
   virtual void SnapshotSolverState(const string& model_filename) = 0;
   virtual void RestoreSolverStateFromHDF5(const string& state_file) = 0;
   virtual void RestoreSolverStateFromBinaryProto(const string& state_file) = 0;
@@ -238,7 +239,7 @@ class Solver {
   bool requested_early_exit_;
 
   // some layers like Data have to wait for this one
-  Flag init_flag_, iter0_flag_;
+  Flag init_flag_;
 
   // Timing information
   shared_ptr<Timer> iteration_timer_;

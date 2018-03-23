@@ -96,6 +96,7 @@ P2PSync::P2PSync(P2PManager* mgr, shared_ptr<Solver> root_solver,
 #ifndef USE_NCCL
   LOG(FATAL) << "USE_NCCL := 1 must be specified for multi-GPU";
 #endif
+  CHECK_EQ(target_device_, solver_param_.device_id());
   LOG(INFO) << "[" << rank << " - " << this->target_device_ << "] P2pSync adding callback";
 }
 
@@ -117,6 +118,7 @@ void P2PSync::InternalThreadEntry() {
   solver_->set_callback(this);
 
   CHECK_EQ(nranks_, Caffe::solver_count());
+  CHECK_EQ(target_device_, Caffe::current_device());
 
 #ifdef USE_NCCL
   ncclUniqueId* nccl_id = reinterpret_cast<ncclUniqueId*>(this->aux_);
@@ -160,14 +162,17 @@ void P2PSync::on_start(const vector<shared_ptr<Blob>>& net) {
   CHECK_EQ(count, nranks_);
   for (int i = 0; i < net.size(); ++i) {
     Blob* param = net[i].get();
+    const Type param_type = param->data_type();
+    const int type_id = solver_->net()->learnable_types()[0] == param_type ? 0 : 1;
+    reduce_barrier(type_id);
     NCCL_CHECK(ncclBcast(param->current_mutable_data_memory(true),
         even(param->count()),
-        nccl::nccl_type(param->data_type()),
+        nccl::nccl_type(param_type),
         0,
         nccl_comm_,
-        comm_stream(0)));
-    CUDA_CHECK(cudaStreamSynchronize(comm_stream(0)));
-    reduce_barrier(0);
+        comm_stream(type_id)));
+    CUDA_CHECK(cudaStreamSynchronize(comm_stream(type_id)));
+    reduce_barrier(type_id);
   }
 #endif  // USE_NCCL
 }

@@ -10,7 +10,7 @@ DataLayer<Ftype, Btype>::DataLayer(const LayerParameter& param, size_t solver_ra
   : BasePrefetchingDataLayer<Ftype, Btype>(param, solver_rank),
     cache_(param.data_param().cache()),
     shuffle_(param.data_param().shuffle()) {
-  sample_only_.store(this->auto_mode_ && this->phase_ == TRAIN);
+  sample_only_.store(this->auto_mode_);
   init_offsets();
   datum_encoded_ = false;
 }
@@ -44,7 +44,8 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
   if (layer_inititialized_flag_.is_set()) {
     return;
   }
-  if (this->auto_mode()) {
+  const bool auto_mode = this->auto_mode_;
+  if (auto_mode) {
     // Here we try to optimize memory split between prefetching and convolution.
     // All data and parameter blobs are allocated at this moment.
     // Now let's find out what's left...
@@ -81,7 +82,7 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
     } else {
       // in this mode memory demand is O(1)
       if (batches_fit > 0) {
-        parsers_num = cache_ ? 1 : 2;
+        parsers_num = cache_ ? 1 : 3;
         transf_num = 4;
       }
     }
@@ -95,14 +96,16 @@ DataLayer<Ftype, Btype>::InitializePrefetch() {
     if (this->parsers_num_ > 1) {
       parser_offsets_[0]++;  // 0th already processed
     }
+    this->auto_mode_ = false;
+    layer_inititialized_flag_.set();
     this->go();  // kick off new threads if any
   }
 
   CHECK_EQ(this->threads_num(), this->transf_num_);
   LOG(INFO) << this->print_current_device() << " Parser threads: "
-      << this->parsers_num_ << (this->auto_mode_ ? " (auto)" : "");
+      << this->parsers_num_ << (auto_mode ? " (auto)" : "");
   LOG(INFO) << this->print_current_device() << " Transformer threads: "
-      << this->transf_num_ << (this->auto_mode_ ? " (auto)" : "");
+      << this->transf_num_ << (auto_mode ? " (auto)" : "");
   layer_inititialized_flag_.set();
 }
 
@@ -127,7 +130,7 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
 
   if (this->auto_mode_) {
     if (!sample_reader_) {
-      sample_reader_ = std::make_shared<DataReader>(param, Caffe::solver_count(),
+      sample_reader_ = std::make_shared<DataReader<Datum>>(param, Caffe::solver_count(),
           this->rank_,
           this->parsers_num_,
           this->threads_num(),
@@ -138,7 +141,7 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
           shuffle,
           false);
     } else if (!reader_) {
-      reader_ = std::make_shared<DataReader>(param,
+      reader_ = std::make_shared<DataReader<Datum>>(param,
           Caffe::solver_count(),
           this->rank_,
           this->parsers_num_,
@@ -151,7 +154,7 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
           this->phase_ == TRAIN);
     }
   } else if (!reader_) {
-    reader_ = std::make_shared<DataReader>(param,
+    reader_ = std::make_shared<DataReader<Datum>>(param,
         Caffe::solver_count(),
         this->rank_,
         this->parsers_num_,
@@ -174,8 +177,7 @@ DataLayer<Ftype, Btype>::DataLayerSetUp(const vector<Blob*>& bottom, const vecto
   // Note: all these reshapings here in load_batch are needed only in case of
   // different datum shapes coming from database.
   Packing packing = NHWC;  // OpenCV
-  vector<int> top_shape = this->dt(0)->template Transform<Btype>(sample_datum.get(),
-      nullptr, 0, packing);
+  vector<int> top_shape = this->bdt(0)->Transform(sample_datum.get(), nullptr, 0, packing);
   top_shape[0] = batch_size;
   top[0]->Reshape(top_shape);
 
@@ -209,14 +211,14 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
   const int batch_size = this->layer_param_.data_param().batch_size();
 
   const size_t qid = sample_only ? 0UL : queue_id;
-  DataReader* reader = sample_only ? sample_reader_.get() : reader_.get();
+  DataReader<Datum>* reader = sample_only ? sample_reader_.get() : reader_.get();
   shared_ptr<Datum> init_datum = reader->full_peek(qid);
   CHECK(init_datum);
   const bool use_gpu_transform = this->is_gpu_transform();
   Packing packing = NHWC;  // OpenCV
   // Use data_transformer to infer the expected blob shape from datum.
   vector<int> top_shape =
-      this->dt(thread_id)->template Transform<Btype>(init_datum.get(), nullptr, 0, packing);
+      this->bdt(thread_id)->Transform(init_datum.get(), nullptr, 0, packing);
   // Reshape batch according to the batch_size.
   top_shape[0] = batch_size;
   if (top_shape != batch->data_->shape()) {
@@ -303,19 +305,19 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
       CUDA_CHECK(cudaMemcpyAsync(static_cast<char*>(dst_gptr) + item_id * datum_size,
           src_buf.data(), datum_size, cudaMemcpyHostToDevice, stream));
       CUDA_CHECK(cudaStreamSynchronize(stream));
-      this->dt(thread_id)->Fill3Randoms(&random_vectors_[thread_id]->
+      this->bdt(thread_id)->Fill3Randoms(&random_vectors_[thread_id]->
           mutable_cpu_data()[item_id * 3]);
     } else {
       // Get data offset for this datum to hand off to transform thread
       const size_t offset = batch->data_->offset(item_id);
       CHECK_EQ(0, offset % buf_len);
 #if defined(USE_CUDNN)
-      vector<int> shape = this->dt(thread_id)->Transform(datum.get(), dst_cptr + offset,
+      vector<int> shape = this->bdt(thread_id)->Transform(datum.get(), dst_cptr + offset,
           buf_len, packing, false);
 #else
       vector<Btype> tmp(top_shape[1] * top_shape[2] * top_shape[3]);
       CHECK_EQ(buf_len, tmp.size());
-      vector<int> shape = this->dt(thread_id)->Transform(datum.get(), tmp.data(), buf_len,
+      vector<int> shape = this->bdt(thread_id)->Transform(datum.get(), tmp.data(), buf_len,
           packing, false);
       if (packing == NHWC) {
         hwc2chw(top_shape[1], top_shape[3], top_shape[2], tmp.data(), dst_cptr + offset);
@@ -333,7 +335,7 @@ void DataLayer<Ftype, Btype>::load_batch(Batch* batch, int thread_id, size_t que
   }
 
   if (use_gpu_transform) {
-    this->dt(thread_id)->TransformGPU(top_shape[0], top_shape[1],
+    this->fdt(thread_id)->TransformGPU(top_shape[0], top_shape[1],
         init_datum_height,  // non-crop
         init_datum_width,  // non-crop
         datum_sizeof_element,

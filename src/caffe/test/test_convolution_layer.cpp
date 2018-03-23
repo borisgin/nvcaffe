@@ -387,14 +387,14 @@ TYPED_TEST(ConvolutionLayerTest, TestSimple3DConvolution) {
   top_data = this->blob_top_->cpu_data();
   ref_top_data = this->ref_blob_top_->cpu_data();
   for (int i = 0; i < this->blob_top_->count(); ++i) {
-    EXPECT_NEAR(top_data[i], ref_top_data[i], tol<Dtype>(1e-3, 5e-2));
+    EXPECT_NEAR(top_data[i], ref_top_data[i], tol<Dtype>(1e-3, 1e-1));
   }
   caffe_conv(this->blob_bottom_2_, convolution_param, layer->blobs(),
       this->MakeReferenceTop(this->blob_top_2_));
   top_data = this->blob_top_2_->cpu_data();
   ref_top_data = this->ref_blob_top_->cpu_data();
   for (int i = 0; i < this->blob_top_->count(); ++i) {
-    EXPECT_NEAR(top_data[i], ref_top_data[i], tol<Dtype>(1e-3, 5e-2));
+    EXPECT_NEAR(top_data[i], ref_top_data[i], tol<Dtype>(1e-3, 1e-1));
   }
 }
 
@@ -1108,7 +1108,7 @@ TYPED_TEST(CuDNNConvolutionLayerTest, TestGradientCuDNN) {
   convolution_param->mutable_weight_filler()->set_type("gaussian");
   convolution_param->mutable_bias_filler()->set_type("gaussian");
   CuDNNConvolutionLayer<TypeParam, TypeParam> layer(layer_param);
-  GradientChecker<TypeParam> checker(tol<TypeParam>(5e-2, 1e-1), tol<TypeParam>(1e-2, 5e-1));
+  GradientChecker<TypeParam> checker(tol<TypeParam>(3e-2, 1e-1), tol<TypeParam>(1e-2, 5e-1));
   checker.CheckGradientExhaustive(&layer, this->blob_bottom_vec_, this->blob_top_vec_);
 }
 

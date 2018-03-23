@@ -13,17 +13,19 @@ Here are the major features:
 * **Mixed-precision support**. It allows to store and/or compute data in either 
 64, 32 or 16 bit formats. Precision can be defined for every layer (forward and 
 backward passes might be different too), or it can be set for the whole Net.
+* **Layer-wise Adaptive Rate Control (LARC) and adaptive global gradient scaler** for better
+ accuracy, especially in 16-bit training.
 * **Integration with  [cuDNN](https://developer.nvidia.com/cudnn) v7**.
 * **Automatic selection of the best cuDNN convolution algorithm**.
 * **Integration with v2.2 of [NCCL library](https://github.com/NVIDIA/nccl)**
  for improved multi-GPU scaling.
 * **Optimized GPU memory management** for data and parameters storage, I/O buffers 
 and workspace for convolutional layers.
-* **Parallel data parser and transformer** for improved I/O performance.
+* **Parallel data parser, transformer and image reader** for improved I/O performance.
 * **Parallel back propagation and gradient reduction** on multi-GPU systems.
 * **Fast solvers implementation with fused CUDA kernels for weights and history update**.
 * **Multi-GPU test phase** for even memory load across multiple GPUs.
-* **Backward compatibility with BVLC Caffe and NVCaffe 0.15**.
+* **Backward compatibility with BVLC Caffe and NVCaffe 0.15 and higher**.
 * **Extended set of optimized models** (including 16 bit floating point examples).
 
 
@@ -45,6 +47,6 @@ Please cite Caffe in your publications if it helps your research:
 
 Libturbojpeg library is used since 0.16.5. It has a packaging bug. Please execute the following (required for Makefile, optional for CMake):
 ```
-sudo apt-get install libturbojpeg libturbojpeg-dev
+sudo apt-get install libturbojpeg
 sudo ln -s /usr/lib/x86_64-linux-gnu/libturbojpeg.so.0.1.0 /usr/lib/x86_64-linux-gnu/libturbojpeg.so
 ```

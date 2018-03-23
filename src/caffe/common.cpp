@@ -17,6 +17,7 @@ namespace caffe {
 // Must be set before brewing
 Caffe::Brew Caffe::mode_ = Caffe::GPU;
 int Caffe::solver_count_ = 1;
+std::vector<int> Caffe::gpus_;
 int Caffe::root_device_ = -1;
 int Caffe::thread_count_ = 0;
 int Caffe::restored_iter_ = -1;
@@ -143,12 +144,10 @@ Caffe::Caffe()
 
 void Caffe::init() {
   if (mode_ == GPU && curand_generator_ == nullptr) {
-    CURAND_CHECK_ARG(curandCreateGenerator(&curand_generator_, CURAND_RNG_PSEUDO_DEFAULT),
-        current_device());
-    CURAND_CHECK_ARG(curandSetPseudoRandomGeneratorSeed(curand_generator_, cluster_seedgen()),
-        current_device());
     curand_stream_ = CudaStream::create();
-    CURAND_CHECK_ARG(curandSetStream(curand_generator_, curand_stream_->get()), current_device());
+    CURAND_CHECK(curandCreateGenerator(&curand_generator_, CURAND_RNG_PSEUDO_DEFAULT));
+    CURAND_CHECK(curandSetPseudoRandomGeneratorSeed(curand_generator_, cluster_seedgen()));
+    CURAND_CHECK(curandSetStream(curand_generator_, curand_stream_->get()));
   }
 }
 
@@ -162,6 +161,7 @@ Caffe::~Caffe() {
 }
 
 size_t Caffe::min_avail_device_memory() {
+  std::lock_guard<std::mutex> lock(caffe_mutex_);
   size_t ret = 0UL;
   const std::vector<int>& cur_gpus = gpus();
   int cur_device;
@@ -453,23 +453,27 @@ CuDNNHandle::~CuDNNHandle() {
 }
 #endif
 
-Caffe::Properties Caffe::props_;
+Caffe::Properties& Caffe::props() {
+  static Caffe::Properties props_;
+  return props_;
+}
 
 Caffe::Properties::Properties() :
       init_time_(std::time(nullptr)),
       main_thread_id_(lwp_id()),
       caffe_version_(AS_STRING(CAFFE_VERSION)) {
-  const int count = Caffe::device_count();
+  const std::vector<int>& gpus = Caffe::gpus();
+  const int count = gpus.size();
   if (count == 0) {
     return;
   }
   compute_capabilities_.resize(count);
   cudaDeviceProp device_prop;
   for (int gpu = 0; gpu < compute_capabilities_.size(); ++gpu) {
-    CUDA_CHECK(cudaGetDeviceProperties(&device_prop, gpu));
+    CUDA_CHECK(cudaGetDeviceProperties(&device_prop, gpus[gpu]));
     compute_capabilities_[gpu] = device_prop.major * 100 + device_prop.minor;
-    DLOG(INFO) << "GPU " << gpu << " '" << device_prop.name << "' has compute capability "
-        << device_prop.major << "." << device_prop.minor;
+    DLOG(INFO) << "GPU " << gpus[gpu] << " '" << device_prop.name
+               << "' has compute capability " << device_prop.major << "." << device_prop.minor;
   }
 #ifdef USE_CUDNN
   cudnn_version_ = std::to_string(cudnnGetVersion());
@@ -520,21 +524,8 @@ std::mutex NVMLInit::m_;
 NVMLInit::NVMLInit() {
   if (nvmlInit() != NVML_SUCCESS) {
     LOG(ERROR) << "NVML failed to initialize";
-    return;
   } else {
     LOG(INFO) << "NVML initialized, thread " << lwp_id();
-  }
-  unsigned int deviceCount = 0U;
-  if (nvmlDeviceGetCount(&deviceCount) == NVML_SUCCESS) {
-    for (unsigned int id = 0; id < deviceCount; ++id) {
-      if (nvmlDeviceGetHandleByIndex(id, &device_) != NVML_SUCCESS ||
-          nvmlDeviceSetCpuAffinity(device_) != NVML_SUCCESS) {
-          LOG(ERROR) << "NVML failed to set CPU affinity on device " << id
-              << ", thread " << lwp_id();
-      }
-    }
-  } else {
-    LOG(ERROR) << "nvmlDeviceGetCount failed, thread " << lwp_id();
   }
 }
 
@@ -543,9 +534,22 @@ NVMLInit::~NVMLInit() {
 }
 
 // set the CPU affinity for this thread
-void setCpuAffinity() {
+void setCpuAffinity(int device) {
   std::lock_guard<std::mutex> lock(NVMLInit::m_);
-  static thread_local NVMLInit nvml_init_;
+  static NVMLInit nvml_init_;
+
+  char pciBusId[16];
+  CUDA_CHECK(cudaDeviceGetPCIBusId(pciBusId, 16, device));
+  nvmlDevice_t nvml_device;
+
+  if (nvmlDeviceGetHandleByPciBusId(pciBusId, &nvml_device) != NVML_SUCCESS ||
+      nvmlDeviceSetCpuAffinity(nvml_device) != NVML_SUCCESS) {
+    LOG(ERROR) << "NVML failed to set CPU affinity on device " << device
+               << ", thread " << lwp_id();
+  } else {
+    LOG(INFO) << "NVML succeeded to set CPU affinity on device " << device
+               << ", thread " << lwp_id();
+  }
 }
 
 }  // namespace nvml

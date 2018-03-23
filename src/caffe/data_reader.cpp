@@ -2,17 +2,20 @@
 #include <sys/sysinfo.h>
 
 #include "caffe/util/rng.hpp"
-#include "caffe/common.hpp"
 #include "caffe/parallel.hpp"
 #include "caffe/data_reader.hpp"
 
 namespace caffe {
 
-std::mutex DataReader::db_mutex_;
-std::mutex DataReader::DataCache::cache_mutex_;
-unique_ptr<DataReader::DataCache> DataReader::DataCache::data_cache_inst_;
+template<typename DatumType>
+std::mutex DataReader<DatumType>::db_mutex_;
+// https://stackoverflow.com/questions/26935824/gcc-gives-an-undefined-reference-error-to-static-data-members-in-templated-cla
 
-DataReader::DataReader(const LayerParameter& param,
+template<typename DatumType>
+std::mutex DataReader<DatumType>::DataCache::cache_mutex_{};
+
+template<typename DatumType>
+DataReader<DatumType>::DataReader(const LayerParameter& param,
     size_t solver_count,
     size_t solver_rank,
     size_t parser_threads_num,
@@ -55,26 +58,29 @@ DataReader::DataReader(const LayerParameter& param,
   LOG(INFO) << (sample_only ? "Sample " : "") << "Data Reader threads: "
       << this->threads_num() << ", out queues: " << queues_num_ << ", depth: " << queue_depth_;
   for (size_t i = 0; i < queues_num_; ++i) {
-    full_[i] = make_shared<BlockingQueue<shared_ptr<Datum>>>();
-    free_[i] = make_shared<BlockingQueue<shared_ptr<Datum>>>();
-    for (size_t j = 0; j < queue_depth_ - 1U; ++j) {  // +1 in InternalThreadEntryN
-      free_[i]->push(make_shared<Datum>());
+    full_[i] = make_shared<BlockingQueue<shared_ptr<DatumType>>>();
+    free_[i] = make_shared<BlockingQueue<shared_ptr<DatumType>>>();
+    for (size_t j = 0; j < queue_depth_; ++j) {
+      free_[i]->push(make_shared<DatumType>());
     }
   }
   db_source_ = param.data_param().source();
-  init_ = make_shared<BlockingQueue<shared_ptr<Datum>>>();
+  init_ = make_shared<BlockingQueue<shared_ptr<DatumType>>>();
   StartInternalThread(false, Caffe::next_seed());
 }
 
-DataReader::~DataReader() {
+template<typename DatumType>
+DataReader<DatumType>::~DataReader() {
   StopInternalThread();
 }
 
-void DataReader::InternalThreadEntry() {
+template<typename DatumType>
+void DataReader<DatumType>::InternalThreadEntry() {
   InternalThreadEntryN(0U);
 }
 
-void DataReader::InternalThreadEntryN(size_t thread_id) {
+template<typename DatumType>
+void DataReader<DatumType>::InternalThreadEntryN(size_t thread_id) {
   if (cache_) {
     data_cache_->check_db(db_source_);
     data_cache_->register_new_thread();
@@ -97,7 +103,7 @@ void DataReader::InternalThreadEntryN(size_t thread_id) {
       cache_ && !sample_only_,
       shuffle_ && !sample_only_,
       epoch_count_required_);
-  shared_ptr<Datum> init_datum = make_shared<Datum>();
+  shared_ptr<DatumType> init_datum = make_shared<DatumType>();
   cm.fetch(init_datum.get());
   init_->push(init_datum);
 
@@ -108,7 +114,7 @@ void DataReader::InternalThreadEntryN(size_t thread_id) {
   size_t skip = skip_one_batch_ ? batch_size_ : 0UL;
 
   size_t queue_id, ranked_rec, batch_on_solver, sample_count = 0UL;
-  shared_ptr<Datum> datum = make_shared<Datum>();
+  shared_ptr<DatumType> datum = make_shared<DatumType>();
   try {
     while (!must_stop(thread_id)) {
       cm.next(datum);
@@ -137,13 +143,15 @@ void DataReader::InternalThreadEntryN(size_t thread_id) {
   }
 }
 
-shared_ptr<Datum>& DataReader::DataCache::next_new() {
+template<typename DatumType>
+shared_ptr<DatumType>& DataReader<DatumType>::DataCache::next_new() {
   std::lock_guard<std::mutex> lock(cache_mutex_);
-  cache_buffer_.emplace_back(make_shared<Datum>());
+  cache_buffer_.emplace_back(make_shared<DatumType>());
   return cache_buffer_.back();
 }
 
-shared_ptr<Datum>& DataReader::DataCache::next_cached(DataReader& reader) {
+template<typename DatumType>
+shared_ptr<DatumType>& DataReader<DatumType>::DataCache::next_cached(DataReader& reader) {
   if (just_cached_.load()) {
     cache_bar_.wait();
     just_cached_.store(false);
@@ -170,19 +178,21 @@ shared_ptr<Datum>& DataReader::DataCache::next_cached(DataReader& reader) {
     LOG(INFO) << "Shuffling " << cache_buffer_.size() << " records...";
     caffe::shuffle(cache_buffer_.begin(), cache_buffer_.end());
   }
-  shared_ptr<Datum>& datum = cache_buffer_[cache_idx_++];
+  shared_ptr<DatumType>& datum = cache_buffer_[cache_idx_++];
   if (cache_idx_ >= cache_buffer_.size()) {
     cache_idx_= 0UL;
   }
   return datum;
 }
 
-void DataReader::DataCache::just_cached() {
+template<typename DatumType>
+void DataReader<DatumType>::DataCache::just_cached() {
   just_cached_.store(true);
   cached_flags_[lwp_id()]->set();
 }
 
-bool DataReader::DataCache::check_memory() {
+template<typename DatumType>
+bool DataReader<DatumType>::DataCache::check_memory() {
 #ifdef __APPLE__
   return true;
 #else
@@ -240,7 +250,8 @@ bool DataReader::DataCache::check_memory() {
 #endif
 }
 
-DataReader::CursorManager::CursorManager(db::DB* db, DataReader* reader,
+template<typename DatumType>
+DataReader<DatumType>::CursorManager::CursorManager(db::DB* db, DataReader<DatumType>* reader,
     size_t solver_count, size_t solver_rank, size_t parser_threads, size_t parser_thread_id,
     size_t batch_size, bool cache, bool shuffle, bool epoch_count_required)
     : db_(db),
@@ -261,12 +272,14 @@ DataReader::CursorManager::CursorManager(db::DB* db, DataReader* reader,
       epoch_count_(0UL),
       epoch_count_required_(epoch_count_required) {}
 
-DataReader::CursorManager::~CursorManager() {
+template<typename DatumType>
+DataReader<DatumType>::CursorManager::~CursorManager() {
   cursor_.reset();
   db_->Close();
 }
 
-void DataReader::CursorManager::next(shared_ptr<Datum>& datum) {
+template<typename DatumType>
+void DataReader<DatumType>::CursorManager::next(shared_ptr<DatumType>& datum) {
   if (cached_all_) {
     datum = reader_->next_cached();
   } else {
@@ -332,7 +345,8 @@ S1 |                          r1pt1.q1                    --> S1.tr0 S1.q2
       <-- rank cycle ->
       <---------- full cycle ----------->
 */
-void DataReader::CursorManager::rewind() {
+template<typename DatumType>
+void DataReader<DatumType>::CursorManager::rewind() {
   CHECK(parser_threads_);
   size_t rank_cycle_begin = rank_cycle_ * solver_rank_;
   rec_id_ = rank_cycle_begin + parser_thread_id_ * batch_size_;
@@ -346,7 +360,8 @@ void DataReader::CursorManager::rewind() {
   }
 }
 
-void DataReader::CursorManager::fetch(Datum* datum) {
+template<>
+void DataReader<Datum>::CursorManager::fetch(Datum* datum) {
   C2TensorProtos protos;
   if (cursor_->parse(&protos) && protos.protos_size() >= 2) {
     C2TensorProto* image_proto = protos.mutable_protos(0);
@@ -377,5 +392,15 @@ void DataReader::CursorManager::fetch(Datum* datum) {
   }
   // DLOG(INFO) << cursor_->key() << " " << datum->label();
 }
+
+template<>
+void DataReader<AnnotatedDatum>::CursorManager::fetch(AnnotatedDatum* datum) {
+  if (!cursor_->parse(datum)) {
+    LOG(ERROR) << "Database cursor failed to parse Datum record";
+  }
+}
+
+template class DataReader<Datum>;
+template class DataReader<AnnotatedDatum>;
 
 }  // namespace caffe

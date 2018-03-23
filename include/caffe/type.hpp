@@ -34,6 +34,11 @@ template <>
 inline constexpr Type tp<unsigned int>() {
   return UINT;
 }
+template <>
+inline constexpr Type tp<bool>() {
+  //CHECK(false) << "Should not reach here: tp<bool>()";
+  return BOOL;
+}
 
 #ifdef USE_CUDNN
 template <typename Dtype>
