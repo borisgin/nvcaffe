@@ -24,6 +24,8 @@ template<typename Dtype>
 float SGDSolver<Dtype>::GetLearningRate() {
   float rate;
   const string& lr_policy = this->param_.lr_policy();
+  const float min_lr = this->param_.min_lr();
+  CHECK_GE(min_lr, 0.F);
   if (this->iter_ < this->param_.rampup_interval()) {
     float alpha = float(this->iter_) / this->param_.rampup_interval();
     float rampup_lr = 0.;
@@ -51,16 +53,16 @@ float SGDSolver<Dtype>::GetLearningRate() {
     rate = this->param_.base_lr() * pow(this->param_.gamma(), this->current_step_);
   } else if (lr_policy == "poly") {
     float base_lr = this->param_.base_lr();
+    CHECK_GE(base_lr, min_lr);
     float power = this->param_.power();
     float maxiter = this->param_.max_iter() > 0 ? float(this->param_.max_iter()) : 1.F;
-    rate = base_lr * pow(1.F - (float(this->iter_) / maxiter), power);
+    rate = (base_lr - min_lr) * std::pow(1.F - (float(this->iter_) / maxiter), power) + min_lr;
   } else if (lr_policy == "sigmoid") {
     rate = this->param_.base_lr() / (1.F +
-        exp(-this->param_.gamma() * (double(this->iter_ - this->param_.stepsize()))));
+        std::exp(-this->param_.gamma() * (double(this->iter_ - this->param_.stepsize()))));
   } else {
     LOG(FATAL) << "Unknown learning rate policy: " << lr_policy;
   }
-  float min_lr = this->param_.min_lr();
   if (rate < min_lr) {
     rate = min_lr;
   }
