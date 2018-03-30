@@ -2,6 +2,7 @@
 #define INCLUDE_CAFFE_GPU_MATH_FUNCTIONS_H_
 
 #include <cuda.h>
+#include <cuda_fp16.h>
 #include <glog/logging.h>
 #include "math_functions.h"
 #include "driver_types.h"
@@ -10,16 +11,16 @@
 
 __device__ __inline__
 bool hlt(half a, half b) {
-#if __CUDA_ARCH__ >= 530
-return __hlt(a, b);
+#if __CUDA_ARCH__ >= 530 && !defined(OLD_CUDA_HALF_IMPL)
+  return __hlt(a, b);
 #else
-return __half2float(a) < __half2float(b);
+  return __half2float(a) < __half2float(b);
 #endif
 }
 
 __device__ __inline__
 half hmul(half a, half b) {
-#if __CUDA_ARCH__ >= 530
+#if __CUDA_ARCH__ >= 530 && !defined(OLD_CUDA_HALF_IMPL)
   return __hmul(a, b);
 #else
   return float2half_clip(__half2float(a) * __half2float(b));
@@ -28,7 +29,7 @@ half hmul(half a, half b) {
 
 __device__ __inline__
 half hdiv(half a, half b) {
-#if __CUDA_ARCH__ >= 530
+#if __CUDA_ARCH__ >= 530 && !defined(OLD_CUDA_HALF_IMPL)
   return __hdiv(a, b);
 #else
   return float2half_clip(__half2float(a) / __half2float(b));
@@ -37,7 +38,7 @@ half hdiv(half a, half b) {
 
 __device__ __inline__
 half2 hmul2(half2 a, half2 b) {
-#if __CUDA_ARCH__ >= 530
+#if __CUDA_ARCH__ >= 530 && !defined(OLD_CUDA_HALF_IMPL)
   return __hmul2(a, b);
 #else
   float2 af = __half22float2(a);
@@ -52,7 +53,7 @@ half2 hmul2(half2 a, half2 b) {
 
 __device__ __inline__
 half2 hge2(half2 a, half2 b) {
-#if __CUDA_ARCH__ >= 530
+#if __CUDA_ARCH__ >= 530 && !defined(OLD_CUDA_HALF_IMPL)
   return __hge2(a, b);
 #else
   float2 af = __half22float2(a);
@@ -67,7 +68,7 @@ half2 hge2(half2 a, half2 b) {
 
 __device__ __inline__
 half hadd(half a, half b) {
-#if __CUDA_ARCH__ >= 530
+#if __CUDA_ARCH__ >= 530 && !defined(OLD_CUDA_HALF_IMPL)
   return __hadd(a, b);
 #else
   return float2half_clip(__half2float(a) + __half2float(b));
@@ -76,7 +77,7 @@ half hadd(half a, half b) {
 
 __device__ __inline__
 half2 hadd2(half2 a, half2 b) {
-#if __CUDA_ARCH__ >= 530
+#if __CUDA_ARCH__ >= 530 && !defined(OLD_CUDA_HALF_IMPL)
   return __hadd2(a, b);
 #else
   float2 af = __half22float2(a);
