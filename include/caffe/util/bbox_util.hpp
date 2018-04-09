@@ -174,7 +174,7 @@ int CountNumMatches(const vector<map<int, vector<int> > >& all_match_indices,
 //    all_match_indices: stores mapping between predictions and ground truth.
 //    all_loc_loss: stores the confidence loss per location for each image.
 template <typename Dtype>
-void MineHardExamples(const TBlob<Dtype>& conf_blob,
+void MineHardExamples(const Blob& conf_blob,
     const vector<LabelBBox>& all_loc_preds,
     const map<int, vector<NormalizedBBox> >& all_gt_bboxes,
     const vector<NormalizedBBox>& prior_bboxes,
@@ -193,12 +193,12 @@ void MineHardExamples(const TBlob<Dtype>& conf_blob,
 //    all_gt_bboxes: stores ground truth for each image. Label of each bbox is
 //      stored in NormalizedBBox.
 template <typename Dtype>
-void GetGroundTruth(const Dtype* gt_data, const int num_gt,
+void GetGroundTruth(const Dtype* gt_data, const int num_classes, const int num_gt,
       const int background_label_id, const bool use_difficult_gt,
       map<int, vector<NormalizedBBox> >* all_gt_bboxes);
 // Store ground truth bboxes of same label in a group.
 template <typename Dtype>
-void GetGroundTruth(const Dtype* gt_data, const int num_gt,
+void GetGroundTruth(const Dtype* gt_data, const int num_classes, const int num_gt,
       const int background_label_id, const bool use_difficult_gt,
       map<int, LabelBBox>* all_gt_bboxes);
 
@@ -498,7 +498,7 @@ void GetDetectionsGPU(const Dtype* bbox_data, const Dtype* conf_data,
           const bool clip_bbox, TBlob<Dtype>* detection_blob);
 
 template <typename Dtype>
-  void ComputeConfLossGPU(const TBlob<Dtype>& conf_blob, const int num,
+  void ComputeConfLossGPU(const Blob& conf_blob, const int num,
       const int num_preds_per_class, const int num_classes,
       const int background_label_id, const ConfLossType loss_type,
       const vector<map<int, vector<int> > >& all_match_indices,

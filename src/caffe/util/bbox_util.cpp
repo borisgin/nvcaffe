@@ -631,35 +631,34 @@ void MatchBBox(const vector<NormalizedBBox>& gt_bboxes,
   }
 
   // Bipartite matching.
-  vector<int> gt_pool;
+  set<int> gt_pool;
   for (int i = 0; i < num_gt; ++i) {
-    gt_pool.push_back(i);
+    gt_pool.insert(i);
   }
   while (gt_pool.size() > 0) {
     // Find the most overlapped gt and cooresponding predictions.
     int max_idx = -1;
     int max_gt_idx = -1;
-    float max_overlap = -1;
-    for (map<int, map<int, float> >::iterator it = overlaps.begin();
-         it != overlaps.end(); ++it) {
+    float max_overlap = -1.F;
+    for (auto it = overlaps.begin(); it != overlaps.end(); ++it) {
       int i = it->first;
       if ((*match_indices)[i] != -1) {
         // The prediction already has matched ground truth or is ignored.
         continue;
       }
-      for (int p = 0; p < gt_pool.size(); ++p) {
-        int j = gt_pool[p];
-        if (it->second.find(j) == it->second.end()) {
+      for (int j : gt_pool) {
+        auto joverlap = it->second.find(j);
+        if (joverlap == it->second.end()) {
           // No overlap between the i-th prediction and j-th ground truth.
           continue;
         }
         // Find the maximum overlapped pair.
-        if (it->second[j] > max_overlap) {
+        if (joverlap->second > max_overlap) {
           // If the prediction has not been matched to any ground truth,
           // and the overlap is larger than maximum overlap, update.
           max_idx = i;
           max_gt_idx = j;
-          max_overlap = it->second[j];
+          max_overlap = joverlap->second;
         }
       }
     }
@@ -671,7 +670,7 @@ void MatchBBox(const vector<NormalizedBBox>& gt_bboxes,
       (*match_indices)[max_idx] = gt_indices[max_gt_idx];
       (*match_overlaps)[max_idx] = max_overlap;
       // Erase the ground truth.
-      gt_pool.erase(std::find(gt_pool.begin(), gt_pool.end(), max_gt_idx));
+      gt_pool.erase(max_gt_idx);
     }
   }
 
@@ -848,7 +847,7 @@ inline bool IsEligibleMining(const MiningType mining_type, const int match_idx,
 }
 
 template <typename Dtype>
-void MineHardExamples(const TBlob<Dtype>& conf_blob,
+void MineHardExamples(const Blob& conf_blob,
     const vector<LabelBBox>& all_loc_preds,
     const map<int, vector<NormalizedBBox> >& all_gt_bboxes,
     const vector<NormalizedBBox>& prior_bboxes,
@@ -893,10 +892,7 @@ void MineHardExamples(const TBlob<Dtype>& conf_blob,
   const int sample_size = multibox_loss_param.sample_size();
   // Compute confidence losses based on matching results.
   vector<vector<float> > all_conf_loss;
-//  ComputeConfLoss(conf_blob.cpu_data(), num, num_priors, num_classes,
-//      background_label_id, conf_loss_type, *all_match_indices, all_gt_bboxes,
-//      &all_conf_loss);
-  ComputeConfLossGPU(conf_blob, num, num_priors, num_classes,
+  ComputeConfLossGPU<Dtype>(conf_blob, num, num_priors, num_classes,
       background_label_id, conf_loss_type, *all_match_indices, all_gt_bboxes,
       &all_conf_loss);
   vector<vector<float> > all_loc_loss;
@@ -1028,7 +1024,7 @@ void MineHardExamples(const TBlob<Dtype>& conf_blob,
 }
 
 // Explicite initialization.
-template void MineHardExamples(const TBlob<float>& conf_blob,
+template void MineHardExamples<float>(const Blob& conf_blob,
     const vector<LabelBBox>& all_loc_preds,
     const map<int, vector<NormalizedBBox> >& all_gt_bboxes,
     const vector<NormalizedBBox>& prior_bboxes,
@@ -1038,7 +1034,7 @@ template void MineHardExamples(const TBlob<float>& conf_blob,
     int* num_matches, int* num_negs,
     vector<map<int, vector<int> > >* all_match_indices,
     vector<vector<int> >* all_neg_indices);
-template void MineHardExamples(const TBlob<double>& conf_blob,
+template void MineHardExamples<double>(const Blob& conf_blob,
     const vector<LabelBBox>& all_loc_preds,
     const map<int, vector<NormalizedBBox> >& all_gt_bboxes,
     const vector<NormalizedBBox>& prior_bboxes,
@@ -1048,7 +1044,7 @@ template void MineHardExamples(const TBlob<double>& conf_blob,
     int* num_matches, int* num_negs,
     vector<map<int, vector<int> > >* all_match_indices,
     vector<vector<int> >* all_neg_indices);
-template void MineHardExamples(const TBlob<float16>& conf_blob,
+template void MineHardExamples<float16>(const Blob& conf_blob,
     const vector<LabelBBox>& all_loc_preds,
     const map<int, vector<NormalizedBBox> >& all_gt_bboxes,
     const vector<NormalizedBBox>& prior_bboxes,
@@ -1058,8 +1054,9 @@ template void MineHardExamples(const TBlob<float16>& conf_blob,
     int* num_matches, int* num_negs,
     vector<map<int, vector<int> > >* all_match_indices,
     vector<vector<int> >* all_neg_indices);
+
 template <typename Dtype>
-void GetGroundTruth(const Dtype* gt_data, const int num_gt,
+void GetGroundTruth(const Dtype* gt_data, const int num_classes, const int num_gt,
       const int background_label_id, const bool use_difficult_gt,
       map<int, vector<NormalizedBBox> >* all_gt_bboxes) {
   all_gt_bboxes->clear();
@@ -1069,11 +1066,13 @@ void GetGroundTruth(const Dtype* gt_data, const int num_gt,
     if (item_id == -1) {
       continue;
     }
-    int label = gt_data[start_idx + 1];
-    if (is_precise<Dtype>()) {  // round float16 to int?
-      CHECK_NE(background_label_id, label)
-        << "Found background label in the dataset.";
-    } else if (background_label_id == label) {
+    int label = std::round(gt_data[start_idx + 1]);
+    if (label <= background_label_id) {
+      DLOG(WARNING) << "Ignoring background label in the dataset: " << gt_data[start_idx + 1];
+      continue;
+    }
+    if (label >= num_classes) {
+      DLOG(WARNING) << "Ignoring label >= num_classes in the dataset: " << gt_data[start_idx + 1];
       continue;
     }
     bool difficult = static_cast<bool>(gt_data[start_idx + 7]);
@@ -1095,18 +1094,18 @@ void GetGroundTruth(const Dtype* gt_data, const int num_gt,
 }
 
 // Explicit initialization.
-template void GetGroundTruth(const float* gt_data, const int num_gt,
+template void GetGroundTruth(const float* gt_data, const int num_classes, const int num_gt,
       const int background_label_id, const bool use_difficult_gt,
       map<int, vector<NormalizedBBox> >* all_gt_bboxes);
-template void GetGroundTruth(const double* gt_data, const int num_gt,
+template void GetGroundTruth(const double* gt_data, const int num_classes, const int num_gt,
       const int background_label_id, const bool use_difficult_gt,
       map<int, vector<NormalizedBBox> >* all_gt_bboxes);
-template void GetGroundTruth(const float16* gt_data, const int num_gt,
+template void GetGroundTruth(const float16* gt_data, const int num_classes, const int num_gt,
       const int background_label_id, const bool use_difficult_gt,
       map<int, vector<NormalizedBBox> >* all_gt_bboxes);
 
 template <typename Dtype>
-void GetGroundTruth(const Dtype* gt_data, const int num_gt,
+void GetGroundTruth(const Dtype* gt_data, const int num_classes, const int num_gt,
       const int background_label_id, const bool use_difficult_gt,
       map<int, LabelBBox>* all_gt_bboxes) {
   all_gt_bboxes->clear();
@@ -1117,9 +1116,15 @@ void GetGroundTruth(const Dtype* gt_data, const int num_gt,
       break;
     }
     NormalizedBBox bbox;
-    int label = gt_data[start_idx + 1];
-    CHECK_NE(background_label_id, label)
-        << "Found background label in the dataset.";
+    int label = std::round(gt_data[start_idx + 1]);
+    if (label <= background_label_id) {
+      DLOG(WARNING) << "Ignoring background label in the dataset: " << gt_data[start_idx + 1];
+      continue;
+    }
+    if (label >= num_classes) {
+      DLOG(WARNING) << "Ignoring label >= num_classes in the dataset: " << gt_data[start_idx + 1];
+      continue;
+    }
     bool difficult = static_cast<bool>(gt_data[start_idx + 7]);
     if (!use_difficult_gt && difficult) {
       // Skip reading difficult ground truth.
@@ -1137,13 +1142,13 @@ void GetGroundTruth(const Dtype* gt_data, const int num_gt,
 }
 
 // Explicit initialization.
-template void GetGroundTruth(const float* gt_data, const int num_gt,
+template void GetGroundTruth(const float* gt_data, const int num_classes, const int num_gt,
       const int background_label_id, const bool use_difficult_gt,
       map<int, LabelBBox>* all_gt_bboxes);
-template void GetGroundTruth(const double* gt_data, const int num_gt,
+template void GetGroundTruth(const double* gt_data, const int num_classes, const int num_gt,
       const int background_label_id, const bool use_difficult_gt,
       map<int, LabelBBox>* all_gt_bboxes);
-template void GetGroundTruth(const float16* gt_data, const int num_gt,
+template void GetGroundTruth(const float16* gt_data, const int num_classes, const int num_gt,
       const int background_label_id, const bool use_difficult_gt,
       map<int, LabelBBox>* all_gt_bboxes);
 template <typename Dtype>
