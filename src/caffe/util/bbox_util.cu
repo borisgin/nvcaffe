@@ -595,7 +595,7 @@ __global__ void ComputeConfLossKernel(const int nthreads,
 }
 
 template <typename Dtype>
-void ComputeConfLossGPU(const TBlob<Dtype>& conf_blob, const int num,
+void ComputeConfLossGPU(const Blob& conf_blob, const int num,
       const int num_preds_per_class, const int num_classes,
       const int background_label_id, const ConfLossType loss_type,
       const vector<map<int, vector<int> > >& all_match_indices,
@@ -630,12 +630,12 @@ void ComputeConfLossGPU(const TBlob<Dtype>& conf_blob, const int num,
     }
   }
   // Get probability data.
-  const Dtype* conf_gpu_data = conf_blob.gpu_data();
+  const Dtype* conf_gpu_data = conf_blob.gpu_data<Dtype>();
   TBlob<Dtype> prob_blob;
   prob_blob.ReshapeLike(conf_blob);
   if (loss_type == MultiBoxLossParameter_ConfLossType_SOFTMAX) {
     Dtype* prob_gpu_data = prob_blob.mutable_gpu_data();
-    SoftMaxGPU(conf_blob.gpu_data(), num * num_preds_per_class, num_classes, 1,
+    SoftMaxGPU(conf_blob.gpu_data<Dtype>(), num * num_preds_per_class, num_classes, 1,
         prob_gpu_data);
     conf_gpu_data = prob_blob.gpu_data();
   }
@@ -660,19 +660,19 @@ void ComputeConfLossGPU(const TBlob<Dtype>& conf_blob, const int num,
 }
 
 // Explicit initialization.
-template void ComputeConfLossGPU(const TBlob<float>& conf_data, const int num,
+template void ComputeConfLossGPU<float>(const Blob& conf_data, const int num,
       const int num_preds_per_class, const int num_classes,
       const int background_label_id, const ConfLossType loss_type,
       const vector<map<int, vector<int> > >& all_match_indices,
       const map<int, vector<NormalizedBBox> >& all_gt_bboxes,
       vector<vector<float> >* all_conf_loss);
-template void ComputeConfLossGPU(const TBlob<double>& conf_data, const int num,
+template void ComputeConfLossGPU<double>(const Blob& conf_data, const int num,
       const int num_preds_per_class, const int num_classes,
       const int background_label_id, const ConfLossType loss_type,
       const vector<map<int, vector<int> > >& all_match_indices,
       const map<int, vector<NormalizedBBox> >& all_gt_bboxes,
       vector<vector<float> >* all_conf_loss);
-template void ComputeConfLossGPU(const TBlob<float16>& conf_data, const int num,
+template void ComputeConfLossGPU<float16>(const Blob& conf_data, const int num,
       const int num_preds_per_class, const int num_classes,
       const int background_label_id, const ConfLossType loss_type,
       const vector<map<int, vector<int> > >& all_match_indices,
