@@ -142,6 +142,34 @@ __global__ void SoftmaxLossBackwardGPU<half>(const int nthreads, const half* top
   }
 }
 
+//===========================================================================
+
+template<typename Dtype>
+__global__ void label_smoothing_kernel(const size_t N, const Dtype alpha, Dtype* y) {
+  CUDA_KERNEL_LOOP(index, N) {
+    if (y[index]> alpha) {
+	  y[index] = 1.0;
+    }
+  }
+}
+
+template<typename Dtype>
+void label_smooth(const size_t N, const Dtype alpha, Dtype* Y) {
+    cudaStream_t stream = Caffe::thread_stream();
+    // NOLINT_NEXT_LINE(whitespace/operators)
+    label_smoothing_kernel <<<CAFFE_GET_BLOCKS(N), CAFFE_CUDA_NUM_THREADS, 0, stream>>> (N, alpha, Y);
+    CUDA_POST_KERNEL_CHECK;
+    CUDA_CHECK_ARG2(cudaStreamSynchronize(stream), stream, Caffe::current_device());
+}
+
+template void
+label_smooth<float>(const size_t N, const float alpha, float* Y);
+template void
+label_smooth<double>(const size_t N, const double alpha, double* Y);
+template void
+label_smooth<float16>(const size_t N, const float16 alpha, float16* Y);
+
+//===========================================================================
 
 template <typename Ftype, typename Btype>
 void SoftmaxWithLossLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
@@ -152,7 +180,19 @@ void SoftmaxWithLossLayer<Ftype, Btype>::Backward_gpu(const vector<Blob*>& top,
   }
   if (propagate_down[0]) {
     Btype* bottom_diff = bottom[0]->mutable_gpu_diff<Btype>();
-    const Btype* prob_data = prob_->template gpu_data<Btype>();
+    Btype* prob_data = prob_->template mutable_gpu_data<Btype>();
+
+    if (label_smoothing_ > 0.0) {
+        const Btype alpha = 1.0 - label_smoothing_;
+        const int N = prob_->count();
+        float pmax = prob_->amax_data();
+        if (pmax > alpha) {
+        	label_smooth(N, alpha , prob_data);
+        	float pmax2= prob_->amax_data();
+        	DLOG(INFO) << "pmax_before= "  << pmax << " pmax_after=" << pmax2;
+        }
+    }
+
     const Btype* top_data = top[0]->gpu_data<Btype>();
     caffe_gpu_memcpy(prob_->count() * sizeof(Btype), prob_data, bottom_diff);
     const Btype* label = bottom[1]->gpu_data<Btype>();
