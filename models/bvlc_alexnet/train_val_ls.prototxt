@@ -1,4 +1,5 @@
-name: "AlexNet"
+name: "AlexNet_fp32_base"
+
 layer {
   name: "data"
   type: "Data"
@@ -6,17 +7,14 @@ layer {
   top: "label"
   transform_param {
     mean_file: "data/ilsvrc12/imagenet_mean.binaryproto"
-#    mean_file: "/data/imagenet/imagenet_256x256_mean.binaryproto"
     mirror: true
     crop_size: 227
   }
   data_param {
     source: "examples/imagenet/ilsvrc12_train_lmdb"
     batch_size: 1024
-#    source: "/data/imagenet/train-lmdb-uncompressed-256x256"
-#    batch_size: 8192
-#    cache: true
-#    shuffle: true
+    cache: true
+    shuffle: true
     backend: LMDB
   }
   include { phase: TRAIN }
@@ -28,19 +26,17 @@ layer {
   top: "label"
   transform_param {
     mean_file: "data/ilsvrc12/imagenet_mean.binaryproto"
-#    mean_file: "/data/imagenet/imagenet_256x256_mean.binaryproto"
     mirror: false
     crop_size: 227
   }
   data_param {
     source: "examples/imagenet/ilsvrc12_val_lmdb"
-#    source: "/data/imagenet/val-lmdb-uncompressed-256x256"
-    batch_size: 32
-#    batch_size: 256
+    batch_size: 256
     backend: LMDB
   }
   include { phase: TEST }
 }
+
 layer {
   name: "conv1"
   type: "Convolution"
@@ -311,7 +307,7 @@ layer {
   bottom: "fc8"
   bottom: "label"
   top: "loss"
-  loss_param { label_smoothing: 0.2 }
+  loss_param { label_smoothing: 0.2}
 }
 layer {
   name: "top-1"

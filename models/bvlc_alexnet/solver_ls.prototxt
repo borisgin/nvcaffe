@@ -6,15 +6,13 @@ test_initialization: false
 
 display:  100
 
-max_iter: 125000 
+max_iter:  62500 #125000 
 
 lr_policy: "poly"
 power: 2
 
-base_lr:   0.5                # B=1024
-
-#rampup_lr: 0.1
-#rampup_interval:  2500
+base_lr: 1.0               # B=1024
+min_lr: 1.e-5
 
 larc: true
 larc_policy: "clip"
